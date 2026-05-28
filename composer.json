@@ -59,7 +59,7 @@
     "wp-plugin/wp-crontrol": "1.21.0",
     "wp-plugin/wp-fastest-cache": "1.4.9",
     "wp-plugin/wp-mail-smtp": "4.8.0",
-    "wp-plugin/wp-migrate-db": "*",
+    "wp-plugin/wp-migrate-db": "^2.7",
     "wp-theme/twentytwentyfive": "^1.0"
   },
   "require-dev": {
