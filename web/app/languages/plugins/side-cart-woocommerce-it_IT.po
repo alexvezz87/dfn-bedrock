@@ -1,0 +1,83 @@
+# Translation of Plugins - Side Cart Woocommerce | Woocommerce Cart - Stable (latest release) in Italian
+# This file is distributed under the same license as the Plugins - Side Cart Woocommerce | Woocommerce Cart - Stable (latest release) package.
+msgid ""
+msgstr ""
+"PO-Revision-Date: 2020-09-18 15:50:57+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: GlotPress/4.0.1\n"
+"Language: it\n"
+"Project-Id-Version: Plugins - Side Cart Woocommerce | Woocommerce Cart - Stable (latest release)\n"
+
+#: includes/class-xoo-wsc-frontend.php:134
+msgid "Please enter promo code"
+msgstr "Inserisci il codice promozionale"
+
+#: includes/class-xoo-wsc-frontend.php:133
+msgid "Please use checkout form to calculate shipping"
+msgstr "Utilizza il modulo di pagamento per calcolare le spedizioni"
+
+#: includes/class-xoo-wsc-frontend.php:132
+msgid "Quantity can only be purchased in multiple of %s%"
+msgstr "La quantità può essere acquistata solo in multipli di %s%"
+
+#: includes/class-xoo-wsc-frontend.php:131
+msgid "Only %s% in stock"
+msgstr "Solo %s% a magazzino"
+
+#: includes/class-xoo-wsc-cart.php:157
+msgid "Item updated"
+msgstr "Elemento aggiornato"
+
+#: includes/class-xoo-wsc-cart.php:153
+msgid "Undo?"
+msgstr "Annullare?"
+
+#: includes/class-xoo-wsc-cart.php:151
+msgid "Item removed"
+msgstr "Elemento rimosso"
+
+#: admin/templates/preview/xoo-wsc-product-card-preview.php:9
+#: admin/templates/preview/xoo-wsc-product-row-preview.php:62
+#: templates/global/body/product-card.php:30
+#: templates/global/body/product.php:89
+msgid "Price: "
+msgstr "Prezzo: "
+
+#: templates/xoo-wsc-body.php:30
+msgid "Empty Cart"
+msgstr "Carrello vuoto"
+
+#. Description of the plugin
+#: xoo-wsc-main.php
+msgid "Manage your cart from just a click away"
+msgstr "Gestisci il tuo carrello con un semplice clic"
+
+#. Plugin URI of the plugin
+#: xoo-wsc-main.php
+msgid "http://xootix.com/side-cart-woocommerce"
+msgstr "http://xootix.com/side-cart-woocommerce"
+
+#. Plugin Name of the plugin
+#: xoo-wsc-main.php
+msgid "Side Cart WooCommerce"
+msgstr "Side Cart WooCommerce"
+
+#: admin/templates/preview/xoo-wsc-product-card-preview.php:58
+#: admin/templates/preview/xoo-wsc-product-row-preview.php:57
+#: templates/global/body/product-card.php:73
+#: templates/global/body/product.php:84
+msgid "Qty:"
+msgstr "Qtà:"
+
+#. Author of the plugin
+#: xoo-wsc-main.php
+msgid "XootiX"
+msgstr "XootiX"
+
+#. Author URI of the plugin
+#: xoo-wsc-main.php
+msgid "http://xootix.com"
+msgstr "http://xootix.com"

@@ -1,0 +1,99 @@
+{
+  "name": "roots/bedrock",
+  "type": "project",
+  "license": "MIT",
+  "description": "WordPress boilerplate with Composer, easier configuration, and an improved folder structure",
+  "homepage": "https://roots.io/bedrock/",
+  "authors": [
+    {
+      "name": "Scott Walkinshaw",
+      "email": "scott.walkinshaw@gmail.com",
+      "homepage": "https://github.com/swalkinshaw"
+    },
+    {
+      "name": "Ben Word",
+      "email": "ben@benword.com",
+      "homepage": "https://github.com/retlehs"
+    }
+  ],
+  "keywords": [
+    "bedrock", "composer", "roots", "wordpress-composer", "wordpress", "wp-composer", "wp-config", "wp"
+  ],
+  "support": {
+    "issues": "https://github.com/roots/bedrock/issues",
+    "forum": "https://discourse.roots.io/category/bedrock"
+  },
+  "repositories": [
+    {
+      "name": "wp-packages",
+      "type": "composer",
+      "url": "https://repo.wp-packages.org"
+    }
+  ],
+  "require": {
+    "php": ">=8.3",
+    "composer/installers": "^2.0",
+    "oscarotero/env": "^2.0",
+    "roots/bedrock-autoloader": "^1.0",
+    "roots/bedrock-disallow-indexing": "^2.0",
+    "roots/wordpress": "7.0",
+    "roots/wp-config": "^1.0",
+    "vlucas/phpdotenv": "^5.0",
+    "wp-plugin/child-theme-configurator": "2.6.7",
+    "wp-plugin/cookiebot": "4.7.1",
+    "wp-plugin/duplicate-post": "4.6",
+    "wp-plugin/elementor": "4.1.1",
+    "wp-plugin/font-awesome": "5.1.5",
+    "wp-plugin/google-site-kit": "1.179.0",
+    "wp-plugin/maintenance": "4.21",
+    "wp-plugin/pojo-accessibility": "4.1.1",
+    "wp-plugin/really-simple-ssl": "9.5.11",
+    "wp-plugin/redirection": "5.7.5",
+    "wp-plugin/side-cart-woocommerce": "2.7.5",
+    "wp-plugin/woo-order-export-lite": "4.0.9",
+    "wp-plugin/woo-stripe-payment": "3.3.108",
+    "wp-plugin/woocommerce": "10.7.0",
+    "wp-plugin/woocommerce-gateway-stripe": "10.7.0",
+    "wp-plugin/woolentor-addons": "3.4.0",
+    "wp-plugin/wordpress-seo": "27.7",
+    "wp-plugin/wp-crontrol": "1.21.0",
+    "wp-plugin/wp-fastest-cache": "1.4.9",
+    "wp-plugin/wp-mail-smtp": "4.8.0",
+    "wp-theme/twentytwentyfive": "^1.0"
+  },
+  "require-dev": {
+    "laravel/pint": "^1.0",
+    "pestphp/pest": "^4.0"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "allow-plugins": {
+      "composer/installers": true,
+      "roots/wordpress-core-installer": true,
+      "pestphp/pest-plugin": true
+    },
+    "sort-packages": true
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "extra": {
+    "installer-paths": {
+      "web/app/mu-plugins/{$name}/": [
+        "type:wordpress-muplugin"
+      ],
+      "web/app/plugins/{$name}/": [
+        "type:wordpress-plugin"
+      ],
+      "web/app/themes/{$name}/": [
+        "type:wordpress-theme"
+      ]
+    },
+    "wordpress-install-dir": "web/wp"
+  },
+  "scripts": {
+    "lint": "pint --test",
+    "lint:fix": "pint",
+    "test": "pest"
+  }
+}

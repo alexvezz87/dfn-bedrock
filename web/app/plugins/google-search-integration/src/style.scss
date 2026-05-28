@@ -1,0 +1,422 @@
+/**
+ * The following styles get applied both on the front of your site
+ * and in the editor.
+ *
+ * Replace them with your own styles or remove the file completely.
+ */
+
+.wp-block-telex-google-search-integration {
+	max-width: 800px;
+	margin: 2rem auto;
+	
+	.google-search-form {
+		display: flex;
+		gap: 1rem;
+		margin-bottom: 2rem;
+		align-items: stretch;
+		position: relative;
+		
+		.search-input {
+			flex: 1;
+			padding: 0.75rem 1rem;
+			border: 2px solid #ddd;
+			border-radius: 8px;
+			font-size: 1rem;
+			transition: all 0.3s ease;
+			background: white;
+			
+			&:focus {
+				outline: none;
+				border-color: #0073aa;
+				box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.1);
+				transform: translateY(-1px);
+			}
+			
+			&:hover {
+				border-color: #999;
+			}
+		}
+		
+		.search-button {
+			padding: 0.75rem 1.5rem;
+			background: linear-gradient(135deg, #0073aa, #005a87);
+			color: white;
+			border: none;
+			border-radius: 8px;
+			font-size: 1rem;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			font-weight: 600;
+			min-width: 120px;
+			
+			&:hover:not(:disabled) {
+				background: linear-gradient(135deg, #005a87, #004268);
+				transform: translateY(-2px);
+				box-shadow: 0 4px 12px rgba(0, 115, 170, 0.3);
+			}
+			
+			&:disabled {
+				background: #ccc;
+				cursor: not-allowed;
+				transform: none;
+				box-shadow: none;
+			}
+			
+			&:active:not(:disabled) {
+				transform: translateY(0);
+			}
+		}
+	}
+	
+	.search-results {
+		min-height: 50px;
+		transition: all 0.3s ease;
+		
+		&.results-loaded {
+			animation: slideIn 0.5s ease;
+		}
+		
+		.results-header {
+			padding: 1rem 0 0.5rem 0;
+			color: #666;
+			font-size: 0.9rem;
+			border-bottom: 1px solid #eee;
+			margin-bottom: 1rem;
+		}
+		
+		.loading {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 1rem;
+			padding: 3rem 2rem;
+			color: #666;
+			font-size: 1.1rem;
+			
+			.loading-spinner {
+				width: 24px;
+				height: 24px;
+				border: 3px solid #f3f3f3;
+				border-top: 3px solid #0073aa;
+				border-radius: 50%;
+				animation: spin 1s linear infinite;
+			}
+		}
+		
+		.search-error {
+			text-align: center;
+			padding: 2rem;
+			color: #d63638;
+			background: #fcf0f1;
+			border: 1px solid #f0a5a8;
+			border-radius: 8px;
+			font-weight: 500;
+		}
+		
+		.no-results {
+			text-align: center;
+			padding: 3rem 2rem;
+			color: #666;
+			
+			.no-results-icon {
+				font-size: 3rem;
+				margin-bottom: 1rem;
+				opacity: 0.5;
+			}
+			
+			h3 {
+				margin: 0 0 1rem 0;
+				font-size: 1.25rem;
+				color: #333;
+			}
+			
+			p {
+				margin: 0.5rem 0;
+				line-height: 1.6;
+			}
+		}
+		
+		.search-result-item {
+			padding: 1.5rem;
+			border: 1px solid #e1e1e1;
+			border-radius: 12px;
+			margin-bottom: 1rem;
+			background: #fff;
+			transition: all 0.4s ease;
+			opacity: 0;
+			transform: translateY(20px);
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+			
+			&.visible {
+				opacity: 1;
+				transform: translateY(0);
+			}
+			
+			&:hover {
+				box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+				transform: translateY(-2px);
+				border-color: #0073aa;
+			}
+			
+			.result-title {
+				font-size: 1.25rem;
+				font-weight: 600;
+				margin: 0 0 0.75rem 0;
+				color: #1a1a1a;
+				line-height: 1.4;
+				transition: color 0.3s ease;
+				
+				&:hover {
+					color: #0073aa;
+				}
+			}
+			
+			.result-description {
+				color: #666;
+				line-height: 1.6;
+				margin: 0 0 1rem 0;
+				font-size: 1rem;
+			}
+			
+			.result-meta {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 1rem;
+				margin-top: 1rem;
+				padding-top: 1rem;
+				border-top: 1px solid #f0f0f0;
+				
+				.result-url {
+					color: #666;
+					font-size: 0.85rem;
+					font-family: 'Monaco', 'Consolas', monospace;
+					background: #f8f9fa;
+					padding: 0.25rem 0.5rem;
+					border-radius: 4px;
+				}
+				
+				.external-link-button {
+					background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+					color: #495057;
+					border: 1px solid #dee2e6;
+					padding: 0.5rem 1rem;
+					border-radius: 6px;
+					text-decoration: none;
+					display: inline-flex;
+					align-items: center;
+					gap: 0.5rem;
+					font-size: 0.9rem;
+					cursor: pointer;
+					transition: all 0.3s ease;
+					font-weight: 500;
+					
+					&:hover {
+						background: linear-gradient(135deg, #0073aa, #005a87);
+						color: white;
+						border-color: #0073aa;
+						transform: translateY(-1px);
+						box-shadow: 0 4px 12px rgba(0, 115, 170, 0.2);
+					}
+					
+					&::after {
+						content: "↗";
+						font-size: 0.8rem;
+					}
+					
+					&:active {
+						transform: translateY(0);
+					}
+				}
+			}
+		}
+	}
+}
+
+/* Modal per conferma uscita */
+.exit-confirmation-modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10000;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+	
+	&.visible {
+		opacity: 1;
+		
+		.modal-content {
+			transform: translateY(0) scale(1);
+		}
+	}
+	
+	&.closing {
+		opacity: 0;
+		
+		.modal-content {
+			transform: translateY(-20px) scale(0.95);
+		}
+	}
+	
+	.modal-content {
+		background: white;
+		padding: 2rem;
+		border-radius: 16px;
+		max-width: 420px;
+		width: 90%;
+		text-align: center;
+		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+		transform: translateY(-20px) scale(0.95);
+		transition: transform 0.3s ease;
+		
+		.modal-icon {
+			font-size: 3rem;
+			margin-bottom: 1rem;
+			animation: bounce 0.6s ease;
+		}
+		
+		.modal-title {
+			font-size: 1.4rem;
+			font-weight: 600;
+			margin-bottom: 1rem;
+			color: #1a1a1a;
+		}
+		
+		.modal-message {
+			color: #666;
+			margin-bottom: 2rem;
+			line-height: 1.5;
+			font-size: 1rem;
+		}
+		
+		.modal-buttons {
+			display: flex;
+			gap: 1rem;
+			justify-content: center;
+			
+			.modal-button {
+				padding: 0.75rem 1.5rem;
+				border: none;
+				border-radius: 8px;
+				cursor: pointer;
+				font-size: 1rem;
+				font-weight: 500;
+				transition: all 0.3s ease;
+				min-width: 100px;
+				
+				&.confirm {
+					background: linear-gradient(135deg, #0073aa, #005a87);
+					color: white;
+					
+					&:hover {
+						background: linear-gradient(135deg, #005a87, #004268);
+						transform: translateY(-1px);
+						box-shadow: 0 4px 12px rgba(0, 115, 170, 0.3);
+					}
+				}
+				
+				&.cancel {
+					background: #f0f0f0;
+					color: #333;
+					border: 1px solid #ddd;
+					
+					&:hover {
+						background: #e0e0e0;
+						border-color: #999;
+					}
+				}
+				
+				&:active {
+					transform: translateY(0);
+				}
+			}
+		}
+	}
+}
+
+/* Animations */
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes bounce {
+	0%, 20%, 60%, 100% {
+		transform: translateY(0);
+	}
+	40% {
+		transform: translateY(-10px);
+	}
+	80% {
+		transform: translateY(-5px);
+	}
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+	.wp-block-telex-google-search-integration {
+		margin: 1rem;
+		
+		.google-search-form {
+			flex-direction: column;
+			
+			.search-input, .search-button {
+				width: 100%;
+			}
+		}
+		
+		.search-results {
+			.search-result-item {
+				padding: 1rem;
+				
+				.result-meta {
+					flex-direction: column;
+					align-items: flex-start;
+					gap: 0.5rem;
+					
+					.external-link-button {
+						width: 100%;
+						justify-content: center;
+					}
+				}
+			}
+		}
+		
+		.exit-confirmation-modal {
+			.modal-content {
+				margin: 1rem;
+				padding: 1.5rem;
+				
+				.modal-buttons {
+					flex-direction: column;
+					
+					.modal-button {
+						width: 100%;
+					}
+				}
+			}
+		}
+	}
+	
+	.loading {
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+}

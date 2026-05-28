@@ -1,0 +1,198 @@
+# Translation of Plugins - Checkout Field Editor (Checkout Manager) for WooCommerce - Stable (latest release) in Italian
+# This file is distributed under the same license as the Plugins - Checkout Field Editor (Checkout Manager) for WooCommerce - Stable (latest release) package.
+msgid ""
+msgstr ""
+"PO-Revision-Date: 2021-01-08 15:59:12+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: GlotPress/4.0.1\n"
+"Language: it\n"
+"Project-Id-Version: Plugins - Checkout Field Editor (Checkout Manager) for WooCommerce - Stable (latest release)\n"
+
+#: admin/class-thwcfd-admin-form-field.php:47
+msgid "Radio"
+msgstr "Radio"
+
+#: admin/class-thwcfd-admin-form-field.php:46
+msgid "Textarea"
+msgstr "Area di testo"
+
+#: admin/class-thwcfd-admin-form-field.php:43
+msgid "Password"
+msgstr "Password"
+
+#: admin/class-thwcfd-admin-settings-block-fields.php:320
+#: admin/class-thwcfd-admin-settings-general.php:277
+msgid "Your changes were not saved due to no fields found."
+msgstr "Le modifiche non sono state salvate perché non sono stati trovati i campi."
+
+#: admin/class-thwcfd-admin-settings-general.php:262
+#: admin/class-thwcfd-admin-settings-general.php:324
+msgid "Your changes were not saved due to an error."
+msgstr "Le tue modifiche non sono state salvate a causa di un errore."
+
+#. Author of the plugin
+#: checkout-form-designer.php
+msgid "ThemeHigh"
+msgstr "ThemeHigh"
+
+#: admin/class-thwcfd-admin-settings-advanced.php:137
+#: admin/class-thwcfd-admin-settings-advanced.php:299
+#: admin/class-thwcfd-admin-settings-general.php:259
+#: admin/class-thwcfd-admin-settings-general.php:321
+msgid "Your changes were not saved due to an error (or you made none!)."
+msgstr "Le tue modifiche non sono state salvate a causa di un errore (o non ne hai apportate nessuna!)."
+
+#: admin/class-thwcfd-admin-settings-advanced.php:135
+#: admin/class-thwcfd-admin-settings-general.php:257
+#: admin/class-thwcfd-admin-settings-general.php:319
+msgid "Your changes were saved."
+msgstr "Le tue modifiche sono state salvate."
+
+#: admin/class-thwcfd-admin-settings-block-fields.php:77
+#: admin/class-thwcfd-admin-settings-general.php:110
+msgid "Reset to default fields"
+msgstr "Reimposta i campi predefiniti"
+
+#: admin/class-thwcfd-admin-settings-block-fields.php:76
+#: admin/class-thwcfd-admin-settings-general.php:109
+msgid "Save changes"
+msgstr "Salva le modifiche"
+
+#: admin/class-thwcfd-admin-settings-block-fields.php:73
+#: admin/class-thwcfd-admin-settings-general.php:106
+msgid "Disable"
+msgstr "Disabilita"
+
+#: admin/class-thwcfd-admin-settings-block-fields.php:72
+#: admin/class-thwcfd-admin-settings-general.php:105
+msgid "Enable"
+msgstr "Abilita"
+
+#: admin/class-thwcfd-admin-settings-block-fields.php:71
+#: admin/class-thwcfd-admin-settings-general.php:104
+msgid "Remove"
+msgstr "Rimuovi"
+
+#: admin/class-thwcfd-admin-settings-block-fields.php:70
+#: admin/class-thwcfd-admin-settings-general.php:103
+msgid "Add field"
+msgstr "Aggiungi campo"
+
+#: admin/class-thwcfd-admin-settings-block-fields.php:63
+#: admin/class-thwcfd-admin-settings-general.php:96
+#: admin/class-thwcfd-admin-settings-general.php:192
+msgid "Edit"
+msgstr "Modifica"
+
+#: admin/class-thwcfd-admin-form-field.php:107
+#: admin/class-thwcfd-admin-settings-block-fields.php:62
+#: admin/class-thwcfd-admin-settings-block-fields.php:100
+#: admin/class-thwcfd-admin-settings-general.php:95
+msgid "Enabled"
+msgstr "Abilitato"
+
+#: admin/class-thwcfd-admin-form-field.php:45
+#: admin/class-thwcfd-admin-form-field.php:68
+#: includes/utils/class-thwcfd-utils-block.php:148
+#: includes/utils/class-thwcfd-utils-block.php:432
+msgid "Phone"
+msgstr "Telefono"
+
+#: admin/class-thwcfd-admin-form-field.php:44
+#: admin/class-thwcfd-admin-form-field.php:67
+msgid "Email"
+msgstr "Email"
+
+#: admin/class-thwcfd-admin-settings-block-fields.php:60
+#: admin/class-thwcfd-admin-settings-block-fields.php:98
+#: admin/class-thwcfd-admin-settings-general.php:93
+msgid "Validations"
+msgstr "Validazioni"
+
+#: admin/class-thwcfd-admin-form-block-field.php:471
+#: admin/class-thwcfd-admin-form-field.php:675
+msgid "Options"
+msgstr "Opzioni"
+
+#: admin/class-thwcfd-admin-form-field.php:96
+#: admin/class-thwcfd-admin-settings-block-fields.php:59
+#: admin/class-thwcfd-admin-settings-block-fields.php:97
+#: admin/class-thwcfd-admin-settings-general.php:92
+msgid "Placeholder"
+msgstr "Segnaposto"
+
+#: admin/class-thwcfd-admin-form-field.php:94
+#: admin/class-thwcfd-admin-settings-block-fields.php:58
+#: admin/class-thwcfd-admin-settings-block-fields.php:96
+#: admin/class-thwcfd-admin-settings-general.php:91
+msgid "Label"
+msgstr "Etichetta"
+
+#: admin/class-thwcfd-admin-form-field.php:93
+#: admin/class-thwcfd-admin-settings-block-fields.php:56
+#: admin/class-thwcfd-admin-settings-block-fields.php:94
+#: admin/class-thwcfd-admin-settings-general.php:89
+msgid "Name"
+msgstr "Nome"
+
+#: admin/class-thwcfd-admin-form-field.php:91
+#: admin/class-thwcfd-admin-settings-block-fields.php:57
+#: admin/class-thwcfd-admin-settings-block-fields.php:95
+#: admin/class-thwcfd-admin-settings-general.php:90
+msgid "Type"
+msgstr "Tipo"
+
+#: admin/class-thwcfd-admin-form-field.php:48
+msgid "Select"
+msgstr "Seleziona"
+
+#: admin/class-thwcfd-admin-form-field.php:40
+msgid "Text"
+msgstr "Testo"
+
+#: includes/utils/class-thwcfd-utils.php:155
+msgctxt "placeholder"
+msgid "Notes about your order, e.g. special notes for delivery."
+msgstr "Note sull'ordine, ad esempio richieste particolari per la consegna."
+
+#: includes/utils/class-thwcfd-utils.php:154
+msgid "Order Notes"
+msgstr "Note sull'ordine"
+
+#: admin/class-thwcfd-admin.php:67
+msgid "Settings"
+msgstr "Impostazioni"
+
+#: admin/class-thwcfd-admin.php:61
+msgid "WooCommerce"
+msgstr "WooCommerce"
+
+#. Description of the plugin
+#: checkout-form-designer.php
+msgid "Customize WooCommerce checkout fields(Add, Edit, Delete and re-arrange fields)."
+msgstr "Personalizza i campi del riepilogo ordine di WooCommerce (aggiungi, modifica, cancella e riorganizza i campi)."
+
+#. Plugin URI of the plugin
+#. Author URI of the plugin
+#: checkout-form-designer.php
+msgid "https://www.themehigh.com"
+msgstr "https://www.themehigh.com"
+
+#. Plugin Name of the plugin
+#: checkout-form-designer.php
+msgid "Checkout Field Editor for WooCommerce"
+msgstr "Checkout Field Editor for WooCommerce"
+
+#: admin/class-thwcfd-admin-form-field.php:104
+#: admin/class-thwcfd-admin-settings-block-fields.php:61
+#: admin/class-thwcfd-admin-settings-block-fields.php:99
+#: admin/class-thwcfd-admin-settings-general.php:94
+msgid "Required"
+msgstr "Necessario"
+
+#: admin/class-thwcfd-admin.php:56 admin/class-thwcfd-admin.php:93
+msgid "Checkout Form"
+msgstr "Modulo di riepilogo dell'ordine"

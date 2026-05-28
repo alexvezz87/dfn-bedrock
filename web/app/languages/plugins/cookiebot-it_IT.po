@@ -1,0 +1,2630 @@
+# Translation of Plugins - Cookie banner plugin for WordPress – Cookiebot CMP by Usercentrics - Stable (latest release) in Italian
+# This file is distributed under the same license as the Plugins - Cookie banner plugin for WordPress – Cookiebot CMP by Usercentrics - Stable (latest release) package.
+msgid ""
+msgstr ""
+"PO-Revision-Date: 2024-07-12 11:28:52+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: GlotPress/4.0.1\n"
+"Language: it\n"
+"Project-Id-Version: Plugins - Cookie banner plugin for WordPress – Cookiebot CMP by Usercentrics - Stable (latest release)\n"
+
+#: src/view/admin/settings/network-settings-page.php:102
+msgid "This feature is only available when not using Auto Blocking"
+msgstr "Questa funzionalità è disponibile solo quando Auto Blocking non è in uso"
+
+#: src/view/admin/notices/cookiebot-recommendation-notice-links.php:35
+msgid "I`ve already left my feedback"
+msgstr "Ho già lasciato il mio feedback"
+
+#: src/view/admin/notices/cookiebot-recommendation-notice-links.php:13
+msgid "Absolutely, you deserve it!"
+msgstr "Assolutamente, ve lo meritate!"
+
+#: src/admin_notices/Cookiebot_View_Notice.php:50
+msgid "We want to know more about you. Take our survey for a chance to win an Apple iPad Mini. Act fast, as the survey will only be open until June 9."
+msgstr "Vogliamo conoscerti meglio. Partecipa al nostro sondaggio e avrai la possibilità di vincere un Apple iPad Mini. Cogli questa opportunità, il sondaggio sarà aperto solo fino al 9 giugno."
+
+#: src/admin_notices/Cookiebot_View_Notice.php:49
+msgid "Your Voice Matters: Quick Product Survey"
+msgstr "La tua opinione è importante: Sondaggio veloce sul prodotto"
+
+#: src/admin_notices/Cookiebot_View_Notice.php:42
+msgid "Take the survey now"
+msgstr "Partecipa al sondaggio ora"
+
+#: src/admin_notices/Cookiebot_Recommendation_Notice.php:88
+msgid "Hi there! We are thrilled you love the Cookiebot CMP plugin. Could you do us a huge favor and leave a 5-star rating on WordPress? Your support will help us spread the word and empower more WordPress websites to meet GDPR and CCPA compliance standards effortlessly. Thank you for your support!"
+msgstr "Ciao! Siamo entusiasti che il plugin Cookiebot CMP ti piaccia. Potresti farci un grande favore e lasciare una valutazione a 5 stelle su WordPress? Il tuo sostegno ci aiuterà a far conoscere il nostro lavoro e a permettere a un maggior numero di siti web WordPress di soddisfare gli standard di conformità GDPR e CCPA senza alcuno sforzo. Grazie per il tuo supporto!"
+
+#: src/admin_notices/Cookiebot_Recommendation_Notice.php:84
+msgid "Share your experience"
+msgstr "Condividi la tua esperienza"
+
+#: src/view/admin/settings/iab-page.php:86
+msgid "If you had previously saved configurations, don’t worry, they will continue to work."
+msgstr "Se le configurazioni sono state salvate in precedenza, non preoccuparti, continueranno a funzionare."
+
+#: src/view/admin/settings/iab-page.php:84
+msgid "IAB vendor list is temporarily offline. Please try refreshing the page after a couple of minutes."
+msgstr "L'elenco dei fornitori IAB è temporaneamente offline. Prova a riaggiornare la pagina tra un paio di minuti."
+
+#: src/view/admin/settings/iab-page.php:225
+msgid "Set Purposes"
+msgstr "Imposta finalità"
+
+#: src/view/admin/settings/iab-page.php:201
+#: src/view/admin/settings/iab-page.php:212
+msgid "Select Vendor"
+msgstr "Seleziona fornitore"
+
+#: src/view/admin/settings/iab-page.php:195
+msgid "Add Vendor"
+msgstr "Aggiungi fornitore"
+
+#: src/view/admin/settings/iab-page.php:189
+msgid "Set restrictions on data use purposes for specific vendors. Add vendors and the data use purposes that each vendor is allowed. We’ll share this information with users within your consent banner."
+msgstr "Imposta restrizioni sulle finalità di utilizzo dei dati per fornitori specifici. Aggiungi i fornitori e le finalità di utilizzo dei dati consentite a ciascun fornitore. Condivideremo queste informazioni con gli utenti all'interno del tuo banner di consenso."
+
+#: src/view/admin/settings/iab-page.php:185
+msgid "Restrictions of data use purposes for vendors"
+msgstr "Limitazioni delle finalità di utilizzo dei dati da parte dei fornitori"
+
+#: src/view/admin/settings/iab-page.php:156
+msgid "Google Ads certified external vendors"
+msgstr "Fornitori esterni certificati da Google Ads"
+
+#: src/view/admin/settings/iab-page.php:131
+#: src/view/admin/settings/iab-page.php:161
+#: src/view/admin/settings/iab-page.php:215
+msgid "Search"
+msgstr "Cerca"
+
+#: src/view/admin/settings/iab-page.php:113
+msgid "Select vendors with whom you’ll share users’ data. We’ll include this information on the second layer of your consent banner, where users interested in more granular detail about who will access their data can view it."
+msgstr "Seleziona i fornitori con cui condividerai i dati degli utenti. Includeremo queste informazioni nel secondo livello del banner di consenso, dove gli utenti interessati a dettagli più precisi su chi accederà ai loro dati potranno vederli."
+
+#: src/view/admin/settings/iab-page.php:109
+msgid "Sharing data with third-party vendors"
+msgstr "Condivisione dei dati con fornitori terzi"
+
+#: src/settings/pages/Iab_Page.php:257
+msgid "Actively scan device characteristics for identification"
+msgstr "Scansione attiva delle caratteristiche del dispositivo per l'identificazione"
+
+#: src/settings/pages/Iab_Page.php:253
+msgid "Use precise geolocation data"
+msgstr "Utilizza dati di geolocalizzazione precisi"
+
+#: src/settings/pages/Iab_Page.php:247
+msgid "Identify devices based on information transmitted automatically"
+msgstr "Identifica i dispositivi in base alle informazioni trasmesse automaticamente"
+
+#: src/settings/pages/Iab_Page.php:243
+msgid "Link different devices"
+msgstr "Collega diversi dispositivi"
+
+#: src/settings/pages/Iab_Page.php:239
+msgid "Match and combine data from other data sources"
+msgstr "Trova la corrispondenza e combina i dati provenienti da altre fonti di dati"
+
+#: src/settings/pages/Iab_Page.php:233
+msgid "Deliver and present advertising and content"
+msgstr "Fornisci e presenta pubblicità e contenuti"
+
+#: src/settings/pages/Iab_Page.php:229
+msgid "Ensure security, prevent and detect fraud, and fix errors"
+msgstr "Garantisci la sicurezza, previeni e rileva le frodi, e correggi gli errori."
+
+#: src/settings/pages/Iab_Page.php:223
+msgid "Use limited data to select content"
+msgstr "Utilizza dati limitati per selezionare i contenuti"
+
+#: src/settings/pages/Iab_Page.php:219
+msgid "Develop and improve services"
+msgstr "Sviluppa e migliora i servizi"
+
+#: src/settings/pages/Iab_Page.php:215
+msgid "Understand audiences through statistics or combinations of data from different sources"
+msgstr "Conosci il pubblico attraverso statistiche o combinazioni di dati provenienti da fonti diverse."
+
+#: src/settings/pages/Iab_Page.php:211
+msgid "Measure content performance"
+msgstr "Misura le prestazioni dei contenuti"
+
+#: src/settings/pages/Iab_Page.php:207
+msgid "Measure advertising performance"
+msgstr "Misura le prestazioni pubblicitarie"
+
+#: src/settings/pages/Iab_Page.php:203
+msgid "Use profiles to select personalised content"
+msgstr "Usa profili per selezionare i contenuti personalizzati"
+
+#: src/settings/pages/Iab_Page.php:199
+msgid "Create profiles to personalise content"
+msgstr "Crea profili per personalizzare i contenuti"
+
+#: src/settings/pages/Iab_Page.php:195
+msgid "Use profiles to select personalised advertising"
+msgstr "Utilizza profili per selezionare la pubblicità personalizzata"
+
+#: src/settings/pages/Iab_Page.php:191
+msgid "Create profiles for personalised advertising"
+msgstr "Crea profili per la pubblicità personalizzata"
+
+#: src/settings/pages/Iab_Page.php:187
+msgid "Use limited data to select advertising"
+msgstr "Utilizza dati limitati per selezionare la pubblicità"
+
+#: src/settings/pages/Iab_Page.php:183
+msgid "Store and/or access information on a device"
+msgstr "Memorizza e/o accedi alle informazioni su un dispositivo"
+
+#: src/settings/pages/Iab_Page.php:162
+msgid "TCF listed vendors"
+msgstr "Venditori elencati dal TCF"
+
+#: src/settings/pages/Iab_Page.php:155
+msgid "Inform users about any specially categorized features required for processing their personal data. We’ll list the selected features on the second layer of your consent banner, offering options for users to enable or disable them."
+msgstr "Informa gli utenti su eventuali funzioni appositamente selezionate e necessarie per il trattamento dei loro dati personali. Le funzionalità selezionate saranno elencate nel secondo livello del banner di consenso, offrendo agli utenti la possibilità di attivarle o disattivarle."
+
+#: src/settings/pages/Iab_Page.php:154
+msgid "Special features required for data processing"
+msgstr "Funzionalità speciali richieste per l'elaborazione dei dati"
+
+#: src/settings/pages/Iab_Page.php:147
+msgid "Inform users about the features necessary for processing their personal data. We’ll list the selected features on the second layer of your consent banner."
+msgstr "Informa gli utenti sulle funzionalità necessarie per il trattamento dei loro dati personali. Le funzionalità selezionate saranno elencate nel secondo livello del banner di consenso."
+
+#: src/settings/pages/Iab_Page.php:146
+msgid "Features required for data processing"
+msgstr "Funzioni necessarie per l'elaborazione dei dati"
+
+#: src/settings/pages/Iab_Page.php:139
+msgid "Inform your users about special purposes of using their data. We’ll show this on the second layer of your consent banner."
+msgstr "Informa i tuoi utenti sulle finalità speciali dell'utilizzo dei loro dati. Lo mostreremo nel secondo livello del banner di consenso."
+
+#: src/settings/pages/Iab_Page.php:138
+msgid "Special purposes of data use"
+msgstr "Finalità particolari di utilizzo dei dati"
+
+#: src/settings/pages/Iab_Page.php:131
+msgid "Inform your users how you’ll use their data. We’ll show this on the second layer of your consent banner, where users interested in more granular detail about data processing can view it."
+msgstr "Informa i tuoi utenti su come utilizzerai i loro dati. Lo mostreremo nel secondo livello del banner di consenso, dove gli utenti interessati a maggiori dettagli sul trattamento dei dati potranno visualizzarlo."
+
+#: src/settings/pages/Iab_Page.php:130
+msgid "Purposes of data use"
+msgstr "Finalità dell'utilizzo dei dati"
+
+#: src/lib/Supported_Regions.php:245
+msgid "United States - State of Utah"
+msgstr "Stati Uniti - Stato dello Utah"
+
+#: src/lib/Supported_Regions.php:244
+msgid "United States - State of Connecticut"
+msgstr "Stati Uniti - Stato del Connecticut"
+
+#: src/lib/Supported_Regions.php:243
+msgid "United States - State of Colorado"
+msgstr "Stati Uniti - Stato del Colorado"
+
+#: src/view/admin/settings/settings-page.php:68
+msgid "TCF"
+msgstr "TCF"
+
+#: src/admin_notices/Cookiebot_Temp_Notice.php:43
+msgid "Cookiebot CMP Plugin will soon no longer support PHP 5. If your website still runs on this version we recommend upgrading so you can continue enjoying the features Cookiebot CMP offers."
+msgstr "Il plugin Cookiebot CMP presto non supporterà più PHP 5. Se il tuo sito web funziona ancora con questa versione, consigliamo di effettuare l'aggiornamento in modo da poter continuare a usufruire delle funzionalità offerte da Cookiebot CMP."
+
+#: src/view/admin/settings/settings-page.php:187
+msgid "Use website location to set language"
+msgstr "Usa la posizione geografica del sito web per impostare la lingua"
+
+#: src/view/admin/settings/settings-page.php:169
+msgid "If you have already set a language in the cookie declaration shortcode, this feature will not change it."
+msgstr "Se hai già impostato una lingua nello shortcode della dichiarazione dei cookie, questa funzionalità non la modificherà."
+
+#: src/view/admin/settings/settings-page.php:168
+msgid "This feature disables the main language selector."
+msgstr "Questa funzionalità disabilita il selezionatore della lingua principale."
+
+#: src/view/admin/settings/settings-page.php:166
+msgid "Please make sure that all languages in use have been added in the Cookiebot™ Manager."
+msgstr "Assicurati che tutte le lingue utilizzate siano state aggiunte al Manager di Cookiebot™."
+
+#: src/view/admin/settings/settings-page.php:163
+msgid "If enabled, Cookiebot™ will use the current location to set the banner and cookie declaration language."
+msgstr "Se abilitato, Cookiebot™ utilizzerà la posizione corrente per impostare il banner e la lingua della dichiarazione dei cookie."
+
+#: src/view/admin/settings/settings-page.php:129
+msgid "Select your main language here."
+msgstr "Seleziona la tua lingua principale qui."
+
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:96
+msgid "WP Consent API cookies categories equivalent"
+msgstr "Categorie equivalenti di cookie secondo WP Consent API"
+
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:79
+msgid "Cookiebot™ cookie categories"
+msgstr "Categorie di cookie secondo Cookiebot™"
+
+#: src/addons/config/Settings_Config.php:712
+msgid "WP Consent API"
+msgstr "WP Consent API"
+
+#: src/view/admin/templates/extra/review-form.php:83
+msgid ""
+"The information will be kept for no longer than 90 days. \n"
+"                        You may revoke this consent at any time, e.g. by sending an email to "
+msgstr ""
+"Le informazioni saranno conservate per al massimo 90 giorni. \n"
+"                        Puoi ritirare il tuo consenso quando vuoi, per esempio inviando un'email a "
+
+#: src/view/admin/templates/extra/review-form.php:74
+msgid ""
+" By checking this box, you agree to submit troubleshooting information\n"
+"                        and allow us to contact you regarding the problem if necessary. \n"
+"                        "
+msgstr ""
+" Spuntando questa casella, accetti di inviare informazioni per la risoluzione dei problemi\n"
+"                        e ci autorizzi a contattarti in merito al problema, se necessario. \n"
+"                        "
+
+#: src/view/admin/settings/gtm-page.php:78
+msgid "Select the cookie types that need to be consented for the Google Tag Manager script"
+msgstr "Seleziona i tipi di cookie che devono essere accettati per lo script di Google Tag Manager."
+
+#: src/view/admin/settings/gtm-page.php:76
+msgid "Google Tag Manager cookies"
+msgstr "Cookie di Google Tag Manager"
+
+#: src/view/admin/settings/gcm-page.php:97
+#: src/view/admin/settings/gtm-page.php:84
+msgid "Please make sure your Tags in Google Tag Manager are triggered correctly."
+msgstr "Assicurati che i tag in Google Tag Manager siano attivati correttamente."
+
+#: src/view/admin/settings/gcm-page.php:95
+#: src/view/admin/settings/gtm-page.php:82
+msgid "This option may affect the behaviour of your GTM Tags, as the script will run on the selected cookies consent."
+msgstr "Questa opzione può influenzare il comportamento dei tuoi Tag GTM, poiché lo script verrà eseguito in base al consenso dei cookie selezionati."
+
+#: src/view/admin/settings/gcm-page.php:93
+#: src/view/admin/settings/gtm-page.php:80
+#: src/view/admin/settings/settings-page.php:260
+#: src/view/admin/settings/settings-page.php:302
+msgid "This feature is only available when using Manual Blocking"
+msgstr "Questa funzionalità è disponibile solo quando usi il Manual Blocking"
+
+#: src/view/admin/settings/gcm-page.php:91
+msgid "Select the cookie types that need to be consented for the Google Consent Mode script"
+msgstr "Seleziona i tipi di cookie a cui bisogna acconsentire per lo script Modalità consenso di Google"
+
+#: src/view/admin/settings/gcm-page.php:89
+msgid "Google Consent Mode cookies"
+msgstr "Cookies di Google Consent Mode"
+
+#: src/view/admin/templates/extra/review-form.php:65
+msgid "Please specify here"
+msgstr "Specificare qui"
+
+#: src/view/admin/templates/extra/review-form.php:61
+msgid "Other"
+msgstr "Altro"
+
+#: src/view/admin/templates/extra/review-form.php:54
+msgid "I’m only deactivating the plugin temporarily"
+msgstr "Disattivo il plugin solo temporaneamente"
+
+#: src/view/admin/templates/extra/review-form.php:47
+msgid "The premium plan is too expensive"
+msgstr "Il piano premium è troppo costoso"
+
+#: src/view/admin/templates/extra/review-form.php:40
+msgid "I need more customization options"
+msgstr "Ho bisogno di più opzioni di personalizzazione"
+
+#: src/view/admin/templates/extra/review-form.php:33
+msgid "Missing features / did not meet my expectations"
+msgstr "Funzionalità mancanti / non ha soddisfatto le mie aspettative"
+
+#: src/view/admin/templates/extra/review-form.php:26
+msgid "I found a plugin that better serves my needs"
+msgstr "Ho trovato un plugin che soddisfa meglio le mie esigenze"
+
+#: src/view/admin/templates/extra/review-form.php:19
+msgid "The installation is too complicated"
+msgstr "L'installazione è troppo complicata"
+
+#: src/view/admin/templates/extra/review-form.php:14
+msgid "We are sad to lose you. Take a moment to help us improve?"
+msgstr "Ci dispiace vederti andare via. Ci aiuti a migliorare?"
+
+#: src/view/admin/templates/extra/review-form.php:10
+msgid "Cookiebot CMP Deactivation"
+msgstr "Deattivazione Cookiebot CMP"
+
+#: src/view/admin/settings/network-settings-page.php:81
+#: src/view/admin/settings/settings-page.php:224
+msgid "Recommended"
+msgstr "Consigliato"
+
+#: src/view/admin/settings/multiple-configuration/page.php:138
+msgid "Add banner"
+msgstr "Aggiungi banner"
+
+#: src/lib/Supported_Regions.php:246
+msgid "United States - State of Virginia"
+msgstr "Stati Uniti - Stato della Virginia"
+
+#: src/lib/Cookiebot_Review.php:83
+#: src/view/admin/templates/extra/review-form.php:94
+msgid "Please select one option"
+msgstr "Selezionare un'opzione"
+
+#: src/lib/Cookiebot_Review.php:80
+msgid "Sorry you are not allowed to do this."
+msgstr "Questa azione non è consentita."
+
+#: src/view/admin/templates/header.php:10
+msgid "Changes has been saved"
+msgstr "Le modifiche sono state salvate."
+
+#: src/view/admin/settings/settings-page.php:235
+#: src/view/admin/settings/settings-page.php:287
+#: src/view/admin/settings/settings-page.php:331
+#: src/view/admin/settings/settings-page.php:405
+#: src/view/admin/settings/settings-page.php:493
+msgid "Disabled by active setting in Network Settings"
+msgstr "Disabilitato dall'impostazione attiva in Impostazioni di rete"
+
+#: src/view/admin/settings/dashboard-page.php:68
+msgid "Write a review"
+msgstr "Scrivi una recensione"
+
+#: src/view/admin/settings/dashboard-page.php:64
+msgid "Are you happy with our WordPress plugin? Your feedback will help us make our product better for you."
+msgstr "Sei soddisfatto del nostro plugin WordPress? Il tuo feedback ci aiuterà a rendere il nostro prodotto più adatto alle tue esigenze."
+
+#: src/view/admin/settings/dashboard-page.php:61
+msgid "Your opinion matters"
+msgstr "La tua opinione conta!"
+
+#: src/lib/Supported_Regions.php:251
+msgid "Venezuela"
+msgstr "Venezuela"
+
+#: src/lib/Supported_Regions.php:233
+msgid "Türkiye"
+msgstr "Turchia"
+
+#: src/lib/Supported_Regions.php:225
+msgid "Tanzania"
+msgstr "Tanzania"
+
+#: src/lib/Supported_Regions.php:223
+msgid "Taiwan"
+msgstr "Taiwan"
+
+#: src/lib/Supported_Regions.php:222
+msgid "Syria"
+msgstr "Siria"
+
+#: src/lib/Supported_Regions.php:219
+msgid "Eswatini"
+msgstr "eSwatini"
+
+#: src/lib/Supported_Regions.php:149
+msgid "Moldova"
+msgstr "Moldavia"
+
+#: src/lib/Supported_Regions.php:135
+msgid "North Macedonia"
+msgstr "Macedonia del Nord"
+
+#: src/lib/Supported_Regions.php:125
+msgid "Laos"
+msgstr "Laos"
+
+#: src/lib/Supported_Regions.php:110
+msgid "Iran"
+msgstr "Iran"
+
+#: src/lib/Supported_Regions.php:84
+msgid "French Southern and Antarctic Lands"
+msgstr "Terre australi e antartiche francesi"
+
+#: src/lib/Supported_Regions.php:39
+msgid "Brunei "
+msgstr "Brunei "
+
+#: src/lib/Supported_Regions.php:32
+msgid "Bolivia"
+msgstr "Bolivia"
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:432
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to enable saving user information."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per consentire il salvataggio delle informazioni dell'utente."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:427
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to allow Matomo statistics."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per consentire le statistiche di Matomo."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:422
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to Social Share buttons."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per i pulsanti di condivisione social."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:417
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to enable Facebook Pixel."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per abilitare Facebook Pixel."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:412
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to enable instagram feed."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per abilitare il feed di Instagram."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:407
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to enable Google Analytics."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per abilitare Google Analytics."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:402
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to track for google analytics."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per abilitare il tracciamento per Google Analytics."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:397
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to enable facebook shopping feature."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per abilitare la funzione shopping di Facebook."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:392
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to enable Google Services."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per abilitare i servizi di Google."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:387
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to watch this video."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per visualizzare questo video."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:382
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to view this element."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per visualizzare questo elemento."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:377
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to enable Social Share buttons."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per abilitare i pulsanti di condivisione social."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:372
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies to enable tracking."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent] per consentire il tracciamento."
+
+#. translators: %cookie_types refers to the list of cookie types assigned to
+#. the addon placeholder
+#: src/lib/helper.php:367
+msgid "Please accept [renew_consent]%cookie_types[/renew_consent] cookies."
+msgstr "Accetta i cookie [renew_consent]%cookie_types[/renew_consent]."
+
+#. Description of the plugin
+#: cookiebot.php
+msgid "The Cookiebot CMP WordPress cookie banner and cookie policy help you comply with the major data protection laws (GDPR, ePrivacy, CCPA, LGPD, etc.) in a simple and fully automated way. Secure your website and get peace of mind."
+msgstr "Il cookie banner e la cookie policy di Cookiebot CMP WordPress ti aiutano a rispettare le principali leggi sulla protezione dei dati (GDPR, ePrivacy, CCPA, LGPD, ecc.) in modo semplice e completamente automatizzato. Proteggi il tuo sito web e ottieni la massima tranquillità."
+
+#. Plugin Name of the plugin
+#: cookiebot.php
+msgid "Cookie banner plugin for WordPress – Cookiebot CMP by Usercentrics"
+msgstr "Cookie banner plugin per WordPress - Cookiebot CMP by Usercentrics"
+
+#: src/view/admin/settings/gcm-page.php:80
+msgid "URL passthrough"
+msgstr "Passthrough URL"
+
+#: src/view/admin/settings/gcm-page.php:64
+msgid "This feature will allow you to pass data between pages when not able to use cookies without/prior consent."
+msgstr "Questa funzione ti consentirà di trasferire dati tra le pagine quando non sei in grado di utilizzare i cookie senza/previo consenso."
+
+#: src/view/admin/settings/gcm-page.php:61
+msgid "URL passthrough:"
+msgstr "Passthrough URL:"
+
+#: src/view/admin/settings/network-settings-page.php:147
+msgid "Cookiebot declaration script tag"
+msgstr "Tag script della dichiarazione dei cookie di Cookiebot"
+
+#: src/view/admin/settings/network-settings-page.php:99
+msgid "Add async or defer attribute to Cookie banner script tag. Default: Choose per subsite"
+msgstr "Aggiungi l’attributo async o defer al tag dello script banner cookie. Predefinito: scegli per sito secondario"
+
+#. Author of the plugin
+#: cookiebot.php
+msgid "Usercentrics A/S"
+msgstr "Usercentrics A/S"
+
+#. translators: the placeholder strings denote the positions of <i>, </i>, <b>
+#. and </b> HTML tags
+#: src/view/admin/settings/support-page.php:161
+msgid "Example on modifying an existing Google Analytics Universal script tag can be found %1$shere in step 4%2$s."
+msgstr "Un esempio di modifica di un tag script universale di Google Analytics esistente si %1$strova al punto 4%2$s."
+
+#. translators: the placeholder strings denote the positions of <i>, </i>, <b>
+#. and </b> HTML tags
+#: src/view/admin/settings/support-page.php:125
+msgid "If you want to show the cookie declaration in a specific language, you can add the %1$s\"lang\"%2$s attribute, e.g. %3$s[cookie_declaration lang=\"de\"]%4$s."
+msgstr "Se desideri mostrare la dichiarazione dei cookie in una lingua specifica, puoi aggiungere l’attributo %1$s“lang”%2$s, ad esempio %3$s[cookie_declaration lang=“it”]%4$s."
+
+#. translators: the placeholder strings denote the positions of <b>, </b>, <b>
+#. and </b> HTML tags
+#: src/view/admin/settings/support-page.php:75
+msgid "Go to %1$s\"Settings\"%2$s and setup your Cookiebot CMP"
+msgstr "Vai su %1$s“Impostazioni”%2$s e configura Cookiebot CMP"
+
+#: src/view/admin/settings/support-page.php:33
+msgid "Visit Cookiebot CMP Help Center"
+msgstr "Visita il Centro Assistenza di Cookiebot CMP"
+
+#: src/view/admin/settings/support-page.php:25
+msgid "In our Help Center you find all the answers to your questions. If you have additional questions, create a support request and our Support Team will help out as soon as possible."
+msgstr "Nel nostro Centro Assistenza troverai tutte le risposte alle tue domande. Se hai altre domande, crea una richiesta di assistenza e il nostro team di supporto ti aiuterà il prima possibile."
+
+#: src/view/admin/settings/support-page.php:22
+msgid "Need help with your configuration?"
+msgstr "Hai bisogno di aiuto con la tua configurazione?"
+
+#: src/view/admin/settings/gcm-page.php:34
+msgid "Enable Google Consent Mode with default settings on your WordPress page."
+msgstr "Attiva la modalità di consenso Google con impostazioni predefinite sulla tua pagina WordPress."
+
+#: src/view/admin/settings/gcm-page.php:31
+msgid "Google Consent Mode:"
+msgstr "Modalità di consenso Google:"
+
+#: src/view/admin/settings/gcm-page.php:24
+msgid "Read more about Cookiebot CMP and Google Consent Mode"
+msgstr "Per saperne di più su Cookiebot CMP e la modalità di consenso Google"
+
+#: src/view/admin/settings/gcm-page.php:20
+msgid "Cookiebot consent managment platform (CMP) and Google Consent Mode integrate seamlessly to offer you plug-and-play compliance and streamlined use of all Google's services in one easy solution."
+msgstr "La piattaforma di gestione del consenso (CMP) di Cookiebot™ e la modalità di consenso Google si integrano perfettamente per offrirti una conformità plug-and-play e un uso semplificato di tutti i servizi di Google in un’unica soluzione."
+
+#: src/view/admin/settings/gcm-page.php:17
+msgid "Google Consent Mode is a way for your website to measure conversions and get analytics insights while being fully GDPR-compliant when using services like Google Analytics, Google Tag Manager (GTM) and Google Ads."
+msgstr "La modalità di consenso di Google consente al tuo sito web di misurare le conversioni ed ottenere approfondimenti ed analisi nel pieno rispetto del GDPR quando utilizzi servizi come Google Analytics, Google Tag Manager (GTM) e Google Ads."
+
+#: src/view/admin/settings/gcm-page.php:14
+msgid "What is Google Consent Mode and why should you enable it?"
+msgstr "Cos’è la modalità di consenso Google e perchè dovresti attivarla?"
+
+#: src/view/admin/settings/settings-page.php:514
+msgid "Script source URL:"
+msgstr "URL di origine degli script:"
+
+#: src/view/admin/settings/settings-page.php:502
+msgid "Ignore scripts in queue from Cookiebot CMP scan:"
+msgstr "Ignora gli script in coda dalla scansione di Cookiebot CMP:"
+
+#: src/view/admin/settings/settings-page.php:461
+msgid "Select the cookie declaration script loading setting"
+msgstr "Seleziona le impostazioni di caricamento dello script della dichiarazione dei cookie"
+
+#: src/view/admin/settings/settings-page.php:455
+msgid "If you implemented the declaration on your page through our widget in WordPress, you can choose here how the script should be loaded."
+msgstr "Se hai implementato la dichiarazione sulla tua pagina usando il nostro widget su WordPress, puoi scegliere qui le modalità di caricamento dello script."
+
+#: src/view/admin/settings/settings-page.php:443
+msgid "Render Cookiebot CMP on front-end while logged in"
+msgstr "Attiva Cookiebot CMP sul frontend mentre sei connesso"
+
+#: src/view/admin/settings/settings-page.php:417
+msgid "This setting will enable Cookiebot CMP on the front-end while you're logged in."
+msgstr "Questa impostazione abiliterà Cookiebot CMP sul frontend mentre sei connesso."
+
+#: src/view/admin/settings/settings-page.php:414
+msgid "Cookiebot CMP on front-end while logged in:"
+msgstr "Cookiebot CMP sul frontend mentre sei connesso:"
+
+#: src/view/admin/settings/network-settings-page.php:267
+#: src/view/admin/settings/settings-page.php:400
+msgid "Disable Cookiebot CMP in the WordPress Admin area"
+msgstr "Disattiva Cookiebot CMP nell’area amministrativa WordPress"
+
+#: src/view/admin/settings/settings-page.php:374
+msgid "This checkbox will disable Cookiebot CMP to act within the WordPress Admin area"
+msgstr "Selezionare questa casella impedirà a Cookiebot CMP di agire all’interno dell’area amministrativa WordPress"
+
+#: src/view/admin/settings/network-settings-page.php:247
+#: src/view/admin/settings/settings-page.php:371
+msgid "Cookiebot CMP in WP Admin:"
+msgstr "Cookiebot CMP nel WP Admin:"
+
+#: src/view/admin/settings/network-settings-page.php:196
+#: src/view/admin/settings/settings-page.php:347
+msgid "Automatically update your Cookiebot™ plugin when new releases becomes available."
+msgstr "Aggiorna automaticamente il plugin Cookiebot™ quando sono disponibili nuove versioni."
+
+#: src/view/admin/settings/network-settings-page.php:194
+#: src/view/admin/settings/settings-page.php:344
+msgid "Auto-update Cookiebot™ Plugin:"
+msgstr "Aggiorna automaticamente il plugin Cookiebot™:"
+
+#: src/view/admin/settings/settings-page.php:257
+msgid "Add async or defer attribute to cookie declaration script tag"
+msgstr "Aggiungi gli attributi “async” o “defer” ai tag script della dichiarazione del cookie"
+
+#: src/view/admin/settings/network-settings-page.php:97
+#: src/view/admin/settings/settings-page.php:254
+msgid "Cookiebot™ script tag"
+msgstr "Tag script di Cookiebot™"
+
+#: src/view/admin/settings/settings-page.php:215
+msgid "Select the cookie-blocking mode"
+msgstr "Seleziona la modalità di blocco dei cookie"
+
+#: src/view/admin/settings/settings-page.php:209
+msgid "Guide to manual cookie-blocking"
+msgstr "Guida al blocco manuale dei cookie"
+
+#: src/view/admin/settings/settings-page.php:205
+msgid "Guide to auto cookie-blocking"
+msgstr "Guida al blocco automatico dei cookie"
+
+#: src/view/admin/settings/network-settings-page.php:68
+#: src/view/admin/settings/settings-page.php:201
+msgid "Select your cookie-blocking mode here. Auto cookie-blocking mode will automatically block all cookies (except for ‘strictly necessary’ cookies) until a user has given consent. Manual cookie-blocking mode requests manual adjustments to the cookie-setting scripts. Please find our implementation guides below:"
+msgstr "Seleziona qui la modalità di blocco dei cookie. La modalità di blocco automatico dei cookie blocca automaticamente tutti i cookie (ad eccezione di quelli “strettamente necessari”) fino a quando l’utente non ha dato il suo consenso. La modalità di blocco manuale dei cookie richiede la regolazione manuale degli script di impostazione dei cookie. Di seguito sono riportate le nostre guide all’implementazione:"
+
+#: src/view/admin/settings/settings-page.php:134
+msgid "Select the language"
+msgstr "Seleziona la lingua"
+
+#: src/view/admin/settings/settings-page.php:172
+msgid "Read more on how to add languages"
+msgstr "Per saperne di più su come aggiungere lingue"
+
+#: src/view/admin/settings/settings-page.php:127
+msgid "Language:"
+msgstr "Lingua:"
+
+#: src/view/admin/settings/settings-page.php:104
+msgid "To connect your Domain Group, paste your Domain Group ID here. If you want to connect a second ID for other regions, you can do this under the \"Multiple Configurations\" tab."
+msgstr "Per collegare il tuo gruppo di dominio, incolla qui l’ID del gruppo di dominio. Se desideri collegare un secondo ID per altre regioni, puoi farlo dalla scheda “Configurazioni multiple”."
+
+#: src/view/admin/settings/settings-page.php:101
+msgid "Connect your Domain Group:"
+msgstr "Collega il tuo gruppo di dominio:"
+
+#: src/view/admin/settings/settings-page.php:83
+msgid "Before you can get started with Cookiebot CMP for WordPress, you need to create an account on our website by clicking on \"Create a new account\" below. After you have signed up, you can configure your banner in the Cookiebot Manager and then place the Cookiebot Domain Group ID in the designated field below. You can find your ID in the Cookiebot Manager by navigating to \"Settings\" and \"Your Scripts\"."
+msgstr "Prima di iniziare ad utilizzare Cookiebot CMP per WordPress, è necessario creare un account sul nostro sito web facendo clic su “Crea un nuovo account” qui sotto. Dopo aver effettuato l’iscrizione, puoi configurare il tuo banner nel Cookiebot Manager e inserire l’ID del gruppo di dominio Cookiebot nel campo designato. Puoi trovare il tuo ID nel Cookiebot Manager navigando su “Impostazioni” e “I tuoi script”."
+
+#: src/view/admin/settings/network-settings-page.php:33
+#: src/view/admin/settings/settings-page.php:81
+msgid "Do you not have an account yet?"
+msgstr "Non possiedi ancora un account?"
+
+#: src/view/admin/settings/settings-page.php:72
+msgid "Multiple Configurations"
+msgstr "Configurazioni multiple"
+
+#: src/view/admin/settings/settings-page.php:56
+msgid "Additional Settings"
+msgstr "Impostazioni aggiuntive"
+
+#: src/view/admin/settings/settings-page.php:52
+msgid "General Settings"
+msgstr "Impostazioni generali"
+
+#: src/view/admin/settings/prior-consent/unavailable-addons/tab-header.php:4
+msgid "Unavailable plugins"
+msgstr "Plugin non disponibili"
+
+#: src/view/admin/settings/prior-consent/partials/info-tab-header.php:5
+msgid "These add-ons are produced by an open-source community of developers. This is done to help make it easier for WordPress users to implement ‘prior consent’ for cookies and trackers set by plugins that do not offer this as a built-in function. The add-ons are currently the best alternative to a WordPress Core framework that can signal the user’s consent state to other plugins (if and when this will be implemented is unknown) and to those plugins that do not yet offer native support for Cookiebot CMP. "
+msgstr "Questi componenti aggiuntivi sono prodotti da una community di sviluppatori open-source. L’obiettivo è quello di facilitare agli utenti di WordPress l’implementazione del “consenso preventivo” per i cookie e i tracker impostati dai plugin che non lo offrono come funzione integrata. I componenti aggiuntivi sono attualmente la migliore alternativa a un framework WordPress Core in grado di segnalare lo stato di consenso dell’utente ad altri plugin (non si sa se e quando verrà implementato) e a quei plugin che non offrono ancora un supporto nativo per Cookiebot CMP. "
+
+#: src/view/admin/settings/prior-consent/jetpack-widgets/tab-header.php:8
+msgid "Enable Jetpack on \"Available Addons\" to see this page options."
+msgstr "Abilita Jetpack in “Componenti aggiuntivi disponibili” per visualizzare le opzioni di questa pagina."
+
+#: src/view/admin/settings/prior-consent/available-addons/tab.php:58
+msgid "Placeholder text:"
+msgstr "Testo segnaposto:"
+
+#: src/view/admin/settings/prior-consent/available-addons/tab.php:25
+msgid "Plugin enabled"
+msgstr "Plugin abilitato"
+
+#: src/view/admin/settings/prior-consent/available-addons/tab-header.php:4
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:11
+#: src/view/admin/settings/prior-consent/jetpack-widgets/tab-header.php:14
+msgid "Remember to save your changes before switching tabs"
+msgstr "Ricorda di salvare le modifiche prima di cambiare scheda"
+
+#: src/view/admin/settings/network-settings-page.php:239
+#: src/view/admin/settings/settings-page.php:328
+msgid "Hide the cookie popup banner"
+msgstr "Nascondi il banner popup dei cookie"
+
+#: src/view/admin/settings/network-settings-page.php:224
+#: src/view/admin/settings/settings-page.php:299
+msgid "This checkbox will remove the cookie consent banner from your website. The declaration shortcode will still be available. If you are using Google Tag Manager (or equal), you need to add the Cookiebot script in your Tag Manager."
+msgstr "Questa casella rimuove il banner di consenso ai cookie dal tuo sito web. Lo shortcode della dichiarazione sarà comunque disponibile. Se utilizzi Google Tag Manager (o simili), devi aggiungere lo script Cookiebot™ nel tuo Tag Manager."
+
+#: src/view/admin/settings/network-settings-page.php:211
+#: src/view/admin/settings/settings-page.php:362
+msgid "Automatically update Cookiebot Plugin"
+msgstr "Aggiorna il plugin Cookiebot automaticamente"
+
+#: src/view/admin/settings/settings-page.php:232
+msgid "Manual cookie-blocking mode"
+msgstr "Blocco manuale dei cookie"
+
+#: src/view/admin/settings/network-settings-page.php:80
+#: src/view/admin/settings/settings-page.php:223
+msgid "Automatic cookie-blocking mode"
+msgstr "Blocco automatico dei cookie"
+
+#: src/view/admin/settings/network-settings-page.php:73
+msgid "Select the Cookie-blocking mode"
+msgstr "Seleziona la modalità di blocco dei cookie"
+
+#: src/view/admin/settings/network-settings-page.php:54
+#: src/view/admin/settings/settings-page.php:114
+msgid "Add your Domain Group ID"
+msgstr "Aggiungi il tuo ID del gruppo di dominio"
+
+#: src/view/admin/settings/network-settings-page.php:50
+#: src/view/admin/settings/settings-page.php:108
+msgid "Read more on the Domain Group ID"
+msgstr "Per saperne di più sull’ID del gruppo di dominio"
+
+#: src/view/admin/settings/network-settings-page.php:46
+msgid "Network Domain Group:"
+msgstr "Gruppo di domini di rete:"
+
+#: src/view/admin/settings/network-settings-page.php:39
+#: src/view/admin/settings/settings-page.php:92
+msgid "Get help with connecting your account"
+msgstr "Ottieni assistenza per connettere il tuo account"
+
+#: src/view/admin/settings/network-settings-page.php:38
+#: src/view/admin/settings/settings-page.php:88
+msgid "Create a new Account"
+msgstr "Crea un nuovo account"
+
+#: src/view/admin/settings/network-settings-page.php:35
+msgid "To use Cookiebot for WordPress you need to visit our website and sign-up. After you have signed up, you can configure your banner and then place the Cookiebot Domain Group ID below. Navigate to Settings and to \"Your Scripts\" to find your ID."
+msgstr "Per utilizzare Cookiebot per WordPress devi visitare il nostro sito web e registrarti. Dopo aver effettuato la registrazione, potrai configurare il tuo banner e inserire l'ID del gruppo di dominio Cookiebot. Vai su Impostazioni e su \"I tuoi script\" per trovare il tuo ID."
+
+#: src/view/admin/settings/network-settings-page.php:22
+msgid "Network Settings"
+msgstr "Configurazione di rete"
+
+#: src/view/admin/settings/multiple-configuration/extra/region-item.php:18
+#: src/view/admin/settings/multiple-configuration/page.php:75
+#: src/view/admin/settings/multiple-configuration/page.php:101
+msgid "Select region"
+msgstr "Seleziona regione"
+
+#: src/view/admin/settings/multiple-configuration/page.php:71
+msgid "Primary domain group"
+msgstr "Gruppo di dominio principale"
+
+#: src/view/admin/settings/multiple-configuration/page.php:61
+msgid "Region"
+msgstr "Regione"
+
+#: src/view/admin/settings/multiple-configuration/page.php:47
+msgid "To enable a different configuration, create a separate DomainGroup without adding the domain to it and paste the ID below. Then select the countries in which you want to show this configuration. For example, if your main Domain Group is defined as a banner matching GDPR requirements, you might want to add another Domain Group for visitors from California. The number of additional configurations is restricted to one at the moment."
+msgstr "Per abilitare una configurazione diversa, crea un gruppo di dominio separato senza aggiungerci il dominio e incolla l’ID qui sotto. Seleziona poi i Paesi in cui desideri mostrare questa configurazione. Ad esempio, se il gruppo di domini principale è definito come un banner conforme ai requisiti GDPR, potresti aggiungere un altro gruppo di domini per i visitatori provenienti dalla California. Al momento il numero di configurazioni aggiuntive è limitato a una."
+
+#: src/view/admin/settings/multiple-configuration/page.php:44
+msgid "Set up your additional banner configuration:"
+msgstr "Imposta una configurazione aggiuntiva del tuo banner:"
+
+#: src/view/admin/settings/multiple-configuration/page.php:34
+msgid "Multiple configurations"
+msgstr "Configurazioni multiple"
+
+#: src/view/admin/settings/multiple-configuration/page.php:22
+msgid "Read more about multiple configurations here"
+msgstr "Per saperne di più sulle configurazioni multiple"
+
+#: src/view/admin/settings/multiple-configuration/page.php:18
+msgid "You can add a second alternative banner or configuration to your website by creating a second Domain Group and specify it on a region."
+msgstr "È possibile aggiungere un secondo banner o una configurazione alternativa al tuo sito web creando un secondo gruppo di domini e specificando una regione."
+
+#: src/view/admin/settings/multiple-configuration/page.php:16
+msgid "Additional configurations:"
+msgstr "Configurazioni aggiuntive:"
+
+#: src/view/admin/settings/iab-page.php:33
+msgid "Read more on IAB with Cookiebot CMP here"
+msgstr "Per saperne di più su IAB con Cookiebot CMP"
+
+#: src/view/admin/settings/iab-page.php:29
+msgid "If you want to use the IAB Framework TCF within your Consent Management Platform (CMP) you can enable it on the right. Be aware that activating this could override some of the configurations you made with the default setup defined by the IAB."
+msgstr "Se desideri utilizzare lo IAB Framework TCF v2.0 all’interno della tua piattaforma di gestione del consenso (CMP), puoi attivarlo sulla destra. Tieni presente che l’attivazione potrebbe annullare alcune delle configurazioni effettuate mediante l’impostazione predefinita definita da IAB."
+
+#: src/view/admin/settings/iab-page.php:27
+msgid "IAB Integration:"
+msgstr "Integrazione IAB:"
+
+#: src/view/admin/settings/gtm-page.php:67
+msgid "Name of your Data Layer"
+msgstr "Nome del tuo livello dati"
+
+#: src/view/admin/settings/gtm-page.php:62
+msgid "How to find the Data Layer Name"
+msgstr "Come trovare il nome del livello dati"
+
+#: src/view/admin/settings/gtm-page.php:58
+msgid "You can also paste your Data Layer Name here. This is optional information."
+msgstr "Puoi incollare il nome del tuo livello dati qui. Questa informazione è opzionale."
+
+#: src/view/admin/settings/gtm-page.php:56
+msgid "Data Layer Name (optional)"
+msgstr "Nome del livello dati (opzionale)"
+
+#: src/view/admin/settings/gtm-page.php:48
+msgid "Enter GTM ID"
+msgstr "Inserisci l’ID di GTM"
+
+#: src/view/admin/settings/gtm-page.php:41
+msgid "How to find the GTM ID"
+msgstr "Come trovare l’ID di GTM"
+
+#: src/view/admin/settings/gtm-page.php:37
+msgid "Paste your Tag Manager ID into the field on the right."
+msgstr "Incolla il tuo ID di Google Tag Manager nel campo sulla destra."
+
+#: src/view/admin/settings/gtm-page.php:35
+#: src/view/admin/settings/gtm-page.php:46
+msgid "Google Tag Manager ID"
+msgstr "ID di Google Tag Manager"
+
+#: src/view/admin/settings/gcm-page.php:38
+#: src/view/admin/settings/gcm-page.php:68
+#: src/view/admin/settings/gtm-page.php:18
+msgid "Read more"
+msgstr "Leggi tutto"
+
+#: src/view/admin/settings/gtm-page.php:12
+msgid "Google Tag Manager:"
+msgstr "Google Tag Manager:"
+
+#: src/view/admin/settings/debug-page.php:45
+msgid "Visit Support Center"
+msgstr "Visita il Centro Assistenza"
+
+#: src/view/admin/settings/debug-page.php:42
+msgid "If you have any issues with the implemenation of Cookiebot CMP, please visit our Support Center."
+msgstr "Se riscontri altri problemi con l’implementazione di Cookiebot CMP, visita il nostro Centro Assistenza."
+
+#: src/view/admin/settings/debug-page.php:25
+msgid "The information below is for debugging purposes. If you have any issues with your Cookiebot CMP integration, this information is the best place to start."
+msgstr "Le informazioni riportate di seguito servono per il debug. Se si riscontrano problemi con l’integrazione di Cookiebot CMP, queste informazioni sono il punto di partenza migliore."
+
+#: src/view/admin/settings/dashboard-page.php:161
+msgid "See other legislations"
+msgstr "Vedi altre normative"
+
+#: src/view/admin/settings/dashboard-page.php:150
+msgid "North America"
+msgstr "Nord America"
+
+#: src/view/admin/settings/dashboard-page.php:147
+msgid "CCPA"
+msgstr "CCPA"
+
+#: src/view/admin/settings/dashboard-page.php:133
+msgid "Europe"
+msgstr "Europa"
+
+#: src/view/admin/settings/dashboard-page.php:130
+msgid "GDPR"
+msgstr "GDPR"
+
+#: src/view/admin/settings/dashboard-page.php:118
+msgid "Learn more about Cookiebot CMP"
+msgstr "Per saperne di più su Cookiebot CMP"
+
+#: src/view/admin/settings/dashboard-page.php:114
+msgid "How to get started with Cookiebot CMP"
+msgstr "Iniziare ad usare Cookiebot CMP"
+
+#: src/view/admin/settings/dashboard-page.php:95
+msgid "Visit Help Center"
+msgstr "Visita il nostro Centro Assistenza"
+
+#: src/view/admin/settings/dashboard-page.php:91
+msgid "Learn more about how to optimize your Cookiebot CMP setup?"
+msgstr "Vuoi saperne di più su come ottimizzare la tua configurazione di Cookiebot CMP?"
+
+#: src/view/admin/settings/dashboard-page.php:86
+msgid "Create a new account"
+msgstr "Crea un nuovo account"
+
+#: src/view/admin/settings/dashboard-page.php:82
+msgid "Create a new Cookiebot CMP account"
+msgstr "Crea un nuovo account Cookiebot CMP"
+
+#: src/view/admin/settings/dashboard-page.php:79
+msgid "Get started"
+msgstr "Inizia ora"
+
+#: src/view/admin/settings/dashboard-page.php:50
+msgid "You have added your Domain Group ID to WordPress. You are all set!"
+msgstr "Hai aggiunto il tuo ID del gruppo di dominio a WordPress. Sei pronto ad iniziare!"
+
+#: src/view/admin/settings/dashboard-page.php:49
+msgid "Congratulations!"
+msgstr "Congratulazioni!"
+
+#: src/view/admin/settings/dashboard-page.php:42
+msgid "Your Cookiebot CMP for WordPress solution"
+msgstr "La tua soluzione Cookiebot CMP per WordPress"
+
+#: src/view/admin/settings/dashboard-page.php:37
+msgid "Connect my existing account"
+msgstr "Collega il mio account esistente"
+
+#: src/view/admin/settings/dashboard-page.php:33
+msgid "I already have a Cookiebot CMP account"
+msgstr "Possiedo già un account Cookiebot CMP"
+
+#: src/lib/Cookiebot_WP.php:224 src/settings/pages/Dashboard_Page.php:33
+#: src/view/admin/templates/main-tabs.php:19
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#: src/settings/pages/Dashboard_Page.php:32
+msgid "Cookiebot Dashboard"
+msgstr "Dashboard Cookiebot"
+
+#: src/lib/Supported_Regions.php:259
+msgid "Zimbabwe"
+msgstr "Zimbabwe"
+
+#: src/lib/Supported_Regions.php:258
+msgid "Zambia"
+msgstr "Zambia"
+
+#: src/lib/Supported_Regions.php:210
+msgid "South Africa"
+msgstr "Sudafrica"
+
+#: src/lib/Supported_Regions.php:257
+msgid "Yemen"
+msgstr "Yemen"
+
+#: src/lib/Supported_Regions.php:196
+msgid "Samoa"
+msgstr "Samoa"
+
+#: src/lib/Supported_Regions.php:255
+msgid "Wallis and Futuna"
+msgstr "Wallis e Futuna"
+
+#: src/lib/Supported_Regions.php:250
+msgid "Vanuatu"
+msgstr "Vanuatu"
+
+#: src/lib/Supported_Regions.php:252
+msgid "Viet Nam"
+msgstr "Vietnam"
+
+#: src/lib/Supported_Regions.php:254
+msgid "Virgin Islands, U.S."
+msgstr "Isole Vergini Americane"
+
+#: src/lib/Supported_Regions.php:253
+msgid "Virgin Islands, British"
+msgstr "Isole Vergini Britanniche"
+
+#: src/lib/Supported_Regions.php:195
+msgid "Saint Vincent and the Grenadines"
+msgstr "Saint Vincent e Grenadine"
+
+#: src/lib/Supported_Regions.php:103
+msgid "Holy See (Vatican City State)"
+msgstr "Città del Vaticano"
+
+#: src/lib/Supported_Regions.php:249
+msgid "Uzbekistan"
+msgstr "Uzbekistan"
+
+#: src/lib/Supported_Regions.php:242
+msgid "United States - State of California"
+msgstr "Stati Uniti - Stato della California"
+
+#: src/lib/Supported_Regions.php:241
+msgid "United States"
+msgstr "Stati Uniti"
+
+#: src/lib/Supported_Regions.php:248
+msgid "Uruguay"
+msgstr "Uruguay"
+
+#: src/lib/Supported_Regions.php:247
+msgid "United States Minor Outlying Islands"
+msgstr "Isole Minori Esterne degli Stati Uniti d'America"
+
+#: src/lib/Supported_Regions.php:238
+msgid "Ukraine"
+msgstr "Ucraina"
+
+#: src/lib/Supported_Regions.php:237
+msgid "Uganda"
+msgstr "Uganda"
+
+#: src/lib/Supported_Regions.php:236
+msgid "Tuvalu"
+msgstr "Tuvalu"
+
+#: src/lib/Supported_Regions.php:232
+msgid "Tunisia"
+msgstr "Tunisia"
+
+#: src/lib/Supported_Regions.php:231
+msgid "Trinidad and Tobago"
+msgstr "Trinidad e Tobago"
+
+#: src/lib/Supported_Regions.php:230
+msgid "Tonga"
+msgstr "Tonga"
+
+#: src/lib/Supported_Regions.php:227
+msgid "Timor-Leste"
+msgstr "Timor Est"
+
+#: src/lib/Supported_Regions.php:234
+msgid "Turkmenistan"
+msgstr "Turkmenistan"
+
+#: src/lib/Supported_Regions.php:229
+msgid "Tokelau"
+msgstr "Tokelau"
+
+#: src/lib/Supported_Regions.php:224
+msgid "Tajikistan"
+msgstr "Tagikistan"
+
+#: src/lib/Supported_Regions.php:226
+msgid "Thailand"
+msgstr "Tailandia"
+
+#: src/lib/Supported_Regions.php:228
+msgid "Togo"
+msgstr "Togo"
+
+#: src/lib/Supported_Regions.php:49
+msgid "Chad"
+msgstr "Ciad"
+
+#: src/lib/Supported_Regions.php:235
+msgid "Turks and Caicos Islands"
+msgstr "Isole Turks e Caicos"
+
+#: src/lib/Supported_Regions.php:202
+msgid "Seychelles"
+msgstr "Seychelles"
+
+#: src/lib/Supported_Regions.php:205
+msgid "Sint Maarten (Dutch part)"
+msgstr "Sint Maarten (parte olandese)"
+
+#: src/lib/Supported_Regions.php:220
+msgid "Sweden"
+msgstr "Svezia"
+
+#: src/lib/Supported_Regions.php:207
+msgid "Slovenia"
+msgstr "Slovenia"
+
+#: src/lib/Supported_Regions.php:206
+msgid "Slovakia"
+msgstr "Slovacchia"
+
+#: src/lib/Supported_Regions.php:217
+msgid "Suriname"
+msgstr "Suriname"
+
+#: src/lib/Supported_Regions.php:198
+msgid "Sao Tome and Principe"
+msgstr "São Tomé e Príncipe"
+
+#: src/lib/Supported_Regions.php:213
+msgid "South Sudan"
+msgstr "Sudan del Sud"
+
+#: src/lib/Supported_Regions.php:201
+msgid "Serbia"
+msgstr "Serbia"
+
+#: src/lib/Supported_Regions.php:194
+msgid "Saint Pierre and Miquelon"
+msgstr "Saint-Pierre e Miquelon"
+
+#: src/lib/Supported_Regions.php:209
+msgid "Somalia"
+msgstr "Somalia"
+
+#: src/lib/Supported_Regions.php:197
+msgid "San Marino"
+msgstr "San Marino"
+
+#: src/lib/Supported_Regions.php:72
+msgid "El Salvador"
+msgstr "El Salvador"
+
+#: src/lib/Supported_Regions.php:203
+msgid "Sierra Leone"
+msgstr "Sierra Leone"
+
+#: src/lib/Supported_Regions.php:208
+msgid "Solomon Islands"
+msgstr "Isole Salomone"
+
+#: src/lib/Supported_Regions.php:218
+msgid "Svalbard and Jan Mayen"
+msgstr "Svalbard e Jan Mayen"
+
+#: src/lib/Supported_Regions.php:190
+msgid "Saint Helena, Ascension and Tristan da Cunha"
+msgstr "Sant'Elena"
+
+#: src/lib/Supported_Regions.php:211
+msgid "South Georgia and the South Sandwich Islands"
+msgstr "Georgia del Sud e Isole Sandwich Australi"
+
+#: src/lib/Supported_Regions.php:204
+msgid "Singapore"
+msgstr "Singapore"
+
+#: src/lib/Supported_Regions.php:200
+msgid "Senegal"
+msgstr "Senegal"
+
+#: src/lib/Supported_Regions.php:216
+msgid "Sudan"
+msgstr "Sudan"
+
+#: src/lib/Supported_Regions.php:199
+msgid "Saudi Arabia"
+msgstr "Arabia Saudita"
+
+#: src/lib/Supported_Regions.php:187
+msgid "Rwanda"
+msgstr "Ruanda"
+
+#: src/lib/Supported_Regions.php:186
+msgid "Russia"
+msgstr "Russia"
+
+#: src/lib/Supported_Regions.php:185
+msgid "Romania"
+msgstr "Romania"
+
+#: src/lib/Supported_Regions.php:188
+msgid "Réunion"
+msgstr "La Riunione"
+
+#: src/lib/Supported_Regions.php:184
+msgid "Qatar"
+msgstr "Qatar"
+
+#: src/lib/Supported_Regions.php:83
+msgid "French Polynesia"
+msgstr "Polinesia Francese"
+
+#: src/lib/Supported_Regions.php:174
+msgid "Palestinian Territory"
+msgstr "Territori palestinesi"
+
+#: src/lib/Supported_Regions.php:177
+msgid "Paraguay"
+msgstr "Paraguay"
+
+#: src/lib/Supported_Regions.php:182
+msgid "Portugal"
+msgstr "Portogallo"
+
+#: src/lib/Supported_Regions.php:212
+msgid "South Korea"
+msgstr "Corea del Sud"
+
+#: src/lib/Supported_Regions.php:183
+msgid "Puerto Rico"
+msgstr "Porto Rico"
+
+#: src/lib/Supported_Regions.php:181
+msgid "Poland"
+msgstr "Polonia"
+
+#: src/lib/Supported_Regions.php:176
+msgid "Papua New Guinea"
+msgstr "Papua Nuova Guinea"
+
+#: src/lib/Supported_Regions.php:173
+msgid "Palau"
+msgstr "Palau"
+
+#: src/lib/Supported_Regions.php:179
+msgid "Philippines"
+msgstr "Filippine"
+
+#: src/lib/Supported_Regions.php:178
+msgid "Peru"
+msgstr "Perù"
+
+#: src/lib/Supported_Regions.php:180
+msgid "Pitcairn"
+msgstr "Isole Pitcairn"
+
+#: src/lib/Supported_Regions.php:175
+msgid "Panama"
+msgstr "Panama"
+
+#: src/lib/Supported_Regions.php:172
+msgid "Pakistan"
+msgstr "Pakistan"
+
+#: src/lib/Supported_Regions.php:171
+msgid "Oman"
+msgstr "Oman"
+
+#: src/lib/Supported_Regions.php:162
+msgid "New Zealand"
+msgstr "Nuova Zelanda"
+
+#: src/lib/Supported_Regions.php:158
+msgid "Nauru"
+msgstr "Nauru"
+
+#: src/lib/Supported_Regions.php:159
+msgid "Nepal"
+msgstr "Nepal"
+
+#: src/lib/Supported_Regions.php:170
+msgid "Norway"
+msgstr "Norvegia"
+
+#: src/lib/Supported_Regions.php:160
+msgid "Netherlands"
+msgstr "Paesi Bassi"
+
+#: src/lib/Supported_Regions.php:166
+msgid "Niue"
+msgstr "Niue"
+
+#: src/lib/Supported_Regions.php:163
+msgid "Nicaragua"
+msgstr "Nicaragua"
+
+#: src/lib/Supported_Regions.php:165
+msgid "Nigeria"
+msgstr "Nigeria"
+
+#: src/lib/Supported_Regions.php:167
+msgid "Norfolk Island"
+msgstr "Isola Norfolk"
+
+#: src/lib/Supported_Regions.php:164
+msgid "Niger"
+msgstr "Niger"
+
+#: src/lib/Supported_Regions.php:161
+msgid "New Caledonia"
+msgstr "Nuova Caledonia"
+
+#: src/lib/Supported_Regions.php:157
+msgid "Namibia"
+msgstr "Namibia"
+
+#: src/lib/Supported_Regions.php:146
+msgid "Mayotte"
+msgstr "Mayotte"
+
+#: src/lib/Supported_Regions.php:138
+msgid "Malaysia"
+msgstr "Malaysia"
+
+#: src/lib/Supported_Regions.php:137
+msgid "Malawi"
+msgstr "Malawi"
+
+#: src/lib/Supported_Regions.php:145
+msgid "Mauritius"
+msgstr "Mauritius"
+
+#: src/lib/Supported_Regions.php:143
+msgid "Martinique"
+msgstr "Martinica"
+
+#: src/lib/Supported_Regions.php:153
+msgid "Montserrat"
+msgstr "Montserrat"
+
+#: src/lib/Supported_Regions.php:144
+msgid "Mauritania"
+msgstr "Mauritania"
+
+#: src/lib/Supported_Regions.php:155
+msgid "Mozambique"
+msgstr "Mozambico"
+
+#: src/lib/Supported_Regions.php:169
+msgid "Northern Mariana Islands"
+msgstr "Isole Marianne settentrionali"
+
+#: src/lib/Supported_Regions.php:151
+msgid "Mongolia"
+msgstr "Mongolia"
+
+#: src/lib/Supported_Regions.php:152
+msgid "Montenegro"
+msgstr "Montenegro"
+
+#: src/lib/Supported_Regions.php:156
+msgid "Myanmar"
+msgstr "Myanmar"
+
+#: src/lib/Supported_Regions.php:141
+msgid "Malta"
+msgstr "Malta"
+
+#: src/lib/Supported_Regions.php:140
+msgid "Mali"
+msgstr "Mali"
+
+#: src/lib/Supported_Regions.php:142
+msgid "Marshall Islands"
+msgstr "Isole Marshall"
+
+#: src/lib/Supported_Regions.php:147
+msgid "Mexico"
+msgstr "Messico"
+
+#: src/lib/Supported_Regions.php:139
+msgid "Maldives"
+msgstr "Maldive"
+
+#: src/lib/Supported_Regions.php:136
+msgid "Madagascar"
+msgstr "Madagascar"
+
+#: src/lib/Supported_Regions.php:150
+msgid "Monaco"
+msgstr "Principato di Monaco"
+
+#: src/lib/Supported_Regions.php:154
+msgid "Morocco"
+msgstr "Marocco"
+
+#: src/lib/Supported_Regions.php:193
+msgid "Saint Martin (French part)"
+msgstr "Saint Martin (parte francese)"
+
+#: src/lib/Supported_Regions.php:134
+msgid "Macao"
+msgstr "Macao"
+
+#: src/lib/Supported_Regions.php:126
+msgid "Latvia"
+msgstr "Lettonia"
+
+#: src/lib/Supported_Regions.php:133
+msgid "Luxembourg"
+msgstr "Lussemburgo"
+
+#: src/lib/Supported_Regions.php:132
+msgid "Lithuania"
+msgstr "Lituania"
+
+#: src/lib/Supported_Regions.php:128
+msgid "Lesotho"
+msgstr "Lesotho"
+
+#: src/lib/Supported_Regions.php:215
+msgid "Sri Lanka"
+msgstr "Sri Lanka"
+
+#: src/lib/Supported_Regions.php:131
+msgid "Liechtenstein"
+msgstr "Liechtenstein"
+
+#: src/lib/Supported_Regions.php:192
+msgid "Saint Lucia"
+msgstr "Santa Lucia"
+
+#: src/lib/Supported_Regions.php:130
+msgid "Libya"
+msgstr "Libia"
+
+#: src/lib/Supported_Regions.php:129
+msgid "Liberia"
+msgstr "Liberia"
+
+#: src/lib/Supported_Regions.php:127
+msgid "Lebanon"
+msgstr "Libano"
+
+#: src/lib/Supported_Regions.php:123
+msgid "Kuwait"
+msgstr "Kuwait"
+
+#: src/lib/Supported_Regions.php:168
+msgid "North Korea"
+msgstr "Corea del Nord"
+
+#: src/lib/Supported_Regions.php:191
+msgid "Saint Kitts and Nevis"
+msgstr "Saint Kitts e Nevis"
+
+#: src/lib/Supported_Regions.php:122
+msgid "Kiribati"
+msgstr "Kiribati"
+
+#: src/lib/Supported_Regions.php:43
+msgid "Cambodia"
+msgstr "Cambogia"
+
+#: src/lib/Supported_Regions.php:124
+msgid "Kyrgyzstan"
+msgstr "Kirghizistan"
+
+#: src/lib/Supported_Regions.php:121
+msgid "Kenya"
+msgstr "Kenya"
+
+#: src/lib/Supported_Regions.php:120
+msgid "Kazakhstan"
+msgstr "Kazakistan"
+
+#: src/lib/Supported_Regions.php:117
+msgid "Japan"
+msgstr "Giappone"
+
+#: src/lib/Supported_Regions.php:119
+msgid "Jordan"
+msgstr "Giordania"
+
+#: src/lib/Supported_Regions.php:118
+msgid "Jersey"
+msgstr "Jersey"
+
+#: src/lib/Supported_Regions.php:116
+msgid "Jamaica"
+msgstr "Giamaica"
+
+#: src/lib/Supported_Regions.php:115
+msgid "Italy"
+msgstr "Italia"
+
+#: src/lib/Supported_Regions.php:114
+msgid "Israel"
+msgstr "Israele"
+
+#: src/lib/Supported_Regions.php:107
+msgid "Iceland"
+msgstr "Islanda"
+
+#: src/lib/Supported_Regions.php:111
+msgid "Iraq"
+msgstr "Iraq"
+
+#: src/lib/Supported_Regions.php:112
+msgid "Ireland"
+msgstr "Irlanda"
+
+#: src/lib/Supported_Regions.php:38
+msgid "British Indian Ocean Territory"
+msgstr "Territorio britannico dell'Oceano Indiano"
+
+#: src/lib/Supported_Regions.php:108
+msgid "India"
+msgstr "India"
+
+#: src/lib/Supported_Regions.php:113
+msgid "Isle of Man"
+msgstr "Isola di Man"
+
+#: src/lib/Supported_Regions.php:109
+msgid "Indonesia"
+msgstr "Indonesia"
+
+#: src/lib/Supported_Regions.php:106
+msgid "Hungary"
+msgstr "Ungheria"
+
+#: src/lib/Supported_Regions.php:101
+msgid "Haiti"
+msgstr "Haiti"
+
+#: src/lib/Supported_Regions.php:60
+msgid "Croatia"
+msgstr "Croazia"
+
+#: src/lib/Supported_Regions.php:104
+msgid "Honduras"
+msgstr "Honduras"
+
+#: src/lib/Supported_Regions.php:102
+msgid "Heard Island and McDonald Islands"
+msgstr "Isole Heard e McDonald"
+
+#: src/lib/Supported_Regions.php:105
+msgid "Hong Kong"
+msgstr "Hong Kong"
+
+#: src/lib/Supported_Regions.php:100
+msgid "Guyana"
+msgstr "Guyana"
+
+#: src/lib/Supported_Regions.php:95
+msgid "Guam"
+msgstr "Guam"
+
+#: src/lib/Supported_Regions.php:82
+msgid "French Guiana"
+msgstr "Guyana francese"
+
+#: src/lib/Supported_Regions.php:96
+msgid "Guatemala"
+msgstr "Guatemala"
+
+#: src/lib/Supported_Regions.php:92
+msgid "Greenland"
+msgstr "Groenlandia"
+
+#: src/lib/Supported_Regions.php:93
+msgid "Grenada"
+msgstr "Grenada"
+
+#: src/lib/Supported_Regions.php:91
+msgid "Greece"
+msgstr "Grecia"
+
+#: src/lib/Supported_Regions.php:73
+msgid "Equatorial Guinea"
+msgstr "Guinea Equatoriale"
+
+#: src/lib/Supported_Regions.php:99
+msgid "Guinea-Bissau"
+msgstr "Guinea-Bissau"
+
+#: src/lib/Supported_Regions.php:86
+msgid "Gambia"
+msgstr "Gambia"
+
+#: src/lib/Supported_Regions.php:94
+msgid "Guadeloupe"
+msgstr "Guadalupa"
+
+#: src/lib/Supported_Regions.php:98
+msgid "Guinea"
+msgstr "Guinea"
+
+#: src/lib/Supported_Regions.php:90
+msgid "Gibraltar"
+msgstr "Gibilterra"
+
+#: src/lib/Supported_Regions.php:89
+msgid "Ghana"
+msgstr "Ghana"
+
+#: src/lib/Supported_Regions.php:97
+msgid "Guernsey"
+msgstr "Guernsey"
+
+#: src/lib/Supported_Regions.php:87
+msgid "Georgia"
+msgstr "Georgia"
+
+#: src/lib/Supported_Regions.php:240
+msgid "United Kingdom"
+msgstr "Regno Unito"
+
+#: src/lib/Supported_Regions.php:85
+msgid "Gabon"
+msgstr "Gabon"
+
+#: src/lib/Supported_Regions.php:148
+msgid "Micronesia, Federated States of"
+msgstr "Micronesia, Stati Federati di"
+
+#: src/lib/Supported_Regions.php:78
+msgid "Faroe Islands"
+msgstr "Isole Faroe"
+
+#: src/lib/Supported_Regions.php:81
+msgid "France"
+msgstr "Francia"
+
+#: src/lib/Supported_Regions.php:77
+msgid "Falkland Islands (Malvinas)"
+msgstr "Isole Falkland (Malvine)"
+
+#: src/lib/Supported_Regions.php:79
+msgid "Fiji"
+msgstr "Figi"
+
+#: src/lib/Supported_Regions.php:80
+msgid "Finland"
+msgstr "Finlandia"
+
+#: src/lib/Supported_Regions.php:76
+msgid "Ethiopia"
+msgstr "Etiopia"
+
+#: src/lib/Supported_Regions.php:75
+msgid "Estonia"
+msgstr "Estonia"
+
+#: src/lib/Supported_Regions.php:214
+msgid "Spain"
+msgstr "Spagna"
+
+#: src/lib/Supported_Regions.php:256
+msgid "Western Sahara"
+msgstr "Sahara Occidentale"
+
+#: src/lib/Supported_Regions.php:74
+msgid "Eritrea"
+msgstr "Eritrea"
+
+#: src/lib/Supported_Regions.php:71
+msgid "Egypt"
+msgstr "Egitto"
+
+#: src/lib/Supported_Regions.php:70
+msgid "Ecuador"
+msgstr "Ecuador"
+
+#: src/lib/Supported_Regions.php:9
+msgid "Algeria"
+msgstr "Algeria"
+
+#: src/lib/Supported_Regions.php:69
+msgid "Dominican Republic"
+msgstr "Repubblica Dominicana"
+
+#: src/lib/Supported_Regions.php:66
+msgid "Denmark"
+msgstr "Danimarca"
+
+#: src/lib/Supported_Regions.php:68
+msgid "Dominica"
+msgstr "Dominica"
+
+#: src/lib/Supported_Regions.php:67
+msgid "Djibouti"
+msgstr "Gibuti"
+
+#: src/lib/Supported_Regions.php:88
+msgid "Germany"
+msgstr "Germania"
+
+#: src/lib/Supported_Regions.php:64
+msgid "Czech Republic"
+msgstr "Repubblica Ceca"
+
+#: src/lib/Supported_Regions.php:63
+msgid "Cyprus"
+msgstr "Cipro"
+
+#: src/lib/Supported_Regions.php:47
+msgid "Cayman Islands"
+msgstr "Isole Cayman"
+
+#: src/lib/Supported_Regions.php:52
+msgid "Christmas Island"
+msgstr "Isola di Natale"
+
+#: src/lib/Supported_Regions.php:62
+msgid "Curaçao"
+msgstr "Curaçao"
+
+#: src/lib/Supported_Regions.php:61
+msgid "Cuba"
+msgstr "Cuba"
+
+#: src/lib/Supported_Regions.php:59
+msgid "Costa Rica"
+msgstr "Costa Rica"
+
+#: src/lib/Supported_Regions.php:46
+msgid "Cape Verde"
+msgstr "Capo Verde"
+
+#: src/lib/Supported_Regions.php:55
+msgid "Comoros"
+msgstr "Comore"
+
+#: src/lib/Supported_Regions.php:54
+msgid "Colombia"
+msgstr "Colombia"
+
+#: src/lib/Supported_Regions.php:58
+msgid "Cook Islands"
+msgstr "Isole Cook"
+
+#: src/lib/Supported_Regions.php:56
+msgid "Congo"
+msgstr "Congo"
+
+#: src/lib/Supported_Regions.php:57
+msgid "Congo, the Democratic Republic of the"
+msgstr "Repubblica Democratica del Congo"
+
+#: src/lib/Supported_Regions.php:44
+msgid "Cameroon"
+msgstr "Camerun"
+
+#: src/lib/Supported_Regions.php:65
+msgid "Côte d'Ivoire"
+msgstr "Costa d'Avorio"
+
+#: src/lib/Supported_Regions.php:51
+msgid "China"
+msgstr "Cina"
+
+#: src/lib/Supported_Regions.php:50
+msgid "Chile"
+msgstr "Cile"
+
+#: src/lib/Supported_Regions.php:221
+msgid "Switzerland"
+msgstr "Svizzera"
+
+#: src/lib/Supported_Regions.php:53
+msgid "Cocos (Keeling) Islands"
+msgstr "Isole Cocos (Keeling)"
+
+#: src/lib/Supported_Regions.php:45
+msgid "Canada"
+msgstr "Canada"
+
+#: src/lib/Supported_Regions.php:48
+msgid "Central African Republic"
+msgstr "Repubblica Centrafricana"
+
+#: src/lib/Supported_Regions.php:35
+msgid "Botswana"
+msgstr "Botswana"
+
+#: src/lib/Supported_Regions.php:36
+msgid "Bouvet Island"
+msgstr "Isola Bouvet"
+
+#: src/lib/Supported_Regions.php:31
+msgid "Bhutan"
+msgstr "Bhutan"
+
+#: src/lib/Supported_Regions.php:25
+msgid "Barbados"
+msgstr "Barbados"
+
+#: src/lib/Supported_Regions.php:37
+msgid "Brazil"
+msgstr "Brasile"
+
+#: src/lib/Supported_Regions.php:30
+msgid "Bermuda"
+msgstr "Bermuda"
+
+#: src/lib/Supported_Regions.php:28
+msgid "Belize"
+msgstr "Belize"
+
+#: src/lib/Supported_Regions.php:26
+msgid "Belarus"
+msgstr "Bielorussia"
+
+#: src/lib/Supported_Regions.php:189
+msgid "Saint Barthélemy"
+msgstr "Saint-Barthélemy"
+
+#: src/lib/Supported_Regions.php:34
+msgid "Bosnia and Herzegovina"
+msgstr "Bosnia ed Erzegovina"
+
+#: src/lib/Supported_Regions.php:22
+msgid "Bahamas"
+msgstr "Bahamas"
+
+#: src/lib/Supported_Regions.php:23
+msgid "Bahrain"
+msgstr "Bahrein"
+
+#: src/lib/Supported_Regions.php:40
+msgid "Bulgaria"
+msgstr "Bulgaria"
+
+#: src/lib/Supported_Regions.php:24
+msgid "Bangladesh"
+msgstr "Bangladesh"
+
+#: src/lib/Supported_Regions.php:41
+msgid "Burkina Faso"
+msgstr "Burkina Faso"
+
+#: src/lib/Supported_Regions.php:33
+msgid "Bonaire, Sint Eustatius and Saba"
+msgstr "Bonaire, Sint Eustatius e Saba"
+
+#: src/lib/Supported_Regions.php:29
+msgid "Benin"
+msgstr "Benin"
+
+#: src/lib/Supported_Regions.php:27
+msgid "Belgium"
+msgstr "Belgio"
+
+#: src/lib/Supported_Regions.php:42
+msgid "Burundi"
+msgstr "Burundi"
+
+#: src/lib/Supported_Regions.php:21
+msgid "Azerbaijan"
+msgstr "Azerbaigian"
+
+#: src/lib/Supported_Regions.php:20
+msgid "Austria"
+msgstr "Austria"
+
+#: src/lib/Supported_Regions.php:19
+msgid "Australia"
+msgstr "Australia"
+
+#: src/lib/Supported_Regions.php:15
+msgid "Antigua and Barbuda"
+msgstr "Antigua e Barbuda"
+
+#: src/lib/Supported_Regions.php:14
+msgid "Antarctica"
+msgstr "Antartide"
+
+#: src/lib/Supported_Regions.php:10
+msgid "American Samoa"
+msgstr "Samoa Americane"
+
+#: src/lib/Supported_Regions.php:17
+msgid "Armenia"
+msgstr "Armenia"
+
+#: src/lib/Supported_Regions.php:16
+msgid "Argentina"
+msgstr "Argentina"
+
+#: src/lib/Supported_Regions.php:239
+msgid "United Arab Emirates"
+msgstr "Emirati Arabi Uniti"
+
+#: src/lib/Supported_Regions.php:11
+msgid "Andorra"
+msgstr "Andorra"
+
+#: src/lib/Supported_Regions.php:8
+msgid "Albania"
+msgstr "Albania"
+
+#: src/lib/Supported_Regions.php:260
+msgid "Åland Islands"
+msgstr "Isole Åland"
+
+#: src/lib/Supported_Regions.php:13
+msgid "Anguilla"
+msgstr "Anguilla"
+
+#: src/lib/Supported_Regions.php:12
+msgid "Angola"
+msgstr "Angola"
+
+#: src/lib/Supported_Regions.php:7
+msgid "Afghanistan"
+msgstr "Afghanistan"
+
+#: src/lib/Supported_Regions.php:18
+msgid "Aruba"
+msgstr "Aruba"
+
+#: src/addons/config/Settings_Config.php:678
+#: src/view/admin/settings/prior-consent/other-addons/embed-autocorrect-extra-addon-options.php:18
+#: src/view/admin/settings/prior-consent/partials/info-tab-header.php:4
+#: src/view/admin/settings/prior-consent/partials/placeholder-submitbox-default.php:19
+#: src/view/admin/settings/prior-consent/partials/placeholder-submitboxes.php:40
+msgid "Info"
+msgstr "Informazioni"
+
+#: src/addons/config/Settings_Config.php:86
+#: src/addons/config/Settings_Config.php:87
+#: src/view/admin/settings/prior-consent/page.php:24
+#: src/view/admin/templates/main-tabs.php:37
+msgid "Plugins"
+msgstr "Plugin"
+
+#: src/view/admin/settings/settings-page.php:508
+msgid "This feature only works for scripts loaded via wp_enqueue_script. Manually added scripts must be manually edited."
+msgstr "Questo strumento funziona solo per script caricati mediante wp_enqueue_script. Gli script aggiunti manualmente devono essere modificati manualmente."
+
+#: src/view/admin/settings/settings-page.php:505
+msgid "List scripts source URL (one per line) from the queue to ignore Cookiebot CMP scan. Partial source URL will also work, e.g. wp-content/plugins/woocommerce will block every WooCommerce script."
+msgstr "Elenca gli URL di origine degli script (uno per riga) dalla coda per ignorare la scansione CMP di Cookiebot. Anche un URL sorgente parziale funzionerà, ad esempio wp-content/plugins/woocommerce bloccherà tutti gli script WooCommerce."
+
+#: src/view/admin/settings/settings-page.php:520
+msgid "Add script source URL, one per line"
+msgstr "aggiungi sorgenti URL degli script, uno per linea"
+
+#: src/view/admin/settings/prior-consent/unavailable-addons/tab-header.php:5
+msgid "The following addons are unavailable. This is because the corresponding plugin is not installed or activated."
+msgstr "I seguenti componenti aggiuntivi non sono disponibili. Questo perché il plugin corrispondente non è installato né attivato."
+
+#. translators: The placeholder is for the COOKIEBOT_MIN_PHP_VERSION constant
+#: src/lib/Cookiebot_WP.php:65
+msgid "The Cookiebot plugin requires PHP version %s or greater."
+msgstr "Il plug-in Cookiebot richiede la versione PHP %s o superiore."
+
+#: src/addons/controller/addons/wp_seopress/Wp_Seopress.php:41
+msgid "Blocks cookies from WP SEOPress' Google Analytics integration."
+msgstr "Blocca i cookie dell’integrazione Google Analytics di WP SEOPress."
+
+#: src/addons/config/Settings_Config.php:704
+msgid "Jetpack"
+msgstr "Jetpack"
+
+#: src/addons/config/Settings_Config.php:691
+msgid "Unavailable Add-ons"
+msgstr "Add-on non disponibili"
+
+#: src/addons/config/Settings_Config.php:685
+msgid "Available Add-ons"
+msgstr "Add-on disponibili"
+
+#: src/addons/config/Settings_Config.php:608
+msgid "The theme is not activated."
+msgstr "Il tema non è attivo."
+
+#: src/addons/config/Settings_Config.php:601
+msgid "The theme is not installed."
+msgstr "Il tema non è installato."
+
+#. translators: the placeholder strings denote the positions of <b> and </b>
+#. HTML tags
+#: src/view/admin/settings/support-page.php:85
+msgid "Go to the %1$s\"Your scripts\"%2$s tab"
+msgstr "Vai alla pagina %1$s\"I tuoi script\"%2$s"
+
+#. translators: the first placeholder string will be replaced with a html
+#. anchor open tag and the second placeholder string will be replaced by the
+#. html anchor closing tag
+#: src/view/admin/settings/support-page.php:65
+msgid "Log in to your %1$sCookiebot CMP account%2$s."
+msgstr "Accedi al tuo %1$saccount Cookiebot CMP%2$s."
+
+#: src/addons/controller/addons/wp_google_analytics_events/Wp_Google_Analytics_Events.php:46
+msgid "The plugin allows you to fire events whenever someone interacts or views elements on your website."
+msgstr "Il plugin consente di attivare eventi ogni volta che qualcuno interagisce o visualizza elementi sul tuo sito web."
+
+#: src/addons/controller/addons/enfold/Enfold.php:29
+msgid "Blocks cookies created by Enfold theme's Google Services."
+msgstr "Blocca i cookie creati dai servizi Google del tema Enfold."
+
+#: src/lib/helper.php:254
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:82
+msgid "necessary"
+msgstr "necessario"
+
+#: src/lib/helper.php:251 src/lib/helper.php:341
+#: src/view/admin/settings/gcm-page.php:110
+#: src/view/admin/settings/gtm-page.php:97
+#: src/view/admin/settings/prior-consent/available-addons/tab.php:37
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:85
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:118
+msgid "preferences"
+msgstr "preferenze"
+
+#: src/lib/helper.php:248 src/lib/helper.php:342
+#: src/view/admin/settings/gcm-page.php:118
+#: src/view/admin/settings/gtm-page.php:105
+#: src/view/admin/settings/prior-consent/available-addons/tab.php:46
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:88
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:134
+msgid "statistics"
+msgstr "statistiche"
+
+#: src/lib/helper.php:245 src/lib/helper.php:343
+#: src/view/admin/settings/gcm-page.php:126
+#: src/view/admin/settings/gtm-page.php:113
+#: src/view/admin/settings/prior-consent/available-addons/tab.php:55
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:91
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:167
+msgid "marketing"
+msgstr "marketing"
+
+#: src/view/admin/settings/multiple-configuration/page.php:57
+msgid "Domain Group ID"
+msgstr "ID del gruppo di dominio"
+
+#. translators: The first placeholder is the HTML anchor open tag, and the
+#. second placeholder is the closing tag.
+#: src/view/admin/settings/legislations-page.php:8
+msgid "For more details about Cookiebot's CCPA Legislation integration, see %1$sarticle about cookiebot and the CCPA compliance%2$s"
+msgstr "Per maggiorni dettagli sull'integrazione del CCPA di Cookiebot, vedi %1$sl'articolo su cookiebot e la normativa CCPA%2$s"
+
+#. translators: %1$s refers to the original script tag HTML, and %2$s refers to
+#. its replacement
+#: src/view/admin/settings/support-page.php:207
+msgid "%1$s to %2$s"
+msgstr "Da %1$s a %2$s"
+
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:102
+msgid "Functional"
+msgstr "Funzionale"
+
+#: src/addons/controller/addons/google_site_kit/Google_Site_Kit.php:33
+msgid "Blocks Google Analytics scripts"
+msgstr "Blocca gli script di Google Analytics"
+
+#: src/view/admin/settings/gcm-page.php:50
+#: src/view/admin/settings/settings-page.php:64
+msgid "Google Consent Mode"
+msgstr "Modalità di consenso di Google"
+
+#: src/view/admin/settings/gtm-page.php:14
+msgid "For more details about Cookiebot CMP and Google Tag Manager."
+msgstr "Per maggiori dettagli su Cookiebot CMP e Google Tag Manager."
+
+#: src/view/admin/settings/gtm-page.php:27
+#: src/view/admin/settings/settings-page.php:60
+msgid "Google Tag Manager"
+msgstr "Google Tag Manager"
+
+#: src/addons/controller/addons/official_facebook_pixel/Official_Facebook_Pixel.php:247
+msgid "Blocks Official Meta Pixel scripts"
+msgstr "Blocca gli script di Official Facebook Pixel"
+
+#: src/settings/pages/Legislations_Page.php:13
+#: src/settings/pages/Legislations_Page.php:14
+#: src/view/admin/settings/legislations-page.php:2
+msgid "Legislations"
+msgstr "Normative"
+
+#: src/addons/controller/addons/simple_share_buttons_adder/Simple_Share_Buttons_Adder.php:32
+msgid "Blocks Simple Share Buttons Adder."
+msgstr "Blocca Simple Share Buttons Adder."
+
+#: src/addons/controller/addons/litespeed_cache/Litespeed_Cache.php:51
+msgid "Excludes cookiebot javascript files when the Litespeed Cache deter option is enabled."
+msgstr "Esclude i file javascript di cookiebot quando l’opzione Litespeed Cache deter è attivata."
+
+#: src/addons/controller/addons/enhanced_ecommerce_for_woocommerce_store/Enhanced_Ecommerce_For_WooCommerce_Store.php:43
+msgid "Blocks enhanced e-commerce for WooCommerce store"
+msgstr "Blocca l’e-commerce avanzato per il negozio online WooCommerce"
+
+#: src/addons/controller/addons/wp_rocket/Wp_Rocket.php:48
+msgid "Excludes cookiebot javascript files when the WP-Rocket deter option is enabled."
+msgstr "Esclude i file javascript di Cookiebot quando l’opzione “WP-Rocket defer” è abilitata."
+
+#: src/view/admin/settings/debug-page.php:33
+msgid "Copy debug information to clipboard"
+msgstr "Copia negli appunti le informazioni di debug"
+
+#: src/view/admin/settings/debug-page.php:22
+msgid "Debug information"
+msgstr "Informazioni di debug"
+
+#: src/view/admin/settings/network-settings-page.php:89
+#: src/view/admin/settings/network-settings-page.php:139
+#: src/view/admin/settings/network-settings-page.php:186
+msgid "Choose per subsite"
+msgstr "Scegli per sito secondario"
+
+#: src/view/admin/settings/network-settings-page.php:118
+#: src/view/admin/settings/network-settings-page.php:165
+#: src/view/admin/settings/settings-page.php:270
+#: src/view/admin/settings/settings-page.php:476
+msgid "None"
+msgstr "Nessuno"
+
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:179
+msgid "Reset to default mapping"
+msgstr "Ripristina la mappatura predefinita"
+
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:150
+msgid "Statistics Anonymous"
+msgstr "Statistiche Anonime"
+
+#: src/settings/pages/Debug_Page.php:25 src/settings/pages/Debug_Page.php:26
+#: src/view/admin/settings/debug-page.php:18
+#: src/view/admin/templates/main-tabs.php:55
+msgid "Debug info"
+msgstr "Informazioni di debug"
+
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:29
+msgid "WP Consent Level API and Cookiebot™ categorize cookies a bit differently. The default settings should fit most needs, but if you need to change the mapping you can do so below."
+msgstr "WP Consent Level API e Cookiebot classificano i cookie in modo un po' diverso. Le impostazioni predefinite dovrebbero essere adeguate alla maggior parte delle esigenze - ma se hai bisogno di cambiare la mappatura puoi farlo più in basso."
+
+#: src/view/admin/settings/prior-consent/consent-api/tab.php:20
+msgid "Consent Level API Settings"
+msgstr "Impostazioni Consent Level API"
+
+#: src/lib/Supported_Languages.php:52
+msgid "Hungarian"
+msgstr "Ungherese"
+
+#: src/view/admin/settings/network-settings-page.php:252
+msgid "This checkbox will disable Cookiebot to act within the WordPress Admin area"
+msgstr "Questo checkbox disabiliterà Cookiebot nell'area Admin di WordPress."
+
+#: src/addons/controller/Plugin_Controller.php:55
+msgid "In some occasions this may cause client side errors. If you notice any errors please try to disable Cookiebot™ addons or contact Cookiebot™ support."
+msgstr "In alcune occasioni, questo potrebbe causare errori lato client. Se noti degli errori, prova a disattivare i componenti aggiuntivi di Cookiebot™ o a contattare il supporto di Cookiebot™."
+
+#: src/addons/controller/Plugin_Controller.php:50
+msgid "You enabled Cookiebot™ auto blocking mode but still using addons"
+msgstr "Hai attivato la modalità di blocco automatico di Cookiebot™ ma continui a utilizzare i componenti aggiuntivi"
+
+#: src/view/admin/settings/dashboard-page.php:137
+#: src/view/admin/settings/dashboard-page.php:139
+#: src/view/admin/settings/dashboard-page.php:154
+#: src/view/admin/settings/dashboard-page.php:156
+msgid "Learn More"
+msgstr "Per saperne di più"
+
+#: src/view/admin/settings/network-settings-page.php:66
+#: src/view/admin/settings/settings-page.php:198
+msgid "Cookie-blocking mode"
+msgstr "Modalità di blocco dei cookie"
+
+#: src/view/admin/settings/prior-consent/other-addons/embed-autocorrect-extra-addon-options.php:49
+msgid "Reset to default regex"
+msgstr "Ripristina l'espressione regolare predefinita"
+
+#: src/view/admin/settings/prior-consent/other-addons/embed-autocorrect-extra-addon-options.php:35
+msgid "Edit regex"
+msgstr "Modifica espressione regolare"
+
+#: src/view/admin/settings/prior-consent/other-addons/embed-autocorrect-extra-addon-options.php:23
+msgid "Regex:"
+msgstr "Espressione regolare:"
+
+#: src/view/admin/settings/prior-consent/other-addons/embed-autocorrect-extra-addon-options.php:17
+msgid "This is for more advanced users."
+msgstr "Questo è per gli utenti più avanzati."
+
+#: src/view/admin/settings/prior-consent/other-addons/embed-autocorrect-extra-addon-options.php:11
+msgid "Show advanced options"
+msgstr "Mostra opzioni avanzate"
+
+#: src/view/admin/widgets/cookiebot-declaration-widget-form.php:33
+msgid "- Default -"
+msgstr "- Predefinito -"
+
+#: src/view/admin/widgets/cookiebot-declaration-widget-form.php:14
+msgid "Title"
+msgstr "Titolo"
+
+#: src/widgets/Cookiebot_Declaration_Widget.php:17
+msgid "Cookiebot - Cookie Declaration"
+msgstr "Cookiebot - Dichiarazione dei cookie"
+
+#: src/addons/controller/addons/optinmonster/Optinmonster.php:32
+msgid "OptinMonster API plugin to connect your WordPress site to your OptinMonster account."
+msgstr "Plugin OptinMonster API per connettere il tuo sito WordPress al tuo OptinMonster account"
+
+#: src/addons/controller/addons/google_analytics/Google_Analytics.php:36
+msgid "Google Analytics is used to track how visitor interact with website content."
+msgstr "Google Analytics è usato per tenere traccia di come il visitatore interagisce con il contenuto del sito"
+
+#: src/addons/controller/addons/google_analytics_plus/Google_Analytics_Plus.php:32
+msgid "Google Analytics is a simple, easy-to-use tool that helps website owners measure how users interact with website content"
+msgstr "Google Analytics è un semplice strumento che aiuta il proprietario del sito a tenere traccia di come l'utente interagisce con il contenuto del sito"
+
+#: src/addons/controller/addons/jetpack/widget/Facebook_Jetpack_Widget.php:71
+msgid "Facebook widget."
+msgstr "Widget di Facebook"
+
+#: src/addons/controller/addons/add_to_any/Add_To_Any.php:86
+#: src/addons/controller/addons/embed_autocorrect/Embed_Autocorrect.php:443
+msgid "Blocks embedded videos from Youtube, Twitter, Vimeo and Facebook."
+msgstr "Blocca i video incorporati da Youtube, Twitter, Vimeo e Facebook."
+
+#: src/addons/controller/addons/wpforms/Wpforms.php:62
+msgid "Increases opt-in rate compared to WPForms \"GDPR mode\"."
+msgstr "Aumenta il tasso di partecipazione rispetto alla \"modalità GDPR\" di WPForms"
+
+#: src/addons/controller/addons/wpforms/Wpforms.php:61
+msgid "If the user gives correct consent, IP and Unique User ID will be saved on form submissions, otherwise not."
+msgstr "Se l'utente da il consenso corretto, l'IP e l'ID unico saranno salvati all'invio del modulo, altrimenti no."
+
+#: src/addons/config/Settings_Config.php:605
+msgid "The plugin is not activated."
+msgstr "Il plugin non è attivato."
+
+#: src/addons/config/Settings_Config.php:598
+msgid "The plugin is not installed."
+msgstr "Il plugin non è installato."
+
+#: src/view/admin/settings/prior-consent/jetpack-widgets/tab-header.php:7
+msgid "Jetpack settings"
+msgstr "Impostazioni di Jetpack"
+
+#: src/view/admin/settings/prior-consent/available-addons/tab.php:78
+#: src/view/admin/settings/prior-consent/jetpack-widgets/tab.php:71
+msgid "+ Add language"
+msgstr "+ Aggiungi lingua"
+
+#: src/addons/config/Settings_Config.php:126
+#: src/view/admin/settings/prior-consent/partials/placeholder-submitboxes.php:25
+msgid "Remove language"
+msgstr "Rimuovi lingua"
+
+#: src/view/admin/settings/prior-consent/partials/placeholder-submitbox-default.php:10
+#: src/view/admin/settings/prior-consent/partials/placeholder-submitboxes.php:19
+#: src/view/admin/widgets/cookiebot-declaration-widget-form.php:26
+msgid "Language"
+msgstr "Lingua"
+
+#: src/view/admin/settings/prior-consent/available-addons/tab.php:67
+#: src/view/admin/settings/prior-consent/jetpack-widgets/tab.php:53
+msgid "Display a placeholder"
+msgstr "Visualizza un segnaposto"
+
+#: src/view/admin/settings/gcm-page.php:102
+#: src/view/admin/settings/gtm-page.php:89
+#: src/view/admin/settings/prior-consent/available-addons/tab.php:28
+#: src/view/admin/settings/prior-consent/jetpack-widgets/tab.php:25
+msgid "Check one or multiple cookie types:"
+msgstr "Seleziona uno o più tipi di cookie:"
+
+#: src/view/admin/settings/prior-consent/jetpack-widgets/tab.php:15
+msgid "Enable"
+msgstr "Abilita"
+
+#: src/shortcode/Cookiebot_Declaration_Shortcode.php:53
+msgid "Please add your Cookiebot ID to show Cookie Declarations"
+msgstr "Aggiungi il tuo ID Cookiebot per mostrare le dichiarazioni sui cookie"
+
+#: src/view/admin/settings/support-page.php:202
+msgid "Update your script tags this way:"
+msgstr "Aggiorna i tuoi tag script in questo modo:"
+
+#: src/view/admin/settings/support-page.php:195
+msgid "You can update your scripts yourself. However, Cookiebot CMP also offers a small helper function that can make the work easier."
+msgstr "Puoi aggiornare i tuoi script da solo. Tuttavia, Cookiebot mette a disposizione anche una funzione helper che rende il lavoro più facile."
+
+#: src/view/admin/settings/support-page.php:191
+msgid "Helper function to update your scripts"
+msgstr "Funzione helper per aggiornare i tuoi script"
+
+#: src/view/admin/settings/support-page.php:151
+msgid "To enable prior consent, apply the attribute \"data-cookieconsent\" to cookie-setting script tags on your website. Set the comma-separated value to one or more of the cookie categories \"preferences\", \"statistics\" and/or \"marketing\" in accordance with the types of cookies being set by each script. Finally, change the attribute \"type\" from \"text/javascript\" to \"text/plain\"."
+msgstr "Per abilitare il consenso preventivo, applica l'attributo \"data-cookieconsent\" ai tag script che impostano cookie sul tuo sito. Imposta i valori, separati da virgola, a una o più delle categorie \"preferenze\", \"statistiche\" e \"marketing\", a seconda delle tipologie di cookie che vengono impostate da ogni script. Infine, cambia l'attributo \"type\" da \"text/javascript\" a \"text/plain\". Esempio su come si modifica un tag script di Google Analytics Universal preesistente."
+
+#: src/view/admin/settings/support-page.php:147
+msgid "Update your script tags"
+msgstr "Aggiorna i tuoi tag script"
+
+#: src/view/admin/settings/support-page.php:136
+#: src/view/admin/settings/support-page.php:180
+msgid "Watch video demonstration"
+msgstr "Guarda un video dimostrativo"
+
+#. translators: the placeholder strings denote the positions of <b> and </b>
+#. HTML tags
+#: src/view/admin/settings/support-page.php:115
+msgid "Use the shortcode %1$s[cookie_declaration]%2$s to add the cookie declaration to a page or post. The cookie declaration will always show the latest version from Cookiebot CMP."
+msgstr "Usa lo shortcode <b>[cookie_declaration]</b> per aggiungere la dichiarazione sui cookie a una pagina o a un articolo. La dichiarazione sui cookie mostrerà sempre l'ultima versione da Cookiebot."
+
+#: src/view/admin/settings/support-page.php:109
+msgid "Add the Cookie Declaration to your website"
+msgstr "Aggiungi la dichiarazione dei cookie al tuo sito web"
+
+#: src/view/admin/settings/support-page.php:102
+msgid "Remember to change your scripts as described below"
+msgstr "Ricorda di modificare i tuoi script come descritto di seguito"
+
+#. translators: the placeholder strings denote the positions of <b> and </b>
+#. HTML tags
+#: src/view/admin/settings/support-page.php:96
+msgid "Add %1$s[cookie_declaration]%2$s shortcode to a page to show the declaration"
+msgstr "Aggiungi lo shortcode <b>[cookie_declaration]</b> a una pagina per mostrare la dichiarazione."
+
+#: src/view/admin/settings/support-page.php:91
+msgid "Copy the value inside the data-cid parameter - eg.: abcdef12-3456-7890-abcd-ef1234567890"
+msgstr "Copia il valore del parametro data-cid - es.: abcdef12-3456-7890-abcd-ef1234567890"
+
+#: src/view/admin/settings/support-page.php:57
+msgid "How to find my Cookiebot™ ID"
+msgstr "Come trovare il mio ID Cookiebot"
+
+#: src/view/admin/settings/network-settings-page.php:152
+msgid "Add async or defer attribute to Cookie declaration script tag. Default: Choose per subsite"
+msgstr "Aggiungi l'attributo async o defer allo script tag di Cookiebot: Scegli per siti secondari"
+
+#: src/view/admin/settings/network-settings-page.php:105
+#: src/view/admin/settings/network-settings-page.php:149
+#: src/view/admin/settings/network-settings-page.php:221
+#: src/view/admin/settings/network-settings-page.php:249
+msgid "Setting will apply for all subsites. Subsites will not be able to override."
+msgstr "L’impostazione verrà applicata a tutti i siti secondari. I siti secondari non potranno eseguire l’override"
+
+#: src/view/admin/settings/network-settings-page.php:48
+msgid "If added this will be the default Cookiebot ID for all subsites. Subsites are able to override the Cookiebot ID."
+msgstr "Se aggiunto, questo sarà l’ID Cookiebot predefinito per tutti i siti secondari. I siti secondari sono in grado di ignorare l’ID Cookiebot."
+
+#: src/view/admin/settings/network-settings-page.php:219
+#: src/view/admin/settings/settings-page.php:296
+msgid "Hide cookie popup"
+msgstr "Nascondi il pop-up dei Cookie"
+
+#: src/view/admin/settings/settings-page.php:452
+msgid "Cookie declaration script tag:"
+msgstr "Tag script per la dichiarazione sui cookie"
+
+#: src/view/admin/settings/dashboard-page.php:112
+#: src/view/admin/settings/support-page.php:42
+msgid "Video guide"
+msgstr "Videoguida"
+
+#: src/view/admin/settings/settings-page.php:142
+msgid "Use WordPress Language"
+msgstr "Usa la lingua di WordPress"
+
+#: src/view/admin/settings/settings-page.php:138
+msgid "Default (Autodetect)"
+msgstr "Predefinita (rileva automaticamente)"
+
+#: src/lib/Supported_Languages.php:51
+msgid "Basque"
+msgstr "Basco"
+
+#: src/lib/Supported_Languages.php:50
+msgid "Finnish"
+msgstr "Finlandese"
+
+#: src/lib/Supported_Languages.php:49
+msgid "Serbian"
+msgstr "Serbo"
+
+#: src/lib/Supported_Languages.php:48
+msgid "Swedish"
+msgstr "Svedese"
+
+#: src/lib/Supported_Languages.php:47
+msgid "Spanish"
+msgstr "Spagnolo"
+
+#: src/lib/Supported_Languages.php:46
+msgid "Slovak"
+msgstr "Slovacco"
+
+#: src/lib/Supported_Languages.php:45
+msgid "Hindi"
+msgstr "Hindi"
+
+#: src/lib/Supported_Languages.php:44
+msgid "Japanese"
+msgstr "Giapponese"
+
+#: src/lib/Supported_Languages.php:43
+msgid "Russian"
+msgstr "Russo"
+
+#: src/lib/Supported_Languages.php:42
+msgid "Slovenian"
+msgstr "Sloveno"
+
+#: src/lib/Supported_Languages.php:41
+msgid "Malay"
+msgstr "Malese"
+
+#: src/lib/Supported_Languages.php:40
+msgid "Irish"
+msgstr "Irlandese"
+
+#: src/lib/Supported_Languages.php:39
+msgid "Portuguese"
+msgstr "Portoghese"
+
+#: src/lib/Supported_Languages.php:38
+msgid "Estonian"
+msgstr "Estone"
+
+#: src/lib/Supported_Languages.php:37
+msgid "Macedonian"
+msgstr "Macedone"
+
+#: src/lib/Supported_Languages.php:36
+msgid "Indonesian"
+msgstr "Indonesiano"
+
+#: src/lib/Supported_Languages.php:35
+msgid "French"
+msgstr "Francese"
+
+#: src/lib/Supported_Languages.php:34
+msgid "Latvian"
+msgstr "Lettone"
+
+#: src/lib/Supported_Languages.php:33
+msgid "Polish"
+msgstr "Polacco"
+
+#: src/lib/Supported_Languages.php:32
+msgid "Lithuanian"
+msgstr "Lituano"
+
+#: src/lib/Supported_Languages.php:31
+msgid "Greek"
+msgstr "Greco"
+
+#: src/lib/Supported_Languages.php:30
+msgid "Thai"
+msgstr "Tailandese"
+
+#: src/lib/Supported_Languages.php:29
+msgid "Croatian"
+msgstr "Croato"
+
+#: src/lib/Supported_Languages.php:28
+msgid "Arabic"
+msgstr "Arabo"
+
+#: src/lib/Supported_Languages.php:27
+msgid "English"
+msgstr "Inglese"
+
+#: src/lib/Supported_Languages.php:26
+msgid "Chinese"
+msgstr "Cinese"
+
+#: src/lib/Supported_Languages.php:25
+msgid "Ukrainian"
+msgstr "Ucraino"
+
+#: src/lib/Supported_Languages.php:24
+msgid "Bulgarian"
+msgstr "Bulgaro"
+
+#: src/lib/Supported_Languages.php:23
+msgid "Catalan"
+msgstr "Catalano"
+
+#: src/lib/Supported_Languages.php:22
+msgid "Sinhala"
+msgstr "Singalese"
+
+#: src/lib/Supported_Languages.php:21
+msgid "Romanian"
+msgstr "Rumeno"
+
+#: src/lib/Supported_Languages.php:20
+msgid "Icelandic"
+msgstr "Islandese"
+
+#: src/lib/Supported_Languages.php:19
+msgid "Tamil"
+msgstr "Tamil"
+
+#: src/lib/Supported_Languages.php:18
+msgid "Vietnamese"
+msgstr "Vietnamita"
+
+#: src/lib/Supported_Languages.php:17
+msgid "Dutch"
+msgstr "Olandese"
+
+#: src/lib/Supported_Languages.php:16
+msgid "Italian"
+msgstr "Italiano"
+
+#: src/lib/Supported_Languages.php:15
+msgid "Korean"
+msgstr "Coreano"
+
+#: src/lib/Supported_Languages.php:14
+msgid "Hebrew"
+msgstr "Ebraico"
+
+#: src/lib/Supported_Languages.php:13
+msgid "Albanian"
+msgstr "Albanese"
+
+#: src/lib/Supported_Languages.php:12
+msgid "Danish"
+msgstr "Danese"
+
+#: src/lib/Supported_Languages.php:11
+msgid "Czech"
+msgstr "Ceco"
+
+#: src/lib/Supported_Languages.php:10
+msgid "German"
+msgstr "Tedesco"
+
+#: src/lib/Supported_Languages.php:9
+msgid "Turkish"
+msgstr "Turco"
+
+#: src/lib/Supported_Languages.php:8
+msgid "Norwegian Bokmål"
+msgstr "Norvegese"
+
+#: src/settings/pages/Iab_Page.php:19 src/settings/pages/Iab_Page.php:20
+msgid "IAB"
+msgstr "IAB"
+
+#: src/settings/Network_Menu_Settings.php:52
+#: src/settings/pages/Support_Page.php:18
+#: src/view/admin/settings/support-page.php:18
+#: src/view/admin/templates/main-tabs.php:48
+msgid "Support"
+msgstr "Assistenza"
+
+#: src/settings/Network_Menu_Settings.php:51
+#: src/settings/pages/Support_Page.php:17
+msgid "Cookiebot Support"
+msgstr "Supporto Cookiebot"
+
+#: src/settings/Network_Menu_Settings.php:44
+#: src/settings/pages/Settings_Page.php:23
+#: src/view/admin/settings/settings-page.php:45
+#: src/view/admin/templates/main-tabs.php:30
+msgid "Settings"
+msgstr "Impostazioni"
+
+#: src/settings/Network_Menu_Settings.php:43
+#: src/settings/pages/Settings_Page.php:22
+msgid "Cookiebot Settings"
+msgstr "Impostazioni Cookiebot "
+
+#: src/settings/Network_Menu_Settings.php:35
+#: src/settings/pages/Dashboard_Page.php:20
+msgid "Cookiebot"
+msgstr "Cookiebot"
+
+#: src/widgets/Dashboard_Widget_Cookiebot_Status.php:44
+msgid "Your Cookiebot is working!"
+msgstr "Il tuo  Cookiebot è in funzione!"
+
+#: src/widgets/Dashboard_Widget_Cookiebot_Status.php:41
+msgid "Update your Cookiebot ID"
+msgstr "Aggiorna il tuo ID Cookiebot"
+
+#: src/widgets/Dashboard_Widget_Cookiebot_Status.php:39
+msgid "You need to enter your Cookiebot ID."
+msgstr "Devi inserire il tuo ID Cookiebot."
+
+#: src/widgets/Dashboard_Widget_Cookiebot_Status.php:23
+msgid "Cookiebot Status"
+msgstr "Stato di Cookiebot"
+
+#. Plugin URI of the plugin
+#. Author URI of the plugin
+#: cookiebot.php
+msgid "https://www.cookiebot.com/"
+msgstr "https://cookiebot.com/"

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "telex/block-google-search-integration",
+  "version": "0.1.0",
+  "title": "Google Search Integration",
+  "category": "widgets",
+  "icon": "search",
+  "description": "Integra la ricerca Google con layout personalizzato e controllo dei link esterni",
+  "example": {},
+  "supports": {
+    "html": false,
+    "align": [
+      "wide",
+      "full"
+    ],
+    "spacing": {
+      "margin": true,
+      "padding": true
+    },
+    "color": {
+      "text": true,
+      "background": true
+    }
+  },
+  "attributes": {
+    "searchPlaceholder": {
+      "type": "string",
+      "default": "Cerca su Google..."
+    },
+    "buttonText": {
+      "type": "string",
+      "default": "Cerca"
+    },
+    "externalLinkText": {
+      "type": "string",
+      "default": "Visita sito"
+    },
+    "resultsPerPage": {
+      "type": "number",
+      "default": 10
+    }
+  },
+  "textdomain": "google-search-integration-block-wp",
+  "editorScript": "file:./index.js",
+  "editorStyle": "file:./index.css",
+  "style": "file:./style-index.css",
+  "viewScript": "file:./view.js",
+  "render": "file:./render.php"
+}

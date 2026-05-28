@@ -1,0 +1,42 @@
+# Application
+web/app/plugins/*
+!web/app/plugins/.gitkeep
+!web/app/plugins/booked/
+!web/app/plugins/elementor-pro/
+!web/app/plugins/woo-checkout-field-editor-pro/
+!web/app/plugins/google-search-integration/
+# Ignore Composer-installed mu-plugin directories; single-file mu-plugins are tracked intentionally
+web/app/mu-plugins/*/
+web/app/themes/twentytwentyfive/
+web/app/upgrade
+web/app/upgrade-temp-backup
+web/app/uploads/*
+!web/app/uploads/.gitkeep
+web/app/cache/*
+
+# WordPress
+web/wp
+web/.htaccess
+
+# Database backups
+*.sql
+
+# Logs
+*.log
+
+# Dotenv
+.env
+.env.*
+!.env.example
+
+# Composer
+/vendor
+auth.json
+
+# PHPUnit/Pest
+phpunit.xml
+.phpunit.result.cache
+.phpunit.cache
+
+# WP-CLI
+wp-cli.local.yml

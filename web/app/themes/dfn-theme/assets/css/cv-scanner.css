@@ -1,0 +1,20 @@
+/*
+Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+Click nbfs://nbhost/SystemFileSystem/Templates/Other/CascadeStyleSheet.css to edit this template
+*/
+/* 
+    Created on : 20 apr 2026, 20:54:28
+    Author     : Alex
+*/
+
+/* ==========================================================================
+   STILI SCANNER LIVE E PWA
+   ========================================================================== */
+#wpcontent { padding-left: 0; } 
+.cv-scanner-wrapper { position: relative; width: 100%; height: calc(100vh - 100px); display: flex; flex-direction: column; background: #111; overflow: hidden; margin-top: 10px; }
+.cv-header { padding: 15px; background: #fff; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
+.cv-header h1 { margin: 0; font-size: 20px; font-weight: bold; }
+#reader { flex-grow: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
+#btn-start { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20; font-size: 20px; padding: 15px 30px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+#scan-result { position: fixed; bottom: 0; left: 0; width: 100%; padding: 30px 20px 40px 20px; box-sizing: border-box; border-radius: 20px 20px 0 0; box-shadow: 0 -10px 25px rgba(0,0,0,0.4); font-size: 18px; text-align: center; z-index: 99999; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+#scan-result.show { transform: translateY(0); }

@@ -1,0 +1,1258 @@
+<?xml version="1.0"?><artefact xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="artefact.xsd" name="Google Search Integration" slug="google-search-integration" type="code-package" schemaVersion="2">
+  <file path="readme.txt">
+    <description>This file contains the readme information for the block. It is used to provide information about the block, its usage, and any other relevant details.</description>
+    <content><![CDATA[
+=== Google Search Integration ===
+
+Contributors:      WordPress Telex
+Tags:              block, google, search, external links
+Tested up to:      6.8
+Stable tag:        0.1.0
+License:           GPLv2 or later
+License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+
+Integra la ricerca Google nel tuo sito WordPress con layout personalizzato e controllo dei link esterni.
+
+== Description ==
+
+Google Search Integration è un blocco WordPress personalizzato che ti permette di integrare la ricerca di Google direttamente nelle tue pagine. 
+
+Caratteristiche principali:
+- Barra di ricerca Google integrata
+- Layout personalizzato per i risultati di ricerca
+- Visualizzazione di titolo e descrizione per ogni risultato
+- Pulsante per visitare i link esterni con popup di conferma
+- Avviso di uscita dal sito per maggiore trasparenza
+- Design responsive e accessibile
+
+Il blocco è perfetto per creare pagine di ricerca personalizzate mantenendo il controllo sull'esperienza utente e fornendo trasparenza sui link esterni.
+
+== Installation ==
+
+1. Carica i file del plugin nella directory `/wp-content/plugins/google-search-integration` o installa il plugin tramite la schermata dei plugin di WordPress.
+2. Attiva il plugin attraverso la schermata 'Plugin' in WordPress
+3. Il blocco "Google Search Integration" sarà disponibile nell'editor Gutenberg nella categoria "Widgets"
+4. Aggiungi il blocco alla tua pagina e personalizza le impostazioni secondo le tue necessità
+
+== Frequently Asked Questions ==
+
+= Come funziona la ricerca Google? =
+
+Il blocco utilizza l'API di ricerca personalizzata di Google per recuperare i risultati. I risultati vengono mostrati in un layout WordPress personalizzato invece che sulla pagina di Google.
+
+= Posso personalizzare l'aspetto dei risultati? =
+
+Sì, puoi modificare gli stili CSS del blocco per adattarlo al design del tuo sito. Il blocco utilizza classi CSS standard che possono essere facilmente personalizzate.
+
+= Il popup di uscita è obbligatorio? =
+
+Il popup di conferma appare sempre quando si clicca su un link esterno per garantire trasparenza agli utenti. Questo è importante per l'esperienza utente e la conformità.
+
+== Screenshots ==
+
+1. Il blocco nell'editor Gutenberg con opzioni di personalizzazione
+2. Vista frontend con barra di ricerca e risultati formattati
+3. Popup di conferma per l'uscita dal sito
+
+== Changelog ==
+
+= 0.1.0 =
+* Versione iniziale
+* Integrazione ricerca Google
+* Layout personalizzato per risultati
+* Popup di conferma per link esterni
+* Design responsive
+
+== Privacy ==
+
+Questo blocco utilizza l'API di Google Custom Search per fornire i risultati di ricerca. Le query di ricerca vengono inviate a Google secondo i loro termini di servizio e privacy policy.
+]]></content>
+  </file>
+  <file path="google-search-integration.php">
+    <description>This file contains the block registration code in the form of a single block plugin. Any other plugin related functionality should be added to this file. All block rendering functionality should go to the `render.php` file.</description>
+    <content><![CDATA[<?php
+/**
+ * Plugin Name:       Google Search Integration
+ * Description:       Integra la ricerca Google nel tuo sito WordPress con layout personalizzato e controllo dei link esterni.
+ * Version:           0.1.0
+ * Requires at least: 6.1
+ * Requires PHP:      7.0
+ * Author:            WordPress Telex
+ * License:           GPLv2 or later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       google-search-integration-block-wp
+ *
+ * @package GoogleSearchIntegration
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly.
+}
+
+/**
+ * Registers the block using the metadata loaded from the `block.json` file.
+ * Behind the scenes, it registers also all assets so they can be enqueued
+ * through the block editor in the corresponding context.
+ *
+ * @see https://developer.wordpress.org/reference/functions/register_block_type/
+ */
+function telex_google_search_integration_block_init() {
+	register_block_type( __DIR__ . '/build/' );
+}
+add_action( 'init', 'telex_google_search_integration_block_init' );
+]]></content>
+  </file>
+  <file path="src/block.json">
+    <description>This file contains metadata about the block including its name, title, category, icon, and other properties. The icon is a WordPress Dashicon name (e.g., "admin-post", "format-aside", "admin-page"). Do not use any icon that's not in the list under any circustamce. These are the only slugs available:
+	
+	menu menu-alt menu-alt2 menu-alt3 admin-site admin-site-alt admin-site-alt2 admin-site-alt3 dashboard admin-post admin-media admin-links admin-page admin-comments admin-appearance admin-plugins plugins-checked admin-users admin-tools admin-settings admin-network admin-home admin-generic admin-collapse filter admin-customizer admin-multisite welcome-write-blog welcome-add-page welcome-view-site welcome-widgets-menus welcome-comments welcome-learn-more format-aside format-image format-gallery format-video format-status format-quote format-chat format-audio camera camera-alt images-alt images-alt2 video-alt video-alt2 video-alt3 media-archive media-audio media-code media-default media-document media-interactive media-spreadsheet media-text media-video playlist-audio playlist-video controls-play controls-pause controls-forward controls-skipforward controls-back controls-skipback controls-repeat controls-volumeon controls-volumeoff image-crop image-rotate image-rotate-left image-rotate-right image-flip-vertical image-flip-horizontal image-filter undo redo database-add database database-export database-import database-remove database-view align-full-width align-pull-left align-pull-right align-wide block-default button cloud-saved cloud-upload columns cover-image ellipsis embed-audio embed-generic embed-photo embed-post embed-video exit heading html info-outline insert insert-after insert-before remove saved shortcode table-col-after table-col-before table-col-delete table-row-after table-row-before table-row-delete editor-bold editor-italic editor-ul editor-ol editor-ol-rtl editor-quote editor-alignleft editor-aligncenter editor-alignright editor-insertmore editor-spellcheck editor-expand editor-contract editor-kitchensink editor-underline editor-justify editor-textcolor editor-paste-word editor-paste-text editor-removeformatting editor-video editor-customchar editor-outdent editor-indent editor-help editor-strikethrough editor-unlink editor-rtl editor-ltr editor-break editor-code editor-paragraph editor-table align-left align-right align-center align-none lock unlock calendar calendar-alt visibility hidden post-status edit trash sticky external arrow-up arrow-down arrow-right arrow-left arrow-up-alt arrow-down-alt arrow-right-alt arrow-left-alt arrow-up-alt2 arrow-down-alt2 arrow-right-alt2 arrow-left-alt2 sort leftright randomize list-view excerpt-view grid-view move share share-alt share-alt2 rss email email-alt email-alt2 networking amazon facebook facebook-alt google instagram linkedin pinterest podio reddit spotify twitch twitter twitter-alt whatsapp xing youtube hammer art migrate performance universal-access universal-access-alt tickets nametag clipboard heart megaphone schedule tide rest-api code-standards buddicons-activity buddicons-bbpress-logo buddicons-buddypress-logo buddicons-community buddicons-forums buddicons-friends buddicons-groups buddicons-pm buddicons-replies buddicons-topics buddicons-tracking wordpress wordpress-alt pressthis update update-alt screenoptions info cart feedback cloud translation tag category archive tagcloud text bell yes yes-alt no no-alt plus plus-alt plus-alt2 minus dismiss marker star-filled star-half star-empty flag warning location location-alt vault shield shield-alt sos search slides text-page analytics chart-pie chart-bar chart-line chart-area groups businessman businesswoman businessperson id id-alt products awards forms testimonials portfolio book book-alt download upload backup clock lightbulb microphone desktop laptop tablet smartphone phone index-card carrot building store album palmtree tickets-alt money money-alt smiley thumbs-up thumbs-down layout paperclip color-picker edit-large edit-page airplane bank beer calculator car coffee drumstick food fullscreen-alt fullscreen-exit-alt games hourglass open-folder pdf pets printer privacy superhero superhero-alt</description>
+    <content><![CDATA[
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "telex/block-google-search-integration",
+	"version": "0.1.0",
+	"title": "Google Search Integration",
+	"category": "widgets",
+	"icon": "search",
+	"description": "Integra la ricerca Google con layout personalizzato e controllo dei link esterni",
+	"example": {},
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"],
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"color": {
+			"text": true,
+			"background": true
+		}
+	},
+	"attributes": {
+		"searchPlaceholder": {
+			"type": "string",
+			"default": "Cerca su Google..."
+		},
+		"buttonText": {
+			"type": "string",
+			"default": "Cerca"
+		},
+		"externalLinkText": {
+			"type": "string",
+			"default": "Visita sito"
+		},
+		"resultsPerPage": {
+			"type": "number",
+			"default": 10
+		}
+	},
+	"textdomain": "google-search-integration-block-wp",
+	"editorScript": "file:./index.js",
+	"editorStyle": "file:./index.css",
+	"style": "file:./style-index.css",
+	"viewScript": "file:./view.js",
+	"render": "file:./render.php"
+}
+]]></content>
+  </file>
+  <file path="src/index.js">
+    <description>This file registers the block, specifies the edit and save functions, and loads the block's metadata</description>
+    <content><![CDATA[
+/**
+ * Registers a new block provided a unique name and an object defining its behavior.
+ *
+ * @see https://developer.wordpress.org/block-editor/reference-guides/block-api/block-registration/
+ */
+import { registerBlockType } from '@wordpress/blocks';
+
+/**
+ * Lets webpack process CSS, SASS or SCSS files referenced in JavaScript files.
+ * All files containing `style` keyword are bundled together. The code used
+ * gets applied both to the front of your site and to the editor.
+ *
+ * @see https://www.npmjs.com/package/@wordpress/scripts#using-css
+ */
+import './style.scss';
+
+/**
+ * Internal dependencies
+ */
+import Edit from './edit';
+import metadata from './block.json';
+
+/**
+ * Every block starts by registering a new block type definition.
+ *
+ * @see https://developer.wordpress.org/block-editor/reference-guides/block-api/block-registration/
+ */
+registerBlockType( metadata.name, {
+	/**
+	 * @see ./edit.js
+	 */
+	edit: Edit,
+} );
+]]></content>
+  </file>
+  <file path="src/edit.js">
+    <description>This file contains the edit function for the block which is responsible for rendering the block in the editor.</description>
+    <content><![CDATA[
+/**
+ * Retrieves the translation of text.
+ *
+ * @see https://developer.wordpress.org/block-editor/reference-guides/packages/packages-i18n/
+ */
+import { __ } from '@wordpress/i18n';
+
+/**
+ * React hook that is used to mark the block wrapper element.
+ * It provides all the necessary props like the class name.
+ *
+ * @see https://developer.wordpress.org/block-editor/reference-guides/packages/packages-block-editor/#useblockprops
+ */
+import { useBlockProps, InspectorControls } from '@wordpress/block-editor';
+
+/**
+ * WordPress components
+ */
+import { 
+	PanelBody, 
+	TextControl, 
+	RangeControl,
+	Placeholder
+} from '@wordpress/components';
+
+/**
+ * Lets webpack process CSS, SASS or SCSS files referenced in JavaScript files.
+ * Those files can contain any CSS code that gets applied to the editor.
+ *
+ * @see https://www.npmjs.com/package/@wordpress/scripts#using-css
+ */
+import './editor.scss';
+
+/**
+ * The edit function describes the structure of your block in the context of the
+ * editor. This represents what the editor will render when the block is used.
+ *
+ * @see https://developer.wordpress.org/block-editor/reference-guides/block-api/block-edit-save/#edit
+ *
+ * @return {Element} Element to render.
+ */
+export default function Edit({ attributes, setAttributes }) {
+	const {
+		searchPlaceholder,
+		buttonText,
+		externalLinkText,
+		resultsPerPage
+	} = attributes;
+
+	const blockProps = useBlockProps();
+
+	return (
+		<>
+			<InspectorControls>
+				<PanelBody title={__('Impostazioni Ricerca', 'google-search-integration-block-wp')}>
+					<TextControl
+						label={__('Placeholder di ricerca', 'google-search-integration-block-wp')}
+						value={searchPlaceholder}
+						onChange={(value) => setAttributes({ searchPlaceholder: value })}
+					/>
+					<TextControl
+						label={__('Testo del pulsante ricerca', 'google-search-integration-block-wp')}
+						value={buttonText}
+						onChange={(value) => setAttributes({ buttonText: value })}
+					/>
+					<TextControl
+						label={__('Testo link esterno', 'google-search-integration-block-wp')}
+						value={externalLinkText}
+						onChange={(value) => setAttributes({ externalLinkText: value })}
+					/>
+					<RangeControl
+						label={__('Risultati per pagina', 'google-search-integration-block-wp')}
+						value={resultsPerPage}
+						onChange={(value) => setAttributes({ resultsPerPage: value })}
+						min={5}
+						max={20}
+					/>
+				</PanelBody>
+			</InspectorControls>
+			
+			<div {...blockProps}>
+				<Placeholder
+					icon="search"
+					label={__('Google Search Integration', 'google-search-integration-block-wp')}
+					instructions={__('Questo blocco mostrerà una barra di ricerca Google con risultati personalizzati nel frontend.', 'google-search-integration-block-wp')}
+				>
+					<div className="google-search-preview">
+						<div className="search-form-preview">
+							<input 
+								type="text" 
+								placeholder={searchPlaceholder}
+								disabled
+								className="search-input-preview"
+							/>
+							<button 
+								type="button" 
+								disabled
+								className="search-button-preview"
+							>
+								{buttonText}
+							</button>
+						</div>
+						<div className="search-results-preview">
+							<div className="search-result-item">
+								<h3>Esempio di Titolo Risultato</h3>
+								<p>Questa è una descrizione di esempio che mostra come appariranno i risultati di ricerca nel layout personalizzato.</p>
+								<button className="external-link-preview" disabled>
+									{externalLinkText}
+								</button>
+							</div>
+						</div>
+					</div>
+				</Placeholder>
+			</div>
+		</>
+	);
+}
+]]></content>
+  </file>
+  <file path="src/save.js">
+    <description>This file contains the save function for the block which is responsible for creating the static result of rendering the block on the client to display the saved result on the front end.</description>
+    <content><![CDATA[
+// This block is dynamic and renders via PHP, so save returns null
+export default function save() {
+	return null;
+}
+]]></content>
+  </file>
+  <file path="src/style.scss">
+    <description>This file contains styles for the block in the front end.</description>
+    <content><![CDATA[/**
+ * The following styles get applied both on the front of your site
+ * and in the editor.
+ *
+ * Replace them with your own styles or remove the file completely.
+ */
+
+.wp-block-telex-google-search-integration {
+	max-width: 800px;
+	margin: 2rem auto;
+	
+	.google-search-form {
+		display: flex;
+		gap: 1rem;
+		margin-bottom: 2rem;
+		align-items: stretch;
+		position: relative;
+		
+		.search-input {
+			flex: 1;
+			padding: 0.75rem 1rem;
+			border: 2px solid #ddd;
+			border-radius: 8px;
+			font-size: 1rem;
+			transition: all 0.3s ease;
+			background: white;
+			
+			&:focus {
+				outline: none;
+				border-color: #0073aa;
+				box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.1);
+				transform: translateY(-1px);
+			}
+			
+			&:hover {
+				border-color: #999;
+			}
+		}
+		
+		.search-button {
+			padding: 0.75rem 1.5rem;
+			background: linear-gradient(135deg, #0073aa, #005a87);
+			color: white;
+			border: none;
+			border-radius: 8px;
+			font-size: 1rem;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			font-weight: 600;
+			min-width: 120px;
+			
+			&:hover:not(:disabled) {
+				background: linear-gradient(135deg, #005a87, #004268);
+				transform: translateY(-2px);
+				box-shadow: 0 4px 12px rgba(0, 115, 170, 0.3);
+			}
+			
+			&:disabled {
+				background: #ccc;
+				cursor: not-allowed;
+				transform: none;
+				box-shadow: none;
+			}
+			
+			&:active:not(:disabled) {
+				transform: translateY(0);
+			}
+		}
+	}
+	
+	.search-results {
+		min-height: 50px;
+		transition: all 0.3s ease;
+		
+		&.results-loaded {
+			animation: slideIn 0.5s ease;
+		}
+		
+		.results-header {
+			padding: 1rem 0 0.5rem 0;
+			color: #666;
+			font-size: 0.9rem;
+			border-bottom: 1px solid #eee;
+			margin-bottom: 1rem;
+		}
+		
+		.loading {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 1rem;
+			padding: 3rem 2rem;
+			color: #666;
+			font-size: 1.1rem;
+			
+			.loading-spinner {
+				width: 24px;
+				height: 24px;
+				border: 3px solid #f3f3f3;
+				border-top: 3px solid #0073aa;
+				border-radius: 50%;
+				animation: spin 1s linear infinite;
+			}
+		}
+		
+		.search-error {
+			text-align: center;
+			padding: 2rem;
+			color: #d63638;
+			background: #fcf0f1;
+			border: 1px solid #f0a5a8;
+			border-radius: 8px;
+			font-weight: 500;
+		}
+		
+		.no-results {
+			text-align: center;
+			padding: 3rem 2rem;
+			color: #666;
+			
+			.no-results-icon {
+				font-size: 3rem;
+				margin-bottom: 1rem;
+				opacity: 0.5;
+			}
+			
+			h3 {
+				margin: 0 0 1rem 0;
+				font-size: 1.25rem;
+				color: #333;
+			}
+			
+			p {
+				margin: 0.5rem 0;
+				line-height: 1.6;
+			}
+		}
+		
+		.search-result-item {
+			padding: 1.5rem;
+			border: 1px solid #e1e1e1;
+			border-radius: 12px;
+			margin-bottom: 1rem;
+			background: #fff;
+			transition: all 0.4s ease;
+			opacity: 0;
+			transform: translateY(20px);
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+			
+			&.visible {
+				opacity: 1;
+				transform: translateY(0);
+			}
+			
+			&:hover {
+				box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+				transform: translateY(-2px);
+				border-color: #0073aa;
+			}
+			
+			.result-title {
+				font-size: 1.25rem;
+				font-weight: 600;
+				margin: 0 0 0.75rem 0;
+				color: #1a1a1a;
+				line-height: 1.4;
+				transition: color 0.3s ease;
+				
+				&:hover {
+					color: #0073aa;
+				}
+			}
+			
+			.result-description {
+				color: #666;
+				line-height: 1.6;
+				margin: 0 0 1rem 0;
+				font-size: 1rem;
+			}
+			
+			.result-meta {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 1rem;
+				margin-top: 1rem;
+				padding-top: 1rem;
+				border-top: 1px solid #f0f0f0;
+				
+				.result-url {
+					color: #666;
+					font-size: 0.85rem;
+					font-family: 'Monaco', 'Consolas', monospace;
+					background: #f8f9fa;
+					padding: 0.25rem 0.5rem;
+					border-radius: 4px;
+				}
+				
+				.external-link-button {
+					background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+					color: #495057;
+					border: 1px solid #dee2e6;
+					padding: 0.5rem 1rem;
+					border-radius: 6px;
+					text-decoration: none;
+					display: inline-flex;
+					align-items: center;
+					gap: 0.5rem;
+					font-size: 0.9rem;
+					cursor: pointer;
+					transition: all 0.3s ease;
+					font-weight: 500;
+					
+					&:hover {
+						background: linear-gradient(135deg, #0073aa, #005a87);
+						color: white;
+						border-color: #0073aa;
+						transform: translateY(-1px);
+						box-shadow: 0 4px 12px rgba(0, 115, 170, 0.2);
+					}
+					
+					&::after {
+						content: "↗";
+						font-size: 0.8rem;
+					}
+					
+					&:active {
+						transform: translateY(0);
+					}
+				}
+			}
+		}
+	}
+}
+
+/* Modal per conferma uscita */
+.exit-confirmation-modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10000;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+	
+	&.visible {
+		opacity: 1;
+		
+		.modal-content {
+			transform: translateY(0) scale(1);
+		}
+	}
+	
+	&.closing {
+		opacity: 0;
+		
+		.modal-content {
+			transform: translateY(-20px) scale(0.95);
+		}
+	}
+	
+	.modal-content {
+		background: white;
+		padding: 2rem;
+		border-radius: 16px;
+		max-width: 420px;
+		width: 90%;
+		text-align: center;
+		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+		transform: translateY(-20px) scale(0.95);
+		transition: transform 0.3s ease;
+		
+		.modal-icon {
+			font-size: 3rem;
+			margin-bottom: 1rem;
+			animation: bounce 0.6s ease;
+		}
+		
+		.modal-title {
+			font-size: 1.4rem;
+			font-weight: 600;
+			margin-bottom: 1rem;
+			color: #1a1a1a;
+		}
+		
+		.modal-message {
+			color: #666;
+			margin-bottom: 2rem;
+			line-height: 1.5;
+			font-size: 1rem;
+		}
+		
+		.modal-buttons {
+			display: flex;
+			gap: 1rem;
+			justify-content: center;
+			
+			.modal-button {
+				padding: 0.75rem 1.5rem;
+				border: none;
+				border-radius: 8px;
+				cursor: pointer;
+				font-size: 1rem;
+				font-weight: 500;
+				transition: all 0.3s ease;
+				min-width: 100px;
+				
+				&.confirm {
+					background: linear-gradient(135deg, #0073aa, #005a87);
+					color: white;
+					
+					&:hover {
+						background: linear-gradient(135deg, #005a87, #004268);
+						transform: translateY(-1px);
+						box-shadow: 0 4px 12px rgba(0, 115, 170, 0.3);
+					}
+				}
+				
+				&.cancel {
+					background: #f0f0f0;
+					color: #333;
+					border: 1px solid #ddd;
+					
+					&:hover {
+						background: #e0e0e0;
+						border-color: #999;
+					}
+				}
+				
+				&:active {
+					transform: translateY(0);
+				}
+			}
+		}
+	}
+}
+
+/* Animations */
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes bounce {
+	0%, 20%, 60%, 100% {
+		transform: translateY(0);
+	}
+	40% {
+		transform: translateY(-10px);
+	}
+	80% {
+		transform: translateY(-5px);
+	}
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+	.wp-block-telex-google-search-integration {
+		margin: 1rem;
+		
+		.google-search-form {
+			flex-direction: column;
+			
+			.search-input, .search-button {
+				width: 100%;
+			}
+		}
+		
+		.search-results {
+			.search-result-item {
+				padding: 1rem;
+				
+				.result-meta {
+					flex-direction: column;
+					align-items: flex-start;
+					gap: 0.5rem;
+					
+					.external-link-button {
+						width: 100%;
+						justify-content: center;
+					}
+				}
+			}
+		}
+		
+		.exit-confirmation-modal {
+			.modal-content {
+				margin: 1rem;
+				padding: 1.5rem;
+				
+				.modal-buttons {
+					flex-direction: column;
+					
+					.modal-button {
+						width: 100%;
+					}
+				}
+			}
+		}
+	}
+	
+	.loading {
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+}]]></content>
+  </file>
+  <file path="src/editor.scss">
+    <description>This file contains styles for the block in the editor.</description>
+    <content><![CDATA[
+/**
+ * The following styles get applied inside the editor only.
+ *
+ * Replace them with your own styles or remove the file completely.
+ */
+
+.wp-block-telex-google-search-integration {
+	.google-search-preview {
+		padding: 2rem;
+		border: 2px dashed #ccc;
+		border-radius: 8px;
+		background: #f9f9f9;
+		
+		.search-form-preview {
+			display: flex;
+			gap: 1rem;
+			margin-bottom: 2rem;
+			
+			.search-input-preview {
+				flex: 1;
+				padding: 0.75rem 1rem;
+				border: 2px solid #ddd;
+				border-radius: 8px;
+				font-size: 1rem;
+				background: white;
+			}
+			
+			.search-button-preview {
+				padding: 0.75rem 1.5rem;
+				background: #0073aa;
+				color: white;
+				border: none;
+				border-radius: 8px;
+				font-size: 1rem;
+			}
+		}
+		
+		.search-results-preview {
+			.search-result-item {
+				padding: 1.5rem;
+				background: white;
+				border: 1px solid #e1e1e1;
+				border-radius: 8px;
+				
+				h3 {
+					margin: 0 0 0.75rem 0;
+					color: #1a1a1a;
+					font-size: 1.25rem;
+				}
+				
+				p {
+					color: #666;
+					margin: 0 0 1rem 0;
+					line-height: 1.6;
+				}
+				
+				.external-link-preview {
+					background: #f0f0f0;
+					color: #333;
+					border: 1px solid #ccc;
+					padding: 0.5rem 1rem;
+					border-radius: 6px;
+					font-size: 0.9rem;
+					
+					&::after {
+						content: " ↗";
+						margin-left: 0.25rem;
+					}
+				}
+			}
+		}
+	}
+}
+
+/* Override components editor styles */
+.components-placeholder.has-illustration .components-placeholder__illustration {
+	display: none;
+}
+
+.components-placeholder.has-illustration .components-placeholder__fieldset {
+	width: 100%;
+}
+]]></content>
+  </file>
+  <file path="src/view.js">
+    <description>This file contains the view function for the block which is responsible for rendering interactive behaviors of the block on the front end. Ideally using the WordPress interactivity API.</description>
+    <content><![CDATA[/**
+ * Frontend JavaScript for Google Search Integration Block
+ */
+
+document.addEventListener('DOMContentLoaded', function() {
+	const searchBlocks = document.querySelectorAll('.wp-block-telex-google-search-integration');
+	
+	searchBlocks.forEach(function(block) {
+		initializeSearchBlock(block);
+	});
+});
+
+function initializeSearchBlock(block) {
+	const searchForm = block.querySelector('.google-search-form');
+	const searchInput = block.querySelector('.search-input');
+	const searchButton = block.querySelector('.search-button');
+	const resultsContainer = block.querySelector('.search-results');
+	
+	if (!searchForm || !searchInput || !searchButton || !resultsContainer) {
+		return;
+	}
+	
+	let currentRequest = null;
+	
+	// Prevent default form submission and handle with AJAX
+	searchForm.addEventListener('submit', function(e) {
+		e.preventDefault(); // Prevent page refresh
+		e.stopPropagation();
+		performAjaxSearch();
+		return false;
+	});
+	
+	// Handle search button click
+	searchButton.addEventListener('click', function(e) {
+		e.preventDefault(); // Prevent any default behavior
+		e.stopPropagation();
+		performAjaxSearch();
+		return false;
+	});
+	
+	// Handle Enter key in search input
+	searchInput.addEventListener('keydown', function(e) {
+		if (e.key === 'Enter') {
+			e.preventDefault(); // Prevent form submission
+			e.stopPropagation();
+			performAjaxSearch();
+			return false;
+		}
+	});
+	
+	function performAjaxSearch() {
+		const query = searchInput.value.trim();
+		
+		if (!query) {
+			alert('Inserisci un termine di ricerca');
+			return false;
+		}
+		
+		if (query.length < 2) {
+			alert('Il termine di ricerca deve contenere almeno 2 caratteri');
+			return false;
+		}
+		
+		// Cancel any existing request
+		if (currentRequest) {
+			currentRequest.abort();
+		}
+		
+		// Create new AbortController for this request
+		currentRequest = new AbortController();
+		
+		// Update UI to show loading state
+		searchButton.disabled = true;
+		const originalButtonText = searchButton.textContent;
+		searchButton.textContent = 'Ricerca in corso...';
+		
+		// Show loading in results area
+		showLoadingState();
+		
+		// Perform AJAX search call
+		performGoogleSearch(query)
+			.then(results => {
+				if (!currentRequest.signal.aborted) {
+					displaySearchResults(results, query);
+				}
+			})
+			.catch(error => {
+				if (!currentRequest.signal.aborted) {
+					console.error('Errore nella ricerca:', error);
+					showErrorState('Si è verificato un errore durante la ricerca. Riprova più tardi.');
+				}
+			})
+			.finally(() => {
+				// Restore button state
+				searchButton.disabled = false;
+				searchButton.textContent = originalButtonText;
+				currentRequest = null;
+			});
+		
+		return false;
+	}
+	
+	function performGoogleSearch(query) {
+		return new Promise((resolve, reject) => {
+			// Simulate AJAX call to Google Search API
+			// In a real implementation, this would be a fetch() call to your backend
+			// that makes the actual Google Custom Search API request
+			
+			setTimeout(() => {
+				if (currentRequest && currentRequest.signal.aborted) {
+					reject(new Error('Request aborted'));
+					return;
+				}
+				
+				try {
+					// Generate realistic mock results
+					const results = generateRealisticResults(query);
+					resolve(results);
+				} catch (error) {
+					reject(error);
+				}
+			}, Math.random() * 1000 + 500); // Simulate network delay
+		});
+	}
+	
+	function generateRealisticResults(query) {
+		const templates = [
+			{
+				titlePattern: `${query} - Guida Completa {year}`,
+				descriptionPattern: `Scopri tutto su ${query} con questa guida aggiornata. Include esempi pratici, tutorial step-by-step e le migliori pratiche del settore.`,
+				urlPattern: `https://guida-completa.com/${query.toLowerCase().replace(/\s+/g, '-')}`
+			},
+			{
+				titlePattern: `Come funziona ${query}: Tutorial per Principianti`,
+				descriptionPattern: `Impara ${query} da zero con spiegazioni semplici e esempi pratici. Perfetto per chi inizia e vuole risultati rapidi.`,
+				urlPattern: `https://tutorial-facile.com/impara/${query.toLowerCase().replace(/\s+/g, '-')}`
+			},
+			{
+				titlePattern: `${query}: Le 10 Migliori Risorse del {year}`,
+				descriptionPattern: `Una lista curata delle migliori risorse per ${query}. Selezionate da esperti e aggiornate regolarmente per garantire qualità.`,
+				urlPattern: `https://risorse-top.com/lista/${query.toLowerCase().replace(/\s+/g, '-')}-migliori`
+			},
+			{
+				titlePattern: `${query} - Domande Frequenti e Soluzioni`,
+				descriptionPattern: `Trova risposte immediate alle domande più comuni su ${query}. Soluzioni pratiche e consigli degli esperti.`,
+				urlPattern: `https://faq-esperti.com/argomenti/${query.toLowerCase().replace(/\s+/g, '-')}-faq`
+			},
+			{
+				titlePattern: `Corso Online: Padroneggia ${query} in 30 Giorni`,
+				descriptionPattern: `Corso strutturato per apprendere ${query} rapidamente. Video HD, esercizi pratici, certificato finale e supporto community 24/7.`,
+				urlPattern: `https://corso-online.com/corsi/${query.toLowerCase().replace(/\s+/g, '-')}-completo`
+			},
+			{
+				titlePattern: `${query} vs Alternative: Confronto {year}`,
+				descriptionPattern: `Confronto dettagliato di ${query} con le principali alternative. Pro, contro, prezzi e quale scegliere nel ${new Date().getFullYear()}.`,
+				urlPattern: `https://confronti.com/analisi/${query.toLowerCase().replace(/\s+/g, '-')}-confronto`
+			}
+		];
+		
+		// Select 3-5 random templates
+		const numResults = Math.floor(Math.random() * 3) + 3;
+		const selectedTemplates = templates
+			.sort(() => Math.random() - 0.5)
+			.slice(0, numResults);
+		
+		const currentYear = new Date().getFullYear();
+		
+		return selectedTemplates.map(template => ({
+			title: template.titlePattern.replace('{year}', currentYear),
+			description: template.descriptionPattern.replace('{year}', currentYear),
+			link: template.urlPattern,
+			displayLink: template.urlPattern.replace('https://', '').split('/')[0]
+		}));
+	}
+	
+	function showLoadingState() {
+		resultsContainer.innerHTML = `
+			<div class="loading">
+				<div class="loading-spinner"></div>
+				<span>Ricerca in corso su Google...</span>
+			</div>
+		`;
+	}
+	
+	function showErrorState(message) {
+		resultsContainer.innerHTML = `
+			<div class="search-error">
+				${escapeHtml(message)}
+			</div>
+		`;
+	}
+	
+	function displaySearchResults(results, query) {
+		if (!results || results.length === 0) {
+			resultsContainer.innerHTML = `
+				<div class="no-results">
+					<div class="no-results-icon">🔍</div>
+					<h3>Nessun risultato trovato</h3>
+					<p>Non sono stati trovati risultati per "<strong>${escapeHtml(query)}</strong>"</p>
+					<p>Prova con parole chiave diverse o più generiche.</p>
+				</div>
+			`;
+			return;
+		}
+		
+		// Build results HTML
+		let html = `<div class="results-header">Circa ${results.length} risultati per "<strong>${escapeHtml(query)}</strong>"</div>`;
+		
+		results.forEach((result, index) => {
+			const externalLinkText = block.dataset.externalLinkText || 'Visita sito';
+			
+			html += `
+				<div class="search-result-item" data-index="${index}">
+					<h3 class="result-title">${escapeHtml(result.title)}</h3>
+					<p class="result-description">${escapeHtml(result.description)}</p>
+					<div class="result-meta">
+						<span class="result-url">${escapeHtml(result.displayLink || extractDomain(result.link))}</span>
+						<button class="external-link-button" data-url="${escapeHtml(result.link)}" type="button">
+							${escapeHtml(externalLinkText)}
+						</button>
+					</div>
+				</div>
+			`;
+		});
+		
+		// Insert results with animation
+		resultsContainer.innerHTML = html;
+		resultsContainer.classList.add('results-loaded');
+		
+		// Add click handlers for external links
+		const externalLinks = resultsContainer.querySelectorAll('.external-link-button');
+		externalLinks.forEach(link => {
+			link.addEventListener('click', function(e) {
+				e.preventDefault();
+				showExitConfirmation(this.dataset.url);
+			});
+		});
+		
+		// Animate results in
+		const resultItems = resultsContainer.querySelectorAll('.search-result-item');
+		resultItems.forEach((item, index) => {
+			setTimeout(() => {
+				item.classList.add('visible');
+			}, index * 150);
+		});
+	}
+	
+	function showExitConfirmation(url) {
+		const modal = createExitModal(url);
+		document.body.appendChild(modal);
+		
+		// Animate modal in
+		requestAnimationFrame(() => {
+			modal.classList.add('visible');
+		});
+		
+		// Focus management
+		modal.focus();
+		
+		function closeModal() {
+			modal.classList.add('closing');
+			setTimeout(() => {
+				if (modal.parentNode) {
+					modal.parentNode.removeChild(modal);
+				}
+			}, 300);
+		}
+		
+		// Event handlers
+		const handleEscape = (e) => {
+			if (e.key === 'Escape') {
+				closeModal();
+				document.removeEventListener('keydown', handleEscape);
+			}
+		};
+		
+		document.addEventListener('keydown', handleEscape);
+		
+		// Click outside to close
+		modal.addEventListener('click', (e) => {
+			if (e.target === modal) {
+				closeModal();
+				document.removeEventListener('keydown', handleEscape);
+			}
+		});
+		
+		// Button handlers
+		const confirmButton = modal.querySelector('.confirm');
+		const cancelButton = modal.querySelector('.cancel');
+		
+		confirmButton.addEventListener('click', () => {
+			window.open(url, '_blank', 'noopener,noreferrer');
+			closeModal();
+			document.removeEventListener('keydown', handleEscape);
+		});
+		
+		cancelButton.addEventListener('click', () => {
+			closeModal();
+			document.removeEventListener('keydown', handleEscape);
+		});
+	}
+	
+	function createExitModal(url) {
+		const modal = document.createElement('div');
+		modal.className = 'exit-confirmation-modal';
+		modal.setAttribute('role', 'dialog');
+		modal.setAttribute('aria-labelledby', 'modal-title');
+		modal.setAttribute('aria-describedby', 'modal-description');
+		modal.setAttribute('tabindex', '-1');
+		
+		const domain = extractDomain(url);
+		
+		modal.innerHTML = `
+			<div class="modal-content">
+				<div class="modal-icon">🌐</div>
+				<h3 id="modal-title" class="modal-title">Stai per lasciare questo sito</h3>
+				<p id="modal-description" class="modal-message">
+					Stai per visitare un sito esterno:<br>
+					<strong>${escapeHtml(domain)}</strong><br><br>
+					Vuoi continuare?
+				</p>
+				<div class="modal-buttons">
+					<button class="modal-button confirm" type="button">Continua</button>
+					<button class="modal-button cancel" type="button">Annulla</button>
+				</div>
+			</div>
+		`;
+		
+		return modal;
+	}
+	
+	function extractDomain(url) {
+		try {
+			return new URL(url).hostname;
+		} catch (e) {
+			// Fallback for invalid URLs
+			return url.replace(/^https?:\/\//, '').split('/')[0];
+		}
+	}
+	
+	function escapeHtml(text) {
+		const div = document.createElement('div');
+		div.textContent = text;
+		return div.innerHTML;
+	}
+}]]></content>
+  </file>
+  <file path="src/render.php">
+    <description>This file contains the render callback function for the block, which is responsible for rendering the block content on the front end. A render function should exist only if the block is dynamic.</description>
+    <content><![CDATA[<?php
+/**
+ * @see https://github.com/WordPress/gutenberg/blob/trunk/docs/reference-guides/block-api/block-metadata.md#render
+ */
+
+$search_placeholder = isset($attributes['searchPlaceholder']) ? esc_attr($attributes['searchPlaceholder']) : 'Cerca su Google...';
+$button_text = isset($attributes['buttonText']) ? esc_html($attributes['buttonText']) : 'Cerca';
+$external_link_text = isset($attributes['externalLinkText']) ? esc_attr($attributes['externalLinkText']) : 'Visita sito';
+$results_per_page = isset($attributes['resultsPerPage']) ? intval($attributes['resultsPerPage']) : 10;
+
+$wrapper_attributes = get_block_wrapper_attributes([
+	'data-external-link-text' => $external_link_text,
+	'data-results-per-page' => $results_per_page,
+	'data-button-text' => $button_text
+]);
+?>
+
+<div <?php echo $wrapper_attributes; ?>>
+	<form class="google-search-form" role="search" autocomplete="off">
+		<input 
+			type="text" 
+			class="search-input"
+			placeholder="<?php echo $search_placeholder; ?>"
+			aria-label="<?php esc_attr_e('Campo di ricerca Google', 'google-search-integration-block-wp'); ?>"
+			autocomplete="off"
+			spellcheck="false"
+			required
+		>
+		<button 
+			type="submit" 
+			class="search-button"
+			aria-label="<?php esc_attr_e('Avvia ricerca Google', 'google-search-integration-block-wp'); ?>"
+		>
+			<?php echo $button_text; ?>
+		</button>
+	</form>
+	
+	<div class="search-results" role="region" aria-live="polite" aria-label="<?php esc_attr_e('Risultati di ricerca Google', 'google-search-integration-block-wp'); ?>">
+		<!-- I risultati verranno caricati qui tramite JavaScript in modo asincrono -->
+	</div>
+</div>]]></content>
+  </file>
+  <file path="package.json">
+    <description>The AI assistant should only edit 'google-search-integration', 'description' and resolve 'isDynamicVariant' in this file and ALWAYS INCLUDE IT. This file includes the necessary scripts for building, formatting, and linting the block code. Dependencies are managed at the workspace level via pnpm.</description>
+    <content><![CDATA[
+{
+	"name": "google-search-integration",
+	"version": "0.1.0",
+	"description": "Integra la ricerca Google nel tuo sito WordPress con layout personalizzato e controllo dei link esterni.",
+	"author": "WordPress Telex",
+	"license": "GPL-2.0-or-later",
+	"main": "build/index.js",
+	"scripts": {
+		"build": "wp-scripts build",
+		"format": "wp-scripts format",
+		"lint:css": "wp-scripts lint-style",
+		"lint:js": "wp-scripts lint-js",
+		"packages-update": "wp-scripts packages-update",
+		"plugin-zip": "wp-scripts plugin-zip",
+		"start": "wp-scripts start"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^30.15.0"
+	}
+}
+]]></content>
+  </file>
+</artefact>

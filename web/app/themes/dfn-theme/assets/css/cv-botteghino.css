@@ -1,0 +1,44 @@
+/*
+Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+Click nbfs://nbhost/SystemFileSystem/Templates/Other/CascadeStyleSheet.css to edit this template
+*/
+/* 
+    Created on : 20 apr 2026, 20:53:58
+    Author     : Alex
+*/
+
+/* ==========================================================================
+   STILI BOTTEGHINO LIVE
+   ========================================================================== */
+.cv-fai-container { background: #fff; border: 1px solid #ccd0d4; padding: 30px; max-width: 700px; margin-top: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.cv-form-row { margin-bottom: 22px; }
+.cv-form-row label { display: block; font-weight: 600; margin-bottom: 6px; color: #1d2327; font-size: 14px; }
+.cv-form-row input[type="text"], .cv-form-row input[type="email"], .cv-form-row input[type="tel"],
+.cv-form-row input[type="number"], .cv-form-row select { width: 100%; padding: 8px 12px; border: 1px solid #8c8f94; border-radius: 4px; box-sizing: border-box; min-height: 38px; font-size:15px; }
+.cv-form-row p.description { margin-top: 5px; font-size: 12px; color: #646970; }
+
+/* Stili Select2 */
+.select2-container { width: 100% !important; margin-top: 5px; display: block; }
+.select2-container .select2-selection--single { height: auto !important; min-height: 38px !important; padding: 5px !important; border: 1px solid #8c8f94 !important; border-radius: 4px !important; }
+.select2-container .select2-selection--single .select2-selection__rendered { padding-right: 30px !important; line-height: 1.6 !important; font-size:15px !important; }
+.select2-container .select2-selection--single .select2-selection__clear { position: absolute !important; right: 25px !important; top: 50% !important; transform: translateY(-50%) !important; }
+.select2-container .select2-selection--single .select2-selection__arrow { position: absolute !important; right: 5px !important; top: 50% !important; transform: translateY(-50%) !important; }
+.select2-container--open { z-index: 999999 !important; }
+.select2-dropdown { position: absolute !important; z-index: 999999 !important; box-shadow: 0 15px 35px rgba(0,0,0,0.25) !important; border: 1px solid #8c8f94 !important; border-radius: 8px !important; background: #ffffff !important; padding: 5px; margin-top: 5px; }
+.select2-search--dropdown { padding: 5px !important; background: #ffffff !important; }
+.select2-search--dropdown .select2-search__field { width: 100% !important; box-sizing: border-box !important; border: 1px solid #8c8f94 !important; border-radius: 4px !important; padding: 6px 10px !important; background: #ffffff !important; }
+.select2-results { background: #ffffff !important; }
+.select2-results__options { max-height: 250px !important; overflow-y: auto !important; background: #ffffff !important; }
+.select2-results__option { padding: 8px 10px !important; border-radius: 4px !important; margin-bottom: 2px !important; background: #ffffff; }
+.select2-results__option--highlighted[aria-selected] { background-color: #2271b1 !important; color: white !important; }
+
+/* Bottoni POS */
+.cv-pos-buttons { display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap; }
+.cv-pos-btn { flex: 1; min-width: 180px; padding: 15px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: none; transition: transform 0.1s; color: white; line-height:1.3; text-align:center; }
+.cv-pos-btn:active { transform: scale(0.97); }
+.cv-btn-cash { background-color: #16a34a; box-shadow: 0 4px 0 #15803d; }
+.cv-btn-cash:hover { background-color: #15803d; }
+.cv-btn-link { background-color: #2271b1; box-shadow: 0 4px 0 #135e96; }
+.cv-btn-link:hover { background-color: #135e96; }
+.cv-btn-auth { background-color: #6b21a8; box-shadow: 0 4px 0 #581c87; }
+.cv-btn-auth:hover { background-color: #581c87; }

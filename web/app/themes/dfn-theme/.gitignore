@@ -1,0 +1,51 @@
+# ==========================================
+# Theme GitIgnore - Custom Theme Repository
+# ==========================================
+
+# Composer
+/vendor/
+composer.phar
+composer.lock
+composer.json
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+.agents/
+*.swp
+*.swo
+sftp.json
+sftp-config.json
+
+# OS Specific Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Theme specific ignore rules
+# (uncomment if you use Node/Build processes in theme)
+# node_modules/
+# dist/
+
+# Logs & backups
+*.log
+error_log
+functions_backup.php
+
+# Testing, Unit Tests & Coverage
+/tests/
+/.phpunit.cache/
+.phpunit.result.cache
+/coverage/
+/html/
+clover.xml
+junit.xml
+coverage.xml
+phpunit.xml
+phpunit.xml.dist
+
+# PHPStan & Static Analysis
+/.phpstan.cache/
+phpstan.neon
+phpstan-baseline.neon

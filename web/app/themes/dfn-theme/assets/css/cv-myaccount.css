@@ -1,0 +1,211 @@
+/*
+Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+Click nbfs://nbhost/SystemFileSystem/Templates/Other/CascadeStyleSheet.css to edit this template
+*/
+/* 
+    Created on : 20 apr 2026, 21:08:26
+    Author     : Alex
+*/
+
+/* ==========================================================================
+   STILI FRONTEND E PAGINA "MIO ACCOUNT"
+   ========================================================================== */
+
+/* FORZIAMO LA VISIBILITA' DEL MESSAGGIO VUOTO CHE IL TEMA NASCONDEVA */
+.woocommerce-account .woocommerce-info {
+    display: block !important; visibility: visible !important; opacity: 1 !important;
+    background: #eaf7ea !important; color: #166534 !important; border-top: 4px solid #166534 !important;
+    padding: 20px !important; border-radius: 8px !important; font-size: 16px !important; line-height: 1.5;
+}
+.woocommerce-account .woocommerce-info::before, .woocommerce-account .woocommerce-info .button {
+    display: none !important;
+}
+
+/* SPEGNIMENTO DEFINITIVO DEL PLUGIN CARRELLO (Massima Specificità) */
+html body.woocommerce-account .xoo-wsc-basket,
+html body.woocommerce-account .xoo-wsc-modal,
+html body.woocommerce-account .xoo-wsc-cart-active { 
+    display: none !important; visibility: hidden !important; opacity: 0 !important; 
+    pointer-events: none !important; z-index: -9999 !important;
+}
+
+/* --- STILE DESKTOP (Effetto Vetro Allargato) --- */
+.woocommerce-account .woocommerce {
+    max-width: 1300px; margin: 40px auto; background: rgba(255, 255, 255, 0.95);
+    padding: 50px; border-radius: 20px; box-shadow: 0 15px 50px rgba(0,0,0,0.1);
+}
+.woocommerce-account.logged-in .woocommerce { display: flex; flex-wrap: wrap; gap: 50px; }
+.woocommerce-MyAccount-navigation { flex: 1 1 250px; }
+.woocommerce-MyAccount-navigation ul { list-style: none !important; padding: 0 !important; margin: 0 !important; }
+.woocommerce-MyAccount-navigation ul li { margin-bottom: 8px; }
+.woocommerce-MyAccount-navigation ul li a {
+    display: block; padding: 15px 20px; background: #f8f9fa; color: #1d2327 !important;
+    text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 15px;
+    transition: all 0.3s ease; border: 1px solid transparent;
+}
+.woocommerce-MyAccount-navigation ul li a:hover { background: #fff; border-color: #e2e4e7; transform: translateX(5px); box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+.woocommerce-MyAccount-navigation ul li.is-active a {
+    background: #2271b1 !important; color: #ffffff !important; border-color: #2271b1 !important; box-shadow: 0 6px 15px rgba(34, 113, 177, 0.25);
+}
+
+.woocommerce-MyAccount-content { flex: 3 1 750px; color: #444; font-size: 16px; line-height: 1.6; }
+.woocommerce-MyAccount-content mark { background: transparent; color: #2271b1; font-weight: bold; }
+
+/* --- 🎨 RESTYLING PREMIUM TABELLA ORDINI PRINCIPALE --- */
+.woocommerce-orders-table {
+    border: none !important; border-collapse: separate !important; border-spacing: 0 16px !important;
+    width: 100% !important; margin-top: -16px;
+}
+.woocommerce-orders-table thead th {
+    background: transparent !important; border: none !important;
+    color: #9ca3af !important; text-transform: uppercase; font-size: 12px; font-weight: 700;
+    letter-spacing: 1px; padding: 0 25px 10px 25px !important; text-align: left;
+}
+.woocommerce-orders-table tbody tr {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;
+    border-radius: 12px !important; background: #ffffff !important;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.woocommerce-orders-table tbody tr:hover {
+    transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.08) !important;
+}
+.woocommerce-orders-table tbody th, .woocommerce-orders-table tbody td {
+    background: #ffffff !important; border: none !important;
+    padding: 25px !important; vertical-align: middle !important; color: #4b5563 !important;
+}
+.woocommerce-orders-table tbody th:first-child, .woocommerce-orders-table tbody td:first-child { border-radius: 12px 0 0 12px !important; }
+.woocommerce-orders-table tbody td:last-child { border-radius: 0 12px 12px 0 !important; }
+
+.woocommerce-orders-table tbody th.woocommerce-orders-table__cell-order-number a {
+    background: #f0f6fc !important; color: #2271b1 !important; padding: 10px 18px !important; border-radius: 8px !important;
+    text-decoration: none !important; font-weight: 800 !important; font-size: 16px !important; display: inline-block !important; transition: all 0.2s;
+}
+.woocommerce-orders-table tbody th.woocommerce-orders-table__cell-order-number a:hover { background: #e1effa !important; color: #135e96 !important; }
+
+.woocommerce-orders-table tbody td.woocommerce-orders-table__cell-order-actions {
+    text-align: right !important; white-space: nowrap !important; width: 1% !important;
+}
+.woocommerce-orders-table__cell-order-actions .button {
+    display: inline-block !important; margin: 0 0 0 10px !important; padding: 10px 20px !important; border-radius: 50px !important;
+    font-size: 13px !important; font-weight: 700 !important; text-transform: uppercase !important; letter-spacing: 0.5px !important;
+    background: #f3f4f6 !important; color: #4b5563 !important; border: none !important;
+    transition: all 0.3s ease !important; text-decoration: none !important;
+}
+.woocommerce-orders-table__cell-order-actions .button:hover { background: #e5e7eb !important; transform: translateY(-1px); }
+
+/* --- 🎨 RESTYLING DETTAGLI ORDINE (PAGINA SINGOLA) --- */
+.woocommerce-order-details { margin-top: 30px; margin-bottom: 40px; }
+.woocommerce-order-details h2, .woocommerce-customer-details h2 {
+    font-size: 22px; color: #1d2327; margin-bottom: 20px; font-weight: 700;
+}
+
+.woocommerce-table--order-details {
+    background: #ffffff !important; border-radius: 15px !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important; border: none !important;
+    overflow: hidden; width: 100% !important; border-collapse: collapse !important;
+}
+.woocommerce-table--order-details thead th {
+    background: #f8f9fa !important; color: #6b7280 !important; text-transform: uppercase; 
+    font-size: 12px; font-weight: 700; letter-spacing: 1px; padding: 20px 25px !important; border: none !important;
+}
+.woocommerce-table--order-details tbody td, 
+.woocommerce-table--order-details tfoot td, 
+.woocommerce-table--order-details tfoot th {
+    padding: 20px 25px !important; border: none !important; border-bottom: 1px solid #f3f4f6 !important;
+    color: #4b5563 !important; background: #ffffff !important; vertical-align: middle;
+}
+.woocommerce-table--order-details tbody tr:last-child td { border-bottom: 2px solid #e5e7eb !important; }
+.woocommerce-table--order-details tfoot tr:last-child th, 
+.woocommerce-table--order-details tfoot tr:last-child td { border-bottom: none !important; }
+.woocommerce-table--order-details tfoot th { font-weight: 600; color: #1d2327 !important; }
+.woocommerce-table--order-details tfoot td { font-weight: 700; }
+
+.woocommerce-table--order-details td.woocommerce-table__product-name a {
+    color: #2271b1 !important; text-decoration: none !important; font-weight: 700; font-size: 16px;
+}
+.woocommerce-table--order-details td.woocommerce-table__product-name a:hover { color: #135e96 !important; }
+
+.woocommerce-table--order-details tfoot .button {
+    display: inline-block !important; margin: 5px 10px 5px 0 !important; padding: 10px 20px !important; border-radius: 50px !important;
+    font-size: 13px !important; font-weight: 700 !important; text-transform: uppercase !important; letter-spacing: 0.5px !important;
+    border: none !important; transition: all 0.3s ease !important; text-decoration: none !important;
+}
+
+.woocommerce-customer-details address {
+    background: #ffffff !important; border-radius: 15px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;
+    border: none !important; padding: 30px !important; font-style: normal !important; line-height: 1.8 !important; color: #4b5563 !important;
+}
+
+.button.pay { background: #10b981 !important; color: white !important; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); }
+.button.pay:hover { background: #059669 !important; box-shadow: 0 6px 14px rgba(16, 185, 129, 0.3); transform: translateY(-1px); }
+.button.cancel { background: #fee2e2 !important; color: #ef4444 !important; }
+.button.cancel:hover { background: #fecaca !important; transform: translateY(-1px); }
+.button.cv_biglietti { background: #2271b1 !important; color: white !important; box-shadow: 0 4px 10px rgba(34, 113, 177, 0.2); }
+.button.cv_biglietti:hover { background: #135e96 !important; transform: translateY(-1px); }
+
+/* --- STILE MOBILE --- */
+@media (max-width: 768px) {
+    body { padding-bottom: 85px !important; }
+    .woocommerce-account .woocommerce { padding: 30px 20px; margin: 15px 10px; gap: 30px; border-radius: 15px; }
+    
+    .woocommerce-MyAccount-navigation {
+        position: fixed; bottom: 0; left: 0; width: 100%; background: #ffffff; box-shadow: 0 -5px 20px rgba(0,0,0,0.08);
+        z-index: 99999; padding: 10px 0 15px 0; border-top: 1px solid #f3f4f6;
+    }
+    .woocommerce-MyAccount-navigation ul { display: flex !important; flex-direction: row !important; justify-content: space-around !important; align-items: center !important; }
+    .woocommerce-MyAccount-navigation ul li { margin-bottom: 0 !important; flex: 1; text-align: center; }
+    .woocommerce-MyAccount-navigation ul li a { background: transparent !important; border: none !important; padding: 5px !important; font-size: 11px !important; color: #9ca3af !important; box-shadow: none !important; line-height: 1.2; }
+    
+    /* FIX MENU MOBILE: Rimosso lo sfondo e l'ombra per la voce attiva */
+    .woocommerce-MyAccount-navigation ul li.is-active a { 
+        background: transparent !important; box-shadow: none !important; color: #2271b1 !important; font-weight: bold; 
+    }
+    
+    .woocommerce-MyAccount-navigation-link--dashboard a::before { content: "🏠"; }
+    .woocommerce-MyAccount-navigation-link--orders a::before { content: "🎟️"; }
+    .woocommerce-MyAccount-navigation-link--cart a::before { content: "🛍️"; }
+    .woocommerce-MyAccount-navigation-link--edit-account a::before { content: "⚙️"; }
+    .woocommerce-MyAccount-navigation-link--customer-logout a::before { content: "🚪"; }
+    .woocommerce-MyAccount-navigation ul li a::before { font-size: 22px; display: block; margin-bottom: 4px; filter: grayscale(100%); opacity: 0.6; transition: all 0.2s; }
+    .woocommerce-MyAccount-navigation ul li.is-active a::before { filter: none; opacity: 1; }
+
+    /* Tabella ordini Mobile */
+    .woocommerce-orders-table thead { display: none; }
+    .woocommerce-orders-table tbody tr { display: block; margin-bottom: 25px; padding: 10px 0; }
+    .woocommerce-orders-table tbody th, .woocommerce-orders-table tbody td { display: flex !important; justify-content: space-between; align-items: center; border: none !important; border-bottom: 1px solid #f3f4f6 !important; padding: 15px 20px !important; border-radius: 0 !important; }
+    .woocommerce-orders-table tbody td:last-child { border-bottom: none !important; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 5px; }
+    .woocommerce-orders-table tbody th::before, .woocommerce-orders-table tbody td::before { content: attr(data-title); font-weight: 700; color: #9ca3af; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+    .woocommerce-orders-table tbody td.woocommerce-orders-table__cell-order-actions { white-space: normal !important; width: 100% !important; flex-direction: column !important; gap: 10px !important; }
+    .woocommerce-orders-table__cell-order-actions .button { width: 100%; margin: 0 !important; padding: 15px !important; text-align: center; }
+    
+    /* Dettagli Ordine Mobile */
+    .woocommerce-table--order-details tfoot .button { width: 100% !important; margin: 10px 0 0 0 !important; text-align: center; }
+}
+
+/* --- STILE PAGINA LOGIN (NON LOGGATI) --- */
+.woocommerce-account:not(.logged-in) .woocommerce {
+    max-width: 1200px; margin: 40px auto; background: rgba(255, 255, 255, 0.95);
+    padding: 40px; border-radius: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+}
+.woocommerce-account:not(.logged-in) #customer_login { display: flex; flex-wrap: wrap; gap: 40px; }
+.woocommerce-account:not(.logged-in) .u-column1,
+.woocommerce-account:not(.logged-in) .u-column2 {
+    flex: 1 1 300px; width: 100%; background: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e2e4e7;
+}
+.woocommerce-account:not(.logged-in) h2 { margin-top: 0; color: #2271b1; font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+.woocommerce-account:not(.logged-in) form.login input[type="text"],
+.woocommerce-account:not(.logged-in) form.login input[type="password"],
+.woocommerce-account:not(.logged-in) form.register input[type="email"] {
+    width: 100%; padding: 12px 15px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; font-size: 16px;
+}
+.woocommerce-account:not(.logged-in) button.woocommerce-button {
+    background-color: #2271b1 !important; color: #fff !important; border: none; padding: 12px 25px;
+    font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-top: 10px; cursor: pointer; transition: background-color 0.3s;
+}
+.woocommerce-account:not(.logged-in) button.woocommerce-button:hover { background-color: #135e96 !important; }
+.woocommerce-account:not(.logged-in) .woocommerce-LostPassword a { color: #ff6600; text-decoration: none; display: block; margin-top: 15px; text-align: center; font-weight: bold; }
+.woocommerce-account:not(.logged-in) p.woocommerce-FormRow { margin-bottom: 15px; color: #555; }
+@media (max-width: 768px) {
+    .woocommerce-account:not(.logged-in) .woocommerce { padding: 20px; margin: 20px 10px; }
+    .woocommerce-account:not(.logged-in) #customer_login { gap: 30px; }
+}

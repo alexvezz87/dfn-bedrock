@@ -1,0 +1,40 @@
+/*
+Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+Click nbfs://nbhost/SystemFileSystem/Templates/Other/CascadeStyleSheet.css to edit this template
+*/
+/* 
+    Created on : 20 apr 2026, 21:39:01
+    Author     : Alex
+*/
+
+/* ==========================================================================
+   STILI TABELLONE REPORT CHECK-IN E MAPPA TAVOLI
+   ========================================================================== */
+@keyframes cvSpin { 100% { transform: rotate(360deg); } }
+.cv-is-syncing { animation: cvSpin 1s linear infinite; color: #2271b1 !important; }
+.cv-table-loading { opacity: 0.5; pointer-events: none; }
+.cv-history-item { padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }
+.cv-history-item:last-child { border-bottom: none; }
+
+/* STILI PER LA STAMPA DELLA MAPPA TAVOLI */
+@media print {
+    body * { visibility: hidden; }
+    #cv-table-map-modal, #cv-table-map-modal * { visibility: visible; }
+    
+    #cv-table-map-modal { 
+        position: absolute !important; left: 0 !important; top: 0 !important; 
+        width: 100% !important; height: auto !important; min-height: 100% !important; 
+        background: #fff !important; align-items: flex-start !important; overflow: visible !important;
+    }
+    
+    #cv-table-map-modal .cv-modal-content { 
+        box-shadow: none !important; border: none !important; width: 100% !important; 
+        max-width: 100% !important; padding: 0 !important; max-height: none !important; 
+        height: auto !important; overflow: visible !important; background: #fff !important;
+    }
+    
+    #cv-table-map-content { overflow: visible !important; height: auto !important; }
+    .cv-no-print { display: none !important; }
+    .cv-table-grid { display: block !important; } 
+    .cv-table-card { border: 2px solid #000 !important; page-break-inside: avoid !important; break-inside: avoid !important; margin-bottom: 25px !important; width: 100% !important; }
+}

@@ -1,0 +1,88 @@
+/*
+Theme Name: DFN Theme
+Theme URI: https://elementor.com/hello-theme/?utm_source=wp-themes&utm_campaign=theme-uri&utm_medium=wp-dash
+Template: hello-elementor
+Author: ASW
+Author URI: https://elementor.com/?utm_source=wp-themes&utm_campaign=author-uri&utm_medium=wp-dash
+Description: A plain-vanilla &amp; lightweight theme for Elementor page builder
+Tags: flexible-header,custom-colors,custom-menu,custom-logo,featured-images,rtl-language-support,threaded-comments,translation-ready
+Version: 2.5.1.1
+Updated: 2022-03-18 22:13:17
+
+*/
+
+body .booked-calendar-wrap .booked-appt-list .timeslot .timeslot-title {
+  color: #940000 !important;
+}
+
+body.woocommerce-order-received .woocommerce-order {
+  padding: 50px;
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+body.woocommerce-order-received p.woocommerce-notice.woocommerce-notice--success.woocommerce-thankyou-order-received,
+.woocommerce ul.order_details li,
+h2.woocommerce-order-details__title,
+.woocommerce table.shop_table tbody th,
+.woocommerce table.shop_table tfoot td,
+.woocommerce table.shop_table tfoot th {
+  color: #000 !important;
+}
+
+.woocommerce-terms-and-conditions-wrapper {
+  display: none !important;
+}
+
+/* Stile personalizzato solo per il form carrello dello shortcode */
+.custom-product form.cart {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* spazio tra input e bottone */
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Input quantità */
+.custom-product form.cart .quantity input.qty {
+  width: 60px;
+  height: 40px;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* Bottone carrello */
+.custom-product form.cart button.button {
+  height: 40px;
+  padding: 0 20px;
+  background-color: #000;
+  color: #fff;
+  border: none;
+  border-radius: 0px;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+/* Hover effetto sul bottone */
+.custom-product form.cart button.button:hover {
+  background-color: #005f8d;
+}
+
+.woocommerce-info {
+  display: none !important;
+  background: #fff !important;
+  padding: 25px !important;
+  border-radius: 2px;
+}
+
+.custom-product {
+  width: 100%;
+}
+
+@media (min-width:768px) {
+  .custom-product {
+    width: 70%;
+  }
+}
