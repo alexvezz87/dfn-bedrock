@@ -1,0 +1,45 @@
+name: 🚀 Deploy Remoto Bedrock via FTP
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  web-deploy:
+    name: 🎉 Build & Deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🚚 Get latest code
+      uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3' # Allineato alla versione PHP locale/remota
+
+    - name: 📦 Install Composer Dependencies
+      run: |
+        composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --no-scripts --optimize-autoloader
+
+    - name: 📂 Sync files to Remote Server
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        # Escludiamo file locali non necessari in produzione per sicurezza e pulizia
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          .env
+          .env.example
+          README.md
+          composer.json
+          composer.lock
+          backup_dfn_*.sql
+          tests/
+          phpunit.xml*
+          web/app/uploads/**
