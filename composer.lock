@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1fd1f820a5e3446bed1248d49380ca7c",
+    "content-hash": "8a0f5f0e5b3258781b542e03d5d5af93",
     "packages": [
         {
             "name": "composer/installers",
@@ -1659,6 +1659,37 @@
                 "source": "https://plugins.svn.wordpress.org/wp-mail-smtp"
             },
             "time": "2026-04-16T15:16:32+00:00"
+        },
+        {
+            "name": "wp-plugin/wp-migrate-db",
+            "version": "2.7.8",
+            "source": {
+                "type": "svn",
+                "url": "https://plugins.svn.wordpress.org/wp-migrate-db/",
+                "reference": "tags/2.7.8"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://downloads.wordpress.org/plugin/wp-migrate-db.2.7.8.zip"
+            },
+            "require": {
+                "composer/installers": "~1.0|~2.0"
+            },
+            "type": "wordpress-plugin",
+            "notification-url": "https://wp-packages.org/downloads",
+            "authors": [
+                {
+                    "name": "WP Engine"
+                }
+            ],
+            "description": "Migrate your database. Export full sites including media, themes, and plugins. Find and replace content with support for serialized data.",
+            "homepage": "https://deliciousbrains.com/",
+            "support": {
+                "changelog": "https://wordpress.org/plugins/wp-migrate-db/#developers",
+                "issues": "https://wordpress.org/support/plugin/wp-migrate-db",
+                "source": "https://plugins.svn.wordpress.org/wp-migrate-db"
+            },
+            "time": "2026-05-28T12:40:59+00:00"
         },
         {
             "name": "wp-theme/twentytwentyfive",
