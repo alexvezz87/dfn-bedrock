@@ -31,6 +31,7 @@ jobs:
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         timeout: 300000 # 5 minuti di timeout per evitare "Timeout (control socket)"
+        log-level: verbose
         # Escludiamo file locali non necessari in produzione per sicurezza e pulizia
         exclude: |
           **/.git*
