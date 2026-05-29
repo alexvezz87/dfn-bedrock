@@ -46,8 +46,29 @@ jobs:
           tests/
           phpunit.xml*
           web/app/uploads/**
-          vendor/wp-plugin/**
-          vendor/wp-theme/**
+          vendor/**
+          web/wp/**
           web/app/debug.log
           web/app/upgrade/**
           web/app/upgrade-temp-backup/**
+          web/app/plugins/child-theme-configurator/**
+          web/app/plugins/cookiebot/**
+          web/app/plugins/duplicate-post/**
+          web/app/plugins/elementor/**
+          web/app/plugins/font-awesome/**
+          web/app/plugins/google-site-kit/**
+          web/app/plugins/maintenance/**
+          web/app/plugins/pojo-accessibility/**
+          web/app/plugins/really-simple-ssl/**
+          web/app/plugins/redirection/**
+          web/app/plugins/side-cart-woocommerce/**
+          web/app/plugins/woo-order-export-lite/**
+          web/app/plugins/woo-stripe-payment/**
+          web/app/plugins/woocommerce/**
+          web/app/plugins/woocommerce-gateway-stripe/**
+          web/app/plugins/woolentor-addons/**
+          web/app/plugins/wordpress-seo/**
+          web/app/plugins/wp-crontrol/**
+          web/app/plugins/wp-fastest-cache/**
+          web/app/plugins/wp-mail-smtp/**
+          web/app/plugins/wp-migrate-db/**
