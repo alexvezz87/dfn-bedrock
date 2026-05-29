@@ -9,7 +9,7 @@ jobs:
   web-deploy:
     name: 🎉 Build & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     
     steps:
     - name: 🚚 Get latest code
@@ -24,31 +24,21 @@ jobs:
       run: |
         composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --no-scripts --optimize-autoloader
 
-    - name: 📦 Create Deployment TAR Archive
+    - name: 📦 Create Compressed TAR Archive
       run: |
-        # Comprimiamo le cartelle vendor e web escludendo la cartella uploads per velocità e sicurezza
-        # In GNU tar (Linux), --exclude deve essere posizionato PRIMA dei file/cartelle da includere
-        tar --exclude="web/app/uploads" -cf deploy.tar vendor web
+        # Creiamo un archivio TAR compresso (.tar.gz) escludendo la cartella uploads per velocità e sicurezza
+        # Il TAR preserva i file/symlink in modo pulito ed è solo ~25MB compresso!
+        tar --exclude="web/app/uploads" -czf deploy.tar.gz vendor web
 
-    - name: 📂 Prepare Deployment Directory
+    - name: 📂 Upload Files via curl FTP (Secure & Fast)
       run: |
-        # Creiamo una cartella pulita per caricare solo il TAR e lo script di estrazione
-        mkdir deploy_dist
-        mv deploy.tar deploy_dist/
-        mv scompatta.php deploy_dist/
-
-    - name: 📂 Sync files to Remote Server
-      uses: SamKirkland/FTP-Deploy-Action@v4.4.0
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./deploy_dist/
-        server-dir: ./
-        timeout: 300000 # 5 minuti di timeout
+        # Usiamo curl per caricare in modo sicuro SOLO i due file necessari.
+        # Questo garantisce che nessun altro file sul server remoto (come gli upload esistenti) venga cancellato!
+        curl -T deploy.tar.gz ftp://${{ secrets.FTP_SERVER }}/ --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
+        curl -T scompatta.php ftp://${{ secrets.FTP_SERVER }}/ --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
 
     - name: 🚀 Trigger Remote Extraction and Self-Destruct
       run: |
         # Eseguiamo una chiamata HTTP sicura allo script per scompattare ed autodistruggersi
         # Usiamo -k per ignorare eventuali problemi di SSL temporanei e -L per seguire i reindirizzamenti
-        curl -k -L -sS https://dfnprenotazioni.it/scompatta.php?t=202605300012 || curl -k -L -sS http://dfnprenotazioni.it/scompatta.php?t=202605300012
+        curl -k -L -sS https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS http://dfnprenotazioni.it/scompatta.php?t=202605300020
