@@ -5,13 +5,11 @@ on:
     branches:
       - main
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   web-deploy:
     name: 🎉 Build & Deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     steps:
     - name: 🚚 Get latest code
@@ -27,12 +25,12 @@ jobs:
         composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --no-scripts --optimize-autoloader
 
     - name: 📂 Sync files to Remote Server
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+      uses: SamKirkland/FTP-Deploy-Action@v4.4.0
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        timeout: 600000 # 10 minuti di timeout per evitare "Timeout (control socket)"
+        timeout: 300000 # 5 minuti di timeout per evitare "Timeout (control socket)"
         # Escludiamo file locali non necessari in produzione per sicurezza e pulizia
         exclude: |
           **/.git*
