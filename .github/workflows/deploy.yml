@@ -26,9 +26,9 @@ jobs:
 
     - name: 📦 Create Deployment TAR Archive
       run: |
-        # Creiamo un archivio TAR standard ed escludiamo la cartella uploads
-        # Il TAR preserva i file in modo pulito ed è scompattato via PHP PharData senza errori di permessi
-        tar -cf deploy.tar vendor web --exclude="web/app/uploads/*"
+        # Comprimiamo le cartelle vendor e web escludendo la cartella uploads per velocità e sicurezza
+        # In GNU tar (Linux), --exclude deve essere posizionato PRIMA dei file/cartelle da includere
+        tar --exclude="web/app/uploads" -cf deploy.tar vendor web
 
     - name: 📂 Prepare Deployment Directory
       run: |
