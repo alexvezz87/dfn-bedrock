@@ -9,7 +9,7 @@ jobs:
   web-deploy:
     name: 🎉 Build & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     
     steps:
     - name: 🚚 Get latest code
@@ -24,51 +24,31 @@ jobs:
       run: |
         composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --no-scripts --optimize-autoloader
 
+    - name: 📦 Create Deployment TAR Archive
+      run: |
+        # Creiamo un archivio TAR standard ed escludiamo la cartella uploads
+        # Il TAR preserva i file in modo pulito ed è scompattato via PHP PharData senza errori di permessi
+        tar -cf deploy.tar vendor web --exclude="web/app/uploads/*"
+
+    - name: 📂 Prepare Deployment Directory
+      run: |
+        # Creiamo una cartella pulita per caricare solo il TAR e lo script di estrazione
+        mkdir deploy_dist
+        mv deploy.tar deploy_dist/
+        mv scompatta.php deploy_dist/
+
     - name: 📂 Sync files to Remote Server
       uses: SamKirkland/FTP-Deploy-Action@v4.4.0
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        timeout: 300000 # 5 minuti di timeout per evitare "Timeout (control socket)"
-        log-level: verbose
-        # Escludiamo file locali non necessari in produzione per sicurezza e pulizia
-        exclude: |
-          **/.git*
-          **/.git*/**
-          **/node_modules/**
-          .env
-          .env.example
-          README.md
-          composer.json
-          composer.lock
-          backup_dfn_*.sql
-          tests/
-          phpunit.xml*
-          web/app/uploads/**
-          vendor/**
-          web/wp/**
-          web/app/debug.log
-          web/app/upgrade/**
-          web/app/upgrade-temp-backup/**
-          web/app/plugins/child-theme-configurator/**
-          web/app/plugins/cookiebot/**
-          web/app/plugins/duplicate-post/**
-          web/app/plugins/elementor/**
-          web/app/plugins/font-awesome/**
-          web/app/plugins/google-site-kit/**
-          web/app/plugins/maintenance/**
-          web/app/plugins/pojo-accessibility/**
-          web/app/plugins/really-simple-ssl/**
-          web/app/plugins/redirection/**
-          web/app/plugins/side-cart-woocommerce/**
-          web/app/plugins/woo-order-export-lite/**
-          web/app/plugins/woo-stripe-payment/**
-          web/app/plugins/woocommerce/**
-          web/app/plugins/woocommerce-gateway-stripe/**
-          web/app/plugins/woolentor-addons/**
-          web/app/plugins/wordpress-seo/**
-          web/app/plugins/wp-crontrol/**
-          web/app/plugins/wp-fastest-cache/**
-          web/app/plugins/wp-mail-smtp/**
-          web/app/plugins/wp-migrate-db/**
+        local-dir: ./deploy_dist/
+        server-dir: ./
+        timeout: 300000 # 5 minuti di timeout
+
+    - name: 🚀 Trigger Remote Extraction and Self-Destruct
+      run: |
+        # Eseguiamo una chiamata HTTP sicura allo script per scompattare ed autodistruggersi
+        # Usiamo -k per ignorare eventuali problemi di SSL temporanei e -L per seguire i reindirizzamenti
+        curl -k -L -sS https://dfnprenotazioni.it/scompatta.php?t=202605300012 || curl -k -L -sS http://dfnprenotazioni.it/scompatta.php?t=202605300012
