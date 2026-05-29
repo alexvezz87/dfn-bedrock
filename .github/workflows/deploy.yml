@@ -45,3 +45,5 @@ jobs:
           tests/
           phpunit.xml*
           web/app/uploads/**
+          vendor/wp-plugin/**
+          vendor/wp-theme/**
