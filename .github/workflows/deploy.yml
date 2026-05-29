@@ -9,7 +9,7 @@ jobs:
   web-deploy:
     name: 🎉 Build & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     
     steps:
     - name: 🚚 Get latest code
@@ -47,3 +47,6 @@ jobs:
           web/app/uploads/**
           vendor/wp-plugin/**
           vendor/wp-theme/**
+          web/app/debug.log
+          web/app/upgrade/**
+          web/app/upgrade-temp-backup/**
