@@ -96,6 +96,48 @@
                 return false;
             }
         });
+
+        // 4. Gestione upload immagine tramite Media Library nativa di WordPress
+        var file_frame;
+        $(document).on('click', '#dfn-upload-image-btn', function(e) {
+            e.preventDefault();
+
+            // Se il frame esiste già, riapriamolo
+            if (file_frame) {
+                file_frame.open();
+                return;
+            }
+
+            // Crea il frame di selezione media
+            file_frame = wp.media.frames.file_frame = wp.media({
+                title: 'Seleziona Immagine in Evidenza',
+                button: {
+                    text: 'Usa questa immagine'
+                },
+                multiple: false
+            });
+
+            // Quando viene selezionata un'immagine, recupera l'ID e l'URL
+            file_frame.on('select', function() {
+                var attachment = file_frame.state().get('selection').first().toJSON();
+                $('#dfn_event_image_id').val(attachment.id);
+                $('#dfn-event-image-img').attr('src', attachment.url).show();
+                $('#dfn-event-image-placeholder').hide();
+                $('#dfn-remove-image-btn').show();
+            });
+
+            // Apri il frame
+            file_frame.open();
+        });
+
+        // Rimozione immagine in evidenza
+        $(document).on('click', '#dfn-remove-image-btn', function(e) {
+            e.preventDefault();
+            $('#dfn_event_image_id').val(0);
+            $('#dfn-event-image-img').attr('src', '').hide();
+            $('#dfn-event-image-placeholder').show();
+            $(this).hide();
+        });
     });
 
 })(jQuery);

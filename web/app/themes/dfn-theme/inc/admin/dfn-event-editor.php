@@ -119,6 +119,16 @@ function dfn_render_event_editor() {
                 $product_id = intval( $product_id_raw );
             }
 
+            // Associa l'immagine in evidenza al prodotto WooCommerce
+            if ( $product_id > 0 ) {
+                $image_id = isset( $_POST['dfn_event_image_id'] ) ? intval( $_POST['dfn_event_image_id'] ) : 0;
+                if ( $image_id > 0 ) {
+                    set_post_thumbnail( $product_id, $image_id );
+                } else {
+                    delete_post_thumbnail( $product_id );
+                }
+            }
+
             $data = array(
                 'product_id'        => $product_id,
                 'event_date_start'  => $event_date_start,
@@ -403,6 +413,43 @@ function dfn_render_event_editor() {
                             <button type="submit" class="dfn-btn dfn-btn-primary dfn-btn-block">
                                 <span class="dashicons dashicons-saved"></span> <?php echo $event_id > 0 ? esc_html__( 'Aggiorna Configurazione', 'dfn-theme' ) : esc_html__( 'Crea e Attiva Evento', 'dfn-theme' ); ?>
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Blocco Immagine in Evidenza -->
+                    <div class="dfn-card dfn-card-sidebar">
+                        <div class="dfn-card-header">
+                            <h2>🖼️ <?php esc_html_e( 'Immagine in Evidenza', 'dfn-theme' ); ?></h2>
+                        </div>
+                        <div class="dfn-card-body" style="text-align: center;">
+                            <?php 
+                            $image_id = 0;
+                            $image_url = '';
+                            if ( $p_id > 0 ) {
+                                $image_id = get_post_thumbnail_id( $p_id );
+                                if ( $image_id ) {
+                                    $image_url = wp_get_attachment_image_url( $image_id, 'medium' );
+                                }
+                            }
+                            ?>
+                            <div class="dfn-event-image-preview" style="margin-bottom: 15px; min-height: 150px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden; position: relative;">
+                                <?php if ( $image_url ) : ?>
+                                    <img src="<?php echo esc_url( $image_url ); ?>" style="max-width: 100%; max-height: 150px; display: block;" id="dfn-event-image-img">
+                                <?php else : ?>
+                                    <span style="color: #64748b; font-size: 13px;" id="dfn-event-image-placeholder"><?php esc_html_e( 'Nessuna immagine impostata', 'dfn-theme' ); ?></span>
+                                    <img src="" style="max-width: 100%; max-height: 150px; display: none;" id="dfn-event-image-img">
+                                <?php endif; ?>
+                            </div>
+                            <input type="hidden" name="dfn_event_image_id" id="dfn_event_image_id" value="<?php echo intval( $image_id ); ?>">
+                            
+                            <div style="display: flex; gap: 8px; justify-content: center;">
+                                <button type="button" class="button button-secondary" id="dfn-upload-image-btn" style="font-weight: 600;">
+                                    <?php esc_html_e( 'Seleziona', 'dfn-theme' ); ?>
+                                </button>
+                                <button type="button" class="button" id="dfn-remove-image-btn" style="color: #ef4444; border-color: #fca5a5; display: <?php echo $image_id ? 'inline-block' : 'none'; ?>;">
+                                    <?php esc_html_e( 'Rimuovi', 'dfn-theme' ); ?>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
