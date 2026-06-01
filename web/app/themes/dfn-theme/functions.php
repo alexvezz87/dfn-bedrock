@@ -28,14 +28,20 @@ require_once get_stylesheet_directory() . '/inc/woocommerce/dfn-gateway-in-loco.
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-checkout.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-fai-checkout.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-shortcodes.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-myaccount.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';
 
 // Admin / Gestione
 require_once get_stylesheet_directory() . '/inc/admin/dfn-events-manager.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-event-editor.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-scanner.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteer-dashboard.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-report.php';
 
 // API / Router
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slots.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-bookings.php';
+require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-scanner.php';
 
 
 
@@ -57,7 +63,7 @@ require_once get_stylesheet_directory() . '/inc/api/cv-ajax-handlers.php';
 
 // Admin Legacy
 require_once get_stylesheet_directory() . '/inc/admin/cv-botteghino.php';
-require_once get_stylesheet_directory() . '/inc/admin/cv-report.php';
+// require_once get_stylesheet_directory() . '/inc/admin/cv-report.php'; // Disabilitato in favore di dfn-report.php
 require_once get_stylesheet_directory() . '/inc/admin/cv-waitlist.php';
 require_once get_stylesheet_directory() . '/inc/admin/cv-scanner.php';
 require_once get_stylesheet_directory() . '/inc/admin/cv-accounting.php';
@@ -65,6 +71,6 @@ require_once get_stylesheet_directory() . '/inc/admin/cv-reviews.php';
 
 // Frontend Legacy
 require_once get_stylesheet_directory() . '/inc/frontend/cv-shortcodes.php';
-require_once get_stylesheet_directory() . '/inc/frontend/cv-myaccount.php';
-require_once get_stylesheet_directory() . '/inc/frontend/cv-hub-biglietti.php';
-require_once get_stylesheet_directory() . '/inc/frontend/cv-feedback.php';
+// require_once get_stylesheet_directory() . '/inc/frontend/cv-myaccount.php'; // Disabilitato in favore di dfn-myaccount.php
+// require_once get_stylesheet_directory() . '/inc/frontend/cv-hub-biglietti.php'; // Disabilitato in favore di dfn-hub-biglietti.php
+require_once get_stylesheet_directory() . '/inc/frontend/cv-feedback.php';

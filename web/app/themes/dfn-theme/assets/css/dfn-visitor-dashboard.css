@@ -1,0 +1,455 @@
+/**
+ * DFN Booking System 2.0 — Visitor Dashboard & Group Ticket Hub Stylesheet
+ *
+ * Stili premium allineati all'identità istituzionale FAI (Verde Scuro, Ocra)
+ * con elementi di modern design, glassmorphism e ottimizzazioni responsive.
+ *
+ * @package DFN_Theme
+ * @since   2.0.0
+ */
+
+/* ==========================================================================
+   1. COLOR PALETTE & VARIABLES
+   ========================================================================== */
+:root {
+    --dfn-green-dark: #004b23;
+    --dfn-green-light: #38b000;
+    --dfn-ocre: #c69c3a;
+    --dfn-ocre-light: #dfb24f;
+    --dfn-dark: #111b15;
+    --dfn-white: #ffffff;
+    --dfn-gray-light: #f3f7f4;
+    --dfn-gray-medium: #e2e8f0;
+    --dfn-text-dark: #1e293b;
+    --dfn-text-muted: #64748b;
+    --dfn-shadow-soft: 0 10px 30px rgba(0, 75, 35, 0.04);
+    --dfn-shadow-premium: 0 20px 40px rgba(0, 75, 35, 0.08);
+    --dfn-radius-lg: 16px;
+    --dfn-radius-md: 10px;
+}
+
+/* ==========================================================================
+   2. VISITOR DASHBOARD & MY ACCOUNT OVERLAYS
+   ========================================================================== */
+.woocommerce-account .woocommerce {
+    max-width: 1200px;
+    margin: 40px auto;
+    background: var(--dfn-white);
+    padding: 40px;
+    border-radius: var(--dfn-radius-lg);
+    box-shadow: var(--dfn-shadow-premium);
+    border: 1px solid rgba(0, 75, 35, 0.05);
+}
+
+.woocommerce-account.logged-in .woocommerce {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+}
+
+/* Navigation Links */
+.woocommerce-MyAccount-navigation {
+    flex: 1 1 250px;
+}
+
+.woocommerce-MyAccount-navigation ul {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.woocommerce-MyAccount-navigation ul li {
+    margin-bottom: 10px;
+}
+
+.woocommerce-MyAccount-navigation ul li a {
+    display: block;
+    padding: 16px 20px;
+    background: var(--dfn-gray-light);
+    color: var(--dfn-text-dark) !important;
+    text-decoration: none;
+    border-radius: var(--dfn-radius-md);
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-left: 4px solid transparent;
+}
+
+.woocommerce-MyAccount-navigation ul li a:hover {
+    background: var(--dfn-white);
+    border-left-color: var(--dfn-ocre);
+    transform: translateX(4px);
+    box-shadow: var(--dfn-shadow-soft);
+}
+
+.woocommerce-MyAccount-navigation ul li.is-active a {
+    background: var(--dfn-green-dark) !important;
+    color: var(--dfn-white) !important;
+    border-left-color: var(--dfn-ocre) !important;
+    box-shadow: 0 8px 20px rgba(0, 75, 35, 0.15);
+}
+
+.woocommerce-MyAccount-content {
+    flex: 3 1 700px;
+    color: var(--dfn-text-dark);
+}
+
+/* Order Tables */
+.woocommerce-orders-table {
+    border-collapse: separate !important;
+    border-spacing: 0 12px !important;
+    width: 100% !important;
+}
+
+.woocommerce-orders-table thead th {
+    background: transparent !important;
+    border: none !important;
+    color: var(--dfn-text-muted) !important;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 0 20px 8px 20px !important;
+}
+
+.woocommerce-orders-table tbody tr {
+    background: var(--dfn-white) !important;
+    box-shadow: var(--dfn-shadow-soft) !important;
+    border-radius: var(--dfn-radius-md) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.woocommerce-orders-table tbody tr:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--dfn-shadow-premium) !important;
+}
+
+.woocommerce-orders-table tbody td, 
+.woocommerce-orders-table tbody th {
+    background: transparent !important;
+    border: none !important;
+    padding: 20px !important;
+    vertical-align: middle !important;
+}
+
+.woocommerce-orders-table tbody th:first-child, 
+.woocommerce-orders-table tbody td:first-child { 
+    border-radius: var(--dfn-radius-md) 0 0 var(--dfn-radius-md) !important; 
+}
+.woocommerce-orders-table tbody td:last-child { 
+    border-radius: 0 var(--dfn-radius-md) var(--dfn-radius-md) 0 !important; 
+}
+
+/* "Mostra Biglietti" Premium Button */
+.button.dfn-action-tickets {
+    background: var(--dfn-ocre) !important;
+    color: var(--dfn-white) !important;
+    padding: 10px 20px !important;
+    border-radius: 30px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    border: none !important;
+    box-shadow: 0 4px 10px rgba(198, 156, 58, 0.2);
+    transition: all 0.2s ease !important;
+    display: inline-block;
+    text-decoration: none;
+}
+
+.button.dfn-action-tickets:hover {
+    background: var(--dfn-ocre-light) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(198, 156, 58, 0.3);
+}
+
+/* ==========================================================================
+   3. TICKET HUB (MONOLITHIC GROUP TICKET VIEW)
+   ========================================================================== */
+.dfn-hub-wrapper {
+    min-height: 100vh;
+    background: var(--dfn-gray-light);
+    font-family: 'Outfit', sans-serif;
+    color: var(--dfn-text-dark);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 30px 20px;
+    box-sizing: border-box;
+}
+
+.dfn-hub-card {
+    background: var(--dfn-white);
+    max-width: 500px;
+    width: 100%;
+    border-radius: 24px;
+    box-shadow: var(--dfn-shadow-premium);
+    overflow: hidden;
+    border: 1px solid rgba(0, 75, 35, 0.05);
+    text-align: center;
+    padding: 40px 30px;
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* Top Decorative Header */
+.dfn-hub-header-decor {
+    width: 100%;
+    height: 8px;
+    background: linear-gradient(90deg, var(--dfn-green-dark) 0%, var(--dfn-ocre) 100%);
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.dfn-hub-title {
+    color: var(--dfn-green-dark);
+    font-size: 26px;
+    font-weight: 800;
+    margin: 10px 0 5px 0;
+    letter-spacing: -0.5px;
+}
+
+.dfn-hub-subtitle {
+    color: var(--dfn-text-muted);
+    font-size: 14px;
+    margin-bottom: 25px;
+}
+
+/* Event Info Segment */
+.dfn-hub-info-box {
+    background: var(--dfn-gray-light);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 25px;
+    text-align: left;
+    border: 1px solid rgba(0, 75, 35, 0.03);
+}
+
+.dfn-hub-info-title {
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--dfn-green-dark);
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.dfn-hub-info-detail {
+    font-size: 14px;
+    color: var(--dfn-text-dark);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dfn-hub-info-detail:last-child {
+    margin-bottom: 0;
+}
+
+/* Monolithic QR Container */
+.dfn-hub-qr-container {
+    margin: 30px auto;
+    position: relative;
+    display: inline-block;
+}
+
+.dfn-hub-qr-image {
+    width: 240px;
+    height: 240px;
+    padding: 12px;
+    background: var(--dfn-white);
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0, 75, 35, 0.06);
+    border: 1px solid var(--dfn-gray-medium);
+}
+
+/* Badges */
+.dfn-badge-group {
+    background: rgba(0, 75, 35, 0.08);
+    color: var(--dfn-green-dark);
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-block;
+    margin-bottom: 15px;
+    letter-spacing: 0.5px;
+}
+
+.dfn-badge-validated {
+    background: rgba(220, 38, 38, 0.08);
+    color: #dc2626;
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-block;
+    margin-bottom: 15px;
+    letter-spacing: 0.5px;
+}
+
+/* Action Buttons */
+.dfn-hub-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.dfn-hub-btn {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-sizing: border-box;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.dfn-hub-btn-wa {
+    background: #25D366;
+    color: var(--dfn-white);
+}
+.dfn-hub-btn-wa:hover {
+    background: #20ba56;
+    transform: translateY(-1px);
+}
+
+.dfn-hub-btn-print {
+    background: var(--dfn-green-dark);
+    color: var(--dfn-white);
+}
+.dfn-hub-btn-print:hover {
+    background: #003a1b;
+    transform: translateY(-1px);
+}
+
+.dfn-hub-btn-save {
+    background: var(--dfn-white);
+    color: var(--dfn-text-dark);
+    border: 1px solid var(--dfn-gray-medium);
+}
+.dfn-hub-btn-save:hover {
+    background: var(--dfn-gray-light);
+    transform: translateY(-1px);
+}
+
+/* Print Overrides */
+@media print {
+    body, .dfn-hub-wrapper {
+        background: var(--dfn-white) !important;
+        padding: 0;
+    }
+    .dfn-hub-card {
+        box-shadow: none !important;
+        border: 2px dashed var(--dfn-text-muted) !important;
+        max-width: 100%;
+        padding: 20px;
+    }
+    .dfn-no-print {
+        display: none !important;
+    }
+    .dfn-hub-qr-image {
+        box-shadow: none !important;
+        border: none !important;
+        width: 300px;
+        height: 300px;
+    }
+}
+
+/* Responsive Mobile Navigation Overlay */
+@media (max-width: 768px) {
+    .woocommerce-account .woocommerce {
+        padding: 24px 16px;
+        margin: 15px 10px;
+        border-radius: 12px;
+    }
+
+    .woocommerce-account.logged-in .woocommerce {
+        flex-direction: column;
+    }
+
+    .woocommerce-MyAccount-navigation {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: var(--dfn-white);
+        box-shadow: 0 -8px 25px rgba(0, 75, 35, 0.08);
+        z-index: 9999;
+        padding: 10px 0 20px 0;
+        border-top: 1px solid var(--dfn-gray-medium);
+    }
+
+    .woocommerce-MyAccount-navigation ul {
+        display: flex !important;
+        justify-content: space-around !important;
+        align-items: center !important;
+    }
+
+    .woocommerce-MyAccount-navigation ul li {
+        margin-bottom: 0 !important;
+        flex: 1;
+        text-align: center;
+    }
+
+    .woocommerce-MyAccount-navigation ul li a {
+        background: transparent !important;
+        border: none !important;
+        padding: 6px !important;
+        font-size: 11px !important;
+        color: var(--dfn-text-muted) !important;
+        box-shadow: none !important;
+        line-height: 1.2;
+    }
+
+    .woocommerce-MyAccount-navigation ul li.is-active a {
+        color: var(--dfn-green-dark) !important;
+        font-weight: 700;
+    }
+
+    /* Icon Overlays */
+    .woocommerce-MyAccount-navigation-link--dashboard a::before { content: "🏠"; }
+    .woocommerce-MyAccount-navigation-link--orders a::before { content: "🎟️"; }
+    .woocommerce-MyAccount-navigation-link--edit-account a::before { content: "⚙️"; }
+    .woocommerce-MyAccount-navigation-link--customer-logout a::before { content: "🚪"; }
+    
+    .woocommerce-MyAccount-navigation ul li a::before {
+        font-size: 20px;
+        display: block;
+        margin-bottom: 4px;
+        opacity: 0.6;
+        transition: all 0.2s;
+    }
+    
+    .woocommerce-MyAccount-navigation ul li.is-active a::before {
+        opacity: 1;
+    }
+
+    /* Order details mobile tables */
+    .woocommerce-orders-table thead { display: none; }
+    .woocommerce-orders-table tbody tr { display: block; margin-bottom: 20px; }
+    .woocommerce-orders-table tbody td, 
+    .woocommerce-orders-table tbody th { 
+        display: flex !important;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--dfn-gray-light) !important;
+        padding: 16px 20px !important;
+    }
+    .woocommerce-orders-table tbody td.woocommerce-orders-table__cell-order-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .button.dfn-action-tickets {
+        width: 100%;
+        text-align: center;
+    }
+}

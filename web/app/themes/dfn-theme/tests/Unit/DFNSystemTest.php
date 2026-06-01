@@ -18,6 +18,8 @@ require_once dirname(dirname(__DIR__)) . '/inc/core/dfn-helpers.php';
 require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-checkout.php';
 require_once dirname(dirname(__DIR__)) . '/inc/woocommerce/dfn-gateway-in-loco.php';
 require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-scanner.php';
+require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-myaccount.php';
+require_once dirname(dirname(__DIR__)) . '/inc/admin/dfn-volunteer-dashboard.php';
 
 use PHPUnit\Framework\TestCase;
 use Brain\Monkey;
@@ -39,6 +41,8 @@ class DFNSystemTest extends TestCase {
             'esc_html_e',
             'esc_attr',
             'esc_html',
+            'esc_url' => function($val) { return $val; },
+            'admin_url' => function($path = '') { return 'http://dfn-bedrock.local/wp-admin/' . $path; },
             'sanitize_text_field' => function($val) { return $val; },
             'sanitize_email' => function($val) { return $val; },
             'absint' => function($val) { return (int)$val; },
@@ -450,6 +454,66 @@ class DFNSystemTest extends TestCase {
             unset($_POST['security']);
             $wpdb = $original_wpdb;
         }
+    }
+
+    /**
+     * Test 12: Area Riservata Cliente — Corretto inserimento del bottone Biglietto Gruppo.
+     */
+    public function test_add_group_tickets_action_button_injects_group_action() {
+        $order_mock = $this->getMockBuilder(\WC_Order::class)
+            ->addMethods(array('has_status', 'get_id', 'get_order_key'))
+            ->getMock();
+
+        $order_mock->method('has_status')->willReturn(true);
+        $order_mock->method('get_id')->willReturn(999);
+        $order_mock->method('get_order_key')->willReturn('wc_order_abc123');
+
+        Functions\when('wp_salt')->justReturn('NONCE_SALT');
+        Functions\when('site_url')->alias(function($path = '') { return 'http://dfn-bedrock.local' . $path; });
+
+        $actions = array(
+            'view' => array( 'url' => '#', 'name' => 'Visualizza' )
+        );
+
+        $result = dfn_add_group_tickets_action_button($actions, $order_mock);
+
+        $this->assertArrayHasKey('dfn_group_ticket', $result);
+        $this->assertStringContainsString('dfn_hub=1', $result['dfn_group_ticket']['url']);
+        $this->assertStringContainsString('order_id=999', $result['dfn_group_ticket']['url']);
+    }
+
+    /**
+     * Test 13: Dashboard Volontario — Calcolo corretto statistiche di turno.
+     */
+    public function test_volunteer_dashboard_queries_today_stats() {
+        global $wpdb;
+        $original_wpdb = $wpdb;
+
+        $wpdb = $this->getMockBuilder(\stdClass::class)
+            ->addMethods(array('prepare', 'get_var'))
+            ->getMock();
+        $wpdb->prefix = 'wp_';
+
+        // Prepara risposte per get_var in sequenza: persone convalidate (5), gruppi (2), contanti (20.00), POS (30.00)
+        $wpdb->method('prepare')->willReturn('PREPARED_QUERY');
+        $wpdb->method('get_var')->willReturnOnConsecutiveCalls(5, 2, 20.00, 30.00);
+
+        Functions\when('get_current_user_id')->justReturn(2);
+        Functions\when('get_userdata')->justReturn((object)array('display_name' => 'Operatore FAI'));
+        Functions\when('current_user_can')->justReturn(true);
+
+        // Catturiamo l'output del rendering per verificare la presenza delle cifre e dei testi principali
+        ob_start();
+        dfn_render_volunteer_dashboard();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Benvenuto, Operatore FAI', $output);
+        $this->assertStringContainsString('5', $output); // visitatori entrati
+        $this->assertStringContainsString('2', $output); // gruppi scansionati
+        $this->assertStringContainsString('20', $output); // cassa contanti (escl. wc_price formatting)
+        $this->assertStringContainsString('30', $output); // cassa pos (escl. wc_price formatting)
+
+        $wpdb = $original_wpdb;
     }
 }
 }
