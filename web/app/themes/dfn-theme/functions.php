@@ -1,7 +1,7 @@
 <?php
 /**
  * DFN Theme - Functions
- * Architettura Modulare "CandleVibes App"
+ * Architettura Modulare FAI Prenotazioni & CandleVibes Legacy
  */
 
 // Exit if accessed directly
@@ -9,20 +9,41 @@ if ( !defined( 'ABSPATH' ) ) exit;
 
 /**
  * ========================================================================
- * LOADER DELL'APPLICAZIONE
- * Include tutti i moduli del sistema in ordine logico.
+ * 1. NUOVO LOADER SISTEMA PRENOTAZIONI 2.0 (dfn_*)
+ * Include tutti i moduli del sistema FAI Prenotazioni in ordine logico.
  * ========================================================================
  */
 
-// 1. CORE (Configurazioni, WooCommerce, Helpers)
+// Core e Database
+require_once get_stylesheet_directory() . '/inc/core/dfn-database.php';
+require_once get_stylesheet_directory() . '/inc/core/dfn-setup.php';
+require_once get_stylesheet_directory() . '/inc/core/dfn-helpers.php';
+require_once get_stylesheet_directory() . '/inc/core/dfn-notifications.php';
+require_once get_stylesheet_directory() . '/inc/core/dfn-cron.php';
+
+// Integrazioni WooCommerce
+require_once get_stylesheet_directory() . '/inc/woocommerce/dfn-gateway-in-loco.php';
+
+// Frontend
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-checkout.php';
+
+
+/**
+ * ========================================================================
+ * 2. LOADER APPLICAZIONE LEGACY (cv_*)
+ * Mantenuto attivo per compatibilità retroattiva con ordini ed eventi storici.
+ * ========================================================================
+ */
+
+// Core Legacy
 require_once get_stylesheet_directory() . '/inc/core/cv-setup.php';
 require_once get_stylesheet_directory() . '/inc/core/cv-helpers.php';
 require_once get_stylesheet_directory() . '/inc/core/cv-cron-tracking.php';
 
-// 2. API (Router centrale per tutte le richieste AJAX/Asincrone)
+// API Legacy
 require_once get_stylesheet_directory() . '/inc/api/cv-ajax-handlers.php';
 
-// 3. ADMIN (Botteghino, Tabellone Check-in, Mappa Tavoli, Liste d'Attesa, Scanner PWA)
+// Admin Legacy
 require_once get_stylesheet_directory() . '/inc/admin/cv-botteghino.php';
 require_once get_stylesheet_directory() . '/inc/admin/cv-report.php';
 require_once get_stylesheet_directory() . '/inc/admin/cv-waitlist.php';
@@ -30,8 +51,8 @@ require_once get_stylesheet_directory() . '/inc/admin/cv-scanner.php';
 require_once get_stylesheet_directory() . '/inc/admin/cv-accounting.php';
 require_once get_stylesheet_directory() . '/inc/admin/cv-reviews.php';
 
-// 4. FRONTEND (Shortcodes, My Account, Hub Biglietti)
+// Frontend Legacy
 require_once get_stylesheet_directory() . '/inc/frontend/cv-shortcodes.php';
 require_once get_stylesheet_directory() . '/inc/frontend/cv-myaccount.php';
 require_once get_stylesheet_directory() . '/inc/frontend/cv-hub-biglietti.php';
-require_once get_stylesheet_directory() . '/inc/frontend/cv-feedback.php';
+require_once get_stylesheet_directory() . '/inc/frontend/cv-feedback.php';
