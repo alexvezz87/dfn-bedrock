@@ -1,0 +1,18 @@
+# BEGIN Bedrock Root Rewrite
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# Forza la connessione sicura HTTPS a livello di server
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Evita di riscrivere per lo script di scompattamento temporaneo
+RewriteCond %{REQUEST_URI} !scompatta\.php
+
+# Evita di riscrivere se la richiesta punta già a /web/
+RewriteCond %{REQUEST_URI} !^/web/
+
+# Riscrivi in modo trasparente tutte le richieste puntandole alla sottocartella /web/
+RewriteRule ^(.*)$ /web/$1 [L]
+</IfModule>
+# END Bedrock Root Rewrite

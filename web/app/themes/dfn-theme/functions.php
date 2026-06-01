@@ -37,11 +37,14 @@ require_once get_stylesheet_directory() . '/inc/admin/dfn-event-editor.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-scanner.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteer-dashboard.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-report.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-members-admin.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-waitlist.php';
 
 // API / Router
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slots.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-bookings.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-scanner.php';
+require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-fai-members.php';
 
 
 
@@ -64,7 +67,7 @@ require_once get_stylesheet_directory() . '/inc/api/cv-ajax-handlers.php';
 // Admin Legacy
 require_once get_stylesheet_directory() . '/inc/admin/cv-botteghino.php';
 // require_once get_stylesheet_directory() . '/inc/admin/cv-report.php'; // Disabilitato in favore di dfn-report.php
-require_once get_stylesheet_directory() . '/inc/admin/cv-waitlist.php';
+// require_once get_stylesheet_directory() . '/inc/admin/cv-waitlist.php'; // Disabilitato in favore di dfn-waitlist.php
 require_once get_stylesheet_directory() . '/inc/admin/cv-scanner.php';
 require_once get_stylesheet_directory() . '/inc/admin/cv-accounting.php';
 require_once get_stylesheet_directory() . '/inc/admin/cv-reviews.php';

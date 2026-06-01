@@ -22,13 +22,13 @@ jobs:
 
     - name: 📦 Install Composer Dependencies
       run: |
-        composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --no-scripts --optimize-autoloader
+        composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader
 
     - name: 📦 Create Compressed TAR Archive
       run: |
         # Creiamo un archivio TAR compresso (.tar.gz) escludendo la cartella uploads per velocità e sicurezza
         # Il TAR preserva i file/symlink in modo pulito ed è solo ~25MB compresso!
-        tar --exclude="web/app/uploads" -czf deploy.tar.gz vendor web
+        tar --exclude="web/app/uploads" -czf deploy.tar.gz vendor web config
 
     - name: 📂 Upload Files via curl FTP (Secure & Fast)
       run: |

@@ -51,6 +51,16 @@ function dfn_admin_register_menus() {
         'dfn_render_event_editor'
     );
 
+    // Sottomenu "Scanner Live"
+    add_submenu_page(
+        'dfn-events',
+        __( 'Scanner Live', 'dfn-theme' ),
+        __( 'Scanner Live', 'dfn-theme' ),
+        'dfn_use_scanner',
+        'dfn-scanner-live',
+        'dfn_render_pagina_scanner_live'
+    );
+
     // Enqueue degli asset specifici per l'admin
     add_action( 'admin_enqueue_scripts', 'dfn_enqueue_admin_assets' );
 }

@@ -7,6 +7,13 @@ namespace {
     if ( ! class_exists( 'WC_Order' ) ) {
         class WC_Order {}
     }
+    if ( ! class_exists( 'WC_Order_Item_Fee' ) ) {
+        class WC_Order_Item_Fee {
+            public function set_name($name) {}
+            public function set_amount($amount) {}
+            public function set_total($total) {}
+        }
+    }
 }
 
 namespace DFN\Theme\Tests\Unit {
@@ -20,6 +27,8 @@ require_once dirname(dirname(__DIR__)) . '/inc/woocommerce/dfn-gateway-in-loco.p
 require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-scanner.php';
 require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-myaccount.php';
 require_once dirname(dirname(__DIR__)) . '/inc/admin/dfn-volunteer-dashboard.php';
+require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-fai-members.php';
+require_once dirname(dirname(__DIR__)) . '/inc/admin/dfn-waitlist.php';
 
 use PHPUnit\Framework\TestCase;
 use Brain\Monkey;
@@ -43,6 +52,9 @@ class DFNSystemTest extends TestCase {
             'esc_html',
             'esc_url' => function($val) { return $val; },
             'admin_url' => function($path = '') { return 'http://dfn-bedrock.local/wp-admin/' . $path; },
+            'wp_verify_nonce' => true,
+            'wp_nonce_field' => '',
+            'wp_hash' => function($val) { return md5($val); },
             'sanitize_text_field' => function($val) { return $val; },
             'sanitize_email' => function($val) { return $val; },
             'absint' => function($val) { return (int)$val; },
@@ -513,6 +525,149 @@ class DFNSystemTest extends TestCase {
         $this->assertStringContainsString('20', $output); // cassa contanti (escl. wc_price formatting)
         $this->assertStringContainsString('30', $output); // cassa pos (escl. wc_price formatting)
 
+        $wpdb = $original_wpdb;
+    }
+
+    /**
+     * Test 14: Anagrafica Soci FAI — Registrazione con successo tramite endpoint AJAX.
+     */
+    public function test_save_fai_member_ajax_success() {
+        global $wpdb;
+        $original_wpdb = $wpdb;
+
+        $wpdb = $this->getMockBuilder(\stdClass::class)
+            ->addMethods(array('prepare', 'insert'))
+            ->getMock();
+        $wpdb->prefix = 'wp_';
+
+        $wpdb->expects($this->once())->method('insert')->willReturn(true);
+
+        Functions\when('current_user_can')->justReturn(true);
+        Functions\when('get_current_user_id')->justReturn(1);
+
+        $_POST['member_id'] = 0;
+        $_POST['first_name'] = 'Luigi';
+        $_POST['last_name'] = 'Verdi';
+        $_POST['email'] = 'luigi.verdi@example.com';
+        $_POST['phone'] = '3330000000';
+        $_POST['card_number'] = 'FAI-999888';
+        $_POST['card_expiry'] = '2027-12-31';
+        $_POST['security'] = 'NONCE';
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('WP_SEND_JSON_SUCCESS');
+        $this->expectExceptionMessage('Nuovo socio FAI registrato con successo.');
+
+        try {
+            dfn_save_fai_member_ajax_handler();
+        } finally {
+            unset($_POST['member_id']);
+            unset($_POST['first_name']);
+            unset($_POST['last_name']);
+            unset($_POST['email']);
+            unset($_POST['phone']);
+            $_POST['card_number'] = '';
+            $_POST['card_expiry'] = '';
+            unset($_POST['security']);
+            $wpdb = $original_wpdb;
+        }
+    }
+
+    /**
+     * Test 15: Lista d'Attesa — Promozione manuale con successo ad ordine e prenotazione attiva.
+     */
+    public function test_promote_waitlist_entry_success() {
+        global $wpdb;
+        $original_wpdb = $wpdb;
+
+        $wpdb = $this->getMockBuilder(\stdClass::class)
+            ->addMethods(array('prepare', 'get_row', 'get_results', 'insert', 'update', 'query'))
+            ->getMock();
+        $wpdb->prefix = 'wp_';
+        $wpdb->insert_id = 999;
+
+        $wpdb->method('get_results')->willReturn(array());
+
+        $waitlist_mock = (object)array(
+            'id' => 77,
+            'event_id' => 101,
+            'slot_id' => 202,
+            'customer_name' => 'Carla Bruni',
+            'customer_email' => 'carla@example.com',
+            'customer_phone' => '3339998887',
+            'persons' => 2,
+            'fai_cards' => 1
+        );
+
+        $event_mock = (object)array(
+            'id' => 101,
+            'product_id' => 505,
+            'price_standard' => 15.00,
+            'price_fai' => 10.00
+        );
+
+        $slot_mock = (object)array(
+            'id' => 202,
+            'booked_count' => 18,
+            'capacity' => 20
+        );
+
+        // Mocking preparazioni ed interrogazioni
+        $wpdb->method('prepare')->willReturn('PREPARED');
+        $wpdb->method('get_row')->willReturnCallback(function($query) use ($waitlist_mock, $event_mock, $slot_mock) {
+            static $call_count = 0;
+            $call_count++;
+            if ($call_count === 1) return $waitlist_mock;
+            if ($call_count === 2) return $slot_mock;
+            return $event_mock;
+        });
+
+        $wpdb->expects($this->exactly(2))->method('update')->willReturn(true);
+        $wpdb->expects($this->exactly(2))->method('insert')->willReturn(true);
+
+        // WooCommerce Order mocks
+        $order_mock = $this->getMockBuilder(\WC_Order::class)
+            ->addMethods(array('set_billing_first_name', 'set_billing_last_name', 'set_billing_email', 'set_billing_phone', 'add_product', 'add_item', 'calculate_totals', 'update_status', 'save', 'get_id', 'get_payment_method', 'get_total'))
+            ->getMock();
+        $order_mock->method('get_id')->willReturn(1001);
+        $order_mock->method('get_payment_method')->willReturn('dfn_in_loco');
+        $order_mock->method('get_total')->willReturn('20.00');
+        
+        Functions\when('wc_create_order')->justReturn($order_mock);
+        Functions\when('wc_get_product')->justReturn(new \stdClass());
+        Functions\when('dfn_db_get_event')->justReturn($event_mock);
+
+        // Mock per mailer
+        $invoice_mock = $this->getMockBuilder(\stdClass::class)->addMethods(array('trigger'))->getMock();
+        $invoice_mock->expects($this->once())->method('trigger')->willReturn(true);
+
+        $mailer_mock = $this->getMockBuilder(\stdClass::class)
+            ->addMethods(array('get_emails'))
+            ->getMock();
+        $mailer_mock->method('get_emails')->willReturn(array('WC_Email_Customer_Invoice' => $invoice_mock));
+        
+        $wc_mock = $this->getMockBuilder(\stdClass::class)
+            ->addMethods(array('mailer'))
+            ->getMock();
+        $wc_mock->method('mailer')->willReturn($mailer_mock);
+
+        Functions\when('WC')->justReturn($wc_mock);
+
+        $_POST['dfn_waitlist_action_nonce'] = 'NONCE';
+        $_POST['entry_id'] = 77;
+        $_POST['wl_action'] = 'promote';
+
+        Functions\when('current_user_can')->justReturn(true);
+
+        ob_start();
+        dfn_render_waitlist_page();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Successo! Utente promosso', $output);
+
+        unset($_POST['dfn_waitlist_action_nonce']);
+        unset($_POST['entry_id']);
+        unset($_POST['wl_action']);
         $wpdb = $original_wpdb;
     }
 }

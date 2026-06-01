@@ -1,0 +1,246 @@
+/**
+ * DFN Booking System 2.0 — Premium Live Scanner Stylesheet
+ *
+ * Design dark-mode ottimizzato per dispositivi mobili all'esterno sotto la luce del sole.
+ * Pulsanti di interazione di grandi dimensioni e interfacce a contrasto elevato.
+ *
+ * @package DFN_Theme
+ * @since   2.0.0
+ */
+
+.dfn-scanner-wrapper {
+    background-color: #111827;
+    color: #f9fafb;
+    min-height: 100vh;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    box-sizing: border-box;
+}
+
+.dfn-scanner-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.dfn-scanner-header h1 {
+    font-size: 22px;
+    font-weight: 800;
+    color: #c69c3a;
+    margin: 0;
+    letter-spacing: -0.5px;
+}
+
+.dfn-scanner-header p {
+    font-size: 12px;
+    color: #9ca3af;
+    margin: 4px 0 0 0;
+}
+
+/* Container fotocamera */
+#dfn-reader {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto 20px auto;
+    border: 3px solid #374151;
+    border-radius: 12px;
+    background: #1f2937;
+    overflow: hidden;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+}
+
+.dfn-scanner-btn-start {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 320px;
+    height: 54px;
+    margin: 0 auto 20px auto;
+    background-color: #004b23;
+    color: #ffffff;
+    border: none;
+    border-radius: 9999px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 75, 35, 0.3);
+    transition: all 0.2s ease-in-out;
+}
+
+.dfn-scanner-btn-start:hover {
+    background-color: #002f16;
+    transform: scale(1.02);
+}
+
+/* Modale dei risultati */
+.dfn-scan-result-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(17, 24, 39, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    padding: 20px;
+    box-sizing: border-box;
+    animation: dfnModalFade 0.25s ease-out;
+}
+
+@keyframes dfnModalFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.dfn-scan-result-card {
+    background: #1f2937;
+    border: 2px solid #374151;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 440px;
+    padding: 24px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    box-sizing: border-box;
+    position: relative;
+    animation: dfnCardSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dfnCardSlide {
+    from { transform: translateY(20px) scale(0.95); }
+    to { transform: translateY(0) scale(1); }
+}
+
+.dfn-scan-icon-badge {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 16px auto;
+    font-size: 36px;
+}
+
+.dfn-badge-success {
+    background-color: rgba(22, 163, 74, 0.2);
+    border: 2px solid #16a34a;
+    color: #4ade80;
+}
+
+.dfn-badge-error {
+    background-color: rgba(220, 38, 38, 0.2);
+    border: 2px solid #dc2626;
+    color: #f87171;
+}
+
+.dfn-badge-warning {
+    background-color: rgba(234, 88, 12, 0.2);
+    border: 2px solid #ea580c;
+    color: #fb923c;
+}
+
+.dfn-scan-title {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.dfn-scan-details {
+    font-size: 14px;
+    color: #d1d5db;
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+/* Breakdown finanziario per saldi In Loco */
+.dfn-finance-breakdown {
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+    text-align: left;
+}
+
+.dfn-finance-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #9ca3af;
+    margin-bottom: 6px;
+}
+
+.dfn-finance-total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    font-weight: 800;
+    color: #fbbf24;
+    border-top: 1px dashed #374151;
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
+/* Pulsanti di azione per saldi */
+.dfn-action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.dfn-scan-btn {
+    height: 50px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.dfn-scan-btn-cash {
+    background-color: #16a34a;
+    color: #ffffff;
+}
+
+.dfn-scan-btn-cash:hover {
+    background-color: #15803d;
+}
+
+.dfn-scan-btn-pos {
+    background-color: #2563eb;
+    color: #ffffff;
+}
+
+.dfn-scan-btn-pos:hover {
+    background-color: #1d4ed8;
+}
+
+.dfn-scan-btn-close {
+    background-color: #4b5563;
+    color: #ffffff;
+    width: 100%;
+}
+
+.dfn-scan-btn-close:hover {
+    background-color: #374151;
+}
+
+.dfn-scanner-loading {
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border-left-color: #fbbf24;
+    animation: dfnSpin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes dfnSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
