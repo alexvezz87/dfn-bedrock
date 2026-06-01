@@ -27,6 +27,11 @@ require_once get_stylesheet_directory() . '/inc/woocommerce/dfn-gateway-in-loco.
 // Frontend
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-checkout.php';
 
+// Admin / Gestione
+require_once get_stylesheet_directory() . '/inc/admin/dfn-events-manager.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-event-editor.php';
+
+
 
 /**
  * ========================================================================
