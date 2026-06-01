@@ -43,7 +43,7 @@ function dfn_render_event_editor() {
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['dfn_save_event_nonce'] ) ) {
         if ( wp_verify_nonce( $_POST['dfn_save_event_nonce'], 'dfn_save_event' ) ) {
             
-            $product_id        = intval( $_POST['product_id'] );
+            $product_id_raw    = sanitize_text_field( $_POST['product_id'] );
             $event_date_start  = sanitize_text_field( $_POST['event_date_start'] );
             $event_date_end    = ! empty( $_POST['event_date_end'] ) ? sanitize_text_field( $_POST['event_date_end'] ) : $event_date_start;
             $event_time_start  = sanitize_text_field( $_POST['event_time_start'] );
@@ -63,6 +63,61 @@ function dfn_render_event_editor() {
             $price_fai         = floatval( $_POST['price_fai'] );
             $staff_config      = sanitize_textarea_field( $_POST['staff_config'] );
             $status            = sanitize_text_field( $_POST['status'] );
+
+            $product_id = 0;
+            if ( $product_id_raw === 'new' ) {
+                $event_title = isset( $_POST['event_title'] ) ? sanitize_text_field( $_POST['event_title'] ) : '';
+                if ( empty( $event_title ) ) {
+                    $event_title = 'Evento FAI - ' . date_i18n( 'd M Y', strtotime( $event_date_start ) );
+                }
+
+                // Crea il post del prodotto
+                $new_prod_id = wp_insert_post( array(
+                    'post_title'   => $event_title,
+                    'post_status'  => 'publish',
+                    'post_type'    => 'product',
+                    'post_content' => sprintf( __( 'Prenotazione biglietti per l\'evento: %s.', 'dfn-theme' ), $event_title )
+                ) );
+
+                if ( ! is_wp_error( $new_prod_id ) && $new_prod_id > 0 ) {
+                    $product_id = $new_prod_id;
+
+                    // Assegna tipo simple
+                    wp_set_object_terms( $product_id, 'simple', 'product_type' );
+
+                    // Configura metadati del prodotto
+                    update_post_meta( $product_id, '_visibility', 'visible' );
+                    update_post_meta( $product_id, '_stock_status', 'instock' );
+                    update_post_meta( $product_id, '_virtual', 'yes' );
+                    update_post_meta( $product_id, '_regular_price', $price_standard );
+                    update_post_meta( $product_id, '_price', $price_standard );
+                    update_post_meta( $product_id, '_manage_stock', 'yes' );
+
+                    // Calcola lo stock totale
+                    $total_stock = 0;
+                    if ( 'time_slots' === $access_type ) {
+                        $first = strtotime( $first_slot_time );
+                        $last  = strtotime( $last_slot_time );
+                        $dur   = $slot_duration > 0 ? $slot_duration : 30;
+                        $slots_per_day = 1;
+                        if ( $first && $last && $last > $first ) {
+                            $slots_per_day = floor( ( $last - $first ) / ( $dur * 60 ) ) + 1;
+                        }
+                        $days = 1;
+                        $start_ts = strtotime( $event_date_start );
+                        $end_ts   = strtotime( $event_date_end );
+                        if ( $start_ts && $end_ts && $end_ts > $start_ts ) {
+                            $days = floor( ( $end_ts - $start_ts ) / DAY_IN_SECONDS ) + 1;
+                        }
+                        $total_stock = $slot_capacity * $slots_per_day * $days;
+                    } else {
+                        $total_stock = $total_capacity;
+                    }
+                    update_post_meta( $product_id, '_stock', $total_stock );
+                }
+            } else {
+                $product_id = intval( $product_id_raw );
+            }
 
             $data = array(
                 'product_id'        => $product_id,
@@ -186,10 +241,20 @@ function dfn_render_event_editor() {
                                 <label for="product_id" class="dfn-label"><?php esc_html_e( 'Prodotto WooCommerce Collegato', 'dfn-theme' ); ?> <span class="required">*</span></label>
                                 <select name="product_id" id="product_id" class="dfn-select2" required style="width:100%;">
                                     <option value=""><?php esc_html_e( 'Seleziona un prodotto...', 'dfn-theme' ); ?></option>
+                                    <?php if ( $event_id === 0 ) : ?>
+                                        <option value="new"><?php esc_html_e( '🆕 Crea automaticamente un nuovo Prodotto WooCommerce', 'dfn-theme' ); ?></option>
+                                    <?php endif; ?>
                                     <?php foreach ( $products as $prod ) : ?>
                                         <option value="<?php echo $prod->ID; ?>" <?php selected( $p_id, $prod->ID ); ?>><?php echo esc_html( $prod->post_title ); ?> (ID: <?php echo $prod->ID; ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
+
+                                <?php if ( $event_id === 0 ) : ?>
+                                    <div class="dfn-form-group" id="dfn-auto-product-title-group" style="display:none; margin-top: 15px;">
+                                        <label for="event_title" class="dfn-label"><?php esc_html_e( 'Titolo del Nuovo Evento / Biglietto', 'dfn-theme' ); ?> <span class="required">*</span></label>
+                                        <input type="text" name="event_title" id="event_title" class="dfn-input" placeholder="<?php esc_attr_e( 'Es: Visita al Castello Visconteo', 'dfn-theme' ); ?>">
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>

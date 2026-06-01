@@ -20,6 +20,26 @@
             });
         }
 
+        // 1b. Logica condizionale per la creazione automatica del prodotto WooCommerce
+        function toggleAutoProductTitleField() {
+            var selectedProduct = $('#product_id').val();
+            if (selectedProduct === 'new') {
+                $('#dfn-auto-product-title-group').slideDown(250);
+                $('#event_title').prop('required', true);
+            } else {
+                $('#dfn-auto-product-title-group').slideUp(200);
+                $('#event_title').prop('required', false);
+            }
+        }
+
+        if ($('#product_id').length > 0) {
+            toggleAutoProductTitleField();
+        }
+
+        $(document).on('change', '#product_id', function() {
+            toggleAutoProductTitleField();
+        });
+
         // 2. Logica condizionale dei campi del form in base alla modalità di accesso
         function toggleAccessTypeSections() {
             var accessType = $('#access_type').val();
