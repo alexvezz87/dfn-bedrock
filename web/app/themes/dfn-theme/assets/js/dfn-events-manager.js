@@ -102,14 +102,21 @@
         $(document).on('click', '#dfn-upload-image-btn', function(e) {
             e.preventDefault();
 
+            // Verifica che wp e wp.media esistano per prevenire crash JS
+            if (typeof wp === 'undefined' || !wp.media) {
+                console.error('WordPress Media Library non caricata correttamente.');
+                alert('La libreria dei media di WordPress non è al momento disponibile.');
+                return;
+            }
+
             // Se il frame esiste già, riapriamolo
             if (file_frame) {
                 file_frame.open();
                 return;
             }
 
-            // Crea il frame di selezione media
-            file_frame = wp.media.frames.file_frame = wp.media({
+            // Crea il frame di selezione media in modo sicuro senza appoggiarsi a proprietà non definite di wp.media
+            file_frame = wp.media({
                 title: 'Seleziona Immagine in Evidenza',
                 button: {
                     text: 'Usa questa immagine'
