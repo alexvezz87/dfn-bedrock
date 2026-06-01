@@ -16,7 +16,8 @@
             $('.dfn-select2').select2({
                 placeholder: 'Cerca e seleziona un elemento...',
                 allowClear: true,
-                language: 'it'
+                language: 'it',
+                width: '100%'
             });
         }
 

@@ -76,7 +76,9 @@ function dfn_enqueue_admin_assets( $hook ) {
         return;
     }
 
-    wp_enqueue_style( 'select2' );
+    if ( class_exists( 'WooCommerce' ) ) {
+        wp_enqueue_style( 'select2', WC()->plugin_url() . '/assets/css/select2.css', array(), '4.0.3' );
+    }
     wp_enqueue_script( 'selectWoo' );
 
     // CSS personalizzato
