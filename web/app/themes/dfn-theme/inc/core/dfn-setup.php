@@ -42,6 +42,38 @@ if ( ! function_exists( 'dfn_enqueue_parent_styles' ) ) :
             trailingslashit( get_stylesheet_directory_uri() ) . 'style.css',
             array( 'hello-elementor', 'hello-elementor-theme-style' )
         );
+
+        // Enqueue del widget selettore turni (CSS e JS) per il frontend
+        wp_enqueue_style(
+            'dfn-slot-selector-css',
+            trailingslashit( get_stylesheet_directory_uri() ) . 'assets/css/dfn-slot-selector.css',
+            array(),
+            '2.0.0'
+        );
+
+        wp_enqueue_script(
+            'dfn-slot-selector-js',
+            trailingslashit( get_stylesheet_directory_uri() ) . 'assets/js/dfn-slot-selector.js',
+            array( 'jquery' ),
+            '2.0.0',
+            true
+        );
+
+        // Localizza variabili utili in JS
+        wp_localize_script( 'dfn-slot-selector-js', 'dfnVars', array(
+            'ajaxurl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'dfn_booking_nonce' ),
+        ) );
+
+        // Enqueue condizionale per l'Express Checkout (solo nelle pagine checkout)
+        if ( is_checkout() && ! is_order_received_page() ) {
+            wp_enqueue_style(
+                'dfn-checkout-express-css',
+                trailingslashit( get_stylesheet_directory_uri() ) . 'assets/css/dfn-checkout-express.css',
+                array(),
+                '2.0.0'
+            );
+        }
     }
 endif;
 add_action( 'wp_enqueue_scripts', 'dfn_enqueue_parent_styles', 10 );
