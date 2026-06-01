@@ -9,13 +9,14 @@ if ( !defined( 'ABSPATH' ) ) exit;
 add_action( 'admin_menu', 'cv_aggiungi_pagina_report_checkin' );
 function cv_aggiungi_pagina_report_checkin() {
     $hook = add_submenu_page(
-        'woocommerce', 'Report Check-in Eventi', 'Check-in Eventi', 'manage_woocommerce', 'cv-report-checkin', 'cv_render_pagina_report_checkin'
+        'dfn-events', 'Report Check-in Eventi', 'Check-in Eventi', 'manage_woocommerce', 'cv-report-checkin', 'cv_render_pagina_report_checkin'
     );
     add_action( "admin_enqueue_scripts", 'cv_enqueue_report_assets' );
 }
 
 function cv_enqueue_report_assets( $hook ) {
-    if ( $hook !== 'woocommerce_page_cv-report-checkin' ) return;
+    if ( strpos( $hook, 'cv-report-checkin' ) === false ) return;
+
 
     wp_enqueue_style( 'cv-report-css', get_stylesheet_directory_uri() . '/assets/css/cv-report.css', array(), '1.0' );
     wp_enqueue_script( 'cv-report-js', get_stylesheet_directory_uri() . '/assets/js/cv-report.js', array('jquery'), '1.0', true );

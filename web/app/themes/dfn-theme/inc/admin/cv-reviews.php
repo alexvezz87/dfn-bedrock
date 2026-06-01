@@ -10,7 +10,7 @@ if ( !defined( 'ABSPATH' ) ) exit;
 add_action( 'admin_menu', 'cv_aggiungi_pagina_recensioni' );
 function cv_aggiungi_pagina_recensioni() {
     add_submenu_page(
-        'woocommerce',
+        'dfn-events',
         'Recensioni Eventi',
         '⭐ Recensioni Eventi',
         'manage_woocommerce',

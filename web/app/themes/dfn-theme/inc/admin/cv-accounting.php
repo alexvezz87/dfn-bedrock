@@ -10,7 +10,7 @@ if ( !defined( 'ABSPATH' ) ) exit;
 add_action( 'admin_menu', 'cv_aggiungi_pagina_bilancio' );
 function cv_aggiungi_pagina_bilancio() {
     $hook = add_submenu_page(
-        'woocommerce',
+        'dfn-events',
         'Bilancio Eventi',
         '📊 Bilancio Eventi',
         'manage_woocommerce',
@@ -23,7 +23,8 @@ function cv_aggiungi_pagina_bilancio() {
 }
 
 function cv_enqueue_accounting_assets( $hook ) {
-    if ( $hook !== 'woocommerce_page_cv-bilancio-eventi' ) return;
+    if ( strpos( $hook, 'cv-bilancio-eventi' ) === false ) return;
+
     // Includiamo Chart.js via CDN in modo asincrono
     wp_enqueue_script( 'chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', array(), null, true );
 }

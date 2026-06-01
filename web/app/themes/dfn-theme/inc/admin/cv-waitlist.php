@@ -11,7 +11,7 @@ if ( !defined( 'ABSPATH' ) ) exit;
 add_action( 'admin_menu', 'cv_aggiungi_pagina_liste_attesa' );
 function cv_aggiungi_pagina_liste_attesa() {
     add_submenu_page(
-        'woocommerce',
+        'dfn-events',
         'Liste di Attesa',
         '⏳ Liste di Attesa',
         'manage_woocommerce',

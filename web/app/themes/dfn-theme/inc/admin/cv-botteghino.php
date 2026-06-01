@@ -8,7 +8,7 @@ if ( !defined( 'ABSPATH' ) ) exit;
 add_action( 'admin_menu', 'cv_aggiungi_generatore_fai' );
 function cv_aggiungi_generatore_fai() {
     $hook = add_submenu_page(
-        'woocommerce',
+        'dfn-events',
         'Botteghino Live',
         '🎟️ Botteghino Live',
         'manage_woocommerce',
@@ -21,9 +21,10 @@ function cv_aggiungi_generatore_fai() {
 }
 
 function cv_enqueue_botteghino_assets( $hook ) {
-    if ( $hook !== 'woocommerce_page_cv-generatore-fai' ) {
+    if ( strpos( $hook, 'cv-generatore-fai' ) === false ) {
         return;
     }
+
 
     // Dipendenze Select2 native di WooCommerce
     wp_enqueue_script( 'selectWoo' );
