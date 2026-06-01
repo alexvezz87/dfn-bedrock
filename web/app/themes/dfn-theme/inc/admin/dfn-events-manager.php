@@ -255,7 +255,7 @@ function dfn_render_events_manager() {
                                 <td>
                                     <?php if ( 'time_slots' === $event->access_type ) : ?>
                                         <div class="dfn-progress-bar-container">
-                                            <div class="dfn-progress-text"><?php echo esc_html( $slot_booked ); ?> / <?php echo esc_html( $event->slot_capacity * $slots_total ); ?> <?php esc_html_e( 'posti', 'dfn-theme' ); ?></div>
+                                            <div class="dfn-progress-text"><?php echo esc_html( (string) $slot_booked ); ?> / <?php echo esc_html( (string) ( $event->slot_capacity * $slots_total ) ); ?> <?php esc_html_e( 'posti', 'dfn-theme' ); ?></div>
                                             <div class="dfn-progress-bar">
                                                 <?php 
                                                 $pct = 0;
@@ -277,6 +277,7 @@ function dfn_render_events_manager() {
                                     <span class="dfn-badge <?php echo esc_attr( $status_class ); ?>">
                                         <?php 
                                         if ( 'published' === $event->status ) esc_html_e( 'Pubblicato', 'dfn-theme' );
+                                        elseif ( 'private' === $event->status ) esc_html_e( 'Privato', 'dfn-theme' );
                                         elseif ( 'archived' === $event->status ) esc_html_e( 'Archiviato', 'dfn-theme' );
                                         else esc_html_e( 'Bozza', 'dfn-theme' );
                                         ?>

@@ -518,6 +518,7 @@ function dfn_db_get_waitlist( int $event_id, string $status = 'waiting' ): array
 function dfn_db_generate_slots_for_event( int $event_id ): int {
     global $wpdb;
 
+    /** @var \stdClass|null $event */
     $event = dfn_db_get_event( $event_id );
     if ( ! $event || $event->access_type !== 'time_slots' ) {
         return 0;

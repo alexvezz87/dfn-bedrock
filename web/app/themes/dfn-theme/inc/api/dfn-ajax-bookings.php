@@ -159,7 +159,7 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
 
                 if ( $best_slot ) {
                     $slot_id = intval( $best_slot->id );
-                    $item->update_meta_data( '_dfn_booking_slot_id', $slot_id );
+                    $item->update_meta_data( '_dfn_booking_slot_id', (string) $slot_id );
                     $item->save();
                 }
             } else {

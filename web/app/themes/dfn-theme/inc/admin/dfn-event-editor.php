@@ -376,6 +376,7 @@ function dfn_render_event_editor() {
                                 <select name="status" id="status" class="dfn-input">
                                     <option value="draft" <?php selected( $stat, 'draft' ); ?>><?php esc_html_e( 'Bozza', 'dfn-theme' ); ?></option>
                                     <option value="published" <?php selected( $stat, 'published' ); ?>><?php esc_html_e( 'Pubblicato (Attivo)', 'dfn-theme' ); ?></option>
+                                    <option value="private" <?php selected( $stat, 'private' ); ?>><?php esc_html_e( 'Privato (Gestione Interna)', 'dfn-theme' ); ?></option>
                                     <option value="archived" <?php selected( $stat, 'archived' ); ?>><?php esc_html_e( 'Archiviato', 'dfn-theme' ); ?></option>
                                 </select>
                             </div>

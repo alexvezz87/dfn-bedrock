@@ -15,15 +15,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 add_action( 'plugins_loaded', 'dfn_init_gateway_in_loco', 11 );
 
-/**
- * Inizializza il gateway di pagamento personalizzato "Pagamento all'Ingresso".
- */
-function dfn_init_gateway_in_loco() {
-    if ( ! class_exists( 'WC_Payment_Gateway' ) ) {
-        return;
-    }
-
+if ( class_exists( 'WC_Payment_Gateway' ) ) {
+    /**
+     * Gateway personalizzato per saldi ticket in loco.
+     */
     class DFN_Gateway_In_Loco extends WC_Payment_Gateway {
+
+        /** @var string */
+        public $instructions;
 
         /**
          * Costruttore del gateway.
@@ -101,8 +100,6 @@ function dfn_init_gateway_in_loco() {
             }
 
             // Imposta lo stato dell'ordine a 'pending' (In attesa di pagamento) per il saldo all'ingresso.
-            // Nota: per escluderlo dal cron di cancellazione automatica degli ordini non pagati online,
-            // salveremo un metadato dedicato.
             $order->update_status( 'pending', __( 'Prenotazione effettuata con pagamento all\'ingresso (saldo in loco).', 'dfn-theme' ) );
 
             // Memorizza che questo ordine è con saldo all'ingresso per bypassare cron di pulizia automatica 24h
@@ -113,7 +110,9 @@ function dfn_init_gateway_in_loco() {
             wc_reduce_stock_levels( $order_id );
 
             // Svuota il carrello
-            WC()->cart->empty_cart();
+            if ( WC()->cart instanceof \WC_Cart ) {
+                WC()->cart->empty_cart();
+            }
 
             // Ritorna il redirect alla pagina "ordine ricevuto"
             return array(
@@ -144,25 +143,30 @@ function dfn_init_gateway_in_loco() {
             }
         }
     }
+}
 
-    /**
-     * Registra il gateway all'interno di WooCommerce.
-     *
-     * @param array $methods Gateway esistenti.
-     * @return array
-     */
-    function dfn_add_gateway_in_loco( $methods ) {
-        $methods[] = 'DFN_Gateway_In_Loco';
-        return $methods;
+/**
+ * Inizializza il gateway di pagamento personalizzato "Pagamento all'Ingresso".
+ */
+function dfn_init_gateway_in_loco() {
+    if ( class_exists( 'WC_Payment_Gateway' ) ) {
+        add_filter( 'woocommerce_payment_gateways', 'dfn_add_gateway_in_loco' );
     }
-    add_filter( 'woocommerce_payment_gateways', 'dfn_add_gateway_in_loco' );
+}
+
+/**
+ * Registra il gateway all'interno di WooCommerce.
+ *
+ * @param array $methods Gateway esistenti.
+ * @return array
+ */
+function dfn_add_gateway_in_loco( $methods ) {
+    $methods[] = 'DFN_Gateway_In_Loco';
+    return $methods;
 }
 
 /**
  * Controllo condizionale sulla disponibilità del gateway in base alla configurazione degli eventi nel carrello.
- *
- * - Se un evento nel carrello supporta SOLO pagamento online, nasconde il gateway In Loco.
- * - Se tutti gli eventi nel carrello supportano in_loco o hybrid, il gateway In Loco è disponibile.
  *
  * @param array $available_gateways Gateway attivi.
  * @return array
@@ -176,13 +180,12 @@ function dfn_filter_available_gateways_for_events( $available_gateways ) {
         return $available_gateways;
     }
 
-    $cart = WC()->cart;
-    if ( ! $cart ) {
+    if ( ! ( WC()->cart instanceof \WC_Cart ) ) {
         return $available_gateways;
     }
 
+    $cart = WC()->cart;
     $has_online_only_event = false;
-    $has_events            = false;
 
     foreach ( $cart->get_cart() as $cart_item ) {
         $product_id = $cart_item['product_id'];
@@ -191,7 +194,6 @@ function dfn_filter_available_gateways_for_events( $available_gateways ) {
         $event = dfn_db_get_event_by_product( $product_id );
 
         if ( $event ) {
-            $has_events = true;
             // Se la modalità di pagamento dell'evento è strettamente online
             if ( $event->payment_mode === 'online' ) {
                 $has_online_only_event = true;

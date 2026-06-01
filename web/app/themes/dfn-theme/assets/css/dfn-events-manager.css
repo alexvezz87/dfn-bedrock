@@ -175,6 +175,11 @@
     color: #991b1b;
 }
 
+.dfn-status-private {
+    background-color: #fae8ff;
+    color: #86198f;
+}
+
 /* Barra di Progresso Capacità */
 .dfn-progress-bar-container {
     width: 100%;
