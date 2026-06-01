@@ -31,6 +31,11 @@ require_once get_stylesheet_directory() . '/inc/frontend/dfn-checkout.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-events-manager.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-event-editor.php';
 
+// API / Router
+require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slots.php';
+require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-bookings.php';
+
+
 
 
 /**
