@@ -126,3 +126,57 @@ function dfn_checkout_body_classes( $classes ) {
     return $classes;
 }
 add_filter( 'body_class', 'dfn_checkout_body_classes' );
+
+add_action( 'woocommerce_cart_calculate_fees', 'dfn_apply_fai_members_discount_to_cart', 10, 1 );
+/**
+ * Calcola e applica dinamicamente lo sconto per Soci FAI nel carrello/checkout.
+ * Lo sconto è pari alla differenza tra tariffa standard e tariffa FAI,
+ * moltiplicato per il numero di tessere FAI indicate.
+ *
+ * @param WC_Cart $cart Oggetto carrello di WooCommerce.
+ * @return void
+ */
+function dfn_apply_fai_members_discount_to_cart( $cart ) {
+    if ( is_admin() && ! defined( 'DOING_AJAX' ) ) {
+        return;
+    }
+
+    $total_discount = 0;
+    $total_fai_qty  = 0;
+
+    foreach ( $cart->get_cart() as $cart_item_key => $cart_item ) {
+        $product_id = $cart_item['product_id'];
+        $qty_fai    = isset( $cart_item['dfn_qty_fai'] ) ? intval( $cart_item['dfn_qty_fai'] ) : 0;
+
+        if ( $qty_fai <= 0 ) {
+            continue;
+        }
+
+        // Recupera l'evento legato al prodotto per conoscerne i prezzi dedicati
+        $event = dfn_db_get_event_by_product( $product_id );
+        if ( ! $event ) {
+            continue;
+        }
+
+        $price_standard = floatval( $event->price_standard );
+        $price_fai      = floatval( $event->price_fai );
+
+        // La scontistica unitaria è la differenza tra biglietto ordinario e socio FAI
+        $unit_discount = max( 0.00, $price_standard - $price_fai );
+        
+        if ( $unit_discount > 0.00 ) {
+            $total_discount += $unit_discount * $qty_fai;
+            $total_fai_qty  += $qty_fai;
+        }
+    }
+
+    // Se c'è uno sconto valido calcolato, lo applica come fee negativa
+    if ( $total_discount > 0.00 ) {
+        $cart->add_fee(
+            sprintf( __( 'Sconto Soci FAI (%d tessere)', 'dfn-theme' ), $total_fai_qty ),
+            -$total_discount,
+            false
+        );
+    }
+}
+
