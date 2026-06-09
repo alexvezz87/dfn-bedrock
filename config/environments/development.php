@@ -18,5 +18,6 @@ Config::define('DISALLOW_INDEXING', true);
 
 ini_set('display_errors', '0');
 
-// Enable plugin and theme updates and installation from the admin
-Config::define('DISALLOW_FILE_MODS', false);
+// Disable plugin and theme updates and installation from the admin
+Config::define('DISALLOW_FILE_MODS', true);
+
