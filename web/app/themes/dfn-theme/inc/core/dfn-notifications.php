@@ -197,7 +197,7 @@ function dfn_send_booking_confirmation( int $booking_id ) {
 
     if ( ! empty( $slots ) ) {
         $slot = $slots[0];
-        $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - dalle ' . date( 'H:i', strtotime( $slot->slot_time_start ) ) . ' alle ' . date( 'H:i', strtotime( $slot->slot_time_end ) );
+        $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - ore ' . date( 'H:i', strtotime( $slot->slot_time_start ) );
     } else {
         $slot_info = date_i18n( 'd F Y', strtotime( $event->event_date_start ) ) . ' (Ingresso Libero)';
     }
@@ -216,7 +216,7 @@ function dfn_send_booking_confirmation( int $booking_id ) {
     $content .= '<div class="info-box-title">Dettagli della Prenotazione</div>';
     $content .= '<table>';
     $content .= '<tr><td class="label">Evento:</td><td>' . esc_html( $product_name ) . '</td></tr>';
-    $content .= '<tr><td class="label">Data e Orario:</td><td>' . esc_html( $slot_info ) . '</td></tr>';
+    $content .= '<tr><td class="label">Data e Inizio Visita:</td><td>' . esc_html( $slot_info ) . '</td></tr>';
     $content .= '<tr><td class="label">Luogo:</td><td>' . esc_html( $event->location ) . '</td></tr>';
     $content .= '<tr><td class="label">Partecipanti:</td><td>' . absint( $booking->total_persons ) . ' totali (' . absint( $booking->persons_standard ) . ' Standard + ' . absint( $booking->persons_fai ) . ' Soci FAI)</td></tr>';
     $content .= '<tr><td class="label">Metodo di Pagamento:</td><td>' . ( $booking->payment_method === 'dfn_in_loco' ? 'Saldo all\'ingresso (Botteghino)' : 'Pagato Online' ) . '</td></tr>';
@@ -225,6 +225,8 @@ function dfn_send_booking_confirmation( int $booking_id ) {
     }
     $content .= '</table>';
     $content .= '</div>';
+
+    $content .= '<p style="font-size: 14px; color: #4a5568; margin-top: 15px; margin-bottom: 15px;"><strong>⚠️ Importante:</strong> Ti chiediamo di presentarti presso il luogo dell\'evento <strong>almeno 10 minuti prima</strong> dell\'orario d\'inizio della visita indicato per facilitare le operazioni di accettazione.</p>';
 
     $content .= '<p>Per accedere all\'evento, mostra all\'ingresso il codice QR del tuo gruppo cliccando sul pulsante sottostante (è sufficiente mostrare un solo codice QR per tutto il gruppo).</p>';
     $content .= '<div class="text-center"><a href="' . esc_url( $hub_url ) . '" class="button">Mostra Codice QR / Biglietti</a></div>';
@@ -370,7 +372,7 @@ function dfn_send_booking_24h_reminder( int $booking_id ) {
     $slot_info = '';
     if ( ! empty( $slots ) ) {
         $slot = $slots[0];
-        $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - dalle ' . date( 'H:i', strtotime( $slot->slot_time_start ) ) . ' alle ' . date( 'H:i', strtotime( $slot->slot_time_end ) );
+        $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - ore ' . date( 'H:i', strtotime( $slot->slot_time_start ) );
     } else {
         $slot_info = date_i18n( 'd F Y', strtotime( $event->event_date_start ) ) . ' (Ingresso Libero)';
     }
@@ -387,7 +389,7 @@ function dfn_send_booking_24h_reminder( int $booking_id ) {
     $content .= '<div class="info-box-title">Dettagli per Domani</div>';
     $content .= '<table>';
     $content .= '<tr><td class="label">Evento:</td><td>' . esc_html( $product_name ) . '</td></tr>';
-    $content .= '<tr><td class="label">Data e Orario:</td><td><strong>' . esc_html( $slot_info ) . '</strong></td></tr>';
+    $content .= '<tr><td class="label">Data e Inizio Visita:</td><td><strong>' . esc_html( $slot_info ) . '</strong></td></tr>';
     $content .= '<tr><td class="label">Luogo di Ritrovo:</td><td>' . esc_html( $event->location ) . '</td></tr>';
     if ( $booking->payment_method === 'dfn_in_loco' && $booking->amount_due > 0 ) {
         $content .= '<tr><td class="label">Importo da Saldare:</td><td style="font-weight:bold; color:#ff6600;">' . wc_price( $booking->amount_due ) . ' (Cassa Live)</td></tr>';
@@ -397,6 +399,7 @@ function dfn_send_booking_24h_reminder( int $booking_id ) {
 
     $content .= '<p><strong>Informazioni importanti per l\'accesso:</strong></p>';
     $content .= '<ul>';
+    $content .= '<li>Ti chiediamo di presentarti presso il luogo dell\'evento <strong>almeno 10 minuti prima</strong> dell\'orario d\'inizio della visita indicato per facilitare l\'accettazione.</li>';
     $content .= '<li>Tieni a portata di mano questo messaggio per mostrare il codice QR all\'ingresso. Clicca sul pulsante in basso per aprire il biglietto digitale sul tuo telefono.</li>';
     if ( $booking->payment_method === 'dfn_in_loco' ) {
         $content .= '<li>Avendo optato per il saldo in loco, per favore presentati con qualche minuto di anticipo al fine di evitare code e velocizzare il check-in.</li>';
@@ -461,3 +464,50 @@ function dfn_send_waitlist_notification( int $waitlist_id ) {
 
     return dfn_send_notification_email( $waitlist->customer_email, $subject, 'Posto Disponibile in Lista d\'Attesa!', $content );
 }
+
+/**
+ * Invia email di notifica quando una tessera FAI viene approvata/verificata manualmente dallo staff.
+ *
+ * @param string $email       Email del socio.
+ * @param string $first_name  Nome.
+ * @param string $last_name   Cognome.
+ * @param string $card_number Numero tessera.
+ * @return bool
+ */
+function dfn_send_fai_card_approved_email( string $email, string $first_name, string $last_name, string $card_number ): bool {
+    $subject = 'Tessera FAI Verificata con Successo';
+
+    $content = '<p>Gentile <strong>' . esc_html( $first_name . ' ' . $last_name ) . '</strong>,</p>';
+    $content .= '<p>Ti informiamo che il nostro staff ha completato con successo la verifica della tua <strong>Tessera Socio FAI n° ' . esc_html( $card_number ) . '</strong>.</p>';
+    $content .= '<p>La tessera risulta <strong>attiva e valida</strong>. La tariffa scontata riservata ai Soci FAI è stata confermata correttamente per la tua prenotazione.</p>';
+    $content .= '<p>Non devi fare altro! Ti basterà presentare la tua tessera FAI e il codice QR della prenotazione all\'ingresso dell\'evento.</p>';
+
+    return dfn_send_notification_email( $email, $subject, 'Tessera FAI Approvata', $content );
+}
+
+/**
+ * Invia email di notifica quando una tessera FAI risulta non valida/rifiutata.
+ *
+ * @param string $email       Email del socio.
+ * @param string $first_name  Nome.
+ * @param string $last_name   Cognome.
+ * @param string $card_number Numero tessera.
+ * @param string $reason      Motivazione del rifiuto.
+ * @return bool
+ */
+function dfn_send_fai_card_rejected_email( string $email, string $first_name, string $last_name, string $card_number, string $reason ): bool {
+    $subject = 'Aggiornamento Verifica Tessera FAI';
+
+    $content = '<p>Gentile <strong>' . esc_html( $first_name . ' ' . $last_name ) . '</strong>,</p>';
+    $content .= '<p>Ti informiamo che abbiamo effettuato la verifica della tua <strong>Tessera Socio FAI n° ' . esc_html( $card_number ) . '</strong> inserita in fase di prenotazione.</p>';
+    $content .= '<p>Purtroppo, la tessera <strong>non è risultata valida</strong> per il seguente motivo:</p>';
+    $content .= '<div class="info-box" style="border-left: 4px solid #e53e3e; background: #fff5f5; padding: 15px; margin: 15px 0;">';
+    $content .= '<div class="info-box-title" style="color: #e53e3e; font-weight: bold; margin-bottom: 5px;">Motivazione dello Staff</div>';
+    $content .= '<p style="margin:0; font-size:14px; color: #c53030;">' . esc_html( $reason ) . '</p>';
+    $content .= '</div>';
+    $content .= '<p>Ti ricordiamo che, qualora non fosse possibile presentare una tessera FAI valida e attiva all\'ingresso dell\'evento, ti verrà richiesto di saldare il contributo alla tariffa Standard (Intero).</p>';
+    $content .= '<p>Se si tratta di un errore di inserimento, puoi rispondere a questa email o contattare il nostro staff per fornirci i dati corretti.</p>';
+
+    return dfn_send_notification_email( $email, $subject, 'Verifica Tessera FAI Fallita', $content );
+}
+

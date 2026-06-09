@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define( 'DFN_DB_VERSION', '2.0.0' );
+define( 'DFN_DB_VERSION', '2.0.3' );
 
 /**
  * ========================================================================
@@ -69,6 +69,7 @@ function dfn_db_install(): void {
         event_time_start time NOT NULL,
         event_time_end time DEFAULT NULL,
         location varchar(500) NOT NULL,
+        description text DEFAULT NULL,
         access_type varchar(20) NOT NULL DEFAULT 'time_slots',
         allocation_mode varchar(20) NOT NULL DEFAULT 'automatic',
         approval_workflow varchar(20) NOT NULL DEFAULT 'auto',
@@ -167,10 +168,10 @@ function dfn_db_install(): void {
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         first_name varchar(100) NOT NULL,
         last_name varchar(100) NOT NULL,
-        email varchar(255) NOT NULL,
+        email varchar(255) DEFAULT NULL,
         phone varchar(50) DEFAULT NULL,
         card_number varchar(50) NOT NULL,
-        card_expiry date NOT NULL,
+        card_expiry date DEFAULT NULL,
         verified tinyint(1) NOT NULL DEFAULT 0,
         verified_by bigint(20) unsigned DEFAULT NULL,
         verified_at datetime DEFAULT NULL,
@@ -215,6 +216,12 @@ function dfn_db_install(): void {
     dbDelta( $sql_booking_slots );
     dbDelta( $sql_fai );
     dbDelta( $sql_waitlist );
+
+    // Forza la creazione della colonna description se manca (dbDelta a volte fallisce l'alter)
+    $row = $wpdb->get_results( "SHOW COLUMNS FROM {$table_events} LIKE 'description'" );
+    if ( empty( $row ) ) {
+        $wpdb->query( "ALTER TABLE {$table_events} ADD COLUMN description text DEFAULT NULL AFTER location" );
+    }
 
     // Migra dati legacy dalla waitlist su wp_options (one-shot)
     dfn_migrate_waitlist_from_options();

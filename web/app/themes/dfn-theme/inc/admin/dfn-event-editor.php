@@ -49,6 +49,7 @@ function dfn_render_event_editor() {
             $event_time_start  = sanitize_text_field( $_POST['event_time_start'] );
             $event_time_end    = ! empty( $_POST['event_time_end'] ) ? sanitize_text_field( $_POST['event_time_end'] ) : null;
             $location          = sanitize_textarea_field( $_POST['location'] );
+            $description       = sanitize_textarea_field( $_POST['description'] );
             $access_type       = sanitize_text_field( $_POST['access_type'] ); // free_flow o time_slots
             $allocation_mode   = sanitize_text_field( $_POST['allocation_mode'] ); // automatic o self_selection
             $approval_workflow = sanitize_text_field( $_POST['approval_workflow'] ); // auto o manual
@@ -127,6 +128,10 @@ function dfn_render_event_editor() {
                 } else {
                     delete_post_thumbnail( $product_id );
                 }
+
+                // Associa la galleria al prodotto WooCommerce
+                $gallery_ids = isset( $_POST['dfn_event_gallery_ids'] ) ? sanitize_text_field( $_POST['dfn_event_gallery_ids'] ) : '';
+                update_post_meta( $product_id, '_product_image_gallery', $gallery_ids );
             }
 
             $data = array(
@@ -136,6 +141,7 @@ function dfn_render_event_editor() {
                 'event_time_start'  => $event_time_start,
                 'event_time_end'    => $event_time_end,
                 'location'          => $location,
+                'description'       => $description,
                 'access_type'       => $access_type,
                 'allocation_mode'   => $allocation_mode,
                 'approval_workflow' => $approval_workflow,
@@ -153,7 +159,7 @@ function dfn_render_event_editor() {
             );
 
             $format = array(
-                '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
+                '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
                 '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s'
             );
 
@@ -161,11 +167,6 @@ function dfn_render_event_editor() {
                 // Modifica
                 $wpdb->update( $table_events, $data, array( 'id' => $event_id ), $format, array( '%d' ) );
                 $message = __( 'Evento aggiornato con successo nel database.', 'dfn-theme' );
-                
-                // Rigenera gli slot automaticamente se i parametri chiave sono cambiati
-                if ( 'time_slots' === $access_type ) {
-                    dfn_db_generate_slots_for_event( $event_id );
-                }
             } else {
                 // Inserimento
                 $wpdb->insert( $table_events, $data, $format );
@@ -203,6 +204,7 @@ function dfn_render_event_editor() {
     $time_start       = $event ? $event->event_time_start : '';
     $time_end         = $event ? $event->event_time_end : '';
     $loc              = $event ? $event->location : '';
+    $desc             = $event ? $event->description : '';
     $acc_type         = $event ? $event->access_type : 'time_slots';
     $alloc_mode       = $event ? $event->allocation_mode : 'automatic';
     $app_wf           = $event ? $event->approval_workflow : 'auto';
@@ -300,6 +302,11 @@ function dfn_render_event_editor() {
                             <div class="dfn-form-group">
                                 <label for="location" class="dfn-label"><?php esc_html_e( 'Luogo dell\'Evento / Luogo di Ritrovo', 'dfn-theme' ); ?> <span class="required">*</span></label>
                                 <textarea name="location" id="location" required class="dfn-textarea" rows="2" placeholder="<?php esc_attr_e( 'Es: Castello Visconteo-Sforzesco di Novara - cortile interno', 'dfn-theme' ); ?>"><?php echo esc_textarea( $loc ); ?></textarea>
+                            </div>
+
+                            <div class="dfn-form-group" style="margin-top: 15px;">
+                                <label for="description" class="dfn-label"><?php esc_html_e( 'Descrizione del bene', 'dfn-theme' ); ?></label>
+                                <textarea name="description" id="description" class="dfn-textarea" rows="4" placeholder="<?php esc_attr_e( 'Descrizione dettagliata dell\'edificio storico o del bene FAI...', 'dfn-theme' ); ?>"><?php echo esc_textarea( $desc ); ?></textarea>
                             </div>
                         </div>
                     </div>
@@ -448,6 +455,50 @@ function dfn_render_event_editor() {
                                 </button>
                                 <button type="button" class="button" id="dfn-remove-image-btn" style="color: #ef4444; border-color: #fca5a5; display: <?php echo $image_id ? 'inline-block' : 'none'; ?>;">
                                     <?php esc_html_e( 'Rimuovi', 'dfn-theme' ); ?>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Blocco Galleria Immagini -->
+                    <div class="dfn-card dfn-card-sidebar">
+                        <div class="dfn-card-header">
+                            <h2>🖼️ <?php esc_html_e( 'Galleria Immagini', 'dfn-theme' ); ?></h2>
+                        </div>
+                        <div class="dfn-card-body" style="text-align: center;">
+                            <?php 
+                            $gallery_ids_str = '';
+                            $gallery_urls = array();
+                            if ( $p_id > 0 ) {
+                                $gallery_ids_str = get_post_meta( $p_id, '_product_image_gallery', true );
+                                if ( ! empty( $gallery_ids_str ) ) {
+                                    $gallery_ids = array_filter( explode( ',', $gallery_ids_str ) );
+                                    foreach ( $gallery_ids as $id ) {
+                                        $url = wp_get_attachment_image_url( $id, 'thumbnail' );
+                                        if ( $url ) {
+                                            $gallery_urls[] = array( 'id' => $id, 'url' => $url );
+                                        }
+                                    }
+                                }
+                            }
+                            ?>
+                            <div class="dfn-event-gallery-preview" style="margin-bottom: 15px; min-height: 100px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; justify-content: center; background: #f8fafc;" id="dfn-event-gallery-container">
+                                <?php if ( ! empty( $gallery_urls ) ) : ?>
+                                    <?php foreach ( $gallery_urls as $item ) : ?>
+                                        <div class="dfn-gallery-image-wrapper" data-id="<?php echo esc_attr( $item['id'] ); ?>" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1;">
+                                            <img src="<?php echo esc_url( $item['url'] ); ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                                            <span class="dfn-delete-gallery-img" style="position: absolute; top: 0; right: 0; background: rgba(239, 68, 68, 0.8); color: white; border-radius: 0 0 0 4px; width: 16px; height: 16px; line-height: 16px; text-align: center; cursor: pointer; font-size: 10px; font-weight: bold;">×</span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else : ?>
+                                    <span style="color: #64748b; font-size: 13px; align-self: center;" id="dfn-event-gallery-placeholder"><?php esc_html_e( 'Nessuna immagine in galleria', 'dfn-theme' ); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <input type="hidden" name="dfn_event_gallery_ids" id="dfn_event_gallery_ids" value="<?php echo esc_attr( $gallery_ids_str ); ?>">
+                            
+                            <div>
+                                <button type="button" class="button button-secondary" id="dfn-upload-gallery-btn" style="font-weight: 600;">
+                                    <?php esc_html_e( 'Aggiungi Immagini', 'dfn-theme' ); ?>
                                 </button>
                             </div>
                         </div>

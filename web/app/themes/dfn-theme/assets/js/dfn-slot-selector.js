@@ -18,11 +18,22 @@ jQuery(document).ready(function($) {
         var $dateInput = $widget.find('.dfn-date-input');
         var $slotsContainer = $widget.find('.dfn-slots-container');
         var $hiddenSlotId = $widget.find('input[name="dfn_booking_slot_id"]');
+        
+        var $btnNext = $widget.find('.dfn-widget-btn-next');
+        var $btnPrev = $widget.find('.dfn-widget-btn-prev');
+        var $btnReset = $widget.find('.dfn-widget-btn-reset');
         var $submitBtn = $widget.find('.dfn-widget-submit');
         var $feedbackArea = $widget.find('.dfn-widget-feedback');
+        
+        var $step1 = $widget.find('.dfn-step-1');
+        var $step2 = $widget.find('.dfn-step-2');
+        var $step3 = $widget.find('.dfn-step-3');
+        
+        var $faiFieldsSection = $widget.find('.dfn-fai-cards-fields-section');
+        var $faiFieldsContainer = $widget.find('.dfn-fai-cards-inputs-container');
 
-        // Disabilita submit fino a quando la selezione non è completa
-        function validateForm() {
+        // Valida Step 1 (Seleziona partecipanti, data, turno)
+        function validateStep1() {
             var qtyStandard = parseInt($widget.find('input[name="quantity"]').val()) || 0;
             var qtyFai = parseInt($widget.find('input[name="dfn_qty_fai"]').val()) || 0;
             var totalQty = qtyStandard + qtyFai;
@@ -31,9 +42,9 @@ jQuery(document).ready(function($) {
             var slotSelected = !isTimeSlots || allocationMode === 'automatic' || $hiddenSlotId.val() !== '';
 
             if (totalQty > 0 && dateSelected && slotSelected) {
-                $submitBtn.prop('disabled', false);
+                $btnNext.prop('disabled', false);
             } else {
-                $submitBtn.prop('disabled', true);
+                $btnNext.prop('disabled', true);
             }
         }
 
@@ -44,11 +55,10 @@ jQuery(document).ready(function($) {
             if (qtyStandard < 0) $widget.find('input[name="quantity"]').val(0);
             if (qtyFai < 0) $widget.find('input[name="dfn_qty_fai"]').val(0);
 
-            // Se cambia la quantità e siamo in modalità slot, ricarica gli slot per verificare la capienza reale
             if ($dateInput.val() !== '') {
                 loadSlots($dateInput.val());
             }
-            validateForm();
+            validateStep1();
         });
 
         // Ascolta modifiche alla data
@@ -62,12 +72,12 @@ jQuery(document).ready(function($) {
             } else {
                 $slotsContainer.html('');
             }
-            validateForm();
+            validateStep1();
         });
 
         // Caricamento AJAX degli slot
         function loadSlots(dateStr) {
-            if (!isTimeSlots) {
+            if (!isTimeSlots || allocationMode === 'automatic') {
                 return;
             }
 
@@ -111,15 +121,13 @@ jQuery(document).ready(function($) {
             $slotsContainer.html('');
             var gridHtml = '<div class="dfn-slots-grid">';
             
-            // In modalità automatica nascondiamo o pre-selezioniamo in background
             if (allocationMode === 'automatic') {
-                // Troviamo il primo slot disponibile per il gruppo intero
                 var autoSlot = null;
                 $.each(slots, function(idx, slot) {
                     var available = slot.capacity + slot.bonus - slot.booked;
                     if (available >= totalQty) {
                         autoSlot = slot;
-                        return false; // break loop
+                        return false;
                     }
                 });
 
@@ -129,11 +137,10 @@ jQuery(document).ready(function($) {
                 } else {
                     $slotsContainer.html('<div class="dfn-feedback-toast" style="background:#fee2e2; border-color:#fecaca; color:#991b1b;">❌ <strong>Nessun turno disponibile:</strong> Non ci sono slot con posti sufficienti per il tuo gruppo. Sarai inserito in Lista di Attesa.</div>');
                 }
-                validateForm();
+                validateStep1();
                 return;
             }
 
-            // Modalità Self-Selection (👆)
             $.each(slots, function(idx, slot) {
                 var available = slot.capacity - slot.booked;
                 var bonusAvailable = slot.bonus;
@@ -161,7 +168,6 @@ jQuery(document).ready(function($) {
             gridHtml += '</div>';
             $slotsContainer.html(gridHtml);
 
-            // Gestore click sulle pillole
             $slotsContainer.find('.dfn-slot-pill:not(.disabled)').on('click', function() {
                 var $pill = $(this);
                 $slotsContainer.find('.dfn-slot-pill').removeClass('selected');
@@ -169,12 +175,230 @@ jQuery(document).ready(function($) {
 
                 var selectedId = $pill.data('slot-id');
                 $hiddenSlotId.val(selectedId);
-                validateForm();
+                validateStep1();
             });
 
-            validateForm();
+            validateStep1();
         }
 
-        validateForm();
+        // Genera i campi delle tessere FAI dinamici
+        function generateFaiCardsFields(count) {
+            $faiFieldsContainer.html('');
+            if (count <= 0) {
+                $faiFieldsSection.hide();
+                return;
+            }
+
+            for (var i = 1; i <= count; i++) {
+                var fieldHtml = '<div class="dfn-fai-card-row" style="padding-bottom:12px; border-bottom:1px dashed #cbd5e1; margin-bottom:8px;">' +
+                                '  <h5 style="margin:0 0 6px 0; font-size:12px; color:#004b23;">Partecipante FAI #' + i + '</h5>' +
+                                '  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;">' +
+                                '    <input type="text" class="dfn-fai-card-nome" placeholder="Nome" required style="height:32px; border:1px solid #cbd5e1; border-radius:4px; padding:4px 8px; font-size:12px; box-sizing:border-box;">' +
+                                '    <input type="text" class="dfn-fai-card-cognome" placeholder="Cognome" required style="height:32px; border:1px solid #cbd5e1; border-radius:4px; padding:4px 8px; font-size:12px; box-sizing:border-box;">' +
+                                '  </div>' +
+                                '  <input type="text" class="dfn-fai-card-number" placeholder="Numero Tessera FAI" required style="width:100%; height:32px; border:1px solid #cbd5e1; border-radius:4px; padding:4px 8px; font-size:12px; box-sizing:border-box;">' +
+                                '</div>';
+                $faiFieldsContainer.append(fieldHtml);
+            }
+            $faiFieldsSection.show();
+        }
+
+        // Passaggio a Step 2 (Continua)
+        $btnNext.on('click', function(e) {
+            e.preventDefault();
+            
+            var qtyFai = parseInt($widget.find('input[name="dfn_qty_fai"]').val()) || 0;
+            generateFaiCardsFields(qtyFai);
+            
+            $step1.fadeOut(200, function() {
+                $step2.fadeIn(200);
+                $step2.find('#dfn_first_name').focus();
+            });
+        });
+
+        // Ritorno a Step 1 (Indietro)
+        $btnPrev.on('click', function(e) {
+            e.preventDefault();
+            $feedbackArea.html('');
+            $step2.fadeOut(200, function() {
+                $step1.fadeIn(200);
+            });
+        });
+
+        // Reset per un altro evento
+        $btnReset.on('click', function(e) {
+            e.preventDefault();
+            $widget.find('input[type="text"], input[type="email"], input[type="tel"], textarea').val('');
+            $widget.find('input[name="quantity"]').val(1);
+            $widget.find('input[name="dfn_qty_fai"]').val(0);
+            $hiddenSlotId.val('');
+            if (isTimeSlots) {
+                $slotsContainer.html('');
+            }
+            $feedbackArea.html('');
+            $step3.fadeOut(200, function() {
+                $step1.fadeIn(200);
+                validateStep1();
+            });
+        });
+
+        // Invio Finale della Prenotazione via AJAX
+        $widget.find('.dfn-booking-form').on('submit', function(e) {
+            e.preventDefault();
+            $feedbackArea.html('');
+            
+            var $form = $(this);
+            var $submit = $form.find('button[type="submit"]');
+            
+            // Raccogli tessere FAI
+            var faiCards = [];
+            $form.find('.dfn-fai-card-row').each(function() {
+                var $row = $(this);
+                faiCards.push({
+                    nome: $row.find('.dfn-fai-card-nome').val(),
+                    cognome: $row.find('.dfn-fai-card-cognome').val(),
+                    tessera: $row.find('.dfn-fai-card-number').val()
+                });
+            });
+
+            var postData = {
+                action: 'dfn_create_direct_booking',
+                nonce: dfnVars.nonce,
+                event_id: eventId,
+                product_id: parseInt($form.find('input[name="product_id"]').val()),
+                qty_standard: parseInt($form.find('input[name="quantity"]').val()) || 0,
+                qty_fai: parseInt($form.find('input[name="dfn_qty_fai"]').val()) || 0,
+                date: $dateInput.val(),
+                slot_id: parseInt($hiddenSlotId.val()) || 0,
+                first_name: $form.find('#dfn_first_name').val(),
+                last_name: $form.find('#dfn_last_name').val(),
+                email: $form.find('#dfn_email').val(),
+                phone: $form.find('#dfn_phone').val(),
+                notes: $form.find('#dfn_notes').val(),
+                fai_cards: faiCards
+            };
+
+            // Disabilita UI
+            $submit.prop('disabled', true).html('<span class="dashicons dashicons-update spin" style="animation: spin 1s linear infinite;"></span> Attendi...');
+            $widget.find('.dfn-widget-btn-prev').prop('disabled', true);
+
+            $.ajax({
+                url: dfnVars.ajaxurl,
+                type: 'POST',
+                dataType: 'json',
+                data: postData,
+                success: function(response) {
+                    if (response.success && response.data) {
+                        var res = response.data;
+                        
+                        // Icona e Titolo di Successo
+                        if (res.status === 'confirmed') {
+                            $step3.find('.dfn-success-icon').html('🎉').css('color', '#166534');
+                            $step3.find('.dfn-success-title').html('Prenotazione Confermata!').css('color', '#004b23');
+                        } else {
+                            $step3.find('.dfn-success-icon').html('⏳').css('color', '#c69c3a');
+                            $step3.find('.dfn-success-title').html('In Lista d\'Attesa').css('color', '#854d0e');
+                        }
+
+                        // Messaggio testuale
+                        var msg = '<p>Grazie <strong>' + postData.first_name + ' ' + postData.last_name + '</strong>!</p>';
+                        if (res.status === 'confirmed') {
+                            msg += '<p>La tua richiesta è stata registrata. Riceverai a breve un\'email di conferma all\'indirizzo <strong>' + postData.email + '</strong> con il codice QR da presentare all\'ingresso dell\'evento.</p>';
+                        } else {
+                            msg += '<p>Al momento i posti per questo turno sono esauriti. Sei stato inserito in <strong>Lista di Attesa</strong>. Se si libereranno dei posti, riceverai una notifica email immediata per completare la tua prenotazione.</p>';
+                        }
+                        $step3.find('.dfn-success-message').html(msg);
+
+                        // Riepilogo Prenotazione
+                        var slotTimeStr = isTimeSlots ? $widget.find('.dfn-slot-pill.selected .dfn-slot-time').text() : '';
+                        var dateParts = postData.date.split('-');
+                        var dateStrFormatted = dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0];
+
+                        var summaryHtml = '<div style="font-weight:700; color:#004b23; margin-bottom:8px; border-bottom:1px solid #cbd5e1; padding-bottom:6px; font-size:14px;">Dettaglio Prenotazione</div>' +
+                                          '<table>' +
+                                          '  <tr><td style="font-weight:700; width:120px; color:#475569;">Giorno:</td><td>' + dateStrFormatted + '</td></tr>';
+                        if (slotTimeStr !== '') {
+                            summaryHtml += '  <tr><td style="font-weight:700; color:#475569;">Turno Orario:</td><td>' + slotTimeStr + '</td></tr>';
+                        }
+                        summaryHtml += '  <tr><td style="font-weight:700; color:#475569;">Biglietti:</td><td>' + postData.qty_standard + ' Standard + ' + postData.qty_fai + ' Soci FAI</td></tr>' +
+                                          '  <tr><td style="font-weight:700; color:#475569;">Pagamento:</td><td>Saldo all\'ingresso (In Loco)</td></tr>';
+                        
+                        if (res.status === 'confirmed') {
+                            if (res.total_confirmed) {
+                                summaryHtml += '  <tr><td style="font-weight:700; color:#004b23;">Contributo:</td><td style="font-weight:800; color:#004b23; font-size:15px;">€' + res.amount_due.toFixed(2) + ' <span style="font-size:11px; font-weight:normal; color:#166534;">(Tessere FAI verificate)</span></td></tr>';
+                            } else {
+                                summaryHtml += '  <tr><td style="font-weight:700; color:#854d0e;">Contributo:</td><td style="font-weight:800; color:#854d0e; font-size:15px;">€' + res.amount_due.toFixed(2) + '*</td></tr>';
+                                summaryHtml += '</table>';
+                                summaryHtml += '<div style="margin-top:12px; background:#fffdf5; border:1px solid #ffeeba; border-radius:6px; padding:10px; color:#856404; font-size:11px; line-height:1.4;">' +
+                                               '  <strong>* Tariffa soggetta a verifica:</strong> Alcune tessere FAI inserite non sono ancora state verificate nei nostri sistemi. ' +
+                                               '  La prenotazione è attiva, ma se le tessere non risulteranno valide al controllo all\'ingresso ti verrà applicato il contributo Standard di <strong>€' + res.amount_standard.toFixed(2) + '</strong>.' +
+                                               '</div>';
+                            }
+                        } else {
+                            summaryHtml += '</table>';
+                        }
+
+                        $step3.find('.dfn-success-summary').html(summaryHtml);
+
+                        // Passa allo Step 3
+                        $step2.fadeOut(200, function() {
+                            $step3.fadeIn(200);
+                        });
+
+                    } else {
+                        // Errore logico
+                        $feedbackArea.html('<div style="color:#b91c1c; font-size:13px; font-weight:700; background:#fee2e2; border:1px solid #fecaca; border-radius:6px; padding:10px; margin-top:12px;">❌ Errore: ' + (response.data ? response.data.message : 'Impossibile completare la richiesta.') + '</div>');
+                        $submit.prop('disabled', false).html('<span class="dashicons dashicons-calendar-alt"></span> Riprova');
+                        $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
+                    }
+                },
+                error: function() {
+                    $feedbackArea.html('<div style="color:#b91c1c; font-size:13px; font-weight:700; background:#fee2e2; border:1px solid #fecaca; border-radius:6px; padding:10px; margin-top:12px;">❌ Errore di connessione al server. Riprova.</div>');
+                    $submit.prop('disabled', false).html('<span class="dashicons dashicons-calendar-alt"></span> Riprova');
+                    $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
+                }
+            });
+        });
+
+        // Gestione Slider Galleria Immagini
+        var $slides = $widget.find('.dfn-slider-slide');
+        var $thumbs = $widget.find('.dfn-gallery-thumb-wrapper');
+        var currentIndex = 0;
+
+        function goToSlide(index) {
+            if ($slides.length <= 1) return;
+            if (index < 0) index = $slides.length - 1;
+            if (index >= $slides.length) index = 0;
+
+            $slides.removeClass('active');
+            $slides.eq(index).addClass('active');
+
+            $thumbs.css('border-color', '#e2e8f0');
+            $thumbs.eq(index).css('border-color', '#004b23');
+
+            currentIndex = index;
+        }
+
+        $thumbs.on('click', function() {
+            var index = parseInt($(this).data('index'));
+            goToSlide(index);
+        });
+
+        $widget.find('.next-arrow').on('click', function(e) {
+            e.preventDefault();
+            goToSlide(currentIndex + 1);
+        });
+
+        $widget.find('.prev-arrow').on('click', function(e) {
+            e.preventDefault();
+            goToSlide(currentIndex - 1);
+        });
+
+        if ($dateInput.val() !== '') {
+            loadSlots($dateInput.val());
+        }
+
+        validateStep1();
     });
 });
+

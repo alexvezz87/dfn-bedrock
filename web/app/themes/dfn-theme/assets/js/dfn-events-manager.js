@@ -145,6 +145,74 @@
             $('#dfn-event-image-placeholder').show();
             $(this).hide();
         });
+
+        // 4b. Gestione upload galleria immagini
+        var gallery_frame;
+        $(document).on('click', '#dfn-upload-gallery-btn', function(e) {
+            e.preventDefault();
+
+            if (typeof wp === 'undefined' || !wp.media) {
+                alert('La libreria dei media di WordPress non è al momento disponibile.');
+                return;
+            }
+
+            if (gallery_frame) {
+                gallery_frame.open();
+                return;
+            }
+
+            gallery_frame = wp.media({
+                title: 'Aggiungi Immagini alla Galleria',
+                button: {
+                    text: 'Aggiungi alla galleria'
+                },
+                multiple: true
+            });
+
+            gallery_frame.on('select', function() {
+                var selection = gallery_frame.state().get('selection');
+                var currentIds = $('#dfn_event_gallery_ids').val().split(',').filter(Boolean);
+                
+                selection.each(function(attachment) {
+                    var attJson = attachment.toJSON();
+                    if (currentIds.indexOf(attJson.id.toString()) === -1) {
+                        currentIds.push(attJson.id.toString());
+                        
+                        // Append thumbnail in HTML preview
+                        $('#dfn-event-gallery-placeholder').hide();
+                        var html = '<div class="dfn-gallery-image-wrapper" data-id="' + attJson.id + '" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1;">' +
+                                   '  <img src="' + (attJson.sizes && attJson.sizes.thumbnail ? attJson.sizes.thumbnail.url : attJson.url) + '" style="width: 100%; height: 100%; object-fit: cover;">' +
+                                   '  <span class="dfn-delete-gallery-img" style="position: absolute; top: 0; right: 0; background: rgba(239, 68, 68, 0.8); color: white; border-radius: 0 0 0 4px; width: 16px; height: 16px; line-height: 16px; text-align: center; cursor: pointer; font-size: 10px; font-weight: bold;">×</span>' +
+                                   '</div>';
+                        $('#dfn-event-gallery-container').append(html);
+                    }
+                });
+
+                $('#dfn_event_gallery_ids').val(currentIds.join(','));
+            });
+
+            gallery_frame.open();
+        });
+
+        // Rimozione singola immagine galleria
+        $(document).on('click', '.dfn-delete-gallery-img', function(e) {
+            e.preventDefault();
+            var $wrapper = $(this).closest('.dfn-gallery-image-wrapper');
+            var imgId = $wrapper.data('id').toString();
+            var currentIds = $('#dfn_event_gallery_ids').val().split(',').filter(Boolean);
+            
+            var index = currentIds.indexOf(imgId);
+            if (index > -1) {
+                currentIds.splice(index, 1);
+            }
+            
+            $wrapper.remove();
+            $('#dfn_event_gallery_ids').val(currentIds.join(','));
+            
+            if (currentIds.length === 0) {
+                $('#dfn-event-gallery-placeholder').show();
+            }
+        });
     });
 
 })(jQuery);

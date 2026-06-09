@@ -61,6 +61,16 @@ function dfn_admin_register_menus() {
         'dfn_render_pagina_scanner_live'
     );
 
+    // Sottomenu "Gestione Turni" (Nascosto dal menu principale ma accessibile via URL)
+    add_submenu_page(
+        null, // null lo nasconde dalla barra laterale di default
+        __( 'Gestione Turni', 'dfn-theme' ),
+        __( 'Gestione Turni', 'dfn-theme' ),
+        'dfn_manage_events',
+        'dfn-slot-manager',
+        'dfn_render_slot_manager'
+    );
+
     // Enqueue degli asset specifici per l'admin
     add_action( 'admin_enqueue_scripts', 'dfn_enqueue_admin_assets' );
 }
@@ -72,7 +82,7 @@ function dfn_admin_register_menus() {
  */
 function dfn_enqueue_admin_assets( $hook ) {
     // Carichiamo gli asset solo per le nostre pagine
-    if ( strpos( $hook, 'dfn-events' ) === false && strpos( $hook, 'dfn-event-edit' ) === false ) {
+    if ( strpos( $hook, 'dfn-events' ) === false && strpos( $hook, 'dfn-event-edit' ) === false && strpos( $hook, 'dfn-slot-manager' ) === false ) {
         return;
     }
 
@@ -91,22 +101,37 @@ function dfn_enqueue_admin_assets( $hook ) {
         '2.0.0'
     );
 
-    // JS personalizzato
-    wp_enqueue_script(
-        'dfn-events-manager-js',
-        get_stylesheet_directory_uri() . '/assets/js/dfn-events-manager.js',
-        array( 'jquery', 'selectWoo' ),
-        '2.0.0',
-        true
-    );
+    // Se siamo nello Slot Manager carichiamo il suo controller JS
+    if ( strpos( $hook, 'dfn-slot-manager' ) !== false ) {
+        wp_enqueue_script(
+            'dfn-slot-manager-js',
+            get_stylesheet_directory_uri() . '/assets/js/dfn-slot-manager.js',
+            array( 'jquery' ),
+            '2.0.0',
+            true
+        );
+        wp_localize_script( 'dfn-slot-manager-js', 'dfnAdminVars', array(
+            'ajaxurl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'dfn_admin_events_nonce' )
+        ) );
+    } else {
+        // Altrimenti carichiamo il JS dell'Events Manager standard
+        wp_enqueue_script(
+            'dfn-events-manager-js',
+            get_stylesheet_directory_uri() . '/assets/js/dfn-events-manager.js',
+            array( 'jquery', 'selectWoo' ),
+            '2.0.0',
+            true
+        );
 
-    // Variabili localizzate
-    wp_localize_script( 'dfn-events-manager-js', 'dfnAdminVars', array(
-        'ajaxurl' => admin_url( 'admin-ajax.php' ),
-        'nonce'   => wp_create_nonce( 'dfn_admin_events_nonce' ),
-        'confirm_delete' => __( 'Sei sicuro di voler eliminare questo evento? Questa operazione eliminerà anche tutti gli slot e le prenotazioni correlate!', 'dfn-theme' ),
-        'confirm_slots'  => __( 'Rigenerando gli slot eliminerai quelli attuali. Continuare?', 'dfn-theme' )
-    ) );
+        // Variabili localizzate
+        wp_localize_script( 'dfn-events-manager-js', 'dfnAdminVars', array(
+            'ajaxurl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'dfn_admin_events_nonce' ),
+            'confirm_delete' => __( 'Sei sicuro di voler eliminare questo evento? Questa operazione eliminerà anche tutti gli slot e le prenotazioni correlate!', 'dfn-theme' ),
+            'confirm_slots'  => __( 'Rigenerando gli slot eliminerai quelli attuali. Continuare?', 'dfn-theme' )
+        ) );
+    }
 }
 
 /**
@@ -300,8 +325,11 @@ function dfn_render_events_manager() {
                                 <td class="column-actions">
                                     <div class="dfn-actions-row">
                                         <?php if ( 'time_slots' === $event->access_type ) : ?>
+                                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=dfn-slot-manager&event_id=' . $event->id ) ); ?>" class="button button-small button-primary" title="<?php esc_attr_e( 'Gestione Visuale dei Turni e delle Prenotazioni', 'dfn-theme' ); ?>">
+                                                <span class="dashicons dashicons-admin-generic"></span> <?php esc_html_e( 'Turni', 'dfn-theme' ); ?>
+                                            </a>
                                             <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=dfn-events&action=generate_slots&event_id=' . $event->id ), 'dfn_gen_slots_' . $event->id ) ); ?>" class="button button-small dfn-btn-icon" title="<?php esc_attr_e( 'Genera/Rigenera tutti i turni orari per questo evento', 'dfn-theme' ); ?>">
-                                                <span class="dashicons dashicons-update"></span> <?php esc_html_e( 'Slot', 'dfn-theme' ); ?>
+                                                <span class="dashicons dashicons-update"></span> <?php esc_html_e( 'Reset Slot', 'dfn-theme' ); ?>
                                             </a>
                                         <?php endif; ?>
 

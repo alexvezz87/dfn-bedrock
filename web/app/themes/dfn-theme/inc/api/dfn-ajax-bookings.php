@@ -334,3 +334,187 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
         }
     }
 }
+
+add_action( 'wp_ajax_dfn_create_direct_booking', 'dfn_ajax_create_direct_booking' );
+add_action( 'wp_ajax_nopriv_dfn_create_direct_booking', 'dfn_ajax_create_direct_booking' );
+
+/**
+ * Gestisce la creazione diretta di un ordine e prenotazione via AJAX dall'interfaccia prodotto,
+ * bypassando il carrello.
+ */
+function dfn_ajax_create_direct_booking(): void {
+    check_ajax_referer( 'dfn_booking_nonce', 'nonce' );
+
+    $event_id     = isset( $_POST['event_id'] ) ? intval( $_POST['event_id'] ) : 0;
+    $product_id   = isset( $_POST['product_id'] ) ? intval( $_POST['product_id'] ) : 0;
+    $qty_standard = isset( $_POST['qty_standard'] ) ? intval( $_POST['qty_standard'] ) : 0;
+    $qty_fai      = isset( $_POST['qty_fai'] ) ? intval( $_POST['qty_fai'] ) : 0;
+    $date         = isset( $_POST['date'] ) ? sanitize_text_field( $_POST['date'] ) : '';
+    $slot_id      = isset( $_POST['slot_id'] ) ? intval( $_POST['slot_id'] ) : 0;
+
+    $first_name   = isset( $_POST['first_name'] ) ? sanitize_text_field( $_POST['first_name'] ) : '';
+    $last_name    = isset( $_POST['last_name'] ) ? sanitize_text_field( $_POST['last_name'] ) : '';
+    $email        = isset( $_POST['email'] ) ? sanitize_email( $_POST['email'] ) : '';
+    $phone        = isset( $_POST['phone'] ) ? sanitize_text_field( $_POST['phone'] ) : '';
+    $notes        = isset( $_POST['notes'] ) ? sanitize_textarea_field( $_POST['notes'] ) : '';
+
+    $fai_cards_raw = isset( $_POST['fai_cards'] ) ? $_POST['fai_cards'] : array();
+
+    if ( empty( $first_name ) || empty( $last_name ) || empty( $email ) || empty( $phone ) ) {
+        wp_send_json_error( array( 'message' => esc_html__( 'Compila tutti i campi anagrafici obbligatori.', 'dfn-theme' ) ) );
+    }
+
+    $total_qty = $qty_standard + $qty_fai;
+    if ( $total_qty <= 0 ) {
+        wp_send_json_error( array( 'message' => esc_html__( 'Seleziona almeno un biglietto.', 'dfn-theme' ) ) );
+    }
+
+    $event = dfn_db_get_event( $event_id );
+    if ( ! $event ) {
+        wp_send_json_error( array( 'message' => esc_html__( 'Evento non valido.', 'dfn-theme' ) ) );
+    }
+
+    global $wpdb;
+
+    // 1. Processa e verifica le tessere FAI fornite
+    $fai_cards = array();
+    $all_verified = true;
+    $unverified_cards = array();
+
+    if ( $qty_fai > 0 && is_array( $fai_cards_raw ) ) {
+        $table_members = $wpdb->prefix . 'dfn_fai_members';
+        foreach ( $fai_cards_raw as $index => $card_data ) {
+            $c_nome    = isset( $card_data['nome'] ) ? sanitize_text_field( $card_data['nome'] ) : '';
+            $c_cognome = isset( $card_data['cognome'] ) ? sanitize_text_field( $card_data['cognome'] ) : '';
+            $c_num     = isset( $card_data['tessera'] ) ? sanitize_text_field( $card_data['tessera'] ) : '';
+
+            if ( empty( $c_nome ) || empty( $c_cognome ) || empty( $c_num ) ) {
+                wp_send_json_error( array( 'message' => sprintf( esc_html__( 'Dati tessera Socio FAI incompleti per il partecipante #%d.', 'dfn-theme' ), $index + 1 ) ) );
+            }
+
+            // Verifica nel DB
+            $member = $wpdb->get_row( $wpdb->prepare(
+                "SELECT * FROM {$table_members} WHERE card_number = %s AND verified = 1 AND card_expiry >= CURDATE() LIMIT 1",
+                $c_num
+            ) );
+
+            if ( ! $member ) {
+                $all_verified = false;
+                $unverified_cards[] = $c_num;
+
+                // Salva nel DB come da verificare
+                $wpdb->insert(
+                    $table_members,
+                    array(
+                        'first_name'  => $c_nome,
+                        'last_name'   => $c_cognome,
+                        'email'       => $email, // Collega email acquirente per contatto
+                        'card_number' => $c_num,
+                        'card_expiry' => null,
+                        'verified'    => 0,
+                    ),
+                    array( '%s', '%s', '%s', '%s', '%s', '%d' )
+                );
+            }
+
+            $fai_cards[] = array(
+                'nome'    => $c_nome,
+                'cognome' => $c_cognome,
+                'tessera' => $c_num,
+            );
+        }
+    }
+
+    // 2. Creazione programmatica dell'ordine WooCommerce
+    try {
+        $order = wc_create_order();
+        $product = wc_get_product( $product_id );
+        if ( ! $product ) {
+            throw new \Exception( 'Prodotto WooCommerce non trovato.' );
+        }
+
+        $order->add_product( $product, $total_qty );
+
+        // Applica i dati di fatturazione minimi
+        $order->set_billing_first_name( $first_name );
+        $order->set_billing_last_name( $last_name );
+        $order->set_billing_email( $email );
+        $order->set_billing_phone( $phone );
+        $order->set_customer_note( $notes );
+        $order->set_payment_method( 'dfn_in_loco' );
+
+        // Applica sconto Soci FAI se presente
+        $price_standard = floatval( $event->price_standard );
+        $price_fai      = floatval( $event->price_fai );
+        $unit_discount  = max( 0.00, $price_standard - $price_fai );
+        $total_discount = $unit_discount * $qty_fai;
+
+        if ( $total_discount > 0.00 ) {
+            $item_fee = new \WC_Order_Item_Fee();
+            $item_fee->set_name( sprintf( 'Sconto Soci FAI (%d tessere)', $qty_fai ) );
+            $item_fee->set_amount( (string) (-$total_discount) );
+            $item_fee->set_total( (string) (-$total_discount) );
+            $order->add_item( $item_fee );
+        }
+
+        $order->calculate_totals();
+
+        // Aggiungi metadati per l'allocazione alla riga prodotto
+        foreach ( $order->get_items() as $item ) {
+            if ( is_a( $item, 'WC_Order_Item_Product' ) && $item->get_product_id() === $product_id ) {
+                $item->update_meta_data( '_dfn_booking_date', $date );
+                $item->update_meta_data( '_dfn_booking_slot_id', (string) $slot_id );
+                $item->update_meta_data( '_dfn_qty_standard', (string) $qty_standard );
+                $item->update_meta_data( '_dfn_qty_fai', (string) $qty_fai );
+                $item->save();
+            }
+        }
+
+        // Salva metadati generali ordine
+        $order->update_meta_data( '_dfn_payment_in_loco', 'yes' );
+        if ( ! empty( $fai_cards ) ) {
+            $order->update_meta_data( '_dfn_fai_cards', $fai_cards );
+        }
+        $order->save();
+
+        // Passa lo stato a pending
+        $order->update_status( 'pending', __( 'Prenotazione diretta via widget.', 'dfn-theme' ) );
+        wc_reduce_stock_levels( $order->get_id() );
+
+        // 3. Esegui allocazione
+        dfn_allocate_slots_on_checkout( $order->get_id(), array(), $order );
+
+        // Svuota carrello per sicurezza
+        if ( WC()->cart instanceof \WC_Cart ) {
+            WC()->cart->empty_cart();
+        }
+
+        // Verifica esito dell'allocazione (Waitlist o Booking)
+        $booking = dfn_db_get_booking_by_order( $order->get_id() );
+        
+        $response_data = array(
+            'order_id'         => $order->get_id(),
+            'total_confirmed'  => $all_verified,
+            'unverified_cards' => $unverified_cards,
+            'amount_due'       => floatval( $order->get_total() ),
+            'amount_standard'  => $price_standard * $total_qty,
+        );
+
+        if ( $booking ) {
+            $response_data['status'] = 'confirmed';
+            $response_data['message'] = sprintf(
+                esc_html__( 'La tua prenotazione è confermata per il giorno %s.', 'dfn-theme' ),
+                date_i18n( 'd F Y', strtotime( $date ) )
+            );
+        } else {
+            $response_data['status'] = 'waitlist';
+            $response_data['message'] = esc_html__( 'Posti esauriti. Sei stato inserito con priorità in Lista d\'Attesa! Riceverai una notifica se si libererà un turno.', 'dfn-theme' );
+        }
+
+        wp_send_json_success( $response_data );
+
+    } catch ( \Exception $e ) {
+        wp_send_json_error( array( 'message' => $e->getMessage() ) );
+    }
+}
+

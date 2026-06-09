@@ -34,6 +34,7 @@ require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';
 // Admin / Gestione
 require_once get_stylesheet_directory() . '/inc/admin/dfn-events-manager.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-event-editor.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-slot-manager.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-scanner.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteer-dashboard.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-report.php';
@@ -43,6 +44,7 @@ require_once get_stylesheet_directory() . '/inc/admin/dfn-waitlist.php';
 // API / Router
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slots.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-bookings.php';
+require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slot-manager.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-scanner.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-fai-members.php';
 
