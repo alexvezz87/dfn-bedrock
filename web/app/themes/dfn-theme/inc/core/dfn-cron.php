@@ -3,7 +3,7 @@
  * DFN Booking System 2.0 — Background Cron Jobs
  *
  * Gestisce i processi in background periodici:
- * 1. Cancellazione ordini online "pending" scaduti (> 24h), escludendo ordini con saldo "In Loco".
+ * 1. Cancellazione ordini "pending" scaduti in base al timeout configurato per evento (auto_cancel_hours).
  * 2. Invio promemoria pre-evento automatico (24 ore prima dell'inizio dello slot).
  * 3. Gestore della lista d'attesa (waitlist) con scadenza TTL (2 ore) e scorrimento FIFO automatico.
  *
@@ -51,9 +51,12 @@ function dfn_run_hourly_maintenance(): void {
 }
 
 /**
- * 1. ANNULLAMENTO ORDINI ONLINE PENDING SCADUTI (> 24 ore)
+ * 1. ANNULLAMENTO ORDINI PENDING SCADUTI (timeout configurabile per evento)
  *
- * Esclude esplicitamente gli ordini contrassegnati con saldo "In Loco".
+ * Consulta il campo auto_cancel_hours dell'evento associato a ciascun ordine:
+ * - 0 = nessun annullamento automatico (ideale per pagamento in loco)
+ * - N = annulla dopo N ore dalla creazione dell'ordine
+ * Ordini senza booking DFN associato vengono annullati con il fallback di 24 ore.
  */
 function dfn_cron_annulla_ordini_scaduti(): void {
     if ( get_transient( 'dfn_spazzino_ordini_lock' ) ) {
@@ -61,13 +64,10 @@ function dfn_cron_annulla_ordini_scaduti(): void {
     }
     set_transient( 'dfn_spazzino_ordini_lock', 1, 10 * MINUTE_IN_SECONDS );
 
-    $limite_tempo = time() - ( 24 * 60 * 60 ); // 24 ore fa
-
-    // Recupera ordini in stato pending creati più di 24 ore fa
+    // Recupera ordini in stato pending (senza filtro tempo fisso)
     $args = array(
-        'status'       => 'pending',
-        'limit'        => 15,
-        'date_created' => '<' . $limite_tempo,
+        'status' => 'pending',
+        'limit'  => 30,
     );
     $orders = wc_get_orders( $args );
 
@@ -76,13 +76,50 @@ function dfn_cron_annulla_ordini_scaduti(): void {
     }
 
     foreach ( $orders as $order ) {
-        // Salta se l'ordine ha il flag per il pagamento "In Loco" (botteghino)
-        if ( $order->get_meta( '_dfn_payment_in_loco' ) === 'yes' ) {
+        $order_id = $order->get_id();
+
+        // Trova il booking e l'evento associato all'ordine
+        $booking = dfn_db_get_booking_by_order( $order_id );
+        if ( ! $booking ) {
+            // Ordine senza booking DFN: applica il vecchio comportamento (24h)
+            $created_ts = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
+            if ( $created_ts > 0 && time() > ( $created_ts + 24 * HOUR_IN_SECONDS ) ) {
+                $order->update_status( 'cancelled', __( '⏰ Ordine annullato automaticamente: scaduto il termine di 24 ore per il pagamento online.', 'dfn-theme' ) );
+            }
             continue;
         }
 
-        // Annulla l'ordine e ripristina le scorte
-        $order->update_status( 'cancelled', __( '⏰ Ordine annullato automaticamente: scaduto il termine di 24 ore per il pagamento online.', 'dfn-theme' ) );
+        $event = dfn_db_get_event( $booking->event_id );
+        if ( ! $event ) {
+            continue;
+        }
+
+        // Leggi il timeout configurato sull'evento (default 24 per retrocompatibilità)
+        $auto_cancel_hours = isset( $event->auto_cancel_hours ) ? (int) $event->auto_cancel_hours : 24;
+
+        // Se 0 → nessun annullamento automatico, skip
+        if ( $auto_cancel_hours === 0 ) {
+            continue;
+        }
+
+        // Controlla se l'ordine ha superato il timeout configurato
+        $created_ts = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
+        if ( $created_ts <= 0 ) {
+            continue;
+        }
+
+        $limite = $created_ts + ( $auto_cancel_hours * HOUR_IN_SECONDS );
+
+        if ( time() < $limite ) {
+            continue; // Non ancora scaduto
+        }
+
+        // Annulla l'ordine con messaggio che include le ore configurate
+        $order->update_status( 'cancelled', sprintf(
+            /* translators: %d: number of hours */
+            __( '⏰ Ordine annullato automaticamente: superato il termine di %d ore per il completamento del pagamento.', 'dfn-theme' ),
+            $auto_cancel_hours
+        ) );
     }
 }
 

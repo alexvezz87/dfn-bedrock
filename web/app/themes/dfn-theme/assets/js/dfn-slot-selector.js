@@ -23,6 +23,7 @@ jQuery(document).ready(function($) {
         var $btnPrev = $widget.find('.dfn-widget-btn-prev');
         var $btnReset = $widget.find('.dfn-widget-btn-reset');
         var $submitBtn = $widget.find('.dfn-widget-submit');
+        var originalSubmitHtml = $submitBtn.html();
         var $feedbackArea = $widget.find('.dfn-widget-feedback');
         
         var $step1 = $widget.find('.dfn-step-1');
@@ -236,6 +237,11 @@ jQuery(document).ready(function($) {
                 $slotsContainer.html('');
             }
             $feedbackArea.html('');
+            
+            // Re-abilita e ripristina lo stato del submit button
+            $submitBtn.prop('disabled', false).html(originalSubmitHtml);
+            $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
+            
             $step3.fadeOut(200, function() {
                 $step1.fadeIn(200);
                 validateStep1();
@@ -245,9 +251,13 @@ jQuery(document).ready(function($) {
         // Invio Finale della Prenotazione via AJAX
         $widget.find('.dfn-booking-form').on('submit', function(e) {
             e.preventDefault();
+            submitBooking(false);
+        });
+
+        function submitBooking(confirmSplit) {
             $feedbackArea.html('');
             
-            var $form = $(this);
+            var $form = $widget.find('.dfn-booking-form');
             var $submit = $form.find('button[type="submit"]');
             
             // Raccogli tessere FAI
@@ -275,7 +285,8 @@ jQuery(document).ready(function($) {
                 email: $form.find('#dfn_email').val(),
                 phone: $form.find('#dfn_phone').val(),
                 notes: $form.find('#dfn_notes').val(),
-                fai_cards: faiCards
+                fai_cards: faiCards,
+                confirm_split: confirmSplit ? 1 : 0
             };
 
             // Disabilita UI
@@ -291,6 +302,17 @@ jQuery(document).ready(function($) {
                     if (response.success && response.data) {
                         var res = response.data;
                         
+                        if (res.status === 'split_warning') {
+                            var confirmSplitResponse = confirm(res.message);
+                            if (confirmSplitResponse) {
+                                submitBooking(true);
+                            } else {
+                                $submit.prop('disabled', false).html(originalSubmitHtml);
+                                $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
+                            }
+                            return;
+                        }
+
                         // Icona e Titolo di Successo
                         if (res.status === 'confirmed') {
                             $step3.find('.dfn-success-icon').html('🎉').css('color', '#166534');
@@ -358,7 +380,7 @@ jQuery(document).ready(function($) {
                     $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
                 }
             });
-        });
+        }
 
         // Gestione Slider Galleria Immagini
         var $slides = $widget.find('.dfn-slider-slide');

@@ -64,6 +64,7 @@ function dfn_render_event_editor() {
             $price_fai         = floatval( $_POST['price_fai'] );
             $staff_config      = sanitize_textarea_field( $_POST['staff_config'] );
             $status            = sanitize_text_field( $_POST['status'] );
+            $auto_cancel_hours = intval( $_POST['auto_cancel_hours'] );
 
             $product_id = 0;
             if ( $product_id_raw === 'new' ) {
@@ -146,6 +147,7 @@ function dfn_render_event_editor() {
                 'allocation_mode'   => $allocation_mode,
                 'approval_workflow' => $approval_workflow,
                 'payment_mode'      => $payment_mode,
+                'auto_cancel_hours' => $auto_cancel_hours,
                 'slot_duration'     => $slot_duration,
                 'slot_capacity'     => $slot_capacity,
                 'slot_bonus'        => $slot_bonus,
@@ -160,7 +162,7 @@ function dfn_render_event_editor() {
 
             $format = array(
                 '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
-                '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s'
+                '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s'
             );
 
             if ( $event_id > 0 ) {
@@ -219,6 +221,7 @@ function dfn_render_event_editor() {
     $price_fai_member = $event ? $event->price_fai : 5.00;
     $staff            = $event ? $event->staff_config : '';
     $stat             = $event ? $event->status : 'draft';
+    $auto_cancel      = $event ? (int) $event->auto_cancel_hours : 24;
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header">
@@ -415,6 +418,14 @@ function dfn_render_event_editor() {
                                 </select>
                             </div>
 
+                            <div class="dfn-form-group" id="dfn-auto-cancel-group">
+                                <label for="auto_cancel_hours" class="dfn-label"><?php esc_html_e( 'Annullamento Automatico (ore)', 'dfn-theme' ); ?></label>
+                                <input type="number" name="auto_cancel_hours" id="auto_cancel_hours" value="<?php echo esc_attr( $auto_cancel ); ?>" min="0" step="1" class="dfn-input">
+                                <p class="description" style="margin-top: 6px; font-size: 12px; color: #64748b;" id="dfn-auto-cancel-help">
+                                    <?php esc_html_e( 'Dopo quante ore un ordine non pagato viene annullato automaticamente. Imposta 0 per disabilitare (consigliato per pagamento in loco).', 'dfn-theme' ); ?>
+                                </p>
+                            </div>
+
                             <div class="divider"></div>
 
                             <button type="submit" class="dfn-btn dfn-btn-primary dfn-btn-block">
@@ -540,5 +551,57 @@ function dfn_render_event_editor() {
             </div>
         </form>
     </div>
+    <?php
+}
+
+/**
+ * Inline JavaScript per il suggerimento dinamico del campo auto_cancel_hours
+ * in base alla modalità di pagamento selezionata.
+ */
+add_action( 'admin_footer', 'dfn_event_editor_auto_cancel_js' );
+function dfn_event_editor_auto_cancel_js() {
+    // Esegui solo nella pagina dell'editor eventi
+    if ( ! isset( $_GET['page'] ) || $_GET['page'] !== 'dfn-event-editor' ) {
+        return;
+    }
+    ?>
+    <script>
+    (function() {
+        var paymentMode = document.getElementById('payment_mode');
+        var autoCancelField = document.getElementById('auto_cancel_hours');
+        var helpText = document.getElementById('dfn-auto-cancel-help');
+
+        if (!paymentMode || !autoCancelField) return;
+
+        // Mappa suggerimenti
+        var suggestions = {
+            'online': 24,
+            'in_loco': 0,
+            'hybrid': 24
+        };
+
+        var helpTexts = {
+            'online': '<?php echo esc_js( __( 'Consigliato: 24 ore per pagamenti online.', 'dfn-theme' ) ); ?>',
+            'in_loco': '<?php echo esc_js( __( 'Consigliato: 0 (disabilitato) — il pagamento avviene il giorno dell\'evento.', 'dfn-theme' ) ); ?>',
+            'hybrid': '<?php echo esc_js( __( 'Consigliato: 24 ore. Gli ordini in loco sono esclusi automaticamente.', 'dfn-theme' ) ); ?>'
+        };
+
+        // Traccia se l'utente ha modificato manualmente il campo
+        var userModified = false;
+        autoCancelField.addEventListener('input', function() {
+            userModified = true;
+        });
+
+        paymentMode.addEventListener('change', function() {
+            var mode = this.value;
+            if (!userModified && suggestions.hasOwnProperty(mode)) {
+                autoCancelField.value = suggestions[mode];
+            }
+            if (helpText && helpTexts.hasOwnProperty(mode)) {
+                helpText.textContent = helpTexts[mode];
+            }
+        });
+    })();
+    </script>
     <?php
 }

@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define( 'DFN_DB_VERSION', '2.0.3' );
+define( 'DFN_DB_VERSION', '2.0.4' );
 
 /**
  * ========================================================================
@@ -74,6 +74,7 @@ function dfn_db_install(): void {
         allocation_mode varchar(20) NOT NULL DEFAULT 'automatic',
         approval_workflow varchar(20) NOT NULL DEFAULT 'auto',
         payment_mode varchar(20) NOT NULL DEFAULT 'online',
+        auto_cancel_hours int(10) unsigned NOT NULL DEFAULT 24,
         slot_duration int(10) unsigned DEFAULT 30,
         slot_capacity int(10) unsigned DEFAULT 0,
         slot_bonus int(10) unsigned DEFAULT 0,
@@ -226,6 +227,9 @@ function dfn_db_install(): void {
     // Migra dati legacy dalla waitlist su wp_options (one-shot)
     dfn_migrate_waitlist_from_options();
 
+    // Migra eventi in_loco esistenti → auto_cancel_hours = 0 (one-shot)
+    dfn_migrate_in_loco_auto_cancel();
+
     // Aggiorna la versione per evitare re-esecuzioni
     update_option( 'dfn_db_version', DFN_DB_VERSION );
 }
@@ -287,6 +291,27 @@ function dfn_migrate_waitlist_from_options(): void {
     // Backup dell'option originale, poi segna la migrazione come completata
     update_option( 'cv_waitlist_data_backup_v2', $legacy_data );
     update_option( 'dfn_waitlist_migrated', 'yes' );
+}
+
+/**
+ * Migrazione one-shot: imposta auto_cancel_hours = 0 per tutti gli eventi
+ * esistenti con payment_mode = 'in_loco', affinché il cron non li annulli.
+ *
+ * @return void
+ */
+function dfn_migrate_in_loco_auto_cancel(): void {
+    if ( get_option( 'dfn_in_loco_auto_cancel_migrated' ) === 'yes' ) {
+        return;
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_events';
+
+    $wpdb->query(
+        "UPDATE {$table} SET auto_cancel_hours = 0 WHERE payment_mode = 'in_loco'"
+    );
+
+    update_option( 'dfn_in_loco_auto_cancel_migrated', 'yes' );
 }
 
 /**
@@ -594,3 +619,50 @@ function dfn_db_generate_slots_for_event( int $event_id ): int {
 
     return $count;
 }
+
+/**
+ * Ricalcola il conteggio dei posti prenotati per tutti gli slot di un evento.
+ * Allinea booked_count al numero effettivo di persone nelle prenotazioni attive.
+ *
+ * @param int $event_id ID dell'evento.
+ * @return void
+ */
+function dfn_db_recalculate_event_slots_booked_count( int $event_id ): void {
+    global $wpdb;
+    $table_slots = $wpdb->prefix . 'dfn_event_slots';
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+
+    // Recupera tutti gli slot associati all'evento
+    $slots = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id FROM {$table_slots} WHERE event_id = %d",
+        $event_id
+    ) );
+
+    if ( empty( $slots ) ) {
+        return;
+    }
+
+    foreach ( $slots as $slot ) {
+        // Calcola la somma delle persone per le prenotazioni non cancellate associate a questo slot
+        $actual_booked = $wpdb->get_var( $wpdb->prepare(
+            "SELECT SUM(bs.persons) 
+             FROM {$table_booking_slots} bs
+             JOIN {$table_bookings} b ON bs.booking_id = b.id
+             WHERE bs.slot_id = %d AND b.status != 'cancelled'",
+            $slot->id
+        ) );
+
+        $actual_booked = $actual_booked !== null ? intval( $actual_booked ) : 0;
+
+        // Aggiorna lo slot
+        $wpdb->update(
+            $table_slots,
+            array( 'booked_count' => $actual_booked ),
+            array( 'id' => $slot->id ),
+            array( '%d' ),
+            array( '%d' )
+        );
+    }
+}
+

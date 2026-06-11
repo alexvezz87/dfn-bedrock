@@ -263,8 +263,112 @@
 }
 
 .dfn-actions-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 6px;
+    width: 100%;
+    max-width: 230px;
+}
+
+/* Reduced actions column width for a cleaner layout */
+.dfn-events-table th.column-actions,
+.dfn-events-table td.column-actions {
+    width: 250px !important;
+    min-width: 250px !important;
+    max-width: 260px !important;
+    box-sizing: border-box;
+}
+
+/* Premium Action Buttons in Events List Table - Elegant Outline Style */
+.dfn-action-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    border-radius: 6px !important;
+    height: 30px !important;
+    text-decoration: none !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+    transition: all 0.15s ease-in-out !important;
+    cursor: pointer !important;
+}
+
+.dfn-action-btn .dashicons {
+    font-size: 15px !important;
+    width: 15px !important;
+    height: 15px !important;
+    line-height: 15px !important;
+    margin: 0 !important;
+    color: inherit !important; /* Force inherit to prevent blue dashicons override */
+}
+
+/* Turni Button: Elegant Green Outline */
+.dfn-btn-turni {
+    background-color: #f0fdf4 !important;
+    color: #166534 !important;
+    border: 1px solid #bbf7d0 !important;
+}
+
+.dfn-btn-turni:hover {
+    background-color: #dcfce7 !important;
+    border-color: #86efac !important;
+    color: #14532d !important;
+}
+
+/* Recalculate Button: Elegant Gold/Teal Outline */
+.dfn-btn-recalc {
+    background-color: #fffbeb !important;
+    color: #b45309 !important;
+    border: 1px solid #fde68a !important;
+}
+
+.dfn-btn-recalc:hover {
+    background-color: #fef3c7 !important;
+    border-color: #fcd34d !important;
+    color: #92400e !important;
+}
+
+/* Reset Slot Button: Soft grey slate outline */
+.dfn-btn-reset {
+    background-color: #f8fafc !important;
+    color: #475569 !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.dfn-btn-reset:hover {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+}
+
+/* Draft/Bozza Status Toggle Button: Soft slate warning outline */
+.dfn-btn-status-draft {
+    background-color: #fafafa !important;
+    color: #64748b !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.dfn-btn-status-draft:hover {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+    border-color: #fecaca !important;
+}
+
+/* Published/Attiva Status Toggle Button: Active soft green outline */
+.dfn-btn-status-pub {
+    background-color: #f0fdf4 !important;
+    color: #166534 !important;
+    border: 1px solid #bbf7d0 !important;
+}
+
+.dfn-btn-status-pub:hover {
+    background-color: #dcfce7 !important;
+    color: #14532d !important;
+    border-color: #86efac !important;
 }
 
 .dfn-btn-delete {

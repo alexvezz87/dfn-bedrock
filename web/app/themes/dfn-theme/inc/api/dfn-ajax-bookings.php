@@ -141,11 +141,14 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
             
             $wpdb->query( 'START TRANSACTION' );
 
+            $need_split = false;
+            $selected_slot = null;
+
             // Se l'evento prevede allocazione AUTOMATICA (🤖), il sistema decide il turno migliore
             if ( 'automatic' === $event->allocation_mode || $slot_id <= 0 ) {
                 
                 // Cerca lo slot disponibile più vicino (in ordine temporale) con capienza sufficiente (first-fit)
-                $best_slot = $wpdb->get_row( $wpdb->prepare(
+                $selected_slot = $wpdb->get_row( $wpdb->prepare(
                     "SELECT id, capacity, bonus_capacity, booked_count 
                      FROM {$wpdb->prefix}dfn_event_slots 
                      WHERE event_id = %d 
@@ -159,34 +162,37 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
                     $total_qty
                 ) );
 
-                if ( $best_slot ) {
-                    $slot_id = intval( $best_slot->id );
-                    $item->update_meta_data( '_dfn_booking_slot_id', (string) $slot_id );
-                    $item->save();
+                if ( $selected_slot ) {
+                    $slot_id = intval( $selected_slot->id );
+                } else {
+                    $need_split = true;
                 }
             } else {
                 // Modalità SELF-SELECTION (👈) — blocca la riga dello slot selezionato
-                $wpdb->query( $wpdb->prepare(
-                    "SELECT id, capacity, bonus_capacity, booked_count 
+                $selected_slot = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT id, capacity, bonus_capacity, booked_count, is_locked 
                      FROM {$wpdb->prefix}dfn_event_slots 
                      WHERE id = %d FOR UPDATE",
                     $slot_id
                 ) );
+
+                if ( $selected_slot ) {
+                    $avail = ( intval( $selected_slot->capacity ) + intval( $selected_slot->bonus_capacity ) ) - intval( $selected_slot->booked_count );
+                    if ( intval( $selected_slot->is_locked ) === 1 || $avail < $total_qty ) {
+                        $need_split = true;
+                    }
+                } else {
+                    $need_split = true;
+                }
             }
 
-            // Recuperiamo i dati aggiornati dello slot bloccato
-            $slot = $wpdb->get_row( $wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}dfn_event_slots WHERE id = %d",
-                $slot_id
-            ) );
-
-            // Verifica se c'è spazio sufficiente (inclusa la capacità bonus)
-            if ( $slot && ( intval( $slot->booked_count ) + $total_qty ) <= ( intval( $slot->capacity ) + intval( $slot->bonus_capacity ) ) ) {
+            if ( ! $need_split && $selected_slot ) {
+                // Allocazione Standard su un singolo slot
                 
                 // 1. Incrementa il conteggio nello slot
                 $wpdb->update(
                     $wpdb->prefix . 'dfn_event_slots',
-                    array( 'booked_count' => intval( $slot->booked_count ) + $total_qty ),
+                    array( 'booked_count' => intval( $selected_slot->booked_count ) + $total_qty ),
                     array( 'id' => $slot_id ),
                     array( '%d' ),
                     array( '%d' )
@@ -230,6 +236,10 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
                     array( '%d', '%d', '%d' )
                 );
 
+                // Aggiorna metadati riga ordine
+                $item->update_meta_data( '_dfn_booking_slot_id', (string) $slot_id );
+                $item->save();
+
                 $wpdb->query( 'COMMIT' );
 
                 // Invio notifica centralizzata in base al workflow
@@ -244,27 +254,141 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
                 // Invia la notifica semplificata all'amministratore
                 dfn_send_admin_new_booking_notification( $booking_id );
 
-            } else {
-                // OVERBOOKING: Spazio non disponibile! Annulla transazione
-                $wpdb->query( 'ROLLBACK' );
+            } elseif ( $need_split ) {
+                // Eseguiamo l'allocazione divisa (Split)
+                $available_slots = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT * FROM {$wpdb->prefix}dfn_event_slots 
+                     WHERE event_id = %d AND slot_date = %s AND is_locked = 0 
+                     ORDER BY slot_time_start ASC FOR UPDATE",
+                    $event->id,
+                    $booking_date
+                ) );
 
-                // Inserimento automatico in Waitlist (Lista d'Attesa)
-                $wpdb->insert(
-                    $wpdb->prefix . 'dfn_waitlist',
-                    array(
-                        'event_id'       => $event->id,
-                        'slot_id'        => $slot_id > 0 ? $slot_id : null,
-                        'customer_name'  => trim( $order->get_billing_first_name() . ' ' . $order->get_billing_last_name() ),
-                        'customer_email' => $order->get_billing_email(),
-                        'customer_phone' => $order->get_billing_phone(),
-                        'persons'        => $total_qty,
-                        'fai_cards'      => $qty_fai,
-                        'status'         => 'waiting'
-                    ),
-                    array( '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%s' )
-                );
+                // Prioritizza lo slot selezionato se specificato
+                if ( $slot_id > 0 ) {
+                    usort( $available_slots, function( $a, $b ) use ( $slot_id ) {
+                        if ( intval( $a->id ) === $slot_id ) return -1;
+                        if ( intval( $b->id ) === $slot_id ) return 1;
+                        return strcmp( $a->slot_time_start, $b->slot_time_start );
+                    } );
+                }
 
-                $order->add_order_note( __( '⚠️ OVERBOOKING: Posti esauriti durante il checkout. Il cliente è stato inserito automaticamente in Lista d\'Attesa.', 'dfn-theme' ) );
+                // Calcola lo spazio totale disponibile
+                $total_avail = 0;
+                foreach ( $available_slots as $s ) {
+                    $total_avail += ( intval( $s->capacity ) + intval( $s->bonus_capacity ) ) - intval( $s->booked_count );
+                }
+
+                if ( $total_avail >= $total_qty ) {
+                    // Abbiamo spazio sufficiente per completare lo split!
+                    $qr_token = wp_hash( $order_id . '|' . $event->id . '|' . time() );
+                    $booking_status = ( 'manual' === $event->approval_workflow ) ? 'pending_approval' : 'confirmed';
+
+                    $wpdb->insert(
+                        $wpdb->prefix . 'dfn_bookings',
+                        array(
+                            'order_id'         => $order_id,
+                            'event_id'         => $event->id,
+                            'customer_email'   => $order->get_billing_email(),
+                            'customer_name'    => trim( $order->get_billing_first_name() . ' ' . $order->get_billing_last_name() ),
+                            'customer_phone'   => $order->get_billing_phone(),
+                            'total_persons'    => $total_qty,
+                            'persons_standard' => $qty_std,
+                            'persons_fai'      => $qty_fai,
+                            'status'           => $booking_status,
+                            'qr_token'         => $qr_token,
+                            'payment_method'   => $order->get_payment_method(),
+                            'amount_due'       => ( $order->get_payment_method() === 'dfn_in_loco' ) ? floatval( $order->get_total() ) : 0.00,
+                            'amount_paid'      => ( $order->get_payment_method() !== 'dfn_in_loco' ) ? floatval( $order->get_total() ) : 0.00,
+                            'notes'            => $order->get_customer_note()
+                        ),
+                        array( '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s' )
+                    );
+
+                    $booking_id = $wpdb->insert_id;
+                    $remaining = $total_qty;
+                    $allocated_slots_notes = array();
+
+                    foreach ( $available_slots as $s ) {
+                        $avail = ( intval( $s->capacity ) + intval( $s->bonus_capacity ) ) - intval( $s->booked_count );
+                        if ( $avail > 0 ) {
+                            $to_allocate = min( $remaining, $avail );
+
+                            // 1. Incrementa booked_count sullo slot
+                            $wpdb->update(
+                                $wpdb->prefix . 'dfn_event_slots',
+                                array( 'booked_count' => intval( $s->booked_count ) + $to_allocate ),
+                                array( 'id' => $s->id ),
+                                array( '%d' ),
+                                array( '%d' )
+                            );
+
+                            // 2. Associa N:M
+                            $wpdb->insert(
+                                $wpdb->prefix . 'dfn_booking_slots',
+                                array(
+                                    'booking_id' => $booking_id,
+                                    'slot_id'    => $s->id,
+                                    'persons'    => $to_allocate
+                                ),
+                                array( '%d', '%d', '%d' )
+                            );
+
+                            $time_formatted = substr( $s->slot_time_start, 0, 5 ) . '-' . substr( $s->slot_time_end, 0, 5 );
+                            $allocated_slots_notes[] = sprintf( '%d in slot %s', $to_allocate, $time_formatted );
+
+                            $remaining -= $to_allocate;
+                            if ( $remaining <= 0 ) {
+                                break;
+                            }
+                        }
+                    }
+
+                    // Aggiorna metadati riga ordine con il primo slot per retrocompatibilità
+                    if ( ! empty( $available_slots ) ) {
+                        $item->update_meta_data( '_dfn_booking_slot_id', (string) $available_slots[0]->id );
+                        $item->save();
+                    }
+
+                    $wpdb->query( 'COMMIT' );
+
+                    // Aggiungi nota riassuntiva sul frazionamento all'ordine
+                    $split_note = sprintf(
+                        __( '🎟️ Prenotazione FAI suddivisa su più turni: %s', 'dfn-theme' ),
+                        implode( ', ', $allocated_slots_notes )
+                    );
+                    $order->add_order_note( $split_note );
+
+                    // Invio notifica centralizzata in base al workflow
+                    if ( 'manual' === $event->approval_workflow ) {
+                        dfn_send_booking_pending_approval( $booking_id );
+                    } else {
+                        dfn_send_booking_confirmation( $booking_id );
+                    }
+                    dfn_send_admin_new_booking_notification( $booking_id );
+
+                } else {
+                    // OVERBOOKING: Spazio non disponibile! Annulla transazione
+                    $wpdb->query( 'ROLLBACK' );
+
+                    // Inserimento automatico in Waitlist (Lista d'Attesa)
+                    $wpdb->insert(
+                        $wpdb->prefix . 'dfn_waitlist',
+                        array(
+                            'event_id'       => $event->id,
+                            'slot_id'        => $slot_id > 0 ? $slot_id : null,
+                            'customer_name'  => trim( $order->get_billing_first_name() . ' ' . $order->get_billing_last_name() ),
+                            'customer_email' => $order->get_billing_email(),
+                            'customer_phone' => $order->get_billing_phone(),
+                            'persons'        => $total_qty,
+                            'fai_cards'      => $qty_fai,
+                            'status'         => 'waiting'
+                        ),
+                        array( '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%s' )
+                    );
+
+                    $order->add_order_note( __( '⚠️ OVERBOOKING: Posti esauriti durante il checkout. Il cliente è stato inserito automaticamente in Lista d\'Attesa.', 'dfn-theme' ) );
+                }
             }
 
         } else {
@@ -384,6 +508,62 @@ function dfn_ajax_create_direct_booking(): void {
     }
 
     global $wpdb;
+
+    $confirm_split = isset( $_POST['confirm_split'] ) && '1' === $_POST['confirm_split'];
+
+    // Se l'evento ha fasce orarie
+    if ( 'time_slots' === $event->access_type ) {
+        $has_single_slot = false;
+
+        if ( 'self_selection' === $event->allocation_mode && $slot_id > 0 ) {
+            $slot = $wpdb->get_row( $wpdb->prepare(
+                "SELECT id, capacity, bonus_capacity, booked_count FROM {$wpdb->prefix}dfn_event_slots WHERE id = %d",
+                $slot_id
+            ) );
+            if ( $slot ) {
+                $avail = ( intval( $slot->capacity ) + intval( $slot->bonus_capacity ) ) - intval( $slot->booked_count );
+                if ( $avail >= $total_qty ) {
+                    $has_single_slot = true;
+                }
+            }
+        } else {
+            // Automatic o nessun slot specifico selezionato: cerchiamo se ne esiste almeno uno che contenga tutti
+            $best_slot = $wpdb->get_row( $wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}dfn_event_slots 
+                 WHERE event_id = %d AND slot_date = %s AND is_locked = 0 
+                   AND (capacity + bonus_capacity - booked_count) >= %d
+                 LIMIT 1",
+                $event->id,
+                $date,
+                $total_qty
+            ) );
+            if ( $best_slot ) {
+                $has_single_slot = true;
+            }
+        }
+
+        // Se non c'è un singolo slot in grado di contenere tutti
+        if ( ! $has_single_slot ) {
+            // Calcoliamo la capienza totale disponibile sommando tutti gli slot non bloccati in quel giorno
+            $total_avail = $wpdb->get_var( $wpdb->prepare(
+                "SELECT SUM(capacity + bonus_capacity - booked_count) 
+                 FROM {$wpdb->prefix}dfn_event_slots 
+                 WHERE event_id = %d AND slot_date = %s AND is_locked = 0",
+                $event->id,
+                $date
+            ) ) ?: 0;
+
+            if ( $total_avail >= $total_qty ) {
+                // Abbiamo abbastanza posti complessivi, ma devono essere divisi
+                if ( ! $confirm_split ) {
+                    wp_send_json_success( array(
+                        'status' => 'split_warning',
+                        'message' => __( 'I posti disponibili nei singoli turni non sono sufficienti per accogliere tutto il gruppo in un unico orario. Proseguendo, la prenotazione verrà suddivisa su due o più turni differenti. Vuoi continuare?', 'dfn-theme' )
+                    ) );
+                }
+            }
+        }
+    }
 
     // 1. Processa e verifica le tessere FAI fornite
     $fai_cards = array();
