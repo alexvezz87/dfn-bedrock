@@ -22,8 +22,11 @@ jQuery(document).ready(function($) {
         var $btnNext = $widget.find('.dfn-widget-btn-next');
         var $btnPrev = $widget.find('.dfn-widget-btn-prev');
         var $btnReset = $widget.find('.dfn-widget-btn-reset');
-        var $submitBtn = $widget.find('.dfn-widget-submit');
-        var originalSubmitHtml = $submitBtn.html();
+        
+        var $realSubmitBtn = $widget.find('.dfn-step-2 button[type="submit"]');
+        var originalSubmitHtml = $realSubmitBtn.html();
+        var defaultDate = $dateInput.val() || '';
+        
         var $feedbackArea = $widget.find('.dfn-widget-feedback');
         
         var $step1 = $widget.find('.dfn-step-1');
@@ -229,18 +232,29 @@ jQuery(document).ready(function($) {
         // Reset per un altro evento
         $btnReset.on('click', function(e) {
             e.preventDefault();
+            
+            // Pulisci tutti i campi di input
             $widget.find('input[type="text"], input[type="email"], input[type="tel"], textarea').val('');
             $widget.find('input[name="quantity"]').val(1);
             $widget.find('input[name="dfn_qty_fai"]').val(0);
             $hiddenSlotId.val('');
-            if (isTimeSlots) {
-                $slotsContainer.html('');
-            }
             $feedbackArea.html('');
             
-            // Re-abilita e ripristina lo stato del submit button
-            $submitBtn.prop('disabled', false).html(originalSubmitHtml);
+            // Ripristina la data di default e ricarica gli slot
+            $dateInput.val(defaultDate);
+            if (defaultDate !== '') {
+                loadSlots(defaultDate);
+            } else {
+                $slotsContainer.html('');
+            }
+            
+            // Re-abilita e ripristina lo stato del submit button reale di Step 2
+            $realSubmitBtn.prop('disabled', false).html(originalSubmitHtml);
             $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
+            
+            // Pulisci e nascondi i campi tessere FAI
+            $faiFieldsContainer.html('');
+            $faiFieldsSection.hide();
             
             $step3.fadeOut(200, function() {
                 $step1.fadeIn(200);
@@ -303,13 +317,43 @@ jQuery(document).ready(function($) {
                         var res = response.data;
                         
                         if (res.status === 'split_warning') {
-                            var confirmSplitResponse = confirm(res.message);
-                            if (confirmSplitResponse) {
+                            $('.dfn-custom-modal-overlay').remove();
+
+                            var modalHtml = 
+                                '<div class="dfn-custom-modal-overlay">' +
+                                '  <div class="dfn-custom-modal">' +
+                                '    <div class="dfn-custom-modal-header">' +
+                                '      <span class="dashicons dashicons-warning"></span>' +
+                                '      <h4>Attenzione</h4>' +
+                                '    </div>' +
+                                '    <div class="dfn-custom-modal-body">' +
+                                '      <p>' + res.message + '</p>' +
+                                '    </div>' +
+                                '    <div class="dfn-custom-modal-footer">' +
+                                '      <button type="button" class="dfn-modal-btn dfn-modal-btn-cancel">Annulla</button>' +
+                                '      <button type="button" class="dfn-modal-btn dfn-modal-btn-confirm">Continua</button>' +
+                                '    </div>' +
+                                '  </div>' +
+                                '</div>';
+
+                            var $modal = $(modalHtml).appendTo('body');
+                            
+                            // Trigger reflow to enable transition
+                            $modal.each(function() { this.offsetHeight; }).addClass('active');
+
+                            $modal.find('.dfn-modal-btn-confirm').on('click', function() {
+                                $modal.removeClass('active');
+                                setTimeout(function() { $modal.remove(); }, 200);
                                 submitBooking(true);
-                            } else {
+                            });
+
+                            $modal.find('.dfn-modal-btn-cancel').on('click', function() {
+                                $modal.removeClass('active');
+                                setTimeout(function() { $modal.remove(); }, 200);
                                 $submit.prop('disabled', false).html(originalSubmitHtml);
                                 $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
-                            }
+                            });
+
                             return;
                         }
 

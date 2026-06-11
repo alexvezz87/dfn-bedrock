@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define( 'DFN_DB_VERSION', '2.0.4' );
+define( 'DFN_DB_VERSION', '2.0.5' );
 
 /**
  * ========================================================================
@@ -155,6 +155,8 @@ function dfn_db_install(): void {
         booking_id bigint(20) unsigned NOT NULL,
         slot_id bigint(20) unsigned NOT NULL,
         persons int(10) unsigned NOT NULL DEFAULT 1,
+        checked_in_at datetime DEFAULT NULL,
+        checked_in_by bigint(20) unsigned DEFAULT NULL,
         PRIMARY KEY  (id),
         KEY idx_booking (booking_id),
         KEY idx_slot (slot_id),

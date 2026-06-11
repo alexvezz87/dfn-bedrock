@@ -193,14 +193,22 @@ function dfn_send_booking_confirmation( int $booking_id ) {
     // Recupera informazioni sullo slot
     $slot_info = '';
     $slots = $wpdb->get_results( $wpdb->prepare(
-        "SELECT s.* FROM {$wpdb->prefix}dfn_event_slots s 
+        "SELECT s.*, bs.persons FROM {$wpdb->prefix}dfn_event_slots s 
          JOIN {$wpdb->prefix}dfn_booking_slots bs ON s.id = bs.slot_id 
          WHERE bs.booking_id = %d", $booking_id
     ) );
 
     if ( ! empty( $slots ) ) {
-        $slot = $slots[0];
-        $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - ore ' . date( 'H:i', strtotime( $slot->slot_time_start ) );
+        if ( count( $slots ) === 1 ) {
+            $slot = $slots[0];
+            $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - ore ' . date( 'H:i', strtotime( $slot->slot_time_start ) );
+        } else {
+            $slot_info_parts = array();
+            foreach ( $slots as $s ) {
+                $slot_info_parts[] = 'ore ' . date( 'H:i', strtotime( $s->slot_time_start ) ) . ' (' . absint( $s->persons ) . ' ' . ( $s->persons == 1 ? 'persona' : 'persone' ) . ')';
+            }
+            $slot_info = date_i18n( 'd F Y', strtotime( $slots[0]->slot_date ) ) . ' — ' . implode( ', ', $slot_info_parts );
+        }
     } else {
         $slot_info = date_i18n( 'd F Y', strtotime( $event->event_date_start ) ) . ' (Ingresso Libero)';
     }
@@ -384,15 +392,23 @@ function dfn_send_booking_24h_reminder( int $booking_id ) {
 
     // Recupera informazioni sullo slot
     $slots = $wpdb->get_results( $wpdb->prepare(
-        "SELECT s.* FROM {$wpdb->prefix}dfn_event_slots s 
+        "SELECT s.*, bs.persons FROM {$wpdb->prefix}dfn_event_slots s 
          JOIN {$wpdb->prefix}dfn_booking_slots bs ON s.id = bs.slot_id 
          WHERE bs.booking_id = %d", $booking_id
     ) );
 
     $slot_info = '';
     if ( ! empty( $slots ) ) {
-        $slot = $slots[0];
-        $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - ore ' . date( 'H:i', strtotime( $slot->slot_time_start ) );
+        if ( count( $slots ) === 1 ) {
+            $slot = $slots[0];
+            $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - ore ' . date( 'H:i', strtotime( $slot->slot_time_start ) );
+        } else {
+            $slot_info_parts = array();
+            foreach ( $slots as $s ) {
+                $slot_info_parts[] = 'ore ' . date( 'H:i', strtotime( $s->slot_time_start ) ) . ' (' . absint( $s->persons ) . ' ' . ( $s->persons == 1 ? 'persona' : 'persone' ) . ')';
+            }
+            $slot_info = date_i18n( 'd F Y', strtotime( $slots[0]->slot_date ) ) . ' — ' . implode( ', ', $slot_info_parts );
+        }
     } else {
         $slot_info = date_i18n( 'd F Y', strtotime( $event->event_date_start ) ) . ' (Ingresso Libero)';
     }
@@ -564,14 +580,22 @@ function dfn_send_admin_new_booking_notification( int $booking_id ) {
     // Recupera informazioni sullo slot
     $slot_info = '';
     $slots = $wpdb->get_results( $wpdb->prepare(
-        "SELECT s.* FROM {$wpdb->prefix}dfn_event_slots s 
+        "SELECT s.*, bs.persons FROM {$wpdb->prefix}dfn_event_slots s 
          JOIN {$wpdb->prefix}dfn_booking_slots bs ON s.id = bs.slot_id 
          WHERE bs.booking_id = %d", $booking_id
     ) );
 
     if ( ! empty( $slots ) ) {
-        $slot = $slots[0];
-        $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - ore ' . date( 'H:i', strtotime( $slot->slot_time_start ) );
+        if ( count( $slots ) === 1 ) {
+            $slot = $slots[0];
+            $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - ore ' . date( 'H:i', strtotime( $slot->slot_time_start ) );
+        } else {
+            $slot_info_parts = array();
+            foreach ( $slots as $s ) {
+                $slot_info_parts[] = 'ore ' . date( 'H:i', strtotime( $s->slot_time_start ) ) . ' (' . absint( $s->persons ) . ' ' . ( $s->persons == 1 ? 'persona' : 'persone' ) . ')';
+            }
+            $slot_info = date_i18n( 'd F Y', strtotime( $slots[0]->slot_date ) ) . ' — ' . implode( ', ', $slot_info_parts );
+        }
     } else {
         $slot_info = date_i18n( 'd F Y', strtotime( $event->event_date_start ) ) . ' (Ingresso Libero)';
     }

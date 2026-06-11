@@ -73,32 +73,20 @@ function dfn_render_group_ticket_hub(): void {
     $location    = $event ? $event->location : esc_html__( 'Bene FAI', 'dfn-theme' );
     $date_start  = $event ? date_i18n( 'd M Y', strtotime( $event->event_date_start ) ) : '';
 
-    // Turno orario se applicabile
-    $slot_info = '';
-    if ( $event && 'time_slots' === $event->access_type ) {
-        $slot_id = $wpdb->get_var( $wpdb->prepare(
-            "SELECT slot_id FROM {$wpdb->prefix}dfn_booking_slots WHERE booking_id = %d LIMIT 1",
-            $booking->id
-        ) );
-        if ( $slot_id ) {
-            $slot = $wpdb->get_row( $wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}dfn_event_slots WHERE id = %d",
-                $slot_id
-            ) );
-            if ( $slot ) {
-                $slot_info = date( 'H:i', strtotime( $slot->slot_time_start ) );
-            }
-        }
-    }
-
-    // QR Code generation URL
-    $qr_api_url   = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode( $booking->qr_token ) . '&margin=10';
-    $download_url = site_url( '/?dfn_download_qr=1&order_id=' . $order_id . '&token=' . $token );
-    $wa_text      = urlencode( sprintf( __( 'Ecco il biglietto di gruppo per %s. Mostra questo QR Code all\'ingresso: %s', 'dfn-theme' ), $event_title, site_url( '/?dfn_hub=1&order_id=' . $order_id . '&token=' . $token ) ) );
+    // Recupera tutti i turni per questo booking
+    $slots = $wpdb->get_results( $wpdb->prepare(
+        "SELECT s.*, bs.persons, bs.checked_in_at FROM {$wpdb->prefix}dfn_event_slots s 
+         JOIN {$wpdb->prefix}dfn_booking_slots bs ON s.id = bs.slot_id 
+         WHERE bs.booking_id = %d 
+         ORDER BY s.slot_time_start ASC",
+        $booking->id
+    ) );
 
     // Enqueue degli stili dedicati
     wp_enqueue_style( 'dfn-visitor-dashboard-css', get_stylesheet_directory_uri() . '/assets/css/dfn-visitor-dashboard.css', array(), '2.0.0' );
 
+    $wa_text = urlencode( sprintf( __( 'Ecco i biglietti di gruppo per %s. Mostra questi QR Code all\'ingresso: %s', 'dfn-theme' ), $event_title, site_url( '/?dfn_hub=1&order_id=' . $order_id . '&token=' . $token ) ) );
+    $download_url = site_url( '/?dfn_download_qr=1&order_id=' . $order_id . '&token=' . $token );
     ?>
     <!DOCTYPE html>
     <html <?php language_attributes(); ?>>
@@ -107,43 +95,119 @@ function dfn_render_group_ticket_hub(): void {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title><?php esc_html_e( 'I tuoi Biglietti — FAI Prenotazioni', 'dfn-theme' ); ?></title>
         <?php wp_head(); ?>
+        <style>
+            /* Stili aggiuntivi per il layout split dei ticket in stampa e desktop */
+            .dfn-ticket-slot-card {
+                background: #ffffff;
+                border: 2px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 24px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            }
+            .dfn-ticket-slot-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px dashed #cbd5e1;
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+            }
+            .dfn-ticket-slot-time {
+                font-size: 18px;
+                font-weight: 700;
+                color: #004b23;
+            }
+            .dfn-ticket-slot-qty {
+                font-weight: 600;
+                background: #f1f5f9;
+                padding: 4px 10px;
+                border-radius: 6px;
+                font-size: 13px;
+                color: #475569;
+            }
+            @media print {
+                .dfn-ticket-slot-card {
+                    page-break-inside: avoid;
+                    border: 1px solid #000;
+                }
+            }
+        </style>
     </head>
     <body>
         <div class="dfn-hub-wrapper">
             <div class="dfn-hub-card">
                 <div class="dfn-hub-header-decor"></div>
                 
-                <h1 class="dfn-hub-title"><?php esc_html_e( '🎟️ Il tuo Ingresso di Gruppo', 'dfn-theme' ); ?></h1>
+                <h1 class="dfn-hub-title"><?php esc_html_e( '🎟️ I tuoi Ingressi di Gruppo', 'dfn-theme' ); ?></h1>
                 <p class="dfn-hub-subtitle"><?php printf( esc_html__( 'Ordine #%d — Gestione Ingressi Centralizzata', 'dfn-theme' ), $order_id ); ?></p>
-
-                <?php if ( $booking->status === 'checked_in' ) : ?>
-                    <span class="dfn-badge-validated"><?php esc_html_e( '✅ GRUPPO ENTRATO / UTILIZZATO', 'dfn-theme' ); ?></span>
-                <?php else : ?>
-                    <span class="dfn-badge-group"><?php printf( esc_html__( '🎫 Biglietto Attivo per %d Ingressi', 'dfn-theme' ), intval( $booking->total_persons ) ); ?></span>
-                <?php endif; ?>
 
                 <div class="dfn-hub-info-box">
                     <h3 class="dfn-hub-info-title"><?php echo esc_html( $event_title ); ?></h3>
                     <div class="dfn-hub-info-detail">📍 <strong><?php esc_html_e( 'Luogo:', 'dfn-theme' ); ?></strong> <?php echo esc_html( $location ); ?></div>
                     <div class="dfn-hub-info-detail">📅 <strong><?php esc_html_e( 'Data:', 'dfn-theme' ); ?></strong> <?php echo esc_html( $date_start ); ?></div>
-                    <?php if ( ! empty( $slot_info ) ) : ?>
-                        <div class="dfn-hub-info-detail">⏰ <strong><?php esc_html_e( 'Orario Turno:', 'dfn-theme' ); ?></strong> <?php echo esc_html( $slot_info ); ?></div>
-                    <?php endif; ?>
                     <div class="dfn-hub-info-detail">👥 <strong><?php esc_html_e( 'Intestato a:', 'dfn-theme' ); ?></strong> <?php echo esc_html( $booking->customer_name ); ?></div>
                     <div class="dfn-hub-info-detail" style="margin-top: 10px; border-top: 1px dashed var(--dfn-gray-medium); padding-top: 10px; font-size: 13px;">
-                        👥 Breakdown: <?php printf( esc_html__( '%d Standard + %d Soci FAI', 'dfn-theme' ), intval( $booking->persons_standard ), intval( $booking->persons_fai ) ); ?>
+                        👥 Breakdown Totale: <?php printf( esc_html__( '%d Standard + %d Soci FAI', 'dfn-theme' ), intval( $booking->persons_standard ), intval( $booking->persons_fai ) ); ?>
                     </div>
                 </div>
 
-                <?php if ( $booking->status !== 'checked_in' ) : ?>
-                    <div class="dfn-hub-qr-container">
-                        <img src="<?php echo esc_url( $qr_api_url ); ?>" class="dfn-hub-qr-image" alt="<?php esc_attr_e( 'Codice QR d\'Ingresso', 'dfn-theme' ); ?>" />
-                    </div>
-                <?php else : ?>
-                    <div style="margin: 40px 0; font-size: 18px; color: #004b23; font-weight: bold;">
-                        <?php esc_html_e( 'L\'accesso per questo gruppo è già stato convalidato dallo staff.', 'dfn-theme' ); ?>
-                    </div>
-                <?php endif; ?>
+                <div style="margin-top: 30px;">
+                    <?php if ( ! empty( $slots ) ) : ?>
+                        <?php foreach ( $slots as $s ) : 
+                            $qr_token_slot = $booking->qr_token . '-' . $s->slot_id;
+                            $qr_api_url = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode( $qr_token_slot ) . '&margin=10';
+                            $download_url_slot = site_url( '/?dfn_download_qr=1&order_id=' . $order_id . '&token=' . $token . '&slot_id=' . $s->slot_id );
+                            $is_slot_checked_in = ! empty( $s->checked_in_at );
+                        ?>
+                            <div class="dfn-ticket-slot-card">
+                                <div class="dfn-ticket-slot-header">
+                                    <span class="dfn-ticket-slot-time">⏰ Turno: ore <?php echo date( 'H:i', strtotime( $s->slot_time_start ) ); ?></span>
+                                    <span class="dfn-ticket-slot-qty">👥 <?php printf( esc_html( _n( '%d Persona', '%d Persone', $s->persons, 'dfn-theme' ) ), intval( $s->persons ) ); ?></span>
+                                </div>
+                                
+                                <?php if ( $is_slot_checked_in ) : ?>
+                                    <div style="text-align: center; padding: 20px 0;">
+                                        <span class="dfn-badge-validated" style="display: inline-block; margin: 0;"><?php esc_html_e( '✅ ENTRATO / CONVALIDATO', 'dfn-theme' ); ?></span>
+                                    </div>
+                                <?php else : ?>
+                                    <div class="dfn-hub-qr-container">
+                                        <img src="<?php echo esc_url( $qr_api_url ); ?>" class="dfn-hub-qr-image" alt="<?php esc_attr_e( 'Codice QR d\'Ingresso', 'dfn-theme' ); ?>" />
+                                    </div>
+                                    <div style="text-align: center; margin-top: 10px;" class="dfn-no-print">
+                                        <a href="<?php echo esc_url( $download_url_slot ); ?>" style="font-size: 13px; color: #004b23; font-weight: 600; text-decoration: underline;">
+                                            💾 Scarica QR di questo turno
+                                        </a>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else : 
+                        // Fallback ingresso libero
+                        $qr_api_url = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode( $booking->qr_token ) . '&margin=10';
+                    ?>
+                        <div class="dfn-ticket-slot-card">
+                            <div class="dfn-ticket-slot-header">
+                                <span class="dfn-ticket-slot-time">🎟️ Ingresso Libero</span>
+                                <span class="dfn-ticket-slot-qty">👥 <?php printf( esc_html__( '%d Ingressi', 'dfn-theme' ), intval( $booking->total_persons ) ); ?></span>
+                            </div>
+                            <?php if ( $booking->status === 'checked_in' ) : ?>
+                                <div style="text-align: center; padding: 20px 0;">
+                                    <span class="dfn-badge-validated" style="display: inline-block; margin: 0;"><?php esc_html_e( '✅ ENTRATO / CONVALIDATO', 'dfn-theme' ); ?></span>
+                                </div>
+                            <?php else : ?>
+                                <div class="dfn-hub-qr-container">
+                                    <img src="<?php echo esc_url( $qr_api_url ); ?>" class="dfn-hub-qr-image" alt="<?php esc_attr_e( 'Codice QR d\'Ingresso', 'dfn-theme' ); ?>" />
+                                </div>
+                                <div style="text-align: center; margin-top: 10px;" class="dfn-no-print">
+                                    <a href="<?php echo esc_url( $download_url ); ?>" style="font-size: 13px; color: #004b23; font-weight: 600; text-decoration: underline;">
+                                        💾 Scarica QR
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
 
                 <div class="dfn-hub-buttons dfn-no-print">
                     <?php if ( $booking->status !== 'checked_in' ) : ?>
@@ -205,7 +269,13 @@ function dfn_handle_qr_download(): void {
         return;
     }
 
-    $qr_api_url = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode( $booking->qr_token ) . '&margin=20';
+    $slot_id = isset( $_GET['slot_id'] ) ? intval( $_GET['slot_id'] ) : 0;
+    $qr_data = $booking->qr_token;
+    if ( $slot_id > 0 ) {
+        $qr_data .= '-' . $slot_id;
+    }
+
+    $qr_api_url = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode( $qr_data ) . '&margin=20';
     $response   = wp_remote_get( $qr_api_url, array( 'timeout' => 12 ) );
 
     if ( is_wp_error( $response ) ) {
