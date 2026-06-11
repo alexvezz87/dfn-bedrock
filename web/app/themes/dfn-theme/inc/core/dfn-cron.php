@@ -90,7 +90,7 @@ function dfn_cron_annulla_ordini_scaduti(): void {
  * Gestore dell'email di notifica cancellazione ordine online e ripristino stock.
  * Hooked all'azione nativa di WooCommerce.
  */
-add_action( 'woocommerce_order_status_pending_to_cancelled', 'dfn_email_cliente_ordine_scaduto', 10, 2 );
+add_action( 'woocommerce_order_status_cancelled', 'dfn_email_cliente_ordine_scaduto', 10, 2 );
 function dfn_email_cliente_ordine_scaduto( $order_id, $order ) {
     if ( ! $order ) {
         return;
@@ -98,8 +98,9 @@ function dfn_email_cliente_ordine_scaduto( $order_id, $order ) {
 
     // Evita il raddoppio del ripristino stock di WooCommerce
     remove_action( 'woocommerce_order_status_pending_to_cancelled', 'wc_maybe_increase_stock_levels' );
+    remove_action( 'woocommerce_order_status_cancelled', 'wc_maybe_increase_stock_levels' );
 
-    // Se l'ordine era con saldo "In Loco" e viene cancellato manualmente dallo staff,
+    // Se l'ordine era con saldo "In Loco" e viene cancellato,
     // o se viene annullato un ordine online scaduto, ripristiniamo le scorte
     foreach ( $order->get_items() as $item ) {
         $product = $item->get_product();
@@ -112,20 +113,45 @@ function dfn_email_cliente_ordine_scaduto( $order_id, $order ) {
         }
     }
 
-    // Se l'ordine è "In Loco" cancellato manualmente, invia l'email di annullamento del booking
+    // Se esiste un booking per questo ordine, gestiamo l'annullamento della prenotazione e il rilascio della capienza
     $booking = dfn_db_get_booking_by_order( $order_id );
     if ( $booking ) {
-        global $wpdb;
-        $wpdb->update(
-            $wpdb->prefix . 'dfn_bookings',
-            array( 'status' => 'cancelled' ),
-            array( 'id' => $booking->id ),
-            array( '%s' ),
-            array( '%d' )
-        );
-        
-        // Invia email di cancellazione centralizzata
-        dfn_send_booking_cancellation( $booking->id );
+        // Procedi solo se la prenotazione non è già stata annullata (es. da cancellazione autonoma visitatore)
+        if ( $booking->status !== 'cancelled' ) {
+            global $wpdb;
+            $table_slots = $wpdb->prefix . 'dfn_event_slots';
+            $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+
+            $wpdb->query( 'START TRANSACTION' );
+
+            // 1. Rilascia la capienza negli slot orari associati
+            $assocs = $wpdb->get_results( $wpdb->prepare(
+                "SELECT slot_id, persons FROM {$table_booking_slots} WHERE booking_id = %d",
+                $booking->id
+            ) );
+
+            foreach ( $assocs as $assoc ) {
+                $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$table_slots} SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
+                    intval( $assoc->persons ),
+                    intval( $assoc->slot_id )
+                ) );
+            }
+
+            // 2. Aggiorna lo stato in 'cancelled' nella tabella prenotazioni
+            $wpdb->update(
+                $wpdb->prefix . 'dfn_bookings',
+                array( 'status' => 'cancelled' ),
+                array( 'id' => $booking->id ),
+                array( '%s' ),
+                array( '%d' )
+            );
+
+            $wpdb->query( 'COMMIT' );
+
+            // 3. Invia email di cancellazione centralizzata
+            dfn_send_booking_cancellation( $booking->id );
+        }
         return;
     }
 

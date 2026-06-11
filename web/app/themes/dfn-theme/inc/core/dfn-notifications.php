@@ -187,6 +187,9 @@ function dfn_send_booking_confirmation( int $booking_id ) {
     $event = dfn_db_get_event( $booking->event_id );
     if ( ! $event ) return false;
 
+    $order = wc_get_order( $booking->order_id );
+    if ( ! $order ) return false;
+
     // Recupera informazioni sullo slot
     $slot_info = '';
     $slots = $wpdb->get_results( $wpdb->prepare(
@@ -205,9 +208,21 @@ function dfn_send_booking_confirmation( int $booking_id ) {
     $product_name = get_the_title( $event->product_id );
     $subject = 'Conferma Prenotazione: ' . $product_name;
 
-    // Link all'hub biglietti / QR
-    // In fase 6 svilupperemo l'hub biglietti, per ora usiamo un placeholder con token
-    $hub_url = home_url( '/area-riservata/biglietti/?token=' . $booking->qr_token );
+    // Link all'hub biglietti / QR effettivo
+    $token = hash_hmac( 'sha256', $order->get_order_key() . '_dfn_hub', wp_salt( 'nonce' ) );
+    $hub_url = add_query_arg( array(
+        'dfn_hub'  => 1,
+        'order_id' => $booking->order_id,
+        'token'    => $token
+    ), home_url( '/' ) );
+
+    // Link di cancellazione
+    $cancel_token = hash_hmac( 'sha256', $order->get_order_key() . '_dfn_cancel', wp_salt( 'nonce' ) );
+    $cancel_url = add_query_arg( array(
+        'dfn_cancel_booking' => 1,
+        'order_id'           => $booking->order_id,
+        'token'              => $cancel_token
+    ), home_url( '/' ) );
 
     $content = '<p>Gentile <strong>' . esc_html( $booking->customer_name ) . '</strong>,</p>';
     $content .= '<p>La tua prenotazione per l\'evento <strong>' . esc_html( $product_name ) . '</strong> è stata confermata con successo!</p>';
@@ -228,12 +243,14 @@ function dfn_send_booking_confirmation( int $booking_id ) {
 
     $content .= '<p style="font-size: 14px; color: #4a5568; margin-top: 15px; margin-bottom: 15px;"><strong>⚠️ Importante:</strong> Ti chiediamo di presentarti presso il luogo dell\'evento <strong>almeno 10 minuti prima</strong> dell\'orario d\'inizio della visita indicato per facilitare le operazioni di accettazione.</p>';
 
-    $content .= '<p>Per accedere all\'evento, mostra all\'ingresso il codice QR del tuo gruppo cliccando sul pulsante sottostante (è sufficiente mostrare un solo codice QR per tutto il gruppo).</p>';
+    $content .= '<p>Per accedere all\'evento, mostra all\'ingresso il codice QR del tuo gruppo cliccando sul pulsante sottostante (è sufficiente mostrare un solo codice QR per todo il gruppo).</p>';
     $content .= '<div class="text-center"><a href="' . esc_url( $hub_url ) . '" class="button">Mostra Codice QR / Biglietti</a></div>';
 
     if ( $booking->payment_method === 'dfn_in_loco' ) {
         $content .= '<p style="font-size: 14px; color: #4a5568;"><em>Nota: Avendo scelto il pagamento all\'ingresso, ti chiediamo di arrivare circa 10 minuti prima dell\'orario indicato per agevolare le operazioni di saldo presso il botteghino.</em></p>';
     }
+
+    $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Non puoi più partecipare? <a href="' . esc_url( $cancel_url ) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
 
     return dfn_send_notification_email( $booking->customer_email, $subject, 'Prenotazione Confermata!', $content );
 }
@@ -362,6 +379,9 @@ function dfn_send_booking_24h_reminder( int $booking_id ) {
     $event = dfn_db_get_event( $booking->event_id );
     if ( ! $event ) return false;
 
+    $order = wc_get_order( $booking->order_id );
+    if ( ! $order ) return false;
+
     // Recupera informazioni sullo slot
     $slots = $wpdb->get_results( $wpdb->prepare(
         "SELECT s.* FROM {$wpdb->prefix}dfn_event_slots s 
@@ -380,7 +400,21 @@ function dfn_send_booking_24h_reminder( int $booking_id ) {
     $product_name = get_the_title( $event->product_id );
     $subject = 'Promemoria Evento Domani: ' . $product_name;
 
-    $hub_url = home_url( '/area-riservata/biglietti/?token=' . $booking->qr_token );
+    // Link all'hub biglietti / QR effettivo
+    $token = hash_hmac( 'sha256', $order->get_order_key() . '_dfn_hub', wp_salt( 'nonce' ) );
+    $hub_url = add_query_arg( array(
+        'dfn_hub'  => 1,
+        'order_id' => $booking->order_id,
+        'token'    => $token
+    ), home_url( '/' ) );
+
+    // Link di cancellazione
+    $cancel_token = hash_hmac( 'sha256', $order->get_order_key() . '_dfn_cancel', wp_salt( 'nonce' ) );
+    $cancel_url = add_query_arg( array(
+        'dfn_cancel_booking' => 1,
+        'order_id'           => $booking->order_id,
+        'token'              => $cancel_token
+    ), home_url( '/' ) );
 
     $content = '<p>Gentile <strong>' . esc_html( $booking->customer_name ) . '</strong>,</p>';
     $content .= '<p>Questo è un promemoria per ricordarti che domani si terrà l\'evento <strong>' . esc_html( $product_name ) . '</strong> a cui ti sei prenotato!</p>';
@@ -410,6 +444,8 @@ function dfn_send_booking_24h_reminder( int $booking_id ) {
     $content .= '</ul>';
 
     $content .= '<div class="text-center"><a href="' . esc_url( $hub_url ) . '" class="button">Apri Biglietto con Codice QR</a></div>';
+
+    $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Non puoi più partecipare? <a href="' . esc_url( $cancel_url ) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
 
     return dfn_send_notification_email( $booking->customer_email, $subject, 'Ti aspettiamo domani!', $content );
 }
@@ -509,5 +545,72 @@ function dfn_send_fai_card_rejected_email( string $email, string $first_name, st
     $content .= '<p>Se si tratta di un errore di inserimento, puoi rispondere a questa email o contattare il nostro staff per fornirci i dati corretti.</p>';
 
     return dfn_send_notification_email( $email, $subject, 'Verifica Tessera FAI Fallita', $content );
+}
+
+/**
+ * Invia email di notifica all'amministratore per una nuova prenotazione.
+ *
+ * @param int $booking_id ID del booking.
+ * @return bool
+ */
+function dfn_send_admin_new_booking_notification( int $booking_id ) {
+    global $wpdb;
+    $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id ) );
+    if ( ! $booking ) return false;
+
+    $event = dfn_db_get_event( $booking->event_id );
+    if ( ! $event ) return false;
+
+    // Recupera informazioni sullo slot
+    $slot_info = '';
+    $slots = $wpdb->get_results( $wpdb->prepare(
+        "SELECT s.* FROM {$wpdb->prefix}dfn_event_slots s 
+         JOIN {$wpdb->prefix}dfn_booking_slots bs ON s.id = bs.slot_id 
+         WHERE bs.booking_id = %d", $booking_id
+    ) );
+
+    if ( ! empty( $slots ) ) {
+        $slot = $slots[0];
+        $slot_info = date_i18n( 'd F Y', strtotime( $slot->slot_date ) ) . ' - ore ' . date( 'H:i', strtotime( $slot->slot_time_start ) );
+    } else {
+        $slot_info = date_i18n( 'd F Y', strtotime( $event->event_date_start ) ) . ' (Ingresso Libero)';
+    }
+
+    $product_name = get_the_title( $event->product_id );
+    $subject = 'Nuova Prenotazione: ' . $booking->customer_name . ' - ' . $product_name;
+
+    $admin_email = get_option( 'admin_email' );
+
+    $content = '<p>Gentile Amministratore,</p>';
+    $content .= '<p>Ti notifichiamo che è stata registrata una nuova prenotazione per l\'evento <strong>' . esc_html( $product_name ) . '</strong>.</p>';
+
+    $content .= '<div class="info-box" style="border-left: 4px solid #004b23; background-color: #f7fafc;">';
+    $content .= '<div class="info-box-title" style="color: #004b23;">Dettagli Visitatore</div>';
+    $content .= '<table>';
+    $content .= '<tr><td class="label" style="font-weight:bold; color:#4a5568; width:140px;">Nome:</td><td>' . esc_html( $booking->customer_name ) . '</td></tr>';
+    $content .= '<tr><td class="label" style="font-weight:bold; color:#4a5568; width:140px;">Email:</td><td>' . esc_html( $booking->customer_email ) . '</td></tr>';
+    $content .= '<tr><td class="label" style="font-weight:bold; color:#4a5568; width:140px;">Telefono:</td><td>' . esc_html( $booking->customer_phone ) . '</td></tr>';
+    $content .= '</table>';
+    $content .= '</div>';
+
+    $content .= '<div class="info-box">';
+    $content .= '<div class="info-box-title">Dettagli della Prenotazione</div>';
+    $content .= '<table>';
+    $content .= '<tr><td class="label">Evento:</td><td>' . esc_html( $product_name ) . '</td></tr>';
+    $content .= '<tr><td class="label">Data e Turno:</td><td>' . esc_html( $slot_info ) . '</td></tr>';
+    $content .= '<tr><td class="label">Biglietti:</td><td><strong>' . absint( $booking->total_persons ) . '</strong> totali (' . absint( $booking->persons_standard ) . ' Intero Standard + ' . absint( $booking->persons_fai ) . ' Ridotto Socio FAI)</td></tr>';
+    $content .= '<tr><td class="label">Metodo di Pagamento:</td><td>' . ( $booking->payment_method === 'dfn_in_loco' ? 'Saldo all\'ingresso (Botteghino)' : 'Pagato Online' ) . '</td></tr>';
+    $content .= '<tr><td class="label">Importo:</td><td>' . wc_price( $booking->payment_method === 'dfn_in_loco' ? $booking->amount_due : $booking->amount_paid ) . '</td></tr>';
+    if ( ! empty( $booking->notes ) ) {
+        $content .= '<tr><td class="label">Note:</td><td>' . esc_html( $booking->notes ) . '</td></tr>';
+    }
+    $content .= '</table>';
+    $content .= '</div>';
+
+    // Aggiungi link per visualizzare l'ordine nell'admin di WordPress
+    $order_url = admin_url( 'post.php?post=' . $booking->order_id . '&action=edit' );
+    $content .= '<div class="text-center"><a href="' . esc_url( $order_url ) . '" class="button">Visualizza Ordine in WordPress</a></div>';
+
+    return dfn_send_notification_email( $admin_email, $subject, 'Notifica Nuova Prenotazione', $content );
 }
 

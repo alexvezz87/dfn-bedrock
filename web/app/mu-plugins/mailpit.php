@@ -8,6 +8,7 @@
 
 use function Env\env;
 
+/*
 // Disable WP Mail SMTP plugin dynamically in development to prevent it from bypassing localhost
 add_filter('option_active_plugins', function ($plugins) {
     if (defined('WP_ENV') && WP_ENV === 'development' && is_array($plugins)) {
@@ -19,6 +20,7 @@ add_filter('option_active_plugins', function ($plugins) {
     }
     return $plugins;
 });
+*/
 
 add_action('phpmailer_init', function ($phpmailer) {
     // Only intercept emails in development environment

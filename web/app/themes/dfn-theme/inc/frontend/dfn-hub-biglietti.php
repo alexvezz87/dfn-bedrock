@@ -16,6 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Intercetta la richiesta dell'hub biglietti o del download
 add_action( 'template_redirect', 'dfn_render_group_ticket_hub' );
 add_action( 'template_redirect', 'dfn_handle_qr_download' );
+add_action( 'template_redirect', 'dfn_handle_visitor_cancellation' );
 
 /**
  * Gestisce il rendering della pagina dell'Hub Biglietti di Gruppo.
@@ -227,5 +228,90 @@ function dfn_handle_qr_download(): void {
     header( 'Pragma: public' );
     header( 'Content-Length: ' . strlen( $image_data ) );
     echo $image_data;
+    exit;
+}
+
+/**
+ * Gestisce l'annullamento autonomo della prenotazione da parte del visitatore.
+ */
+function dfn_handle_visitor_cancellation(): void {
+    if ( ! isset( $_GET['dfn_cancel_booking'] ) || ! isset( $_GET['order_id'] ) || ! isset( $_GET['token'] ) ) {
+        return;
+    }
+
+    $order_id = intval( $_GET['order_id'] );
+    $token    = sanitize_text_field( $_GET['token'] );
+
+    $order = wc_get_order( $order_id );
+    if ( ! $order ) {
+        wp_die( esc_html__( 'Ordine non trovato.', 'dfn-theme' ), esc_html__( 'Errore', 'dfn-theme' ), 404 );
+    }
+
+    // Verifica token di sicurezza per evitare annullamenti non autorizzati
+    $expected_token = hash_hmac( 'sha256', $order->get_order_key() . '_dfn_cancel', wp_salt( 'nonce' ) );
+    if ( ! hash_equals( $expected_token, $token ) ) {
+        wp_die( esc_html__( 'Link di cancellazione non valido o scaduto.', 'dfn-theme' ), esc_html__( 'Errore di sicurezza', 'dfn-theme' ), 403 );
+    }
+
+    // Se la prenotazione è già annullata
+    if ( $order->has_status( 'cancelled' ) ) {
+        wp_die( esc_html__( 'Questa prenotazione è già stata annullata in precedenza.', 'dfn-theme' ), esc_html__( 'Prenotazione Annullata', 'dfn-theme' ) );
+    }
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$table_bookings} WHERE order_id = %d LIMIT 1",
+        $order_id
+    ) );
+
+    if ( ! $booking ) {
+        wp_die( esc_html__( 'Nessuna prenotazione custom associata a questo ordine nel database.', 'dfn-theme' ) );
+    }
+
+    $table_slots = $wpdb->prefix . 'dfn_event_slots';
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+
+    $wpdb->query( 'START TRANSACTION' );
+
+    // 1. Decrementa booked_count sugli slot associati
+    $assocs = $wpdb->get_results( $wpdb->prepare(
+        "SELECT slot_id, persons FROM {$table_booking_slots} WHERE booking_id = %d",
+        $booking->id
+    ) );
+
+    foreach ( $assocs as $assoc ) {
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE {$table_slots} SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
+            intval( $assoc->persons ),
+            intval( $assoc->slot_id )
+        ) );
+    }
+
+    // 2. Cambia lo stato in 'cancelled' nella tabella prenotazioni
+    $wpdb->update(
+        $table_bookings,
+        array( 'status' => 'cancelled' ),
+        array( 'id' => $booking->id ),
+        array( '%s' ),
+        array( '%d' )
+    );
+
+    $wpdb->query( 'COMMIT' );
+
+    // 3. Aggiorna lo stato dell'ordine WooCommerce (questo farà partire i ripristini stock)
+    $order->update_status( 'cancelled', __( 'Prenotazione annullata autonomamente dal visitatore tramite link email.', 'dfn-theme' ) );
+
+    // Invia email di annullamento centralizzata al visitatore
+    dfn_send_booking_cancellation( $booking->id );
+
+    // Render della pagina di conferma annullamento
+    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>' . esc_html__( 'Prenotazione Annullata', 'dfn-theme' ) . '</title>';
+    echo '<style>body { font-family: sans-serif; background: #f3f7f4; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 80vh; } .card { background: #fff; padding: 40px; border-radius: 16px; text-align: center; max-width: 500px; box-shadow: 0 10px 30px rgba(0,75,35,0.05); }</style></head><body>';
+    echo '<div class="card">';
+    echo '<h1 style="color: #166534; margin-top: 0;">✅ ' . esc_html__( 'Annullamento Completato', 'dfn-theme' ) . '</h1>';
+    echo '<p style="font-size: 16px; color: #64748b; line-height: 1.6;">' . esc_html__( 'La tua prenotazione è stata annullata con successo. Ti abbiamo inviato un\'email di conferma dell\'annullamento.', 'dfn-theme' ) . '</p>';
+    echo '<a href="' . esc_url( site_url() ) . '" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #004b23; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold;">' . esc_html__( 'Torna alla Home', 'dfn-theme' ) . '</a>';
+    echo '</div></body></html>';
     exit;
 }

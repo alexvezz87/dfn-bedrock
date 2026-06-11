@@ -144,17 +144,19 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
             // Se l'evento prevede allocazione AUTOMATICA (🤖), il sistema decide il turno migliore
             if ( 'automatic' === $event->allocation_mode || $slot_id <= 0 ) {
                 
-                // Cerca lo slot con maggior disponibilità residua in quella data
+                // Cerca lo slot disponibile più vicino (in ordine temporale) con capienza sufficiente (first-fit)
                 $best_slot = $wpdb->get_row( $wpdb->prepare(
                     "SELECT id, capacity, bonus_capacity, booked_count 
                      FROM {$wpdb->prefix}dfn_event_slots 
                      WHERE event_id = %d 
                        AND slot_date = %s 
                        AND is_locked = 0 
-                     ORDER BY (capacity - booked_count) DESC, slot_time_start ASC 
+                       AND (capacity + bonus_capacity - booked_count) >= %d
+                     ORDER BY slot_time_start ASC 
                      LIMIT 1 FOR UPDATE",
                     $event->id,
-                    $booking_date
+                    $booking_date,
+                    $total_qty
                 ) );
 
                 if ( $best_slot ) {
@@ -238,6 +240,9 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
                     dfn_send_booking_confirmation( $booking_id );
                     $order->add_order_note( __( '🎟️ Prenotazione FAI allocata e confermata con successo!', 'dfn-theme' ) );
                 }
+                
+                // Invia la notifica semplificata all'amministratore
+                dfn_send_admin_new_booking_notification( $booking_id );
 
             } else {
                 // OVERBOOKING: Spazio non disponibile! Annulla transazione
@@ -310,6 +315,9 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
                     dfn_send_booking_confirmation( $booking_id );
                 }
 
+                // Invia la notifica semplificata all'amministratore
+                dfn_send_admin_new_booking_notification( $booking_id );
+
             } else {
                 $wpdb->query( 'ROLLBACK' );
 
@@ -333,6 +341,7 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
             }
         }
     }
+
 }
 
 add_action( 'wp_ajax_dfn_create_direct_booking', 'dfn_ajax_create_direct_booking' );
