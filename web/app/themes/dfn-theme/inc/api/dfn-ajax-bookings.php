@@ -648,6 +648,39 @@ function dfn_ajax_create_direct_booking(): void {
         $table_members = $wpdb->prefix . 'dfn_fai_members';
         $user_id_to_save = is_user_logged_in() ? get_current_user_id() : null;
 
+        // 1. Controllo duplicati all'interno della richiesta stessa
+        $input_card_numbers = array();
+        foreach ( $fai_cards_raw as $index => $card_data ) {
+            $c_num = isset( $card_data['tessera'] ) ? sanitize_text_field( $card_data['tessera'] ) : '';
+            if ( ! empty( $c_num ) ) {
+                if ( in_array( $c_num, $input_card_numbers, true ) ) {
+                    wp_send_json_error( array( 'message' => sprintf( esc_html__( 'Errore: Hai inserito la tessera FAI n° %s più di una volta in questa prenotazione.', 'dfn-theme' ), $c_num ) ) );
+                }
+                $input_card_numbers[] = $c_num;
+            }
+        }
+
+        // 2. Recupera tutte le tessere già utilizzate per prenotazioni attive per questo evento
+        $used_cards = array();
+        if ( $event_id > 0 ) {
+            $order_ids = $wpdb->get_col( $wpdb->prepare(
+                "SELECT order_id FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+                $event_id
+            ) );
+            if ( ! empty( $order_ids ) ) {
+                foreach ( $order_ids as $order_id ) {
+                    $order_cards = get_post_meta( $order_id, '_dfn_fai_cards', true );
+                    if ( is_array( $order_cards ) ) {
+                        foreach ( $order_cards as $c ) {
+                            if ( isset( $c['tessera'] ) ) {
+                                $used_cards[] = sanitize_text_field( $c['tessera'] );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         foreach ( $fai_cards_raw as $index => $card_data ) {
             $c_nome    = isset( $card_data['nome'] ) ? sanitize_text_field( $card_data['nome'] ) : '';
             $c_cognome = isset( $card_data['cognome'] ) ? sanitize_text_field( $card_data['cognome'] ) : '';
@@ -655,6 +688,11 @@ function dfn_ajax_create_direct_booking(): void {
 
             if ( empty( $c_nome ) || empty( $c_cognome ) || empty( $c_num ) ) {
                 wp_send_json_error( array( 'message' => sprintf( esc_html__( 'Dati tessera Socio FAI incompleti per il partecipante #%d.', 'dfn-theme' ), $index + 1 ) ) );
+            }
+
+            // Controllo se la tessera è già stata usata per questo evento
+            if ( in_array( $c_num, $used_cards, true ) ) {
+                wp_send_json_error( array( 'message' => sprintf( esc_html__( 'La tessera FAI n° %s ha già usufruito dello sconto per questo evento.', 'dfn-theme' ), $c_num ) ) );
             }
 
             // Controlla se la tessera esiste già in assoluto nel database per evitare duplicati
@@ -858,6 +896,28 @@ function dfn_ajax_get_user_fai_cards(): void {
     global $wpdb;
     $user_id = get_current_user_id();
     $table_members = $wpdb->prefix . 'dfn_fai_members';
+    $event_id = isset( $_POST['event_id'] ) ? intval( $_POST['event_id'] ) : 0;
+
+    // Recupera tutte le tessere FAI già utilizzate per prenotazioni attive per questo evento
+    $used_cards = array();
+    if ( $event_id > 0 ) {
+        $order_ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT order_id FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+            $event_id
+        ) );
+        if ( ! empty( $order_ids ) ) {
+            foreach ( $order_ids as $order_id ) {
+                $order_cards = get_post_meta( $order_id, '_dfn_fai_cards', true );
+                if ( is_array( $order_cards ) ) {
+                    foreach ( $order_cards as $c ) {
+                        if ( isset( $c['tessera'] ) ) {
+                            $used_cards[] = sanitize_text_field( $c['tessera'] );
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     $cards = $wpdb->get_results( $wpdb->prepare(
         "SELECT first_name, last_name, card_number, card_expiry 
@@ -870,6 +930,11 @@ function dfn_ajax_get_user_fai_cards(): void {
     $formatted_cards = array();
     $today = date( 'Y-m-d' );
     foreach ( $cards as $card ) {
+        // Esclude le tessere che hanno già usufruito dello sconto in questo evento
+        if ( in_array( $card->card_number, $used_cards, true ) ) {
+            continue;
+        }
+
         $expired = false;
         if ( ! empty( $card->card_expiry ) && $card->card_expiry < $today ) {
             $expired = true;

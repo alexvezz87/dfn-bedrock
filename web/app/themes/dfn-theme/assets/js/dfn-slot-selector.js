@@ -239,7 +239,8 @@ jQuery(document).ready(function($) {
                     method: 'POST',
                     data: {
                         action: 'dfn_get_user_fai_cards',
-                        nonce: dfnVars.nonce
+                        nonce: dfnVars.nonce,
+                        event_id: eventId
                     },
                     success: function(response) {
                         if (response.success && response.data.cards && response.data.cards.length > 0) {
