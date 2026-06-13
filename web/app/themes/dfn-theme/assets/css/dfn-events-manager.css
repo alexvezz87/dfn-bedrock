@@ -955,6 +955,52 @@
     overflow-y: auto;
 }
 
+.dfn-form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+}
+
+.dfn-form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dfn-text-main);
+    margin-bottom: 6px;
+    display: block;
+}
+
+.dfn-form-group input[type="text"],
+.dfn-form-group input[type="email"],
+.dfn-form-group input[type="number"],
+.dfn-form-group select,
+.dfn-form-group textarea {
+    width: 100% !important;
+    height: 40px;
+    padding: 8px 12px !important;
+    border: 1px solid var(--dfn-border) !important;
+    border-radius: var(--dfn-radius) !important;
+    font-size: 13px !important;
+    color: var(--dfn-text-main) !important;
+    background-color: #ffffff !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+    box-sizing: border-box !important;
+}
+
+.dfn-form-group textarea {
+    height: auto !important;
+    min-height: 80px;
+    resize: vertical;
+}
+
+.dfn-form-group input:focus,
+.dfn-form-group select:focus,
+.dfn-form-group textarea:focus {
+    border-color: var(--dfn-primary) !important;
+    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.15) !important;
+    outline: none !important;
+}
+
 .dfn-form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;

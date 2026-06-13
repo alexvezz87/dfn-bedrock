@@ -276,13 +276,11 @@ function dfn_render_slot_manager() {
                     </div>
                 </div>
                 
-                <div class="dfn-form-row">
-                    <div class="dfn-form-group">
-                        <label><?php esc_html_e( 'Orario del Turno', 'dfn-theme' ); ?> *</label>
-                        <select name="slot_id" required>
-                            <!-- Popolato via JS con gli slot della giornata -->
-                        </select>
-                    </div>
+                <div class="dfn-form-group">
+                    <label><?php esc_html_e( 'Orario del Turno', 'dfn-theme' ); ?> *</label>
+                    <select name="slot_id" required>
+                        <!-- Popolato via JS con gli slot della giornata -->
+                    </select>
                 </div>
 
                 <div class="dfn-form-row ticket-qtys">
