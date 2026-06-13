@@ -95,9 +95,46 @@ function dfn_add_slot_metadata_to_order_items( $item, $cart_item_key, $values, $
 
 /**
  * ========================================================================
- * 3. CORE ALLOCATOR & TRANSACTION MANAGER
- * ========================================================================
+/**
+ * Distribuisce una quantità in modo bilanciato tra un set di slot candidati,
+ * rispettando la capienza massima disponibile di ciascun slot.
+ *
+ * @param int   $total_qty Quantità totale da distribuire (persone).
+ * @param array $slots     Array di oggetti slot, ognuno con 'id' e 'available_capacity'.
+ * @return array Array associativo [slot_id => quantità_allocata].
  */
+function dfn_distribute_slots_balanced( $total_qty, $slots ) {
+    $allocations = array();
+    foreach ( $slots as $s ) {
+        $allocations[ $s->id ] = 0;
+    }
+
+    for ( $i = 0; $i < $total_qty; $i++ ) {
+        $best_slot_id = null;
+        $min_val = PHP_INT_MAX;
+
+        foreach ( $slots as $s ) {
+            $limit = intval( $s->available_capacity );
+            $curr = $allocations[ $s->id ];
+
+            if ( $curr < $limit ) {
+                if ( $curr < $min_val ) {
+                    $min_val = $curr;
+                    $best_slot_id = $s->id;
+                }
+            }
+        }
+
+        if ( $best_slot_id === null ) {
+            // Se non c'è abbastanza spazio complessivo, si ferma
+            break;
+        }
+
+        $allocations[ $best_slot_id ]++;
+    }
+
+    return $allocations;
+}
 
 add_action( 'woocommerce_checkout_order_processed', 'dfn_allocate_slots_on_checkout', 10, 3 );
 /**
@@ -264,23 +301,68 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
                     $booking_date
                 ) );
 
-                // Prioritizza lo slot selezionato se specificato
-                if ( $slot_id > 0 ) {
-                    usort( $available_slots, function( $a, $b ) use ( $slot_id ) {
-                        if ( intval( $a->id ) === $slot_id ) return -1;
-                        if ( intval( $b->id ) === $slot_id ) return 1;
-                        return strcmp( $a->slot_time_start, $b->slot_time_start );
-                    } );
+                // Aggiungiamo a ciascuno slot un campo provvisorio per la capacità disponibile (inclusa bonus_capacity)
+                foreach ( $available_slots as $s ) {
+                    $s->available_capacity = ( intval( $s->capacity ) + intval( $s->bonus_capacity ) ) - intval( $s->booked_count );
                 }
+
+                // Rimosso slot senza spazio residuo
+                $available_slots = array_filter( $available_slots, function( $s ) {
+                    return $s->available_capacity > 0;
+                } );
 
                 // Calcola lo spazio totale disponibile
                 $total_avail = 0;
                 foreach ( $available_slots as $s ) {
-                    $total_avail += ( intval( $s->capacity ) + intval( $s->bonus_capacity ) ) - intval( $s->booked_count );
+                    $total_avail += $s->available_capacity;
                 }
 
                 if ( $total_avail >= $total_qty ) {
                     // Abbiamo spazio sufficiente per completare lo split!
+
+                    // Selezioniamo il set minimo di slot necessari per accogliere il gruppo ("meno spezziamo meglio è")
+                    $selected_candidates = array();
+                    $selected_ids = array();
+                    $accumulated_capacity = 0;
+
+                    // Se c'è uno slot selezionato ed ha spazio, lo inseriamo per primo
+                    if ( $slot_id > 0 ) {
+                        foreach ( $available_slots as $s ) {
+                            if ( intval( $s->id ) === $slot_id ) {
+                                $selected_candidates[] = $s;
+                                $selected_ids[] = $s->id;
+                                $accumulated_capacity += $s->available_capacity;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Se lo slot selezionato non basta a coprire l'intera quantità, aggiungiamo altri slot
+                    // Li ordiniamo per capacità decrescente per prendere il minor numero possibile di turni
+                    if ( $accumulated_capacity < $total_qty ) {
+                        $other_slots = array_filter( $available_slots, function( $s ) use ( $selected_ids ) {
+                            return ! in_array( $s->id, $selected_ids );
+                        } );
+
+                        usort( $other_slots, function( $a, $b ) {
+                            return $b->available_capacity - $a->available_capacity; // Decrescente
+                        } );
+
+                        foreach ( $other_slots as $s ) {
+                            $selected_candidates[] = $s;
+                            $selected_ids[] = $s->id;
+                            $accumulated_capacity += $s->available_capacity;
+
+                            if ( $accumulated_capacity >= $total_qty ) {
+                                break;
+                            }
+                        }
+                    }
+
+                    // Distribuiamo in modo bilanciato le persone tra gli slot minimi individuati
+                    $allocations = dfn_distribute_slots_balanced( $total_qty, $selected_candidates );
+
+                    // Eseguiamo gli inserimenti
                     $qr_token = wp_hash( $order_id . '|' . $event->id . '|' . time() );
                     $booking_status = ( 'manual' === $event->approval_workflow ) ? 'pending_approval' : 'confirmed';
 
@@ -306,14 +388,11 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
                     );
 
                     $booking_id = $wpdb->insert_id;
-                    $remaining = $total_qty;
                     $allocated_slots_notes = array();
 
-                    foreach ( $available_slots as $s ) {
-                        $avail = ( intval( $s->capacity ) + intval( $s->bonus_capacity ) ) - intval( $s->booked_count );
-                        if ( $avail > 0 ) {
-                            $to_allocate = min( $remaining, $avail );
-
+                    foreach ( $selected_candidates as $s ) {
+                        $to_allocate = isset( $allocations[ $s->id ] ) ? intval( $allocations[ $s->id ] ) : 0;
+                        if ( $to_allocate > 0 ) {
                             // 1. Incrementa booked_count sullo slot
                             $wpdb->update(
                                 $wpdb->prefix . 'dfn_event_slots',
@@ -336,17 +415,12 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
 
                             $time_formatted = substr( $s->slot_time_start, 0, 5 ) . '-' . substr( $s->slot_time_end, 0, 5 );
                             $allocated_slots_notes[] = sprintf( '%d in slot %s', $to_allocate, $time_formatted );
-
-                            $remaining -= $to_allocate;
-                            if ( $remaining <= 0 ) {
-                                break;
-                            }
                         }
                     }
 
                     // Aggiorna metadati riga ordine con il primo slot per retrocompatibilità
-                    if ( ! empty( $available_slots ) ) {
-                        $item->update_meta_data( '_dfn_booking_slot_id', (string) $available_slots[0]->id );
+                    if ( ! empty( $selected_candidates ) ) {
+                        $item->update_meta_data( '_dfn_booking_slot_id', (string) $selected_candidates[0]->id );
                         $item->save();
                     }
 

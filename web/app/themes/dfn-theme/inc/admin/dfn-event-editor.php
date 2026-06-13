@@ -127,7 +127,7 @@ function dfn_render_event_editor() {
                 if ( $image_id > 0 ) {
                     set_post_thumbnail( $product_id, $image_id );
                 } else {
-                    delete_post_thumbnail( $product_id );
+                    set_post_thumbnail( $product_id, 2223 );
                 }
 
                 // Associa la galleria al prodotto WooCommerce

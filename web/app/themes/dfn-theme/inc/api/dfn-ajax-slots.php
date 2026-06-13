@@ -20,6 +20,9 @@ add_action( 'wp_ajax_nopriv_dfn_get_event_dates', 'dfn_ajax_get_event_dates' );
 add_action( 'wp_ajax_dfn_get_available_slots', 'dfn_ajax_get_available_slots' );
 add_action( 'wp_ajax_nopriv_dfn_get_available_slots', 'dfn_ajax_get_available_slots' );
 
+add_action( 'wp_ajax_dfn_get_event_slots', 'dfn_ajax_get_event_slots' );
+add_action( 'wp_ajax_nopriv_dfn_get_event_slots', 'dfn_ajax_get_event_slots' );
+
 /**
  * Recupera le date attive per un determinato prodotto/evento WooCommerce.
  * Ritorna un array JSON di date (formato Y-m-d) per popolare il calendario.
@@ -133,4 +136,39 @@ function dfn_ajax_get_available_slots() {
         'price_standard'  => floatval( $event->price_standard ),
         'price_fai'       => floatval( $event->price_fai )
     ) );
+}
+
+/**
+ * Gestisce la richiesta AJAX per recuperare tutti gli slot orari attivi di un evento
+ * in una specifica data, includendo la capacità standard e bonus.
+ */
+function dfn_ajax_get_event_slots() {
+    check_ajax_referer( 'dfn_booking_nonce', 'nonce' );
+
+    $event_id = isset( $_POST['event_id'] ) ? intval( $_POST['event_id'] ) : 0;
+    $date     = isset( $_POST['date'] ) ? sanitize_text_field( $_POST['date'] ) : '';
+
+    if ( $event_id <= 0 || empty( $date ) ) {
+        wp_send_json_error( array( 'message' => __( 'Parametri non validi.', 'dfn-theme' ) ) );
+    }
+
+    $event = dfn_db_get_event( $event_id );
+    if ( ! $event ) {
+        wp_send_json_error( array( 'message' => __( 'Evento non trovato.', 'dfn-theme' ) ) );
+    }
+
+    $slots = dfn_db_get_available_slots( $event_id, $date );
+    $formatted_slots = array();
+
+    foreach ( $slots as $slot ) {
+        $formatted_slots[] = array(
+            'slot_id'  => intval( $slot->id ),
+            'time'     => date( 'H:i', strtotime( $slot->slot_time_start ) ),
+            'capacity' => intval( $slot->capacity ),
+            'bonus'    => intval( $slot->bonus_capacity ),
+            'booked'   => intval( $slot->booked_count ),
+        );
+    }
+
+    wp_send_json_success( $formatted_slots );
 }

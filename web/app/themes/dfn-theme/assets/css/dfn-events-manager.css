@@ -439,6 +439,12 @@
     box-sizing: border-box;
 }
 
+select.dfn-input {
+    height: 38px !important;
+    padding: 8px 12px !important;
+    line-height: 20px !important;
+}
+
 .dfn-input:focus, .dfn-textarea:focus {
     border-color: var(--dfn-primary) !important;
     box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.1) !important;
