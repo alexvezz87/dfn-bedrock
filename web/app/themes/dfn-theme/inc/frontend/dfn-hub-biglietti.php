@@ -369,6 +369,10 @@ function dfn_handle_visitor_cancellation(): void {
 
     $wpdb->query( 'COMMIT' );
 
+    // Segna l'ordine come annullato manualmente per evitare l'invio dell'email di scadenza automatica
+    $order->update_meta_data( '_dfn_cancelled_manually', 'yes' );
+    $order->save();
+
     // 3. Aggiorna lo stato dell'ordine WooCommerce (questo farà partire i ripristini stock)
     $order->update_status( 'cancelled', __( 'Prenotazione annullata autonomamente dal visitatore tramite link email.', 'dfn-theme' ) );
 

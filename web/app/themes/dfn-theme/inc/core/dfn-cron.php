@@ -133,6 +133,11 @@ function dfn_email_cliente_ordine_scaduto( $order_id, $order ) {
         return;
     }
 
+    // Se l'ordine è stato annullato manualmente dall'utente, non inviare l'email di scadenza automatica
+    if ( 'yes' === $order->get_meta( '_dfn_cancelled_manually' ) ) {
+        return;
+    }
+
     // Evita il raddoppio del ripristino stock di WooCommerce
     remove_action( 'woocommerce_order_status_pending_to_cancelled', 'wc_maybe_increase_stock_levels' );
     remove_action( 'woocommerce_order_status_cancelled', 'wc_maybe_increase_stock_levels' );

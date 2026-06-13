@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define( 'DFN_DB_VERSION', '2.0.5' );
+define( 'DFN_DB_VERSION', '2.0.7' );
 
 /**
  * ========================================================================
@@ -28,7 +28,7 @@ define( 'DFN_DB_VERSION', '2.0.5' );
  */
 
 add_action( 'after_switch_theme', 'dfn_db_install' );
-add_action( 'admin_init', 'dfn_db_install_if_needed' );
+add_action( 'init', 'dfn_db_install_if_needed' );
 
 /**
  * Verifica se lo schema deve essere aggiornato (version check).
@@ -175,6 +175,7 @@ function dfn_db_install(): void {
         phone varchar(50) DEFAULT NULL,
         card_number varchar(50) NOT NULL,
         card_expiry date DEFAULT NULL,
+        card_type varchar(20) NOT NULL DEFAULT 'INDIVIDUALE',
         verified tinyint(1) NOT NULL DEFAULT 0,
         verified_by bigint(20) unsigned DEFAULT NULL,
         verified_at datetime DEFAULT NULL,
@@ -225,6 +226,9 @@ function dfn_db_install(): void {
     if ( empty( $row ) ) {
         $wpdb->query( "ALTER TABLE {$table_events} ADD COLUMN description text DEFAULT NULL AFTER location" );
     }
+
+    // Forza la nullabilità di card_expiry nella tabella fai_members (dbDelta a volte fallisce l'alter)
+    $wpdb->query( "ALTER TABLE {$table_fai} MODIFY COLUMN card_expiry date DEFAULT NULL" );
 
     // Migra dati legacy dalla waitlist su wp_options (one-shot)
     dfn_migrate_waitlist_from_options();

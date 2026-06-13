@@ -59,11 +59,34 @@ if ( ! function_exists( 'dfn_enqueue_parent_styles' ) ) :
             true
         );
 
-        // Localizza variabili utili in JS
-        wp_localize_script( 'dfn-slot-selector-js', 'dfnVars', array(
-            'ajaxurl' => admin_url( 'admin-ajax.php' ),
-            'nonce'   => wp_create_nonce( 'dfn_booking_nonce' ),
-        ) );
+        $user_logged_in = is_user_logged_in();
+        $user_data = array(
+            'ajaxurl'        => admin_url( 'admin-ajax.php' ),
+            'nonce'          => wp_create_nonce( 'dfn_booking_nonce' ),
+            'userLogged'     => $user_logged_in,
+            'userFirstName'  => '',
+            'userLastName'   => '',
+            'userEmail'      => '',
+            'userPhone'      => '',
+        );
+
+        if ( $user_logged_in ) {
+            $user_id = get_current_user_id();
+            $current_user = wp_get_current_user();
+            
+            $first_name = get_user_meta( $user_id, 'billing_first_name', true );
+            $user_data['userFirstName'] = $first_name ? $first_name : $current_user->first_name;
+            
+            $last_name = get_user_meta( $user_id, 'billing_last_name', true );
+            $user_data['userLastName'] = $last_name ? $last_name : $current_user->last_name;
+            
+            $email = get_user_meta( $user_id, 'billing_email', true );
+            $user_data['userEmail'] = $email ? $email : $current_user->user_email;
+            
+            $user_data['userPhone'] = get_user_meta( $user_id, 'billing_phone', true );
+        }
+
+        wp_localize_script( 'dfn-slot-selector-js', 'dfnVars', $user_data );
 
         // Enqueue condizionale per l'Express Checkout (solo nelle pagine checkout)
         if ( is_checkout() && ! is_order_received_page() ) {

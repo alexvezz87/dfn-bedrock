@@ -646,6 +646,8 @@ function dfn_ajax_create_direct_booking(): void {
 
     if ( $qty_fai > 0 && is_array( $fai_cards_raw ) ) {
         $table_members = $wpdb->prefix . 'dfn_fai_members';
+        $user_id_to_save = is_user_logged_in() ? get_current_user_id() : null;
+
         foreach ( $fai_cards_raw as $index => $card_data ) {
             $c_nome    = isset( $card_data['nome'] ) ? sanitize_text_field( $card_data['nome'] ) : '';
             $c_cognome = isset( $card_data['cognome'] ) ? sanitize_text_field( $card_data['cognome'] ) : '';
@@ -655,28 +657,72 @@ function dfn_ajax_create_direct_booking(): void {
                 wp_send_json_error( array( 'message' => sprintf( esc_html__( 'Dati tessera Socio FAI incompleti per il partecipante #%d.', 'dfn-theme' ), $index + 1 ) ) );
             }
 
-            // Verifica nel DB
-            $member = $wpdb->get_row( $wpdb->prepare(
-                "SELECT * FROM {$table_members} WHERE card_number = %s AND verified = 1 AND card_expiry >= CURDATE() LIMIT 1",
+            // Controlla se la tessera esiste già in assoluto nel database per evitare duplicati
+            $existing_member = $wpdb->get_row( $wpdb->prepare(
+                "SELECT * FROM {$table_members} WHERE card_number = %s LIMIT 1",
                 $c_num
             ) );
 
-            if ( ! $member ) {
+            if ( $existing_member ) {
+                $member_verified = intval( $existing_member->verified ) === 1;
+                $member_expired  = ! empty( $existing_member->card_expiry ) && $existing_member->card_expiry < date( 'Y-m-d' );
+
+                if ( $member_verified && ! $member_expired ) {
+                    // La tessera è attiva e verificata
+                    // Se l'utente è loggato, la associamo se non è già associata
+                    if ( $user_id_to_save && empty( $existing_member->user_id ) ) {
+                        $wpdb->update(
+                            $table_members,
+                            array( 'user_id' => $user_id_to_save ),
+                            array( 'id' => $existing_member->id ),
+                            array( '%d' ),
+                            array( '%d' )
+                        );
+                    }
+                } else {
+                    // Esiste ma non è valida (scaduta o da verificare)
+                    $all_verified = false;
+                    $unverified_cards[] = $c_num;
+
+                    // Aggiorna anagrafica e utente
+                    $update_data = array(
+                        'first_name' => $c_nome,
+                        'last_name'  => $c_cognome,
+                        'email'      => $email,
+                    );
+                    $update_formats = array( '%s', '%s', '%s' );
+
+                    if ( $user_id_to_save && empty( $existing_member->user_id ) ) {
+                        $update_data['user_id'] = $user_id_to_save;
+                        $update_formats[] = '%d';
+                    }
+
+                    $wpdb->update(
+                        $table_members,
+                        $update_data,
+                        array( 'id' => $existing_member->id ),
+                        $update_formats,
+                        array( '%d' )
+                    );
+                }
+            } else {
+                // Non esiste affatto nel database, la inseriamo
                 $all_verified = false;
                 $unverified_cards[] = $c_num;
 
-                // Salva nel DB come da verificare
                 $wpdb->insert(
                     $table_members,
                     array(
                         'first_name'  => $c_nome,
                         'last_name'   => $c_cognome,
-                        'email'       => $email, // Collega email acquirente per contatto
+                        'email'       => $email,
                         'card_number' => $c_num,
                         'card_expiry' => null,
+                        'card_type'   => 'INDIVIDUALE',
                         'verified'    => 0,
+                        'user_id'     => $user_id_to_save,
                     ),
-                    array( '%s', '%s', '%s', '%s', '%s', '%d' )
+                    array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d' )
                 );
             }
 
@@ -740,6 +786,23 @@ function dfn_ajax_create_direct_booking(): void {
         }
         $order->save();
 
+        // Aggiorna anagrafica utente se vuota
+        if ( is_user_logged_in() ) {
+            $user_id = get_current_user_id();
+            if ( ! get_user_meta( $user_id, 'billing_first_name', true ) && ! empty( $first_name ) ) {
+                update_user_meta( $user_id, 'billing_first_name', $first_name );
+            }
+            if ( ! get_user_meta( $user_id, 'billing_last_name', true ) && ! empty( $last_name ) ) {
+                update_user_meta( $user_id, 'billing_last_name', $last_name );
+            }
+            if ( ! get_user_meta( $user_id, 'billing_email', true ) && ! empty( $email ) ) {
+                update_user_meta( $user_id, 'billing_email', $email );
+            }
+            if ( ! get_user_meta( $user_id, 'billing_phone', true ) && ! empty( $phone ) ) {
+                update_user_meta( $user_id, 'billing_phone', $phone );
+            }
+        }
+
         // Passa lo stato a pending
         $order->update_status( 'pending', __( 'Prenotazione diretta via widget.', 'dfn-theme' ) );
         wc_reduce_stock_levels( $order->get_id() );
@@ -779,5 +842,47 @@ function dfn_ajax_create_direct_booking(): void {
     } catch ( \Exception $e ) {
         wp_send_json_error( array( 'message' => $e->getMessage() ) );
     }
+}
+
+/**
+ * AJAX endpoint to fetch verified FAI cards associated with the logged-in user.
+ */
+add_action( 'wp_ajax_dfn_get_user_fai_cards', 'dfn_ajax_get_user_fai_cards' );
+function dfn_ajax_get_user_fai_cards(): void {
+    check_ajax_referer( 'dfn_booking_nonce', 'nonce' );
+
+    if ( ! is_user_logged_in() ) {
+        wp_send_json_error( array( 'message' => esc_html__( 'Utente non autorizzato.', 'dfn-theme' ) ) );
+    }
+
+    global $wpdb;
+    $user_id = get_current_user_id();
+    $table_members = $wpdb->prefix . 'dfn_fai_members';
+
+    $cards = $wpdb->get_results( $wpdb->prepare(
+        "SELECT first_name, last_name, card_number, card_expiry 
+         FROM {$table_members} 
+         WHERE user_id = %d AND verified = 1 
+         ORDER BY id DESC",
+        $user_id
+    ) );
+
+    $formatted_cards = array();
+    $today = date( 'Y-m-d' );
+    foreach ( $cards as $card ) {
+        $expired = false;
+        if ( ! empty( $card->card_expiry ) && $card->card_expiry < $today ) {
+            $expired = true;
+        }
+
+        $formatted_cards[] = array(
+            'nome'    => $card->first_name,
+            'cognome' => $card->last_name,
+            'tessera' => $card->card_number,
+            'scaduta' => $expired,
+        );
+    }
+
+    wp_send_json_success( array( 'cards' => $formatted_cards ) );
 }
 

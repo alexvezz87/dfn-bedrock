@@ -35,6 +35,8 @@ jQuery(document).ready(function($) {
         
         var $faiFieldsSection = $widget.find('.dfn-fai-cards-fields-section');
         var $faiFieldsContainer = $widget.find('.dfn-fai-cards-inputs-container');
+        var $faiChipsSection = $widget.find('.dfn-fai-chips-container');
+        var $faiChipsList = $widget.find('.dfn-fai-chips-list');
 
         // Valida Step 1 (Seleziona partecipanti, data, turno)
         function validateStep1() {
@@ -214,10 +216,101 @@ jQuery(document).ready(function($) {
             var qtyFai = parseInt($widget.find('input[name="dfn_qty_fai"]').val()) || 0;
             generateFaiCardsFields(qtyFai);
             
+            // Auto-compilazione dati utente loggato se i campi sono vuoti
+            if (dfnVars.userLogged) {
+                var $fName = $widget.find('#dfn_first_name');
+                var $lName = $widget.find('#dfn_last_name');
+                var $email = $widget.find('#dfn_email');
+                var $phone = $widget.find('#dfn_phone');
+
+                if ($fName.val() === '') $fName.val(dfnVars.userFirstName);
+                if ($lName.val() === '') $lName.val(dfnVars.userLastName);
+                if ($email.val() === '') $email.val(dfnVars.userEmail);
+                if ($phone.val() === '') $phone.val(dfnVars.userPhone);
+            }
+
+            // Recupera e renderizza le chips delle tessere FAI se l'utente è loggato e ci sono biglietti FAI
+            if (qtyFai > 0 && dfnVars.userLogged) {
+                $faiChipsList.html('');
+                $faiChipsSection.hide();
+
+                $.ajax({
+                    url: dfnVars.ajaxurl,
+                    method: 'POST',
+                    data: {
+                        action: 'dfn_get_user_fai_cards',
+                        nonce: dfnVars.nonce
+                    },
+                    success: function(response) {
+                        if (response.success && response.data.cards && response.data.cards.length > 0) {
+                            var cards = response.data.cards;
+                            var chipsHtml = '';
+                            
+                            cards.forEach(function(card) {
+                                var badgeHtml = card.scaduta ? ' <span class="dfn-chip-badge-expired">⚠️ Scaduta</span>' : '';
+                                chipsHtml += '<button type="button" class="dfn-fai-chip" ' +
+                                             'data-nome="' + card.nome + '" ' +
+                                             'data-cognome="' + card.cognome + '" ' +
+                                             'data-tessera="' + card.tessera + '">' +
+                                             card.nome + ' ' + card.cognome + ' — ' + card.tessera + badgeHtml +
+                                             '</button>';
+                            });
+                            
+                            $faiChipsList.html(chipsHtml);
+                            $faiChipsSection.show();
+                        }
+                    }
+                });
+            } else {
+                $faiChipsSection.hide();
+            }
+            
             $step1.fadeOut(200, function() {
                 $step2.fadeIn(200);
                 $step2.find('#dfn_first_name').focus();
             });
+        });
+
+        // Handler per il click sulle chips delle tessere FAI
+        $widget.on('click', '.dfn-fai-chip', function(e) {
+            e.preventDefault();
+            var $chip = $(this);
+            var nome = $chip.data('nome');
+            var cognome = $chip.data('cognome');
+            var tessera = $chip.data('tessera');
+            
+            var filled = false;
+            // Cerca la prima riga di campi FAI vuota o parzialmente vuota
+            $faiFieldsContainer.find('.dfn-fai-card-row').each(function() {
+                var $row = $(this);
+                var $nomeInput = $row.find('.dfn-fai-card-nome');
+                var $cognomeInput = $row.find('.dfn-fai-card-cognome');
+                var $numberInput = $row.find('.dfn-fai-card-number');
+                
+                if ($nomeInput.val() === '' && $cognomeInput.val() === '' && $numberInput.val() === '') {
+                    $nomeInput.val(nome);
+                    $cognomeInput.val(cognome);
+                    $numberInput.val(tessera);
+                    filled = true;
+                    return false; // Esci dal ciclo each
+                }
+            });
+            
+            // Fallback: se sono tutte già parzialmente compilate, sovrascrivi la prima
+            if (!filled) {
+                var $firstRow = $faiFieldsContainer.find('.dfn-fai-card-row').first();
+                if ($firstRow.length > 0) {
+                    $firstRow.find('.dfn-fai-card-nome').val(nome);
+                    $firstRow.find('.dfn-fai-card-cognome').val(cognome);
+                    $firstRow.find('.dfn-fai-card-number').val(tessera);
+                    filled = true;
+                }
+            }
+
+            if (filled) {
+                // Aggiungi una classe visiva per indicare che la chip è stata usata
+                $chip.addClass('dfn-fai-chip-used');
+            }
         });
 
         // Ritorno a Step 1 (Indietro)

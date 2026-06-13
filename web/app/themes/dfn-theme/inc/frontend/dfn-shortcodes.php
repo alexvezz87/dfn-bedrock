@@ -276,6 +276,10 @@ function dfn_render_evento_shortcode( $atts ): string {
                             <!-- Campi dinamici per le Tessere FAI -->
                             <div class="dfn-booking-section dfn-fai-cards-fields-section" style="display:none; background:#fffdf5; padding:15px; border-radius:8px; border:1px solid #c69c3a; margin-bottom:20px;">
                                 <span class="dfn-widget-label" style="color:#004b23; display:flex; align-items:center; gap:6px;">🍊 <?php esc_html_e( 'Dati Tessere Socio FAI', 'dfn-theme' ); ?></span>
+                                <div class="dfn-fai-chips-container" style="display:none; margin-top:10px; margin-bottom:12px;">
+                                    <div class="dfn-fai-chips-title" style="font-size:11px; font-weight:700; color:#c69c3a; text-transform:uppercase; margin-bottom:6px;"><?php esc_html_e( 'Tessere FAI salvate (clicca per compilare):', 'dfn-theme' ); ?></div>
+                                    <div class="dfn-fai-chips-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+                                </div>
                                 <div class="dfn-fai-cards-inputs-container" style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
                                     <!-- Popolato da JS -->
                                 </div>
