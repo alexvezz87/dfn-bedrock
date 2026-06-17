@@ -70,7 +70,11 @@ add_action( 'woocommerce_order_status_pending_to_cancelled', 'cv_email_cliente_o
 function cv_email_cliente_ordine_scaduto( $order_id, $order ) {
     if ( ! $order ) return;
 
-    // Se l'ordine è stato annullato manualmente dall'utente, non inviare l'email di scadenza automatica
+    // Se l'ordine è stato cancellato dall'amministratore o manualmente dall'utente,
+    // non inviare l'email di scadenza automatica (ci pensa il sistema DFN 2.0)
+    if ( 'yes' === $order->get_meta( '_dfn_admin_cancelled' ) ) {
+        return;
+    }
     if ( 'yes' === $order->get_meta( '_dfn_cancelled_manually' ) ) {
         return;
     }

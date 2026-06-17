@@ -33,6 +33,9 @@ function cv_get_order_qualifica_label( $order ) {
     return implode( '', $badges );
 }
 
+// Le funzioni per la colonna Qualifica legacy sono state disabilitate a favore di dfn-helpers.php
+// per evitare duplicazione di colonne e label nella lista ordini di WooCommerce.
+/*
 add_filter( 'manage_woocommerce_page_wc-orders_columns', 'cv_add_fai_column_to_orders' );
 add_filter( 'manage_edit-shop_order_columns', 'cv_add_fai_column_to_orders' );
 function cv_add_fai_column_to_orders( $columns ) {
@@ -46,20 +49,13 @@ function cv_add_fai_column_to_orders( $columns ) {
 
 add_action( 'manage_woocommerce_page_wc-orders_custom_column', 'cv_populate_fai_column', 10, 2 );
 add_action( 'manage_shop_order_posts_custom_column', 'cv_populate_fai_column', 10, 2 );
-/**
- * Popola la colonna 'Qualifica' nella lista ordini WooCommerce.
- *
- * @param string     $column   Nome della colonna.
- * @param int|object $order_id ID dell'ordine (o oggetto WC_Order in HPOS).
- * @return void
- */
 function cv_populate_fai_column( $column, $order_id ): void {
     if ( 'cv_fai_status' === $column ) {
         $order = wc_get_order( $order_id );
-        // Late escaping: kses_post per permettere solo HTML sicuro (span, strong)
         echo wp_kses_post( cv_get_order_qualifica_label( $order ) );
     }
 }
+*/
 
 /**
  * 2. PLACEHOLDER EMAIL WOOCOMMERCE {nome_evento}

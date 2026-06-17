@@ -82,7 +82,7 @@ function dfn_admin_register_menus() {
  */
 function dfn_enqueue_admin_assets( $hook ) {
     // Carichiamo gli asset solo per le nostre pagine
-    if ( strpos( $hook, 'dfn-events' ) === false && strpos( $hook, 'dfn-event-edit' ) === false && strpos( $hook, 'dfn-slot-manager' ) === false ) {
+    if ( strpos( $hook, 'dfn-events' ) === false && strpos( $hook, 'dfn-event-edit' ) === false && strpos( $hook, 'dfn-slot-manager' ) === false && strpos( $hook, 'dfn-settings' ) === false ) {
         return;
     }
 

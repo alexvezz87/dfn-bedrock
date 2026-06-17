@@ -122,8 +122,10 @@ function dfn_render_fai_members_page(): void {
             $card_expiry = ! empty( $_POST['card_expiry'] ) ? sanitize_text_field( $_POST['card_expiry'] ) : null;
             $card_type   = isset( $_POST['card_type'] ) ? sanitize_text_field( $_POST['card_type'] ) : 'INDIVIDUALE';
 
-            if ( ! in_array( $card_type, array( 'INDIVIDUALE', 'COPPIA', 'FAMIGLIA' ) ) ) {
-                $card_type = 'INDIVIDUALE';
+            $types_string = dfn_get_setting( 'fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA' );
+            $valid_types = array_map( 'trim', array_map( 'strtoupper', explode( ',', $types_string ) ) );
+            if ( ! in_array( strtoupper( $card_type ), $valid_types, true ) ) {
+                $card_type = ! empty( $valid_types[0] ) ? $valid_types[0] : 'INDIVIDUALE';
             }
 
             if ( ! empty( $first_name ) && ! empty( $last_name ) && ! empty( $card_number ) ) {
@@ -190,14 +192,16 @@ function dfn_render_fai_members_page(): void {
         $reject_member = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $member_id ) );
     }
 
-    // Conteggio delle tessere in scadenza nei primi 15 giorni
-    $expiring_count = $wpdb->get_var(
+    // Conteggio delle tessere in scadenza
+    $warning_days = intval( dfn_get_setting( 'fai_expiry_warning_days', 15 ) );
+    $expiring_count = $wpdb->get_var( $wpdb->prepare(
         "SELECT COUNT(*) FROM {$table} 
          WHERE verified = 1 
            AND card_expiry IS NOT NULL 
            AND card_expiry >= CURDATE() 
-           AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL 15 DAY)"
-    ) ?: 0;
+           AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)",
+        $warning_days
+    ) ) ?: 0;
 
     // Filtro e ricerca in tempo reale
     $search = isset( $_GET['s'] ) ? sanitize_text_field( $_GET['s'] ) : '';
@@ -211,20 +215,21 @@ function dfn_render_fai_members_page(): void {
                  WHERE verified = 1 
                    AND card_expiry IS NOT NULL 
                    AND card_expiry >= CURDATE() 
-                   AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL 15 DAY)
+                   AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)
                    AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s)
                  ORDER BY card_expiry ASC",
-                $search_query, $search_query, $search_query, $search_query
+                $warning_days, $search_query, $search_query, $search_query, $search_query
             ) );
         } else {
-            $members = $wpdb->get_results(
+            $members = $wpdb->get_results( $wpdb->prepare(
                 "SELECT * FROM {$table} 
                  WHERE verified = 1 
                    AND card_expiry IS NOT NULL 
                    AND card_expiry >= CURDATE() 
-                   AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL 15 DAY) 
-                 ORDER BY card_expiry ASC"
-            );
+                   AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY) 
+                 ORDER BY card_expiry ASC",
+                $warning_days
+            ) );
         }
     } elseif ( ! empty( $search ) ) {
         $search_query = '%' . $wpdb->esc_like( $search ) . '%';
@@ -238,7 +243,8 @@ function dfn_render_fai_members_page(): void {
             $search_query, $search_query, $search_query, $search_query
         ) );
     } else {
-        $members = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY last_name ASC, first_name ASC LIMIT 100" );
+        $max_visible_members = intval( dfn_get_setting( 'limit_max_fai_members', 100 ) );
+        $members = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} ORDER BY last_name ASC, first_name ASC LIMIT %d", $max_visible_members ) );
     }
 
     ?>
@@ -262,15 +268,17 @@ function dfn_render_fai_members_page(): void {
                     <span class="dashicons dashicons-warning" style="color: #f59e0b; margin-top: -2px;"></span>
                     <span>
                         <?php 
+                        $warning_days = intval( dfn_get_setting( 'fai_expiry_warning_days', 15 ) );
                         printf(
-                            // Translators: %d is the number of expiring cards
+                            // Translators: %d is the number of expiring cards, %d is the warning days limit
                             _n(
-                                'C\'è %d tessera FAI verificata in scadenza nei prossimi 15 giorni.',
-                                'Ci sono %d tessere FAI verificate in scadenza nei prossimi 15 giorni.',
+                                'C\'è %d tessera FAI verificata in scadenza nei prossimi %d giorni.',
+                                'Ci sono %d tessere FAI verificate in scadenza nei prossimi %d giorni.',
                                 $expiring_count,
                                 'dfn-theme'
                             ),
-                            $expiring_count
+                            $expiring_count,
+                            $warning_days
                         ); 
                         ?>
                         <a href="<?php echo esc_url( admin_url( 'admin.php?page=dfn-fai-members&filter=expiring' ) ); ?>" style="margin-left: 10px; font-weight: bold; color: #b45309; text-decoration: underline;">
@@ -352,11 +360,19 @@ function dfn_render_fai_members_page(): void {
                             <select name="card_type" style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; height: 38px;">
                                 <?php
                                 $selected_type = $edit_member && ! empty( $edit_member->card_type ) ? $edit_member->card_type : 'INDIVIDUALE';
-                                $options = array(
-                                    'INDIVIDUALE' => esc_html__( 'INDIVIDUALE', 'dfn-theme' ),
-                                    'COPPIA'      => esc_html__( 'COPPIA', 'dfn-theme' ),
-                                    'FAMIGLIA'    => esc_html__( 'FAMIGLIA', 'dfn-theme' ),
-                                );
+                                
+                                $types_string = dfn_get_setting( 'fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA' );
+                                $valid_types = array_map( 'trim', explode( ',', strtoupper( $types_string ) ) );
+                                $options = array();
+                                foreach ( $valid_types as $t ) {
+                                    if ( ! empty( $t ) ) {
+                                        $options[$t] = esc_html( $t );
+                                    }
+                                }
+                                if ( empty( $options ) ) {
+                                    $options['INDIVIDUALE'] = 'INDIVIDUALE';
+                                }
+
                                 foreach ( $options as $val => $label ) {
                                     echo '<option value="' . esc_attr( $val ) . '" ' . selected( $selected_type, $val, false ) . '>' . esc_html( $label ) . '</option>';
                                 }
@@ -422,7 +438,8 @@ function dfn_render_fai_members_page(): void {
                                 $is_expiring = false;
                                 if ( $is_verified && ! empty( $m->card_expiry ) && ! $is_expired ) {
                                     $expiry_time = strtotime( $m->card_expiry );
-                                    $limit_time  = strtotime( '+15 days 23:59:59' );
+                                    $warning_days = intval( dfn_get_setting( 'fai_expiry_warning_days', 15 ) );
+                                    $limit_time  = strtotime( '+' . $warning_days . ' days 23:59:59' );
                                     if ( $expiry_time <= $limit_time ) {
                                         $is_expiring = true;
                                     }

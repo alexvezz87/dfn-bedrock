@@ -14,6 +14,15 @@ namespace {
             public function set_total($total) {}
         }
     }
+    if ( ! class_exists( 'WC_Order_Item_Product' ) ) {
+        class WC_Order_Item_Product {
+            public function get_product_id() {}
+            public function get_meta($key) {}
+            public function get_quantity() {}
+            public function update_meta_data($key, $value) {}
+            public function save() {}
+        }
+    }
 }
 
 namespace DFN\Theme\Tests\Unit {
@@ -29,6 +38,8 @@ require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-myaccount.php';
 require_once dirname(dirname(__DIR__)) . '/inc/admin/dfn-volunteer-dashboard.php';
 require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-fai-members.php';
 require_once dirname(dirname(__DIR__)) . '/inc/admin/dfn-waitlist.php';
+require_once dirname(dirname(__DIR__)) . '/inc/core/dfn-cron.php';
+require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-bookings.php';
 
 use PHPUnit\Framework\TestCase;
 use Brain\Monkey;
@@ -65,7 +76,16 @@ class DFNSystemTest extends TestCase {
             'current_time' => function($type) { return date('Y-m-d H:i:s'); },
             'wc_price' => function($price) { return '€' . $price; },
             'check_ajax_referer' => true,
-            'date_i18n' => function($format, $timestamp = false) { return date($format, $timestamp ?: time()); }
+            'date_i18n' => function($format, $timestamp = false) { return date($format, $timestamp ?: time()); },
+            'dfn_send_booking_confirmation' => true,
+            'dfn_send_admin_new_booking_notification' => true,
+            'dfn_send_booking_pending_approval' => true,
+            'dfn_send_booking_cancellation' => true,
+            'get_option' => function($option, $default = false) { return $default; },
+            'is_email' => function($val) { return strpos($val, '@') !== false; },
+            'checked' => function($helper, $current, $echo = true) { return $helper === $current ? ' checked="checked"' : ''; },
+            'update_option' => true,
+            'add_settings_error' => true
         ));
 
         Functions\when('wp_send_json_success')->alias(function($data = null) {
@@ -276,7 +296,7 @@ class DFNSystemTest extends TestCase {
         $wpdb->method('get_row')->willReturn((object)array('persons_fai' => 0));
 
         $order_mock = $this->getMockBuilder(\WC_Order::class)
-            ->addMethods(array('get_meta', 'get_payment_method', 'get_payment_method_title', 'get_coupon_codes', 'get_items', 'get_id'))
+            ->addMethods(array('get_meta', 'get_payment_method', 'get_payment_method_title', 'get_coupon_codes', 'get_items', 'get_id', 'get_status'))
             ->getMock();
 
         $order_mock->method('get_meta')->willReturnMap(array(
@@ -286,11 +306,14 @@ class DFNSystemTest extends TestCase {
         $order_mock->method('get_coupon_codes')->willReturn(array());
         $order_mock->method('get_items')->willReturn(array());
         $order_mock->method('get_id')->willReturn(123);
+        $order_mock->method('get_status')->willReturn('completed');
 
         $label = dfn_get_order_qualifica_label($order_mock);
+        $payment_label = dfn_get_order_payment_type_label($order_mock);
 
         $this->assertStringContainsString('🌟 AUTORITÀ', $label);
-        $this->assertStringContainsString('💵 CASSA LIVE', $label);
+        $this->assertStringNotContainsString('💵 CASSA LIVE', $label);
+        $this->assertStringContainsString('💵 CASSA LIVE', $payment_label);
 
         $wpdb = $original_wpdb;
     }
@@ -377,7 +400,7 @@ class DFNSystemTest extends TestCase {
 
         $wpdb->method('prepare')->willReturn('PREPARED');
         $wpdb->method('get_row')->willReturn($booking_mock);
-        $wpdb->expects($this->once())->method('update')->willReturn(true);
+        $wpdb->expects($this->exactly(2))->method('update')->willReturn(true);
 
         // Mock dell'ordine WC completed
         $order_mock = $this->getMockBuilder(\WC_Order::class)
@@ -436,7 +459,7 @@ class DFNSystemTest extends TestCase {
 
         $wpdb->method('prepare')->willReturn('PREPARED');
         $wpdb->method('get_row')->willReturn($booking_mock);
-        $wpdb->expects($this->once())->method('update')->willReturn(true);
+        $wpdb->expects($this->exactly(2))->method('update')->willReturn(true);
 
         // Mock dell'ordine WC pending
         $order_mock = $this->getMockBuilder(\WC_Order::class)
@@ -668,6 +691,125 @@ class DFNSystemTest extends TestCase {
         unset($_POST['dfn_waitlist_action_nonce']);
         unset($_POST['entry_id']);
         unset($_POST['wl_action']);
+        $wpdb = $original_wpdb;
+    }
+
+    /**
+     * Test 16: Blocco cancellazione nativa WooCommerce.
+     */
+    public function test_woocommerce_cancel_unpaid_order_override_filter() {
+        // Caso 1: Se WooCommerce non voleva cancellarlo ($should_cancel = false), deve ritornare false
+        $order_mock = $this->getMockBuilder(\WC_Order::class)
+            ->addMethods(array('get_id'))
+            ->getMock();
+        $this->assertFalse(dfn_blocca_cancellazione_wc_nativa(false, $order_mock));
+
+        // Caso 2: Se $should_cancel = true ma non c'è una prenotazione DFN associata all'ordine,
+        // deve ritornare il valore originale $should_cancel (true)
+        $order_mock_2 = $this->getMockBuilder(\WC_Order::class)
+            ->addMethods(array('get_id'))
+            ->getMock();
+        $order_mock_2->method('get_id')->willReturn(987);
+
+        Functions\when('dfn_db_get_booking_by_order')->justReturn(null);
+        $this->assertTrue(dfn_blocca_cancellazione_wc_nativa(true, $order_mock_2));
+
+        // Caso 3: Se $should_cancel = true e c'è una prenotazione DFN associata all'ordine,
+        // deve ritornare false (bloccando WooCommerce)
+        $order_mock_3 = $this->getMockBuilder(\WC_Order::class)
+            ->addMethods(array('get_id'))
+            ->getMock();
+        $order_mock_3->method('get_id')->willReturn(988);
+
+        $booking_mock = new \stdClass();
+        $booking_mock->id = 55;
+        Functions\when('dfn_db_get_booking_by_order')->justReturn($booking_mock);
+        $this->assertFalse(dfn_blocca_cancellazione_wc_nativa(true, $order_mock_3));
+    }
+
+    /**
+     * Test 17: Allocazione slot con quantità FAI e 0 standard (bug 0 standard + 3 FAI = 6).
+     */
+    public function test_allocate_slots_persons_count_fai_only() {
+        global $wpdb;
+        $original_wpdb = $wpdb;
+
+        $wpdb = $this->getMockBuilder(\stdClass::class)
+            ->addMethods(array('prepare', 'get_row', 'insert', 'update', 'query'))
+            ->getMock();
+        $wpdb->prefix = 'wp_';
+        $wpdb->insert_id = 12345;
+
+        // Mock transazioni
+        $wpdb->method('query')->willReturn(true);
+
+        // Mock dello slot disponibile
+        $slot_mock = (object)array(
+            'id' => 202,
+            'capacity' => 10,
+            'bonus_capacity' => 0,
+            'booked_count' => 0,
+            'is_locked' => 0
+        );
+        $wpdb->method('prepare')->willReturn('PREPARED');
+        $wpdb->method('get_row')->willReturn($slot_mock);
+
+        // Mock dell'evento
+        $event_mock = (object)array(
+            'id' => 50,
+            'access_type' => 'time_slots',
+            'allocation_mode' => 'self_selection',
+            'approval_workflow' => 'automatic',
+            'event_date_start' => '2026-06-16'
+        );
+        Functions\when('dfn_db_get_event_by_product')->justReturn($event_mock);
+
+        // Mock dell'ordine e dell'item
+        $order_mock = $this->getMockBuilder(\WC_Order::class)
+            ->addMethods(array('get_items', 'get_billing_email', 'get_billing_first_name', 'get_billing_last_name', 'get_billing_phone', 'get_payment_method', 'get_total', 'get_customer_note', 'add_order_note'))
+            ->getMock();
+
+        $item_mock = $this->getMockBuilder(\WC_Order_Item_Product::class)
+            ->onlyMethods(array('get_product_id', 'get_meta', 'get_quantity'))
+            ->getMock();
+
+        $item_mock->method('get_product_id')->willReturn(101);
+        $item_mock->method('get_quantity')->willReturn(3);
+        
+        // Simula i metadati del checkout: qty_standard = '0', qty_fai = '3'
+        $item_mock->method('get_meta')->willReturnMap(array(
+            array('_dfn_booking_date', '2026-06-16'),
+            array('_dfn_booking_slot_id', 202),
+            array('_dfn_qty_standard', '0'),
+            array('_dfn_qty_fai', '3')
+        ));
+
+        $order_mock->method('get_items')->willReturn(array($item_mock));
+        $order_mock->method('get_billing_email')->willReturn('test@example.com');
+        $order_mock->method('get_billing_first_name')->willReturn('Mario');
+        $order_mock->method('get_billing_last_name')->willReturn('Rossi');
+        $order_mock->method('get_billing_phone')->willReturn('123456');
+        $order_mock->method('get_payment_method')->willReturn('stripe');
+        $order_mock->method('get_total')->willReturn(30.00);
+        $order_mock->method('get_customer_note')->willReturn('');
+
+        // Cattura e verifica che i dati inseriti nella tabella dfn_bookings contengano le quantità corrette:
+        // total_persons = 3 (non 6), persons_standard = 0, persons_fai = 3
+        $wpdb->expects($this->exactly(2))
+            ->method('insert')
+            ->willReturnCallback(function($table, $data) {
+                if (str_contains($table, 'dfn_bookings')) {
+                    $this->assertEquals(3, $data['total_persons']);
+                    $this->assertEquals(0, $data['persons_standard']);
+                    $this->assertEquals(3, $data['persons_fai']);
+                }
+                return true;
+            });
+
+        Functions\when('wp_hash')->justReturn('MOCK_HASH');
+
+        dfn_allocate_slots_on_checkout(1001, array(), $order_mock);
+
         $wpdb = $original_wpdb;
     }
 }

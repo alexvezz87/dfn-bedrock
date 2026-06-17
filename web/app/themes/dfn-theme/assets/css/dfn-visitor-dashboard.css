@@ -32,10 +32,10 @@
    2. VISITOR DASHBOARD & MY ACCOUNT OVERLAYS
    ========================================================================== */
 .woocommerce-account .woocommerce {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 40px auto;
     background: var(--dfn-white);
-    padding: 40px;
+    padding: 50px;
     border-radius: var(--dfn-radius-lg);
     box-shadow: var(--dfn-shadow-premium);
     border: 1px solid rgba(0, 75, 35, 0.05);
@@ -143,23 +143,25 @@
 .button.dfn-action-tickets {
     background: var(--dfn-ocre) !important;
     color: var(--dfn-white) !important;
-    padding: 10px 20px !important;
-    border-radius: 30px !important;
-    font-size: 12px !important;
+    padding: 7px 16px !important;
+    border-radius: 20px !important;
+    font-size: 11px !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
     letter-spacing: 1px !important;
     border: none !important;
-    box-shadow: 0 4px 10px rgba(198, 156, 58, 0.2);
+    box-shadow: 0 3px 8px rgba(198, 156, 58, 0.25);
     transition: all 0.2s ease !important;
     display: inline-block;
     text-decoration: none;
+    text-align: center;
+    white-space: nowrap;
 }
 
 .button.dfn-action-tickets:hover {
     background: var(--dfn-ocre-light) !important;
     transform: translateY(-1px);
-    box-shadow: 0 6px 14px rgba(198, 156, 58, 0.3);
+    box-shadow: 0 4px 12px rgba(198, 156, 58, 0.35);
 }
 
 /* ==========================================================================
@@ -418,6 +420,7 @@
     /* Icon Overlays */
     .woocommerce-MyAccount-navigation-link--dashboard a::before { content: "🏠"; }
     .woocommerce-MyAccount-navigation-link--orders a::before { content: "🎟️"; }
+    .woocommerce-MyAccount-navigation-link--tessere-fai a::before { content: "🪪"; }
     .woocommerce-MyAccount-navigation-link--edit-account a::before { content: "⚙️"; }
     .woocommerce-MyAccount-navigation-link--customer-logout a::before { content: "🚪"; }
     
@@ -453,3 +456,738 @@
         text-align: center;
     }
 }
+
+/* ==========================================================================
+   4. TESSERE FAI DASHBOARD (VISITOR RESERVED AREA)
+   ========================================================================== */
+.dfn-fai-dashboard-section {
+    margin-top: 10px;
+    font-family: 'Outfit', sans-serif;
+}
+
+.dfn-dashboard-title {
+    color: var(--dfn-green-dark);
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+}
+
+.dfn-dashboard-desc {
+    color: var(--dfn-text-muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 35px;
+}
+
+/* Cards Grid */
+.dfn-fai-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+    gap: 24px;
+    margin-bottom: 40px;
+}
+
+/* Premium Digital Membership Card */
+.dfn-fai-digital-card {
+    position: relative;
+    border-radius: 20px;
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #1e293b !important;
+    padding: 24px !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05) !important;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    max-width: 460px !important;
+    width: 100% !important;
+    height: 300px !important;
+    box-sizing: border-box;
+    font-family: 'Outfit', 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.dfn-fai-digital-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 35px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Header logo and badge */
+.dfn-fai-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.dfn-fai-logo-group {
+    display: flex;
+    align-items: center;
+}
+
+.dfn-fai-official-logo {
+    max-width: 130px !important;
+    height: auto !important;
+    display: block;
+    object-fit: contain;
+}
+
+.dfn-fai-card-badge {
+    background: rgba(0, 75, 35, 0.06) !important;
+    color: #004b23 !important;
+    border: 1px solid rgba(0, 75, 35, 0.15) !important;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Body layout */
+.dfn-fai-card-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.dfn-fai-card-left {
+    flex: 1;
+}
+
+.dfn-fai-card-holder-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111b15;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.2px;
+}
+
+.dfn-fai-card-details-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.dfn-fai-card-detail-item {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    color: #1e293b !important;
+    margin-bottom: 3px;
+}
+
+.dfn-detail-label {
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    margin-right: 6px !important;
+    display: inline !important;
+}
+
+.dfn-detail-value {
+    font-weight: 400 !important;
+    color: #475569 !important;
+    display: inline !important;
+}
+
+.dfn-detail-value.expired {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.dfn-detail-value.active {
+    color: #15803d;
+    font-weight: 600;
+}
+
+/* Right side QR */
+.dfn-fai-card-right {
+    flex-shrink: 0;
+}
+
+.dfn-fai-card-qrcode-box {
+    width: 85px;
+    height: 85px;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    padding: 4px;
+    box-sizing: border-box;
+}
+
+.dfn-fai-card-qrcode-box img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+    display: block;
+}
+
+/* Card footer text */
+.dfn-fai-card-footer-info {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding-top: 15px;
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: #475569;
+}
+
+.dfn-fai-footer-text-line {
+    margin-bottom: 2px;
+}
+
+.dfn-fai-footer-text-line:last-child {
+    margin-bottom: 0;
+}
+
+.dfn-fai-footer-text-line strong {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.dfn-footer-link-red {
+    color: #d03b20 !important;
+    text-decoration: none !important;
+    font-weight: 600;
+}
+
+.dfn-footer-link-red:hover {
+    text-decoration: underline !important;
+}
+
+.dfn-footer-link-green {
+    color: #004b23 !important;
+    text-decoration: none !important;
+    font-weight: 600;
+}
+
+.dfn-footer-link-green:hover {
+    text-decoration: underline !important;
+}
+
+/* Type variations */
+.dfn-fai-card-type-coppia {
+    border-left: 4px solid var(--dfn-ocre) !important;
+}
+
+.dfn-fai-card-type-famiglia {
+    border-left: 4px solid var(--dfn-green-light) !important;
+}
+
+/* Empty State Styling */
+.dfn-fai-empty-state {
+    text-align: center;
+    padding: 60px 40px;
+    background: var(--dfn-gray-light);
+    border: 2px dashed var(--dfn-gray-medium);
+    border-radius: var(--dfn-radius-lg);
+    max-width: 650px;
+    margin: 20px 0;
+}
+
+.dfn-fai-empty-icon {
+    font-size: 50px;
+    line-height: 1;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.05));
+}
+
+.dfn-fai-empty-state h4 {
+    color: var(--dfn-green-dark);
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+}
+
+.dfn-fai-empty-state p {
+    color: var(--dfn-text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 15px 0;
+}
+
+.dfn-fai-empty-state p.dfn-fai-empty-sub {
+    font-size: 12px;
+    margin-bottom: 0;
+    opacity: 0.8;
+    border-top: 1px solid var(--dfn-gray-medium);
+    padding-top: 15px;
+}
+
+@media (max-width: 768px) {
+    .dfn-fai-cards-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}
+
+/* ==========================================================================
+   5. BACHECA PRENOTAZIONI (VISITOR RESERVED AREA)
+   ========================================================================== */
+.dfn-my-bookings-section {
+    margin-top: 10px;
+    font-family: 'Outfit', sans-serif;
+}
+
+.dfn-bookings-group {
+    margin-bottom: 40px;
+}
+
+.dfn-group-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--dfn-green-dark);
+    border-bottom: 2px solid rgba(0, 75, 35, 0.08);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    letter-spacing: -0.3px;
+}
+
+.dfn-bookings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* Accordion details/summary wrapper */
+.dfn-booking-accordion {
+    background: var(--dfn-white);
+    border: 1px solid var(--dfn-gray-medium);
+    border-radius: var(--dfn-radius-md);
+    box-shadow: var(--dfn-shadow-soft);
+    overflow: hidden;
+    transition: box-shadow 0.25s, border-color 0.25s, transform 0.2s;
+}
+
+.dfn-booking-accordion:hover {
+    box-shadow: var(--dfn-shadow-premium);
+    border-color: rgba(0, 75, 35, 0.15);
+}
+
+.dfn-booking-accordion[open] {
+    border-color: var(--dfn-ocre);
+    box-shadow: var(--dfn-shadow-premium);
+}
+
+/* Summary styles (collapsed header) */
+.dfn-booking-summary {
+    list-style: none !important;
+    outline: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.dfn-booking-summary::-webkit-details-marker {
+    display: none !important;
+}
+
+.dfn-booking-summary-header {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px;
+    gap: 20px;
+}
+
+/* Event Thumbnail wrapper */
+.dfn-booking-img-wrapper {
+    width: 70px;
+    height: 70px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: var(--dfn-radius-md);
+    border: 1px solid var(--dfn-gray-medium);
+    background: var(--dfn-gray-light);
+}
+
+.dfn-booking-event-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block;
+    transition: transform 0.3s;
+}
+
+.dfn-booking-accordion:hover .dfn-booking-event-img {
+    transform: scale(1.05);
+}
+
+.dfn-booking-event-img-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    background: var(--dfn-gray-light);
+    color: var(--dfn-green-dark);
+}
+
+/* Event title and location metadata */
+.dfn-booking-summary-text {
+    flex: 1;
+}
+
+.dfn-booking-summary-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--dfn-green-dark);
+    margin: 0 0 6px 0;
+    letter-spacing: -0.4px;
+}
+
+.dfn-booking-summary-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.dfn-booking-summary-meta span {
+    font-size: 13px;
+    color: var(--dfn-text-muted);
+    font-weight: 500;
+}
+
+/* Summary Right (Status and Arrow) */
+.dfn-booking-summary-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.dfn-accordion-arrow {
+    font-size: 12px;
+    color: var(--dfn-text-muted);
+    transition: transform 0.25s ease;
+}
+
+.dfn-booking-accordion[open] .dfn-accordion-arrow {
+    transform: rotate(180deg);
+}
+
+/* Expanded Content Area */
+.dfn-booking-details-content {
+    padding: 24px;
+    border-top: 1px solid var(--dfn-gray-medium);
+    background: var(--dfn-gray-light);
+}
+
+/* Details Title */
+.dfn-booking-details-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--dfn-green-dark);
+    margin: 0 0 16px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Bookings Table Styling */
+.dfn-bookings-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 10px;
+    background: var(--dfn-white);
+    border-radius: var(--dfn-radius-md);
+    overflow: hidden;
+    border: 1px solid var(--dfn-gray-medium) !important;
+}
+
+.dfn-bookings-table thead th {
+    background: var(--dfn-green-dark) !important;
+    color: var(--dfn-white) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    padding: 10px 14px !important;
+    text-align: left !important;
+    border: none !important;
+}
+
+.dfn-bookings-table tbody tr {
+    border-bottom: 1px solid var(--dfn-gray-medium) !important;
+    transition: background 0.2s;
+}
+
+.dfn-bookings-table tbody tr:last-child {
+    border-bottom: none !important;
+}
+
+.dfn-bookings-table tbody tr:hover {
+    background: var(--dfn-gray-light) !important;
+}
+
+.dfn-bookings-table tbody td {
+    padding: 10px 14px !important;
+    vertical-align: middle !important;
+    color: var(--dfn-text-dark) !important;
+    font-size: 13px !important;
+    border: none !important;
+}
+
+.dfn-row-cancelled {
+    background: #fafafa !important;
+    opacity: 0.7;
+}
+
+/* Specific columns */
+.dfn-table-order-id {
+    font-weight: 800;
+    font-size: 15px;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.dfn-table-status {
+    display: inline-block;
+}
+
+.dfn-table-time {
+    font-size: 15px !important;
+    color: var(--dfn-green-dark) !important;
+}
+
+.dfn-table-seats {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    line-height: 1.25;
+}
+
+.dfn-table-seats-breakdown {
+    font-size: 11px;
+    color: var(--dfn-text-muted);
+}
+
+.dfn-payment-due {
+    color: #c2410c; /* warm orange/red for due payments */
+}
+
+.dfn-payment-paid {
+    color: #15803d; /* green for paid */
+    font-weight: 600;
+}
+
+.dfn-table-actions-head {
+    text-align: right !important;
+}
+
+.dfn-table-actions {
+    text-align: right !important;
+}
+
+.dfn-table-actions-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* Cancel Booking Link */
+.dfn-btn-cancel-booking {
+    display: inline-block;
+    background: transparent !important;
+    color: #ef4444 !important;
+    border: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    transition: color 0.2s ease !important;
+    text-decoration: underline !important;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dfn-btn-cancel-booking:hover {
+    background: transparent !important;
+    color: #dc2626 !important;
+}
+
+/* Status Badges */
+.dfn-booking-status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 14px;
+    border-radius: 50px;
+    display: inline-block;
+}
+
+.dfn-status-confirmed {
+    background: rgba(0, 75, 35, 0.08);
+    color: var(--dfn-green-dark);
+}
+
+.dfn-status-pending {
+    background: rgba(198, 156, 58, 0.12);
+    color: var(--dfn-ocre);
+}
+
+.dfn-status-cancelled {
+    background: rgba(220, 38, 38, 0.08);
+    color: #dc2626;
+}
+
+.dfn-status-past {
+    background: var(--dfn-gray-medium);
+    color: var(--dfn-text-muted);
+}
+
+/* Cancelled/Past Specific cards */
+.dfn-booking-cancelled {
+    opacity: 0.7;
+}
+
+.dfn-booking-past-card .dfn-booking-summary-title {
+    color: var(--dfn-text-dark);
+    opacity: 0.8;
+}
+
+/* Empty states */
+.dfn-bookings-empty {
+    text-align: center;
+    padding: 45px 30px;
+    background: var(--dfn-gray-light);
+    border: 2px dashed var(--dfn-gray-medium);
+    border-radius: var(--dfn-radius-md);
+}
+
+.dfn-bookings-empty p {
+    color: var(--dfn-text-muted);
+    font-size: 15px;
+    margin-bottom: 20px;
+}
+
+.dfn-booking-browse-btn {
+    background: var(--dfn-green-dark) !important;
+    color: var(--dfn-white) !important;
+    font-weight: 700 !important;
+    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.2s;
+    border: none !important;
+}
+
+.dfn-booking-browse-btn:hover {
+    background: #003a1b !important;
+}
+
+.dfn-bookings-empty-silent {
+    padding: 20px;
+    color: var(--dfn-text-muted);
+    font-size: 14px;
+    font-style: italic;
+}
+
+/* Media Query Responsive Adjustments */
+@media (max-width: 768px) {
+    .dfn-booking-summary-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 16px;
+        gap: 12px;
+    }
+
+    .dfn-booking-summary-right {
+        width: 100%;
+        justify-content: space-between;
+        margin-top: 5px;
+    }
+
+    .dfn-bookings-table, 
+    .dfn-bookings-table thead, 
+    .dfn-bookings-table tbody, 
+    .dfn-bookings-table th, 
+    .dfn-bookings-table td, 
+    .dfn-bookings-table tr { 
+        display: block !important; 
+        width: 100% !important;
+    }
+    
+    .dfn-bookings-table thead {
+        display: none !important;
+    }
+    
+    .dfn-bookings-table tbody tr {
+        margin-bottom: 15px !important;
+        border: 1px solid var(--dfn-gray-medium) !important;
+        border-radius: var(--dfn-radius-md) !important;
+        background: var(--dfn-white) !important;
+    }
+    
+    .dfn-bookings-table tbody td {
+        text-align: right !important;
+        padding: 12px 16px !important;
+        position: relative !important;
+        border-bottom: 1px solid var(--dfn-gray-light) !important;
+        min-height: 48px !important;
+        box-sizing: border-box !important;
+    }
+    
+    .dfn-bookings-table tbody td:last-child {
+        border-bottom: none !important;
+    }
+    
+    .dfn-bookings-table tbody td::before {
+        content: attr(data-label);
+        position: absolute !important;
+        left: 16px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        font-weight: 700 !important;
+        font-size: 11px !important;
+        text-transform: uppercase !important;
+        color: var(--dfn-text-muted) !important;
+    }
+    
+    .dfn-table-actions-container {
+        flex-direction: column !important;
+        align-items: flex-end !important;
+        gap: 6px !important;
+        width: 100% !important;
+    }
+
+    .dfn-table-actions-container .dfn-btn-cancel-booking {
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        text-decoration: underline !important;
+    }
+
+    /* Mobile overrides for FAI card */
+    .dfn-fai-digital-card {
+        padding: 16px !important;
+        height: auto !important;
+        min-height: 280px !important;
+        max-width: 100% !important;
+    }
+    .dfn-fai-card-body {
+        align-items: center !important;
+        gap: 12px !important;
+    }
+    .dfn-fai-card-qrcode-box {
+        width: 75px !important;
+        height: 75px !important;
+    }
+    .dfn-fai-card-holder-name {
+        font-size: 16px !important;
+    }
+    .dfn-fai-card-detail-item {
+        font-size: 11px !important;
+    }
+}
+
+

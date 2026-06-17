@@ -163,8 +163,17 @@ function dfn_allocate_slots_on_checkout( $order_id, $posted_data, $order ) {
         // Recupera dati del checkout salvati nei metadati della riga
         $booking_date = $item->get_meta( '_dfn_booking_date' );
         $slot_id      = intval( $item->get_meta( '_dfn_booking_slot_id' ) );
-        $qty_std      = intval( $item->get_meta( '_dfn_qty_standard' ) ) ?: intval( $item->get_quantity() );
-        $qty_fai      = intval( $item->get_meta( '_dfn_qty_fai' ) ) ?: 0;
+        // Nota: NON usare ?: qui perché 0 è falsy in PHP — un qty_standard=0 verrebbe ignorato.
+        // Usiamo un controllo esplicito: se il meta esiste (anche con valore "0") lo usiamo,
+        // altrimenti usiamo la quantità WooCommerce come fallback.
+        $meta_qty_std = $item->get_meta( '_dfn_qty_standard' );
+        $qty_std      = ( $meta_qty_std !== '' && $meta_qty_std !== false && $meta_qty_std !== null )
+                        ? intval( $meta_qty_std )
+                        : intval( $item->get_quantity() );
+        $meta_qty_fai = $item->get_meta( '_dfn_qty_fai' );
+        $qty_fai      = ( $meta_qty_fai !== '' && $meta_qty_fai !== false && $meta_qty_fai !== null )
+                        ? intval( $meta_qty_fai )
+                        : 0;
         $total_qty    = $qty_std + $qty_fai;
 
         if ( empty( $booking_date ) ) {
@@ -742,6 +751,7 @@ function dfn_ajax_create_direct_booking(): void {
                         $update_formats,
                         array( '%d' )
                     );
+                    dfn_notify_admin_unverified_fai_card( $c_num, $c_nome, $c_cognome, $email );
                 }
             } else {
                 // Non esiste affatto nel database, la inseriamo
@@ -762,6 +772,7 @@ function dfn_ajax_create_direct_booking(): void {
                     ),
                     array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d' )
                 );
+                dfn_notify_admin_unverified_fai_card( $c_num, $c_nome, $c_cognome, $email );
             }
 
             $fai_cards[] = array(

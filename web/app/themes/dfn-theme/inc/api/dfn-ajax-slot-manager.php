@@ -636,6 +636,12 @@ function dfn_ajax_admin_delete_booking(): void {
     if ( $booking->order_id ) {
         $order = wc_get_order( $booking->order_id );
         if ( $order ) {
+            // Segna l'ordine come cancellato dall'amministratore PRIMA di cambiarne lo stato.
+            // Questo flag viene letto dall'hook woocommerce_order_status_cancelled
+            // per inviare l'email corretta ("cancellato dallo staff") invece di quella di scadenza.
+            $order->update_meta_data( '_dfn_admin_cancelled', 'yes' );
+            $order->update_meta_data( '_dfn_cancelled_manually', 'yes' );
+            $order->save();
             $order->update_status( 'cancelled', __( 'Prenotazione cancellata dall\'amministratore via Gestione Turni.', 'dfn-theme' ) );
         }
     }

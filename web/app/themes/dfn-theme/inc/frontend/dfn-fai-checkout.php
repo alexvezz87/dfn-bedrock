@@ -132,6 +132,8 @@ function dfn_checkout_validate_fai_fields(): void {
                 ),
                 array( '%s', '%s', '%s', '%s', '%d' )
             );
+            $billing_email = isset( $_POST['billing_email'] ) ? sanitize_email( $_POST['billing_email'] ) : '';
+            dfn_notify_admin_unverified_fai_card( $card, $nome, $cognome, $billing_email );
             continue;
         }
 

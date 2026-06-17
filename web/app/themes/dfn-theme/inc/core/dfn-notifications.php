@@ -26,6 +26,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 function dfn_send_notification_email( $to, $subject, $title, $content_html, $attachments = array() ) {
     $headers = array( 'Content-Type: text/html; charset=UTF-8' );
 
+    $cc_bcc_raw = dfn_get_setting( 'email_cc_bcc', '' );
+    if ( ! empty( $cc_bcc_raw ) ) {
+        $emails = array_map( 'sanitize_email', array_map( 'trim', explode( ',', $cc_bcc_raw ) ) );
+        foreach ( $emails as $email ) {
+            if ( is_email( $email ) ) {
+                $headers[] = 'Bcc: ' . $email;
+            }
+        }
+    }
+
     // Genera il template HTML completo
     $body = dfn_get_email_html_template( $title, $content_html );
 
@@ -40,10 +50,10 @@ function dfn_send_notification_email( $to, $subject, $title, $content_html, $att
  * @return string HTML completo.
  */
 function dfn_get_email_html_template( $title, $content_html ) {
-    $bg_color      = '#f4f6f8';
-    $primary_color = '#004b23'; // Verde FAI
-    $accent_color  = '#c69c3a';  // Ocra FAI
-    $text_color    = '#2d3748';
+    $bg_color      = dfn_get_setting( 'email_bg_color', '#f4f6f8' );
+    $primary_color = dfn_get_setting( 'email_primary_color', '#004b23' );
+    $accent_color  = dfn_get_setting( 'email_accent_color', '#c69c3a' );
+    $text_color    = dfn_get_setting( 'email_text_color', '#2d3748' );
     $white         = '#ffffff';
 
     ob_start();
@@ -156,15 +166,15 @@ function dfn_get_email_html_template( $title, $content_html ) {
     <body>
         <div class="email-container">
             <div class="email-header">
-                <h1>FAI Novara</h1>
+                <h1><?php echo esc_html( dfn_get_setting( 'delegation_name', 'FAI Novara' ) ); ?></h1>
             </div>
             <div class="email-body">
                 <h2 style="color: <?php echo esc_attr( $primary_color ); ?>; margin-top: 0; margin-bottom: 20px; font-size: 20px;"><?php echo esc_html( $title ); ?></h2>
                 <?php echo $content_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </div>
             <div class="email-footer">
-                <p style="font-size: 11px; margin-bottom: 5px;">FAI - Delegazione di Novara &copy; <?php echo esc_html( date( 'Y' ) ); ?></p>
-                <p style="font-size: 10px;">Questa è un'email automatica inviata dal sistema di prenotazione. Si prega di non rispondere direttamente.</p>
+                <p style="font-size: 11px; margin-bottom: 5px;"><?php echo esc_html( dfn_get_setting( 'delegation_footer', 'FAI - Delegazione di Novara' ) ); ?> &copy; <?php echo esc_html( date( 'Y' ) ); ?></p>
+                <p style="font-size: 10px;"><?php echo esc_html( dfn_get_setting( 'email_disclaimer', "Questa è un'email automatica inviata dal sistema di prenotazione. Si prega di non rispondere direttamente." ) ); ?></p>
             </div>
         </div>
     </body>
@@ -371,6 +381,50 @@ function dfn_send_booking_cancellation( int $booking_id ) {
     $content .= '<p>Speriamo di poterti accogliere in uno dei nostri prossimi eventi FAI.</p>';
 
     return dfn_send_notification_email( $booking->customer_email, $subject, 'Prenotazione Annullata', $content );
+}
+
+/**
+ * Invia email di notifica cancellazione prenotazione da parte dell'amministratore/staff.
+ *
+ * Utilizzata quando lo staff cancella manualmente una prenotazione dal pannello
+ * "Gestione Turni". Il testo è differente rispetto alla cancellazione autonoma
+ * del visitatore e da quella per scadenza automatica.
+ *
+ * @param int $booking_id ID della prenotazione.
+ * @return bool
+ */
+function dfn_send_booking_admin_cancellation( int $booking_id ): bool {
+    global $wpdb;
+    $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id ) );
+    if ( ! $booking ) return false;
+
+    $event = dfn_db_get_event( $booking->event_id );
+    if ( ! $event ) return false;
+
+    $product_name = get_the_title( $event->product_id );
+    $subject = 'Prenotazione Annullata dallo Staff: ' . $product_name;
+
+    $content = '<p>Gentile <strong>' . esc_html( $booking->customer_name ) . '</strong>,</p>';
+    $content .= '<p>Ti informiamo che la tua prenotazione per l\'evento <strong>' . esc_html( $product_name ) . '</strong> è stata <strong>annullata dal nostro staff</strong>.</p>';
+    $content .= '<p>Se hai domande o desideri chiarimenti, ti invitiamo a contattarci rispondendo a questa email o telefonicamente.</p>';
+
+    $content .= '<div class="info-box">';
+    $content .= '<div class="info-box-title">Riepilogo Annullamento</div>';
+    $content .= '<table>';
+    $content .= '<tr><td class="label">Evento:</td><td>' . esc_html( $product_name ) . '</td></tr>';
+    $content .= '<tr><td class="label">Data Prenotata:</td><td>' . date_i18n( 'd F Y', strtotime( $event->event_date_start ) ) . '</td></tr>';
+    $content .= '<tr><td class="label">Partecipanti:</td><td>' . absint( $booking->total_persons ) . ' totali</td></tr>';
+    $content .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#e53e3e;">ANNULLATA DALLO STAFF</td></tr>';
+    $content .= '</table>';
+    $content .= '</div>';
+
+    if ( $booking->payment_method !== 'dfn_in_loco' && (float) $booking->amount_paid > 0 ) {
+        $content .= '<p>Qualora tu abbia già effettuato un pagamento online, ti sarà emesso un rimborso integrale nel più breve tempo possibile.</p>';
+    }
+
+    $content .= '<p>Speriamo di poterti accogliere in uno dei nostri prossimi eventi FAI.</p>';
+
+    return dfn_send_notification_email( $booking->customer_email, $subject, 'Prenotazione Annullata dallo Staff', $content );
 }
 
 /**
@@ -603,13 +657,18 @@ function dfn_send_admin_new_booking_notification( int $booking_id ) {
     $product_name = get_the_title( $event->product_id );
     $subject = 'Nuova Prenotazione: ' . $booking->customer_name . ' - ' . $product_name;
 
-    $admin_email = get_option( 'admin_email' );
+    // Se la notifica admin è disabilitata, non inviamo l'email
+    if ( dfn_get_setting( 'enable_admin_notification', 'yes' ) !== 'yes' ) {
+        return true;
+    }
+
+    $admin_email = dfn_get_setting( 'email_new_booking', get_option( 'admin_email' ) );
 
     $content = '<p>Gentile Amministratore,</p>';
     $content .= '<p>Ti notifichiamo che è stata registrata una nuova prenotazione per l\'evento <strong>' . esc_html( $product_name ) . '</strong>.</p>';
 
-    $content .= '<div class="info-box" style="border-left: 4px solid #004b23; background-color: #f7fafc;">';
-    $content .= '<div class="info-box-title" style="color: #004b23;">Dettagli Visitatore</div>';
+    $content .= '<div class="info-box" style="border-left: 4px solid ' . esc_attr( dfn_get_setting( 'email_primary_color', '#004b23' ) ) . '; background-color: #f7fafc;">';
+    $content .= '<div class="info-box-title" style="color: ' . esc_attr( dfn_get_setting( 'email_primary_color', '#004b23' ) ) . ';">Dettagli Visitatore</div>';
     $content .= '<table>';
     $content .= '<tr><td class="label" style="font-weight:bold; color:#4a5568; width:140px;">Nome:</td><td>' . esc_html( $booking->customer_name ) . '</td></tr>';
     $content .= '<tr><td class="label" style="font-weight:bold; color:#4a5568; width:140px;">Email:</td><td>' . esc_html( $booking->customer_email ) . '</td></tr>';
@@ -636,5 +695,38 @@ function dfn_send_admin_new_booking_notification( int $booking_id ) {
     $content .= '<div class="text-center"><a href="' . esc_url( $order_url ) . '" class="button">Visualizza Ordine in WordPress</a></div>';
 
     return dfn_send_notification_email( $admin_email, $subject, 'Notifica Nuova Prenotazione', $content );
+}
+
+/**
+ * Invia una notifica all'amministratore per una tessera FAI che richiede verifica.
+ *
+ * @param string $card_number Numero della tessera.
+ * @param string $first_name  Nome del titolare.
+ * @param string $last_name   Cognome del titolare.
+ * @param string $email       Email del titolare.
+ * @return bool
+ */
+function dfn_notify_admin_unverified_fai_card( $card_number, $first_name, $last_name, $email = '' ) {
+    $to = dfn_get_setting( 'email_verify_fai', get_option( 'admin_email' ) );
+    $subject = 'Tessera FAI da Verificare: ' . $card_number;
+
+    $content = '<p>Gentile Amministratore,</p>';
+    $content .= '<p>È stata inserita nel sistema una nuova tessera FAI che richiede la <strong>verifica manuale</strong> dello stato di iscrizione.</p>';
+    $content .= '<div class="info-box" style="border-left: 4px solid ' . esc_attr( dfn_get_setting( 'email_accent_color', '#c69c3a' ) ) . '; background-color: #f7fafc;">';
+    $content .= '<div class="info-box-title" style="color: ' . esc_attr( dfn_get_setting( 'email_primary_color', '#004b23' ) ) . ';">Dettagli Tessera</div>';
+    $content .= '<table>';
+    $content .= '<tr><td class="label">Numero Tessera:</td><td><strong>' . esc_html( $card_number ) . '</strong></td></tr>';
+    $content .= '<tr><td class="label">Titolare:</td><td>' . esc_html( $first_name . ' ' . $last_name ) . '</td></tr>';
+    if ( ! empty( $email ) ) {
+        $content .= '<tr><td class="label">Email:</td><td>' . esc_html( $email ) . '</td></tr>';
+    }
+    $content .= '</table>';
+    $content .= '</div>';
+    
+    $admin_url = admin_url( 'admin.php?page=dfn-fai-members' );
+    $content .= '<p>Puoi approvare o modificare la tessera direttamente nella sezione anagrafica.</p>';
+    $content .= '<div class="text-center"><a href="' . esc_url( $admin_url ) . '" class="button">Gestisci Soci FAI</a></div>';
+
+    return dfn_send_notification_email( $to, $subject, 'Verifica Tessera FAI', $content );
 }
 

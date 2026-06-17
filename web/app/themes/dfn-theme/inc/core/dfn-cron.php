@@ -42,6 +42,37 @@ function dfn_rimuovi_cron_jobs(): void {
 add_action( 'dfn_cron_hourly_maintenance', 'dfn_run_hourly_maintenance' );
 
 /**
+ * BLOCCO CANCELLAZIONE NATIVA WOOCOMMERCE
+ *
+ * WooCommerce esegue `wc_cancel_unpaid_orders()` ogni `hold_stock_minutes` (default 1440 min = 24h)
+ * tramite Action Scheduler/WP-Cron e cancella tutti gli ordini "pending" indiscriminatamente.
+ * Questo filtro intercetta quella logica e la blocca per tutti gli ordini che hanno
+ * una prenotazione DFN associata, lasciando la gestione interamente al nostro cron personalizzato.
+ *
+ * - Se auto_cancel_hours = 0 → blocca sempre (pagamento in loco, nessuna scadenza).
+ * - Se auto_cancel_hours > 0 → blocca comunque, perché ci penserà dfn_cron_annulla_ordini_scaduti().
+ * - Se non c'è booking DFN → lascia passare il comportamento standard di WooCommerce.
+ */
+add_filter( 'woocommerce_cancel_unpaid_order', 'dfn_blocca_cancellazione_wc_nativa', 10, 2 );
+function dfn_blocca_cancellazione_wc_nativa( bool $should_cancel, WC_Order $order ): bool {
+    // Se WooCommerce non aveva intenzione di cancellarlo, non tocchiamo nulla
+    if ( ! $should_cancel ) {
+        return false;
+    }
+
+    $order_id = $order->get_id();
+    $booking  = dfn_db_get_booking_by_order( $order_id );
+
+    // Nessun booking DFN: lasciamo fare a WooCommerce il suo lavoro normale
+    if ( ! $booking ) {
+        return $should_cancel;
+    }
+
+    // C'è un booking DFN: blocchiamo WooCommerce e gestiamo noi tramite il nostro cron
+    return false;
+}
+
+/**
  * Funzione principale che esegue tutte le operazioni orarie.
  */
 function dfn_run_hourly_maintenance(): void {
@@ -67,7 +98,7 @@ function dfn_cron_annulla_ordini_scaduti(): void {
     // Recupera ordini in stato pending (senza filtro tempo fisso)
     $args = array(
         'status' => 'pending',
-        'limit'  => 30,
+        'limit'  => intval( dfn_get_setting( 'cron_batch_expired', 30 ) ),
     );
     $orders = wc_get_orders( $args );
 
@@ -81,10 +112,11 @@ function dfn_cron_annulla_ordini_scaduti(): void {
         // Trova il booking e l'evento associato all'ordine
         $booking = dfn_db_get_booking_by_order( $order_id );
         if ( ! $booking ) {
-            // Ordine senza booking DFN: applica il vecchio comportamento (24h)
+            // Ordine senza booking DFN: applica il vecchio comportamento configurabile
             $created_ts = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
-            if ( $created_ts > 0 && time() > ( $created_ts + 24 * HOUR_IN_SECONDS ) ) {
-                $order->update_status( 'cancelled', __( '⏰ Ordine annullato automaticamente: scaduto il termine di 24 ore per il pagamento online.', 'dfn-theme' ) );
+            $timeout_no_booking = intval( dfn_get_setting( 'cron_timeout_no_booking', 24 ) );
+            if ( $created_ts > 0 && time() > ( $created_ts + $timeout_no_booking * HOUR_IN_SECONDS ) ) {
+                $order->update_status( 'cancelled', sprintf( __( '⏰ Ordine annullato automaticamente: scaduto il termine di %d ore per il pagamento online.', 'dfn-theme' ), $timeout_no_booking ) );
             }
             continue;
         }
@@ -130,6 +162,15 @@ function dfn_cron_annulla_ordini_scaduti(): void {
 add_action( 'woocommerce_order_status_cancelled', 'dfn_email_cliente_ordine_scaduto', 10, 2 );
 function dfn_email_cliente_ordine_scaduto( $order_id, $order ) {
     if ( ! $order ) {
+        return;
+    }
+
+    // Se l'ordine è stato cancellato dall'amministratore via Gestione Turni, invia l'email specifica
+    if ( 'yes' === $order->get_meta( '_dfn_admin_cancelled' ) ) {
+        $booking = dfn_db_get_booking_by_order( $order_id );
+        if ( $booking ) {
+            dfn_send_booking_admin_cancellation( $booking->id );
+        }
         return;
     }
 
@@ -226,6 +267,10 @@ function dfn_email_cliente_ordine_scaduto( $order_id, $order ) {
 function dfn_cron_invia_promemoria_24h(): void {
     global $wpdb;
 
+    if ( dfn_get_setting( 'enable_reminder_24h', 'yes' ) !== 'yes' ) {
+        return;
+    }
+
     if ( get_transient( 'dfn_reminder_cron_lock' ) ) {
         return;
     }
@@ -238,9 +283,13 @@ function dfn_cron_invia_promemoria_24h(): void {
     $table_bs       = $wpdb->prefix . 'dfn_booking_slots';
     $table_events   = $wpdb->prefix . 'dfn_events';
 
+    $reminder_start = intval( dfn_get_setting( 'cron_reminder_start', 12 ) );
+    $reminder_end   = intval( dfn_get_setting( 'cron_reminder_end', 36 ) );
+    $batch_reminder = intval( dfn_get_setting( 'cron_batch_reminder', 20 ) );
+
     $now = current_time( 'mysql' );
-    $target_time_start = date( 'Y-m-d H:i:s', time() + 12 * HOUR_IN_SECONDS );
-    $target_time_end   = date( 'Y-m-d H:i:s', time() + 36 * HOUR_IN_SECONDS );
+    $target_time_start = date( 'Y-m-d H:i:s', time() + $reminder_start * HOUR_IN_SECONDS );
+    $target_time_end   = date( 'Y-m-d H:i:s', time() + $reminder_end * HOUR_IN_SECONDS );
 
     // 1. Trova le prenotazioni con slot orari definiti nelle prossime 24-36 ore
     $query_slots = $wpdb->prepare(
@@ -252,9 +301,10 @@ function dfn_cron_invia_promemoria_24h(): void {
            AND b.id NOT IN (
                SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_dfn_reminder_sent' AND meta_value = 'yes'
            )
-         LIMIT 20",
+         LIMIT %d",
         $target_time_start,
-        $target_time_end
+        $target_time_end,
+        $batch_reminder
     );
     $bookings_slots = $wpdb->get_col( $query_slots );
 
@@ -268,9 +318,10 @@ function dfn_cron_invia_promemoria_24h(): void {
            AND b.id NOT IN (
                SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_dfn_reminder_sent' AND meta_value = 'yes'
            )
-         LIMIT 20",
+         LIMIT %d",
         $target_time_start,
-        $target_time_end
+        $target_time_end,
+        $batch_reminder
     );
     $bookings_free = $wpdb->get_col( $query_free );
 
@@ -345,7 +396,8 @@ function dfn_cron_gestisci_scadenza_waitlist(): void {
         ) );
 
         if ( $next_in_queue ) {
-            $ttl_limit = date( 'Y-m-d H:i:s', time() + 2 * HOUR_IN_SECONDS ); // 2 ore di priorità
+            $waitlist_ttl = intval( dfn_get_setting( 'cron_waitlist_ttl', 2 ) );
+            $ttl_limit = date( 'Y-m-d H:i:s', time() + $waitlist_ttl * HOUR_IN_SECONDS ); // TTL di priorità configurabile
 
             $wpdb->update(
                 $table_waitlist,

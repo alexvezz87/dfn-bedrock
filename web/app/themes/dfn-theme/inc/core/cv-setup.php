@@ -103,7 +103,7 @@ add_filter('woocommerce_account_menu_items', 'cv_rimuovi_voci_menu_account');
 function cv_rimuovi_voci_menu_account($items)
 {
     unset($items['downloads'], $items['edit-address'], $items['payment-methods']);
-    if (isset($items['orders'])) $items['orders'] = 'I Miei Biglietti';
+    if (isset($items['orders'])) $items['orders'] = 'Le Mie Prenotazioni';
 
     $nuovo_menu = array();
     foreach ($items as $key => $value) {

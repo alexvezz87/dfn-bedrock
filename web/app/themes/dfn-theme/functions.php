@@ -33,6 +33,7 @@ require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';
 
 // Admin / Gestione
 require_once get_stylesheet_directory() . '/inc/admin/dfn-events-manager.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-settings.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-event-editor.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-slot-manager.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-scanner.php';
