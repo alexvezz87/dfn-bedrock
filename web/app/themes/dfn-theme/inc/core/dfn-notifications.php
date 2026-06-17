@@ -36,6 +36,12 @@ function dfn_send_notification_email( $to, $subject, $title, $content_html, $att
         }
     }
 
+    // Se $to contiene virgole, lo convertiamo in array per wp_mail
+    if ( is_string( $to ) && strpos( $to, ',' ) !== false ) {
+        $to = array_map( 'sanitize_email', array_map( 'trim', explode( ',', $to ) ) );
+        $to = array_filter( $to, 'is_email' );
+    }
+
     // Genera il template HTML completo
     $body = dfn_get_email_html_template( $title, $content_html );
 

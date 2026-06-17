@@ -54,8 +54,8 @@ function dfn_settings_save_fields(): void {
         'email_staff_signature'       => 'sanitize_text_field',
 
         // Tab Email & Notifiche
-        'email_new_booking'           => 'sanitize_email',
-        'email_verify_fai'            => 'sanitize_email',
+        'email_new_booking'           => 'sanitize_email_list',
+        'email_verify_fai'            => 'sanitize_email_list',
         'email_cc_bcc'                => 'sanitize_text_field',
         'email_primary_color'         => 'sanitize_hex_color',
         'email_accent_color'          => 'sanitize_hex_color',
@@ -99,8 +99,10 @@ function dfn_settings_save_fields(): void {
                 $new_settings[$key] = absint( $val );
             } elseif ( $sanitize_func === 'sanitize_hex_color' ) {
                 $new_settings[$key] = sanitize_hex_color( $val );
-            } elseif ( $sanitize_func === 'sanitize_email' ) {
-                $new_settings[$key] = sanitize_email( $val );
+            } elseif ( $sanitize_func === 'sanitize_email_list' ) {
+                $emails = array_map( 'sanitize_email', array_map( 'trim', explode( ',', $val ) ) );
+                $emails = array_filter( $emails );
+                $new_settings[$key] = implode( ', ', $emails );
             } elseif ( $sanitize_func === 'sanitize_textarea_field' ) {
                 $new_settings[$key] = sanitize_textarea_field( $val );
             } else {
@@ -238,15 +240,15 @@ function dfn_render_settings_page(): void {
                             <tr>
                                 <th scope="row"><label for="email_new_booking">Email Notifica Nuove Prenotazioni</label></th>
                                 <td>
-                                    <input name="dfn_settings[email_new_booking]" type="email" id="email_new_booking" value="<?php echo esc_attr( dfn_get_setting( 'email_new_booking' ) ); ?>" class="regular-text" />
-                                    <p class="description"><strong>Comportamento:</strong> L'indirizzo e-mail che riceverà un avviso automatico ogni volta che viene completata con successo una nuova prenotazione da parte di un cliente.</p>
+                                    <input name="dfn_settings[email_new_booking]" type="text" id="email_new_booking" value="<?php echo esc_attr( dfn_get_setting( 'email_new_booking' ) ); ?>" class="regular-text" />
+                                    <p class="description"><strong>Comportamento:</strong> Gli indirizzi e-mail (separati da virgola se multipli) che riceveranno un avviso automatico ogni volta che viene completata con successo una nuova prenotazione da parte di un cliente.</p>
                                 </td>
                             </tr>
                             <tr>
                                 <th scope="row"><label for="email_verify_fai">Email Notifica Tessere FAI da Verificare</label></th>
                                 <td>
-                                    <input name="dfn_settings[email_verify_fai]" type="email" id="email_verify_fai" value="<?php echo esc_attr( dfn_get_setting( 'email_verify_fai' ) ); ?>" class="regular-text" />
-                                    <p class="description"><strong>Comportamento:</strong> L'indirizzo a cui inviare una notifica di avviso immediato quando un utente si iscrive o prenota inserendo un codice tessera FAI che richiede una convalida manuale in amministrazione.</p>
+                                    <input name="dfn_settings[email_verify_fai]" type="text" id="email_verify_fai" value="<?php echo esc_attr( dfn_get_setting( 'email_verify_fai' ) ); ?>" class="regular-text" />
+                                    <p class="description"><strong>Comportamento:</strong> Gli indirizzi e-mail (separati da virgola se multipli) a cui inviare una notifica di avviso immediato quando un utente si iscrive o prenota inserendo un codice tessera FAI che richiede una convalida manuale in amministrazione.</p>
                                 </td>
                             </tr>
                             <tr>
