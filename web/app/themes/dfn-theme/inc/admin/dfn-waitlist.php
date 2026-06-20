@@ -80,14 +80,17 @@ function dfn_render_waitlist_page(): void
 
                         $order->add_product($product, intval($entry->persons));
 
-                        // Se ci sono tessere scomputa la fee FAI
+                        // Se ci sono tessere scomputa/adegua la fee FAI
                         $fai_cards = intval($entry->fai_cards);
                         if ($fai_cards > 0 && $event) {
                             $discount_unit = floatval($event->price_standard) - floatval($event->price_fai);
-                            if ($discount_unit > 0) {
+                            if ($discount_unit !== 0.00) {
                                 $total_discount = $fai_cards * $discount_unit;
                                 $fee = new \WC_Order_Item_Fee();
-                                $fee->set_name(sprintf(__('Sconto Soci FAI (%d tessere)', 'dfn-theme'), $fai_cards));
+                                $fee_name = $total_discount > 0.00
+                                    ? sprintf(__('Sconto Soci FAI (%d tessere)', 'dfn-theme'), $fai_cards)
+                                    : sprintf(__('Adeguamento Soci FAI (%d tessere)', 'dfn-theme'), $fai_cards);
+                                $fee->set_name($fee_name);
                                 $fee->set_amount((string) -$total_discount);
                                 $fee->set_total((string) -$total_discount);
                                 $order->add_item($fee);

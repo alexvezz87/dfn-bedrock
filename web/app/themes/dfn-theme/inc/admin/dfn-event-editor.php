@@ -67,124 +67,129 @@ function dfn_render_event_editor()
             $status            = sanitize_text_field($_POST['status']);
             $auto_cancel_hours = intval($_POST['auto_cancel_hours']);
 
-            $product_id = 0;
-            if ($product_id_raw === 'new') {
-                $event_title = isset($_POST['event_title']) ? sanitize_text_field($_POST['event_title']) : '';
-                if (empty($event_title)) {
-                    $event_title = 'Evento FAI - ' . date_i18n('d M Y', strtotime($event_date_start));
-                }
-
-                // Crea il post del prodotto
-                $new_prod_id = wp_insert_post([
-                    'post_title'   => $event_title,
-                    'post_status'  => 'publish',
-                    'post_type'    => 'product',
-                    'post_content' => sprintf(__('Prenotazione biglietti per l\'evento: %s.', 'dfn-theme'), $event_title),
-                ]);
-
-                if (! is_wp_error($new_prod_id) && $new_prod_id > 0) {
-                    $product_id = $new_prod_id;
-
-                    // Assegna tipo simple
-                    wp_set_object_terms($product_id, 'simple', 'product_type');
-
-                    // Configura metadati del prodotto
-                    update_post_meta($product_id, '_visibility', 'visible');
-                    update_post_meta($product_id, '_stock_status', 'instock');
-                    update_post_meta($product_id, '_virtual', 'yes');
-                    update_post_meta($product_id, '_regular_price', $price_standard);
-                    update_post_meta($product_id, '_price', $price_standard);
-                    update_post_meta($product_id, '_manage_stock', 'yes');
-
-                    // Calcola lo stock totale
-                    $total_stock = 0;
-                    if ('time_slots' === $access_type) {
-                        $first = strtotime($first_slot_time);
-                        $last  = strtotime($last_slot_time);
-                        $dur   = $slot_duration > 0 ? $slot_duration : 30;
-                        $slots_per_day = 1;
-                        if ($first && $last && $last > $first) {
-                            $slots_per_day = floor(($last - $first) / ($dur * 60)) + 1;
-                        }
-                        $days = 1;
-                        $start_ts = strtotime($event_date_start);
-                        $end_ts   = strtotime($event_date_end);
-                        if ($start_ts && $end_ts && $end_ts > $start_ts) {
-                            $days = floor(($end_ts - $start_ts) / DAY_IN_SECONDS) + 1;
-                        }
-                        $total_stock = $slot_capacity * $slots_per_day * $days;
-                    } else {
-                        $total_stock = $total_capacity;
+            if ($price_fai > $price_standard) {
+                $message = __('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme');
+                $message_type = 'error';
+            } else {
+                $product_id = 0;
+                if ($product_id_raw === 'new') {
+                    $event_title = isset($_POST['event_title']) ? sanitize_text_field($_POST['event_title']) : '';
+                    if (empty($event_title)) {
+                        $event_title = 'Evento FAI - ' . date_i18n('d M Y', strtotime($event_date_start));
                     }
-                    update_post_meta($product_id, '_stock', $total_stock);
-                }
-            } else {
-                $product_id = intval($product_id_raw);
-            }
 
-            // Associa l'immagine in evidenza al prodotto WooCommerce
-            if ($product_id > 0) {
-                $image_id = isset($_POST['dfn_event_image_id']) ? intval($_POST['dfn_event_image_id']) : 0;
-                if ($image_id > 0) {
-                    set_post_thumbnail($product_id, $image_id);
+                    // Crea il post del prodotto
+                    $new_prod_id = wp_insert_post([
+                        'post_title'   => $event_title,
+                        'post_status'  => 'publish',
+                        'post_type'    => 'product',
+                        'post_content' => sprintf(__('Prenotazione biglietti per l\'evento: %s.', 'dfn-theme'), $event_title),
+                    ]);
+
+                    if (! is_wp_error($new_prod_id) && $new_prod_id > 0) {
+                        $product_id = $new_prod_id;
+
+                        // Assegna tipo simple
+                        wp_set_object_terms($product_id, 'simple', 'product_type');
+
+                        // Configura metadati del prodotto
+                        update_post_meta($product_id, '_visibility', 'visible');
+                        update_post_meta($product_id, '_stock_status', 'instock');
+                        update_post_meta($product_id, '_virtual', 'yes');
+                        update_post_meta($product_id, '_regular_price', $price_standard);
+                        update_post_meta($product_id, '_price', $price_standard);
+                        update_post_meta($product_id, '_manage_stock', 'yes');
+
+                        // Calcola lo stock totale
+                        $total_stock = 0;
+                        if ('time_slots' === $access_type) {
+                            $first = strtotime($first_slot_time);
+                            $last  = strtotime($last_slot_time);
+                            $dur   = $slot_duration > 0 ? $slot_duration : 30;
+                            $slots_per_day = 1;
+                            if ($first && $last && $last > $first) {
+                                $slots_per_day = floor(($last - $first) / ($dur * 60)) + 1;
+                            }
+                            $days = 1;
+                            $start_ts = strtotime($event_date_start);
+                            $end_ts   = strtotime($event_date_end);
+                            if ($start_ts && $end_ts && $end_ts > $start_ts) {
+                                $days = floor(($end_ts - $start_ts) / DAY_IN_SECONDS) + 1;
+                            }
+                            $total_stock = $slot_capacity * $slots_per_day * $days;
+                        } else {
+                            $total_stock = $total_capacity;
+                        }
+                        update_post_meta($product_id, '_stock', $total_stock);
+                    }
                 } else {
-                    set_post_thumbnail($product_id, 2223);
+                    $product_id = intval($product_id_raw);
                 }
 
-                // Associa la galleria al prodotto WooCommerce
-                $gallery_ids = isset($_POST['dfn_event_gallery_ids']) ? sanitize_text_field($_POST['dfn_event_gallery_ids']) : '';
-                update_post_meta($product_id, '_product_image_gallery', $gallery_ids);
-            }
+                // Associa l'immagine in evidenza al prodotto WooCommerce
+                if ($product_id > 0) {
+                    $image_id = isset($_POST['dfn_event_image_id']) ? intval($_POST['dfn_event_image_id']) : 0;
+                    if ($image_id > 0) {
+                        set_post_thumbnail($product_id, $image_id);
+                    } else {
+                        set_post_thumbnail($product_id, 2223);
+                    }
 
-            $data = [
-                'product_id'        => $product_id,
-                'event_date_start'  => $event_date_start,
-                'event_date_end'    => $event_date_end,
-                'event_time_start'  => $event_time_start,
-                'event_time_end'    => $event_time_end,
-                'location'          => $location,
-                'description'       => $description,
-                'access_type'       => $access_type,
-                'allocation_mode'   => $allocation_mode,
-                'approval_workflow' => $approval_workflow,
-                'payment_mode'      => $payment_mode,
-                'auto_cancel_hours' => $auto_cancel_hours,
-                'slot_duration'     => $slot_duration,
-                'slot_capacity'     => $slot_capacity,
-                'slot_bonus'        => $slot_bonus,
-                'first_slot_time'   => $first_slot_time,
-                'last_slot_time'    => $last_slot_time,
-                'total_capacity'    => $total_capacity,
-                'price_standard'    => $price_standard,
-                'price_fai'         => $price_fai,
-                'staff_config'      => $staff_config,
-                'status'            => $status,
-            ];
-
-            $format = [
-                '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
-                '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s',
-            ];
-
-            if ($event_id > 0) {
-                // Modifica
-                $wpdb->update($table_events, $data, [ 'id' => $event_id ], $format, [ '%d' ]);
-                $message = __('Evento aggiornato con successo nel database.', 'dfn-theme');
-            } else {
-                // Inserimento
-                $wpdb->insert($table_events, $data, $format);
-                $event_id = $wpdb->insert_id;
-                $message = __('Nuovo evento creato con successo!', 'dfn-theme');
-
-                // Genera gli slot iniziali se previsto
-                if ('time_slots' === $access_type) {
-                    dfn_db_generate_slots_for_event($event_id);
+                    // Associa la galleria al prodotto WooCommerce
+                    $gallery_ids = isset($_POST['dfn_event_gallery_ids']) ? sanitize_text_field($_POST['dfn_event_gallery_ids']) : '';
+                    update_post_meta($product_id, '_product_image_gallery', $gallery_ids);
                 }
-            }
 
-            // Reindirizza al tabellone principale con messaggio di successo
-            wp_safe_redirect(admin_url('admin.php?page=dfn-events&action=saved&event_id=' . $event_id));
-            exit;
+                $data = [
+                    'product_id'        => $product_id,
+                    'event_date_start'  => $event_date_start,
+                    'event_date_end'    => $event_date_end,
+                    'event_time_start'  => $event_time_start,
+                    'event_time_end'    => $event_time_end,
+                    'location'          => $location,
+                    'description'       => $description,
+                    'access_type'       => $access_type,
+                    'allocation_mode'   => $allocation_mode,
+                    'approval_workflow' => $approval_workflow,
+                    'payment_mode'      => $payment_mode,
+                    'auto_cancel_hours' => $auto_cancel_hours,
+                    'slot_duration'     => $slot_duration,
+                    'slot_capacity'     => $slot_capacity,
+                    'slot_bonus'        => $slot_bonus,
+                    'first_slot_time'   => $first_slot_time,
+                    'last_slot_time'    => $last_slot_time,
+                    'total_capacity'    => $total_capacity,
+                    'price_standard'    => $price_standard,
+                    'price_fai'         => $price_fai,
+                    'staff_config'      => $staff_config,
+                    'status'            => $status,
+                ];
+
+                $format = [
+                    '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
+                    '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s',
+                ];
+
+                if ($event_id > 0) {
+                    // Modifica
+                    $wpdb->update($table_events, $data, [ 'id' => $event_id ], $format, [ '%d' ]);
+                    $message = __('Evento aggiornato con successo nel database.', 'dfn-theme');
+                } else {
+                    // Inserimento
+                    $wpdb->insert($table_events, $data, $format);
+                    $event_id = $wpdb->insert_id;
+                    $message = __('Nuovo evento creato con successo!', 'dfn-theme');
+
+                    // Genera gli slot iniziali se previsto
+                    if ('time_slots' === $access_type) {
+                        dfn_db_generate_slots_for_event($event_id);
+                    }
+                }
+
+                // Reindirizza al tabellone principale con messaggio di successo
+                wp_safe_redirect(admin_url('admin.php?page=dfn-events&action=saved&event_id=' . $event_id));
+                exit;
+            }
         } else {
             $message = __('Errore di sicurezza durante il salvataggio dei dati.', 'dfn-theme');
             $message_type = 'error';
@@ -200,29 +205,31 @@ function dfn_render_event_editor()
         'order'          => 'ASC',
     ]);
 
-    // Valori di default per un nuovo evento
-    $p_id             = $event ? $event->product_id : 0;
-    $date_start       = $event ? $event->event_date_start : '';
-    $date_end         = $event ? $event->event_date_end : '';
-    $time_start       = $event ? $event->event_time_start : '';
-    $time_end         = $event ? $event->event_time_end : '';
-    $loc              = $event ? $event->location : '';
-    $desc             = $event ? $event->description : '';
-    $acc_type         = $event ? $event->access_type : 'time_slots';
-    $alloc_mode       = $event ? $event->allocation_mode : 'automatic';
-    $app_wf           = $event ? $event->approval_workflow : 'auto';
-    $pay_mode         = $event ? $event->payment_mode : 'online';
-    $duration         = $event ? $event->slot_duration : 30;
-    $capacity         = $event ? $event->slot_capacity : 20;
-    $bonus            = $event ? $event->slot_bonus : 5;
-    $first_slot       = $event ? $event->first_slot_time : '10:00:00';
-    $last_slot        = $event ? $event->last_slot_time : '18:00:00';
-    $tot_cap          = $event ? $event->total_capacity : 100;
-    $price_std        = $event ? $event->price_standard : 10.00;
-    $price_fai_member = $event ? $event->price_fai : 5.00;
-    $staff            = $event ? $event->staff_config : '';
-    $stat             = $event ? $event->status : 'draft';
-    $auto_cancel      = $event ? (int) $event->auto_cancel_hours : 24;
+    // Valori di default per un nuovo evento o caricati da POST in caso di errore
+    $is_post = ($_SERVER['REQUEST_METHOD'] === 'POST');
+
+    $p_id             = $is_post && isset($_POST['product_id']) ? sanitize_text_field($_POST['product_id']) : ($event ? $event->product_id : 0);
+    $date_start       = $is_post && isset($_POST['event_date_start']) ? sanitize_text_field($_POST['event_date_start']) : ($event ? $event->event_date_start : '');
+    $date_end         = $is_post && isset($_POST['event_date_end']) ? sanitize_text_field($_POST['event_date_end']) : ($event ? $event->event_date_end : '');
+    $time_start       = $is_post && isset($_POST['event_time_start']) ? sanitize_text_field($_POST['event_time_start']) : ($event ? $event->event_time_start : '');
+    $time_end         = $is_post && isset($_POST['event_time_end']) ? sanitize_text_field($_POST['event_time_end']) : ($event ? $event->event_time_end : '');
+    $loc              = $is_post && isset($_POST['location']) ? sanitize_textarea_field($_POST['location']) : ($event ? $event->location : '');
+    $desc             = $is_post && isset($_POST['description']) ? sanitize_textarea_field($_POST['description']) : ($event ? $event->description : '');
+    $acc_type         = $is_post && isset($_POST['access_type']) ? sanitize_text_field($_POST['access_type']) : ($event ? $event->access_type : 'time_slots');
+    $alloc_mode       = $is_post && isset($_POST['allocation_mode']) ? sanitize_text_field($_POST['allocation_mode']) : ($event ? $event->allocation_mode : 'automatic');
+    $app_wf           = $is_post && isset($_POST['approval_workflow']) ? sanitize_text_field($_POST['approval_workflow']) : ($event ? $event->approval_workflow : 'auto');
+    $pay_mode         = $is_post && isset($_POST['payment_mode']) ? sanitize_text_field($_POST['payment_mode']) : ($event ? $event->payment_mode : 'online');
+    $duration         = $is_post && isset($_POST['slot_duration']) ? intval($_POST['slot_duration']) : ($event ? $event->slot_duration : 30);
+    $capacity         = $is_post && isset($_POST['slot_capacity']) ? intval($_POST['slot_capacity']) : ($event ? $event->slot_capacity : 20);
+    $bonus            = $is_post && isset($_POST['slot_bonus']) ? intval($_POST['slot_bonus']) : ($event ? $event->slot_bonus : 5);
+    $first_slot       = $is_post && isset($_POST['first_slot_time']) ? sanitize_text_field($_POST['first_slot_time']) : ($event ? $event->first_slot_time : '10:00:00');
+    $last_slot        = $is_post && isset($_POST['last_slot_time']) ? sanitize_text_field($_POST['last_slot_time']) : ($event ? $event->last_slot_time : '18:00:00');
+    $tot_cap          = $is_post && isset($_POST['total_capacity']) ? intval($_POST['total_capacity']) : ($event ? $event->total_capacity : 100);
+    $price_std        = $is_post && isset($_POST['price_standard']) ? floatval($_POST['price_standard']) : ($event ? $event->price_standard : 10.00);
+    $price_fai_member = $is_post && isset($_POST['price_fai']) ? floatval($_POST['price_fai']) : ($event ? $event->price_fai : 5.00);
+    $staff            = $is_post && isset($_POST['staff_config']) ? sanitize_textarea_field($_POST['staff_config']) : ($event ? $event->staff_config : '');
+    $stat             = $is_post && isset($_POST['status']) ? sanitize_text_field($_POST['status']) : ($event ? $event->status : 'draft');
+    $auto_cancel      = $is_post && isset($_POST['auto_cancel_hours']) ? intval($_POST['auto_cancel_hours']) : ($event ? (int) $event->auto_cancel_hours : 24);
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header">
@@ -603,6 +610,22 @@ function dfn_event_editor_auto_cancel_js()
                 helpText.textContent = helpTexts[mode];
             }
         });
+        // Validation: price_fai cannot be higher than price_standard
+        var priceStandard = document.getElementById('price_standard');
+        var priceFai = document.getElementById('price_fai');
+        var form = document.querySelector('.dfn-editor-form');
+
+        if (form && priceStandard && priceFai) {
+            form.addEventListener('submit', function(e) {
+                var stdVal = parseFloat(priceStandard.value) || 0;
+                var faiVal = parseFloat(priceFai.value) || 0;
+                if (faiVal > stdVal) {
+                    e.preventDefault();
+                    alert('<?php echo esc_js(__('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme')); ?>');
+                    priceFai.focus();
+                }
+            });
+        }
     })();
     </script>
     <?php

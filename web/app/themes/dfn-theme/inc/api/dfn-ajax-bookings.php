@@ -808,15 +808,18 @@ function dfn_ajax_create_direct_booking(): void
         $order->set_customer_note($notes);
         $order->set_payment_method('dfn_in_loco');
 
-        // Applica sconto Soci FAI se presente
+        // Applica sconto/adeguamento Soci FAI se presente
         $price_standard = floatval($event->price_standard);
         $price_fai      = floatval($event->price_fai);
-        $unit_discount  = max(0.00, $price_standard - $price_fai);
+        $unit_discount  = $price_standard - $price_fai;
         $total_discount = $unit_discount * $qty_fai;
 
-        if ($total_discount > 0.00) {
+        if ($total_discount !== 0.00) {
             $item_fee = new \WC_Order_Item_Fee();
-            $item_fee->set_name(sprintf('Sconto Soci FAI (%d tessere)', $qty_fai));
+            $fee_name = $total_discount > 0.00
+                ? sprintf(__('Sconto Soci FAI (%d tessere)', 'dfn-theme'), $qty_fai)
+                : sprintf(__('Adeguamento Soci FAI (%d tessere)', 'dfn-theme'), $qty_fai);
+            $item_fee->set_name($fee_name);
             $item_fee->set_amount((string) (-$total_discount));
             $item_fee->set_total((string) (-$total_discount));
             $order->add_item($item_fee);
