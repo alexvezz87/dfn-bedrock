@@ -277,14 +277,22 @@ function dfn_render_events_manager()
                             }
 
                             // Calcola slot occupati / totali
-                            $slot_booked = $wpdb->get_var($wpdb->prepare(
-                                "SELECT SUM(booked_count) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
-                                $event->id,
-                            )) ?: 0;
-                            $slots_total = $wpdb->get_var($wpdb->prepare(
-                                "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
-                                $event->id,
-                            )) ?: 0;
+                            if ('free_flow' === $event->access_type) {
+                                $slot_booked = $wpdb->get_var($wpdb->prepare(
+                                    "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+                                    $event->id,
+                                )) ?: 0;
+                                $slots_total = 0;
+                            } else {
+                                $slot_booked = $wpdb->get_var($wpdb->prepare(
+                                    "SELECT SUM(booked_count) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
+                                    $event->id,
+                                )) ?: 0;
+                                $slots_total = $wpdb->get_var($wpdb->prepare(
+                                    "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
+                                    $event->id,
+                                )) ?: 0;
+                            }
 
                             // Badge stili
                             $status_class = 'dfn-status-' . $event->status;
@@ -365,6 +373,10 @@ function dfn_render_events_manager()
                                             </a>
                                             <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=generate_slots&event_id=' . $event->id), 'dfn_gen_slots_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-reset" title="<?php esc_attr_e('Genera/Rigenera tutti i turni orari per questo evento', 'dfn-theme'); ?>">
                                                 <span class="dashicons dashicons-update"></span> <?php esc_html_e('Reset Slot', 'dfn-theme'); ?>
+                                            </a>
+                                        <?php else : ?>
+                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-slot-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-turni" title="<?php esc_attr_e('Visualizza e gestisci le prenotazioni per questo evento', 'dfn-theme'); ?>">
+                                                <span class="dashicons dashicons-list-view"></span> <?php esc_html_e('Prenotazioni', 'dfn-theme'); ?>
                                             </a>
                                         <?php endif; ?>
 

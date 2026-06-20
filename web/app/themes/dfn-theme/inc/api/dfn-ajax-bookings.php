@@ -515,8 +515,9 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                         'amount_due'       => ($order->get_payment_method() === 'dfn_in_loco') ? floatval($order->get_total()) : 0.00,
                         'amount_paid'      => ($order->get_payment_method() !== 'dfn_in_loco') ? floatval($order->get_total()) : 0.00,
                         'notes'            => $order->get_customer_note(),
+                        'created_at'       => $booking_date . ' ' . date('H:i:s'),
                     ],
-                    [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s' ],
+                    [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
                 );
 
                 $booking_id = $wpdb->insert_id;

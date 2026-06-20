@@ -54,6 +54,78 @@ function dfn_ajax_admin_get_slots(): void
     $table_bookings = $wpdb->prefix . 'dfn_bookings';
     $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
 
+    // --- Gestione speciale per eventi a Flusso Libero (free_flow) ---
+    // Questi eventi non hanno slot fisici: costruiamo uno slot virtuale
+    // contenente tutte le prenotazioni dell'evento (con created_at nella data richiesta)
+    $event = dfn_db_get_event($event_id);
+    if ($event && 'free_flow' === $event->access_type) {
+        $bookings_raw = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$table_bookings}
+             WHERE event_id = %d
+               AND DATE(created_at) = %s
+               AND status != 'cancelled'
+             ORDER BY created_at ASC",
+            $event_id,
+            $date,
+        ));
+
+        // Se nessuna prenotazione nella data specifica, mostra comunque tutte le prenotazioni dell'evento
+        if (empty($bookings_raw)) {
+            $bookings_raw = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$table_bookings}
+                 WHERE event_id = %d AND status != 'cancelled'
+                 ORDER BY created_at ASC",
+                $event_id,
+            ));
+        }
+
+        $bookings_list = [];
+        foreach ($bookings_raw as $b) {
+            $fai_cards = [];
+            if ($b->order_id) {
+                $order = wc_get_order($b->order_id);
+                if ($order) {
+                    $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
+                }
+            }
+            $bookings_list[] = [
+                'id'               => intval($b->id),
+                'order_id'         => intval($b->order_id),
+                'customer_name'    => esc_html($b->customer_name),
+                'customer_email'   => esc_html($b->customer_email),
+                'customer_phone'   => esc_html($b->customer_phone),
+                'total_persons'    => intval($b->total_persons),
+                'persons_standard' => intval($b->persons_standard),
+                'persons_fai'      => intval($b->persons_fai),
+                'slot_persons'     => intval($b->total_persons),
+                'status'           => esc_html($b->status),
+                'qr_token'         => esc_html($b->qr_token),
+                'notes'            => esc_html($b->notes),
+                'created_at'       => esc_html($b->created_at),
+                'fai_cards'        => $fai_cards,
+            ];
+        }
+
+        $total_booked = array_sum(array_column($bookings_list, 'total_persons'));
+
+        // Slot virtuale: id=0 segnala al JS che è flusso libero
+        $virtual_slot = [
+            'id'             => 0,
+            'time_start'     => date('H:i', strtotime($event->event_time_start)),
+            'time_end'       => $event->event_time_end ? date('H:i', strtotime($event->event_time_end)) : '23:59',
+            'capacity'       => intval($event->total_capacity),
+            'bonus_capacity' => 0,
+            'booked_count'   => $total_booked,
+            'is_locked'      => 0,
+            'is_free_flow'   => true,
+            'bookings'       => $bookings_list,
+        ];
+
+        wp_send_json_success([ 'slots' => [ $virtual_slot ] ]);
+        return;
+    }
+    // --- Fine gestione free_flow ---
+
     // Recupera slot ordinati per orario di inizio
     $slots = $wpdb->get_results($wpdb->prepare(
         "SELECT * FROM {$table_slots} WHERE event_id = %d AND slot_date = %s ORDER BY slot_time_start ASC",
@@ -114,6 +186,7 @@ function dfn_ajax_admin_get_slots(): void
 
     wp_send_json_success([ 'slots' => $slots_data ]);
 }
+
 
 /**
  * 2. Genera slot iniziali per un evento che non ne ha
@@ -336,7 +409,8 @@ function dfn_ajax_admin_add_booking(): void
         $email = 'no-email@dfn.it';
     }
 
-    if ($event_id <= 0 || $slot_id <= 0 || empty($date) || empty($first_name) || empty($last_name)) {
+    // slot_id = 0 è permesso per eventi free_flow (non hanno slot fisici)
+    if ($event_id <= 0 || empty($date) || empty($first_name) || empty($last_name)) {
         wp_send_json_error([ 'message' => esc_html__('I campi Nome e Cognome dell\'acquirente sono obbligatori.', 'dfn-theme') ]);
     }
 
@@ -352,6 +426,12 @@ function dfn_ajax_admin_add_booking(): void
     $event = dfn_db_get_event($event_id);
     if (! $event) {
         wp_send_json_error([ 'message' => esc_html__('Evento non valido.', 'dfn-theme') ]);
+    }
+
+    // Per eventi time_slots, lo slot_id è obbligatorio
+    $is_free_flow = ('free_flow' === $event->access_type);
+    if (! $is_free_flow && $slot_id <= 0) {
+        wp_send_json_error([ 'message' => esc_html__('Seleziona un turno valido.', 'dfn-theme') ]);
     }
 
     global $wpdb;
@@ -456,20 +536,34 @@ function dfn_ajax_admin_add_booking(): void
         $order->update_status('completed', __('Prenotazione creata manualmente dall\'amministratore.', 'dfn-theme'));
 
         // Esegui allocazione
-        if (! function_exists('dfn_allocate_slots_on_checkout')) {
-            require_once get_template_directory() . '/inc/api/dfn-ajax-bookings.php';
-        }
-        dfn_allocate_slots_on_checkout($order->get_id(), [], $order);
+        if ($is_free_flow) {
+            // Per eventi free_flow: crea la prenotazione direttamente senza slot fisici
+            if (! function_exists('dfn_allocate_slots_on_checkout')) {
+                require_once get_template_directory() . '/inc/api/dfn-ajax-bookings.php';
+            }
+            dfn_allocate_slots_on_checkout($order->get_id(), [], $order);
 
-        wp_send_json_success([
-            'message'  => esc_html__('Prenotazione manuale registrata con successo e allocata allo slot.', 'dfn-theme'),
-            'order_id' => $order->get_id(),
-        ]);
+            wp_send_json_success([
+                'message'  => esc_html__('Prenotazione manuale registrata con successo per l\'evento a flusso libero.', 'dfn-theme'),
+                'order_id' => $order->get_id(),
+            ]);
+        } else {
+            if (! function_exists('dfn_allocate_slots_on_checkout')) {
+                require_once get_template_directory() . '/inc/api/dfn-ajax-bookings.php';
+            }
+            dfn_allocate_slots_on_checkout($order->get_id(), [], $order);
+
+            wp_send_json_success([
+                'message'  => esc_html__('Prenotazione manuale registrata con successo e allocata allo slot.', 'dfn-theme'),
+                'order_id' => $order->get_id(),
+            ]);
+        }
 
     } catch (\Exception $e) {
         wp_send_json_error([ 'message' => $e->getMessage() ]);
     }
 }
+
 
 /**
  * 8. Sposta prenotazione tra slot + invio email opzionale

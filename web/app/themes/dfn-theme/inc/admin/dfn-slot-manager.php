@@ -55,6 +55,9 @@ function dfn_render_slot_manager()
     // Recupera titolo del prodotto WooCommerce associato
     $event_title = get_the_title($event->product_id) ?: sprintf(__('Evento #%d', 'dfn-theme'), $event->id);
 
+    // Determina se l'evento è a flusso continuo (free_flow) o a fasce orarie (time_slots)
+    $is_free_flow = ('free_flow' === $event->access_type);
+
     // Recupera il numero di slot configurati nel database
     $table_slots = $wpdb->prefix . 'dfn_event_slots';
     $slots_count = intval($wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_slots} WHERE event_id = %d", $event_id)));
@@ -73,18 +76,21 @@ function dfn_render_slot_manager()
     // Nonce di sicurezza
     $nonce = wp_create_nonce('dfn_admin_events_nonce');
     ?>
-    <div class="wrap dfn-admin-wrap dfn-slot-manager-wrap" data-event-id="<?php echo esc_attr((string) $event_id); ?>" data-nonce="<?php echo esc_attr($nonce); ?>">
+    <div class="wrap dfn-admin-wrap dfn-slot-manager-wrap" data-event-id="<?php echo esc_attr((string) $event_id); ?>" data-nonce="<?php echo esc_attr($nonce); ?>" data-access-type="<?php echo esc_attr($event->access_type); ?>">
         <header class="dfn-admin-header">
             <div class="dfn-logo-area">
-                <span class="dashicons dashicons-admin-generic"></span>
-                <h1><?php echo sprintf(esc_html__('Gestione Turni — %s', 'dfn-theme'), esc_html($event_title)); ?></h1>
+                <span class="dashicons <?php echo $is_free_flow ? 'dashicons-list-view' : 'dashicons-admin-generic'; ?>"></span>
+                <h1><?php echo $is_free_flow
+                    ? sprintf(esc_html__('Prenotazioni — %s', 'dfn-theme'), esc_html($event_title))
+                    : sprintf(esc_html__('Gestione Turni — %s', 'dfn-theme'), esc_html($event_title)); ?></h1>
             </div>
             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-events')); ?>" class="dfn-btn dfn-btn-secondary">
                 <span class="dashicons dashicons-arrow-left-alt"></span> <?php esc_html_e('Torna agli Eventi', 'dfn-theme'); ?>
             </a>
         </header>
 
-        <!-- Banner Generazione Slot Pregressi (mostrato solo se non ci sono slot nel DB) -->
+        <?php if (! $is_free_flow) : ?>
+        <!-- Banner Generazione Slot Pregressi (mostrato solo se non ci sono slot nel DB, solo per eventi a fasce orarie) -->
         <div id="dfn-sm-generation-banner" class="dfn-card dfn-generation-card" style="<?php echo ($slots_count > 0) ? 'display:none;' : ''; ?>">
             <div class="dfn-card-body">
                 <span class="dashicons dashicons-warning yellow-icon"></span>
@@ -97,9 +103,11 @@ function dfn_render_slot_manager()
                 </button>
             </div>
         </div>
+        <?php endif; ?>
 
         <!-- Dashboard Operativa -->
-        <div id="dfn-sm-dashboard" style="<?php echo ($slots_count === 0) ? 'display:none;' : ''; ?>">
+        <!-- Per free_flow sempre visibile; per time_slots nascosta finché non ci sono slot -->
+        <div id="dfn-sm-dashboard" style="<?php echo (! $is_free_flow && $slots_count === 0) ? 'display:none;' : ''; ?>">
             
             <!-- Riepilogo Statistico -->
             <div class="dfn-stats-row">
@@ -316,7 +324,49 @@ function dfn_render_slot_manager()
         </div>
     </div>
 
-    <!-- MODALE 5: Dettagli Prenotazione Completi (Popup in sovrapposizione) -->
+    <!-- MODALE 5: Lista Prenotazioni per Turno (Popup Grande) -->
+    <div id="dfn-modal-slot-bookings" class="dfn-sm-modal">
+        <div class="dfn-sm-modal-content dfn-modal-slot-bookings-content">
+            <div class="dfn-sm-modal-header">
+                <h3 class="dfn-slot-bookings-title"><?php esc_html_e('Prenotazioni', 'dfn-theme'); ?></h3>
+                <span class="dfn-modal-close" data-modal="dfn-modal-slot-bookings">&times;</span>
+            </div>
+            <div class="dfn-slot-bookings-stats">
+                <div class="slot-modal-stat">
+                    <span class="stat-number slot-modal-stat-count">-</span>
+                    <span class="stat-desc"><?php esc_html_e('Prenotazioni', 'dfn-theme'); ?></span>
+                </div>
+                <div class="slot-modal-stat">
+                    <span class="stat-number slot-modal-stat-booked">-</span>
+                    <span class="stat-desc"><?php esc_html_e('Posti occupati', 'dfn-theme'); ?></span>
+                </div>
+                <div class="slot-modal-stat">
+                    <span class="stat-number slot-modal-stat-free">-</span>
+                    <span class="stat-desc"><?php esc_html_e('Posti liberi', 'dfn-theme'); ?></span>
+                </div>
+                <div class="slot-modal-stat">
+                    <span class="stat-number slot-modal-stat-capacity">-</span>
+                    <span class="stat-desc"><?php esc_html_e('Capacità totale', 'dfn-theme'); ?></span>
+                </div>
+            </div>
+            <div class="dfn-slot-bookings-toolbar">
+                <div class="search-box">
+                    <span class="dashicons dashicons-search"></span>
+                    <input type="text" id="dfn-slot-bookings-search" placeholder="<?php esc_attr_e('Cerca per nome, email o telefono...', 'dfn-theme'); ?>">
+                </div>
+            </div>
+            <div class="dfn-slot-bookings-body">
+                <div id="dfn-slot-bookings-list">
+                    <!-- Popolato via JS -->
+                </div>
+            </div>
+            <div class="dfn-sm-modal-footer" style="padding: 16px 24px; background:#f8fafc;">
+                <button type="button" class="dfn-btn dfn-btn-primary dfn-modal-close-btn" data-modal="dfn-modal-slot-bookings"><?php esc_html_e('Chiudi', 'dfn-theme'); ?></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE 6: Dettagli Prenotazione Completi (Popup in sovrapposizione, livello 2) -->
     <div id="dfn-modal-booking-details" class="dfn-sm-modal">
         <div class="dfn-sm-modal-content">
             <div class="dfn-sm-modal-header">

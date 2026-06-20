@@ -101,6 +101,16 @@ function dfn_render_waitlist_page(): void
                         $order->update_status('pending', __('Ordine generato automaticamente da Lista d\'Attesa.', 'dfn-theme'));
                         $order->save();
 
+                        // Carica lo slot se associato per recuperarne la data
+                        $booking_date = isset($event->event_date_start) ? $event->event_date_start : date('Y-m-d');
+                        $slot = null;
+                        if ($entry->slot_id) {
+                            $slot = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_event_slots WHERE id = %d FOR UPDATE", $entry->slot_id));
+                            if ($slot && isset($slot->slot_date)) {
+                                $booking_date = $slot->slot_date;
+                            }
+                        }
+
                         // 2. Registra la prenotazione custom
                         $qr_token = wp_hash($order->get_id() . '|' . $event->id . '|' . time());
                         $wpdb->insert(
@@ -119,33 +129,31 @@ function dfn_render_waitlist_page(): void
                                 'payment_method'   => $order->get_payment_method(),
                                 'amount_due'       => floatval($order->get_total()),
                                 'amount_paid'      => 0.00,
+                                'created_at'       => $booking_date . ' ' . date('H:i:s'),
                             ],
-                            [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f' ],
+                            [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s' ],
                         );
                         $booking_id = $wpdb->insert_id;
 
                         // Se associato a uno slot specifico incrementa booked_count
-                        if ($entry->slot_id) {
-                            $slot = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_event_slots WHERE id = %d FOR UPDATE", $entry->slot_id));
-                            if ($slot) {
-                                $wpdb->update(
-                                    $wpdb->prefix . 'dfn_event_slots',
-                                    [ 'booked_count' => intval($slot->booked_count) + intval($entry->persons) ],
-                                    [ 'id' => $entry->slot_id ],
-                                    [ '%d' ],
-                                    [ '%d' ],
-                                );
+                        if ($slot) {
+                            $wpdb->update(
+                                $wpdb->prefix . 'dfn_event_slots',
+                                [ 'booked_count' => intval($slot->booked_count) + intval($entry->persons) ],
+                                [ 'id' => $entry->slot_id ],
+                                [ '%d' ],
+                                [ '%d' ],
+                            );
 
-                                $wpdb->insert(
-                                    $wpdb->prefix . 'dfn_booking_slots',
-                                    [
-                                        'booking_id' => $booking_id,
-                                        'slot_id'    => $entry->slot_id,
-                                        'persons'    => $entry->persons,
-                                    ],
-                                    [ '%d', '%d', '%d' ],
-                                );
-                            }
+                            $wpdb->insert(
+                                $wpdb->prefix . 'dfn_booking_slots',
+                                [
+                                    'booking_id' => $booking_id,
+                                    'slot_id'    => $entry->slot_id,
+                                    'persons'    => $entry->persons,
+                                ],
+                                [ '%d', '%d', '%d' ],
+                            );
                         }
 
                         // Aggiorna lo stato della waitlist a promoted

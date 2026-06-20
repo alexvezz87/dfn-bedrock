@@ -15,10 +15,16 @@
 
         var eventId = parseInt($wrapper.data('event-id'), 10);
         var nonce = $wrapper.data('nonce');
+        var accessType = $wrapper.data('access-type') || 'time_slots'; // 'free_flow' o 'time_slots'
         var ajaxurl = typeof dfnAdminVars !== 'undefined' ? dfnAdminVars.ajaxurl : '/wp/wp-admin/admin-ajax.php';
         
         var currentData = null; // Memorizza i dati AJAX correnti
         var activeDate = $('.dfn-pill-date.active').data('date');
+
+        // Per gli eventi free_flow nasconde i controlli non applicabili
+        if (accessType === 'free_flow') {
+            $('#dfn-btn-add-slot-modal').hide();
+        }
 
         // Caricamento iniziale
         if (activeDate) {
@@ -110,20 +116,34 @@
                 }
 
                 var $card = $('<div class="dfn-sm-card ' + statusClass + '" data-slot-id="' + slot.id + '" data-time-start="' + slot.time_start + '" data-time-end="' + slot.time_end + '" data-capacity="' + slot.capacity + '" data-bonus="' + slot.bonus_capacity + '"></div>');
-                
-                var cardHeaderHtml = 
-                    '<div class="dfn-sm-card-header">' +
-                        '<div class="slot-time">' +
-                            '<span class="dashicons dashicons-clock"></span> <strong>' + slot.time_start + ' - ' + slot.time_end + '</strong>' +
-                        '</div>' +
-                        '<div class="slot-actions">' +
-                            '<button type="button" class="dfn-icon-btn dfn-btn-edit-capacity" title="Modifica Capacità"><span class="dashicons dashicons-edit"></span></button>' +
-                            '<button type="button" class="dfn-icon-btn dfn-btn-lock-toggle" title="' + (slot.is_locked ? 'Sblocca Turno' : 'Blocca Turno') + '">' +
-                                '<span class="dashicons ' + (slot.is_locked ? 'dashicons-lock' : 'dashicons-unlock') + '"></span>' +
-                            '</button>' +
-                            (booked === 0 ? '<button type="button" class="dfn-icon-btn dfn-btn-delete-slot" title="Elimina Turno"><span class="dashicons dashicons-trash"></span></button>' : '') +
-                        '</div>' +
-                    '</div>';
+
+                // Per lo slot virtuale free_flow mostriamo un'intestazione semplificata senza azioni di gestione slot
+                var isFreeFlow = slot.is_free_flow || false;
+
+                var cardHeaderHtml;
+                if (isFreeFlow) {
+                    cardHeaderHtml =
+                        '<div class="dfn-sm-card-header">' +
+                            '<div class="slot-time">' +
+                                '<span class="dashicons dashicons-list-view"></span> <strong>Flusso Libero &mdash; ' + slot.time_start + ' &rarr; ' + slot.time_end + '</strong>' +
+                            '</div>' +
+                            '<div class="slot-actions"></div>' +
+                        '</div>';
+                } else {
+                    cardHeaderHtml =
+                        '<div class="dfn-sm-card-header">' +
+                            '<div class="slot-time">' +
+                                '<span class="dashicons dashicons-clock"></span> <strong>' + slot.time_start + ' - ' + slot.time_end + '</strong>' +
+                            '</div>' +
+                            '<div class="slot-actions">' +
+                                '<button type="button" class="dfn-icon-btn dfn-btn-edit-capacity" title="Modifica Capacità"><span class="dashicons dashicons-edit"></span></button>' +
+                                '<button type="button" class="dfn-icon-btn dfn-btn-lock-toggle" title="' + (slot.is_locked ? 'Sblocca Turno' : 'Blocca Turno') + '">' +
+                                    '<span class="dashicons ' + (slot.is_locked ? 'dashicons-lock' : 'dashicons-unlock') + '"></span>' +
+                                '</button>' +
+                                (booked === 0 ? '<button type="button" class="dfn-icon-btn dfn-btn-delete-slot" title="Elimina Turno"><span class="dashicons dashicons-trash"></span></button>' : '') +
+                            '</div>' +
+                        '</div>';
+                }
 
                 var progressHtml = 
                     '<div class="dfn-sm-progress-area">' +
@@ -137,48 +157,19 @@
                         (slot.bonus_capacity > 0 ? '<small class="bonus-label">Capacità bonus attiva: +' + slot.bonus_capacity + '</small>' : '') +
                     '</div>';
 
-                // Sezione accordion prenotazioni
-                var accordionOpenClass = (searchQuery !== '') ? 'open' : '';
-                var accordionStyle = (searchQuery !== '') ? 'display: block;' : '';
-                var bookingsHeaderHtml = 
-                    '<div class="dfn-sm-bookings-header ' + accordionOpenClass + '">' +
-                        '<span>Prenotazioni (' + filteredBookings.length + ')</span>' +
-                        '<span class="dashicons dashicons-arrow-down-alt2"></span>' +
+                // Bottone per aprire il popup con la lista prenotazioni
+                var bookingsBtnHtml = 
+                    '<div class="dfn-sm-bookings-btn-area">' +
+                        '<button type="button" class="dfn-btn-open-bookings-modal" data-slot-id="' + slot.id + '">' +
+                            '<span class="dashicons dashicons-groups"></span>' +
+                            '<span>Prenotazioni (' + filteredBookings.length + ')</span>' +
+                            '<span class="dashicons dashicons-external"></span>' +
+                        '</button>' +
                     '</div>';
-
-                var bookingsListHtml = '<div class="dfn-sm-bookings-list" style="' + accordionStyle + '">';
-                if (filteredBookings.length === 0) {
-                    bookingsListHtml += '<div class="no-bookings">Nessuna prenotazione trovata.</div>';
-                } else {
-                    filteredBookings.forEach(function(b) {
-                        bookingsListHtml += 
-                            '<div class="booking-item" data-booking-id="' + b.id + '" data-persons="' + b.slot_persons + '" data-name="' + b.customer_name + '">' +
-                                '<div class="booking-details">' +
-                                    '<div class="customer-info">' +
-                                        '<strong>' + b.customer_name + '</strong>' +
-                                        (b.customer_email !== 'no-email@dfn.it' ? ' | <small>' + b.customer_email + '</small>' : '') +
-                                        (b.customer_phone ? ' | <small>' + b.customer_phone + '</small>' : '') +
-                                    '</div>' +
-                                    '<div class="booking-meta">' +
-                                        '<span class="badge badge-qty">' + b.slot_persons + ' pers.</span>' +
-                                        (b.persons_fai > 0 ? '<span class="badge badge-fai" title="Tessere FAI da verificare"><span class="dashicons dashicons-awards"></span> FAI</span>' : '') +
-                                        (b.notes ? '<span class="badge badge-notes" title="' + b.notes + '"><span class="dashicons dashicons-testimonial"></span></span>' : '') +
-                                        '<span class="badge badge-status-' + b.status + '">' + b.status + '</span>' +
-                                    '</div>' +
-                                '</div>' +
-                                '<div class="booking-actions">' +
-                                    '<button type="button" class="dfn-icon-btn dfn-btn-move-booking" title="Sposta di Turno"><span class="dashicons dashicons-move"></span></button>' +
-                                    '<button type="button" class="dfn-icon-btn dfn-btn-delete-booking text-danger" title="Cancella Prenotazione"><span class="dashicons dashicons-no-alt"></span></button>' +
-                                '</div>' +
-                            '</div>';
-                    });
-                }
-                bookingsListHtml += '</div>';
 
                 $card.append(cardHeaderHtml);
                 $card.append(progressHtml);
-                $card.append(bookingsHeaderHtml);
-                $card.append(bookingsListHtml);
+                $card.append(bookingsBtnHtml);
 
                 $grid.append($card);
             });
@@ -223,11 +214,17 @@
                 if (slot.is_locked) {
                     return;
                 }
+                // Per free_flow lo slot virtuale (id=0) non va inserito nel select di spostamento turno
+                // ma va nel select della nuova prenotazione
                 var total = slot.capacity + slot.bonus_capacity;
                 var free = total - slot.booked_count;
-                var label = slot.time_start + ' - ' + slot.time_end + ' (' + free + ' posti liberi)';
-                
-                $moveSelect.append('<option value="' + slot.id + '" data-free="' + free + '">' + label + '</option>');
+                var label = slot.is_free_flow
+                    ? 'Flusso Libero (' + free + ' posti disponibili)'
+                    : slot.time_start + ' - ' + slot.time_end + ' (' + free + ' posti liberi)';
+
+                if (!slot.is_free_flow) {
+                    $moveSelect.append('<option value="' + slot.id + '" data-free="' + free + '">' + label + '</option>');
+                }
                 $addBookingSelect.append('<option value="' + slot.id + '">' + label + '</option>');
             });
         }
@@ -239,28 +236,138 @@
             }
         });
 
-        // Accordion prenotazioni
-        $(document).on('click', '.dfn-sm-bookings-header', function() {
-            var $list = $(this).next('.dfn-sm-bookings-list');
-            $(this).toggleClass('open');
-            $list.slideToggle(200);
-        });
-
-        // Click sui dettagli per aprire la modale popup
-        $(document).on('click', '.booking-details', function() {
-            var $item = $(this).closest('.booking-item');
-            var bookingId = parseInt($item.data('booking-id'), 10);
-            var slotId = parseInt($(this).closest('.dfn-sm-card').data('slot-id'), 10);
-
+        // Apertura popup lista prenotazioni dal bottone sulla card
+        $(document).on('click', '.dfn-btn-open-bookings-modal', function() {
+            var slotId = parseInt($(this).data('slot-id'), 10);
             if (!currentData) return;
 
-            // Trova lo slot corrispondente
             var slot = currentData.find(function(s) {
                 return s.id === slotId;
             });
             if (!slot) return;
 
-            // Trova la prenotazione corrispondente
+            renderBookingsModal(slot);
+        });
+
+        /**
+         * Renderizza e apre il popup grande con la lista di tutte le prenotazioni
+         * per lo slot selezionato.
+         */
+        function renderBookingsModal(slot) {
+            var $modal = $('#dfn-modal-slot-bookings');
+            var isFreeFlow = slot.is_free_flow || false;
+            var titleText = isFreeFlow
+                ? 'Prenotazioni — Flusso Libero (' + slot.time_start + ' → ' + slot.time_end + ')'
+                : 'Prenotazioni — Turno ' + slot.time_start + ' – ' + slot.time_end;
+
+            $modal.find('.dfn-slot-bookings-title').text(titleText);
+
+            // Statistiche header
+            var totalCapacity = slot.capacity + slot.bonus_capacity;
+            var booked = slot.booked_count;
+            var free = Math.max(0, totalCapacity - booked);
+            $modal.find('.slot-modal-stat-booked').text(booked);
+            $modal.find('.slot-modal-stat-capacity').text(totalCapacity);
+            $modal.find('.slot-modal-stat-free').text(free);
+            $modal.find('.slot-modal-stat-count').text(slot.bookings.length);
+
+            // Salva lo slotId nel modale per i click interni
+            $modal.data('current-slot-id', slot.id);
+
+            // Reset ricerca interna
+            $('#dfn-slot-bookings-search').val('');
+
+            // Renderizza la lista prenotazioni
+            renderBookingsListInModal(slot.bookings, slot);
+
+            openModal($modal);
+        }
+
+        /**
+         * Renderizza le righe prenotazione nel popup grande
+         */
+        function renderBookingsListInModal(bookings, slot) {
+            var $list = $('#dfn-slot-bookings-list');
+            $list.empty();
+
+            if (!bookings || bookings.length === 0) {
+                $list.html(
+                    '<div class="dfn-slot-bookings-empty">' +
+                        '<span class="dashicons dashicons-groups"></span>' +
+                        '<p>Nessuna prenotazione per questo turno.</p>' +
+                    '</div>'
+                );
+                return;
+            }
+
+            bookings.forEach(function(b, idx) {
+                var faiHtml = b.persons_fai > 0
+                    ? '<span class="badge badge-fai"><span class="dashicons dashicons-awards"></span> FAI (' + b.persons_fai + ')</span>'
+                    : '';
+                var notesHtml = b.notes
+                    ? '<span class="badge badge-notes" title="' + b.notes + '"><span class="dashicons dashicons-testimonial"></span></span>'
+                    : '';
+                var isFreeFlow = slot.is_free_flow || false;
+
+                $list.append(
+                    '<div class="dfn-slot-booking-row" data-booking-id="' + b.id + '" data-persons="' + b.slot_persons + '" data-name="' + b.customer_name + '" data-slot-id="' + slot.id + '">' +
+                        '<div class="slot-booking-index">' + (idx + 1) + '</div>' +
+                        '<div class="slot-booking-info">' +
+                            '<div class="slot-booking-name">' + b.customer_name + '</div>' +
+                            '<div class="slot-booking-contact">' +
+                                (b.customer_email !== 'no-email@dfn.it' ? '<span>' + b.customer_email + '</span>' : '') +
+                                (b.customer_phone ? '<span>' + b.customer_phone + '</span>' : '') +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="slot-booking-badges">' +
+                            '<span class="badge badge-qty">' + b.slot_persons + ' pers.</span>' +
+                            faiHtml + notesHtml +
+                            '<span class="badge badge-status-' + b.status + '">' + b.status + '</span>' +
+                        '</div>' +
+                        '<div class="slot-booking-actions">' +
+                            (!isFreeFlow ? '<button type="button" class="dfn-icon-btn dfn-btn-move-booking" title="Sposta di Turno"><span class="dashicons dashicons-move"></span></button>' : '') +
+                            '<button type="button" class="dfn-icon-btn dfn-btn-delete-booking text-danger" title="Cancella Prenotazione"><span class="dashicons dashicons-no-alt"></span></button>' +
+                        '</div>' +
+                    '</div>'
+                );
+            });
+        }
+
+        // Ricerca interna al popup prenotazioni
+        $(document).on('keyup input', '#dfn-slot-bookings-search', function() {
+            var query = $(this).val().toLowerCase().trim();
+            var $modal = $('#dfn-modal-slot-bookings');
+            var slotId = $modal.data('current-slot-id');
+            if (!currentData) return;
+
+            var slot = currentData.find(function(s) { return s.id === slotId; });
+            if (!slot) return;
+
+            if (query === '') {
+                renderBookingsListInModal(slot.bookings, slot);
+            } else {
+                var filtered = slot.bookings.filter(function(b) {
+                    return b.customer_name.toLowerCase().indexOf(query) !== -1 ||
+                           b.customer_email.toLowerCase().indexOf(query) !== -1 ||
+                           b.customer_phone.toLowerCase().indexOf(query) !== -1;
+                });
+                renderBookingsListInModal(filtered, slot);
+            }
+        });
+
+        // Click su una riga prenotazione nel popup grande → apre il popup dettagli (livello 2)
+        $(document).on('click', '.dfn-slot-booking-row .slot-booking-info, .dfn-slot-booking-row .slot-booking-index', function() {
+            var $row = $(this).closest('.dfn-slot-booking-row');
+            var bookingId = parseInt($row.data('booking-id'), 10);
+            var slotId = parseInt($row.data('slot-id'), 10);
+
+            if (!currentData) return;
+
+            var slot = currentData.find(function(s) {
+                return s.id === slotId;
+            });
+            if (!slot) return;
+
             var booking = slot.bookings.find(function(b) {
                 return b.id === bookingId;
             });
@@ -290,7 +397,6 @@
                 );
             });
 
-            // Gestione tessere FAI collegate
             var $faiSection = $('#dfn-details-fai-cards-section');
             var $faiList = $('#dfn-details-fai-cards-list');
             $faiList.empty();
@@ -309,7 +415,6 @@
                 $faiSection.hide();
             }
 
-            // Imposta il link per visualizzare l'ordine in WC
             var $btnOrder = $('#dfn-btn-view-order-wc');
             if (booking.order_id) {
                 var orderUrl = typeof dfnAdminVars !== 'undefined' ? 
@@ -320,18 +425,24 @@
                 $btnOrder.hide();
             }
 
-            openModal($modal);
+            // Apri come popup livello 2 (sopra il popup lista prenotazioni)
+            openModal($modal, 2);
         });
 
         // ========================================================================
         // 3. GESTIONE MODALI (APERTURA E CHIUSURA)
         // ========================================================================
-        function openModal($modal) {
-            $modal.fadeIn(250).css('display', 'flex');
+        function openModal($modal, level) {
+            // Livello 1: popup standard (z-index 99999)
+            // Livello 2: popup sovrapposto (z-index 100001, sopra al livello 1)
+            var zIndex = (level && level >= 2) ? 100001 : 99999;
+            $modal.css('z-index', zIndex).fadeIn(250).css('display', 'flex');
         }
 
         function closeModal($modal) {
-            $modal.fadeOut(200);
+            $modal.fadeOut(200, function() {
+                $modal.css('z-index', ''); // Ripristina il z-index di default
+            });
         }
 
         $(document).on('click', '.dfn-modal-close, .dfn-modal-close-btn', function() {
@@ -515,11 +626,21 @@
         // ========================================================================
         // Spostamento: Apertura Modale
         $(document).on('click', '.dfn-btn-move-booking', function() {
-            var $item = $(this).closest('.booking-item');
-            var $card = $(this).closest('.dfn-sm-card');
-            var bookingId = $item.data('booking-id');
-            var fromSlotId = $card.data('slot-id');
-            var personsNeeded = parseInt($item.data('persons'), 10);
+            // Supporta sia il nuovo popup (.dfn-slot-booking-row) sia i contesti legacy
+            var $row = $(this).closest('.dfn-slot-booking-row');
+            var bookingId, fromSlotId, personsNeeded;
+
+            if ($row.length) {
+                bookingId = $row.data('booking-id');
+                fromSlotId = $row.data('slot-id');
+                personsNeeded = parseInt($row.data('persons'), 10);
+            } else {
+                var $item = $(this).closest('.booking-item');
+                var $card = $(this).closest('.dfn-sm-card');
+                bookingId = $item.data('booking-id');
+                fromSlotId = $card.data('slot-id');
+                personsNeeded = parseInt($item.data('persons'), 10);
+            }
 
             var $form = $('#dfn-form-move-booking');
             $form.find('input[name="booking_id"]').val(bookingId);
@@ -542,7 +663,7 @@
                 }
             });
 
-            openModal($('#dfn-modal-move-booking'));
+            openModal($('#dfn-modal-move-booking'), 2);
         });
 
         // Spostamento: Submit Form
@@ -569,9 +690,18 @@
 
         // Cancellazione Prenotazione
         $(document).on('click', '.dfn-btn-delete-booking', function() {
-            var $item = $(this).closest('.booking-item');
-            var id = $item.data('booking-id');
-            var name = $item.data('name');
+            // Supporta sia il nuovo popup (.dfn-slot-booking-row) sia i contesti legacy
+            var $row = $(this).closest('.dfn-slot-booking-row');
+            var id, name;
+
+            if ($row.length) {
+                id = $row.data('booking-id');
+                name = $row.data('name');
+            } else {
+                var $item = $(this).closest('.booking-item');
+                id = $item.data('booking-id');
+                name = $item.data('name');
+            }
 
             if (!confirm('Annullare definitivamente la prenotazione per "' + name + '"? Questo cancellerà anche l\'ordine WooCommerce correlato.')) {
                 return;
@@ -587,6 +717,8 @@
                 },
                 success: function(response) {
                     if (response.success) {
+                        // Chiudi il popup lista prenotazioni e ricarica
+                        closeModal($('#dfn-modal-slot-bookings'));
                         loadSlots(activeDate);
                     } else {
                         alert(response.data.message);
