@@ -1,36 +1,48 @@
 <?php
-if ( !defined( 'ABSPATH' ) ) exit;
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /**
  * 1. ETICHETTA QUALIFICA (SOCIO FAI / AUTORITÀ / CASSA LIVE / STANDARD)
  */
-function cv_is_order_fai( $order ) {
-    if ( ! $order ) return false;
+function cv_is_order_fai($order)
+{
+    if (! $order) {
+        return false;
+    }
     $coupons = $order->get_coupon_codes();
-    if ( in_array( 'socio_fai_novara_2025', array_map( 'strtolower', $coupons ) ) ) return true;
-    foreach ( $order->get_items( 'fee' ) as $item ) {
-        if ( strpos( strtolower( $item->get_name() ), 'fai' ) !== false ) return true;
+    if (in_array('socio_fai_novara_2025', array_map('strtolower', $coupons))) {
+        return true;
+    }
+    foreach ($order->get_items('fee') as $item) {
+        if (strpos(strtolower($item->get_name()), 'fai') !== false) {
+            return true;
+        }
     }
     return false;
 }
 
-function cv_get_order_qualifica_label( $order ) {
-    if ( ! $order ) return '';
-    $badges = array();
+function cv_get_order_qualifica_label($order)
+{
+    if (! $order) {
+        return '';
+    }
+    $badges = [];
 
-    if ( $order->get_meta('_cv_is_authority') === 'yes' ) {
+    if ($order->get_meta('_cv_is_authority') === 'yes') {
         $badges[] = '<span style="background:#6b21a8; color:#fff; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:11px; white-space:nowrap; display:inline-block; margin-right:4px; margin-bottom:4px;">🌟 AUTORITÀ</span>';
     }
-    if ( $order->get_payment_method_title() === 'Contanti in Loco (Botteghino)' ) {
+    if ($order->get_payment_method_title() === 'Contanti in Loco (Botteghino)') {
         $badges[] = '<span style="background:#16a34a; color:#fff; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:11px; white-space:nowrap; display:inline-block; margin-right:4px; margin-bottom:4px;">💵 CASSA LIVE</span>';
     }
-    if ( cv_is_order_fai( $order ) ) {
+    if (cv_is_order_fai($order)) {
         $badges[] = '<span style="background:#ff6600; color:#fff; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:11px; white-space:nowrap; display:inline-block; margin-right:4px; margin-bottom:4px;">SOCIO FAI</span>';
     }
-    if ( empty( $badges ) ) {
+    if (empty($badges)) {
         return '<span style="color:#aaa; font-size:12px;">Standard</span>';
     }
-    return implode( '', $badges );
+    return implode('', $badges);
 }
 
 // Le funzioni per la colonna Qualifica legacy sono state disabilitate a favore di dfn-helpers.php
@@ -60,15 +72,18 @@ function cv_populate_fai_column( $column, $order_id ): void {
 /**
  * 2. PLACEHOLDER EMAIL WOOCOMMERCE {nome_evento}
  */
-add_filter( 'woocommerce_email_format_string' , 'cv_custom_email_placeholders', 20, 2 );
-function cv_custom_email_placeholders( $string, $email ) {
-    if ( isset( $email->object ) && is_a( $email->object, 'WC_Order' ) ) {
+add_filter('woocommerce_email_format_string', 'cv_custom_email_placeholders', 20, 2);
+function cv_custom_email_placeholders($string, $email)
+{
+    if (isset($email->object) && is_a($email->object, 'WC_Order')) {
         $order = $email->object;
-        if ( strpos( $string, '{nome_evento}' ) !== false ) {
-            $nomi_eventi = array();
-            foreach ( $order->get_items() as $item ) { $nomi_eventi[] = $item->get_name(); }
-            $titolo_evento = implode( ' + ', $nomi_eventi );
-            $string = str_replace( '{nome_evento}', $titolo_evento, $string );
+        if (strpos($string, '{nome_evento}') !== false) {
+            $nomi_eventi = [];
+            foreach ($order->get_items() as $item) {
+                $nomi_eventi[] = $item->get_name();
+            }
+            $titolo_evento = implode(' + ', $nomi_eventi);
+            $string = str_replace('{nome_evento}', $titolo_evento, $string);
         }
     }
     return $string;
@@ -86,44 +101,50 @@ function cv_custom_email_placeholders( $string, $email ) {
  * @param string $azione  Descrizione dell'azione da registrare.
  * @return void
  */
-function cv_aggiungi_log_utente( int $user_id, string $azione ): void {
-    $log = get_user_meta( $user_id, '_cv_user_activity_log', true );
-    if ( ! is_array( $log ) ) {
-        $log = array();
+function cv_aggiungi_log_utente(int $user_id, string $azione): void
+{
+    $log = get_user_meta($user_id, '_cv_user_activity_log', true);
+    if (! is_array($log)) {
+        $log = [];
     }
 
     // Sanitizza l'IP: supporta proxy (X-Forwarded-For) e fallback a REMOTE_ADDR
-    $ip_raw = isset( $_SERVER['HTTP_X_FORWARDED_FOR'] )
-        ? explode( ',', sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) )[0]
-        : ( isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'N/A' );
-    $ip = trim( $ip_raw );
+    $ip_raw = isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+        ? explode(',', sanitize_text_field(wp_unslash($_SERVER['HTTP_X_FORWARDED_FOR'])))[0]
+        : (isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'N/A');
+    $ip = trim($ip_raw);
 
-    $log[] = array(
-        'data'   => current_time( 'mysql' ),
+    $log[] = [
+        'data'   => current_time('mysql'),
         'azione' => $azione,
         'ip'     => $ip,
-    );
+    ];
 
-    if ( count( $log ) > 50 ) {
-        $log = array_slice( $log, -50 );
+    if (count($log) > 50) {
+        $log = array_slice($log, -50);
     }
 
-    update_user_meta( $user_id, '_cv_user_activity_log', $log );
+    update_user_meta($user_id, '_cv_user_activity_log', $log);
 }
 
 add_action('wp_login', 'cv_track_user_login', 10, 2);
-function cv_track_user_login($user_login, $user) { cv_aggiungi_log_utente($user->ID, '🔑 Login effettuato'); }
+function cv_track_user_login($user_login, $user)
+{
+    cv_aggiungi_log_utente($user->ID, '🔑 Login effettuato');
+}
 
 add_action('user_register', 'cv_track_user_registration', 10, 1);
-function cv_track_user_registration($user_id) {
+function cv_track_user_registration($user_id)
+{
     $user_info = get_userdata($user_id);
-    $ordini_passati = wc_get_orders(array('billing_email' => $user_info->user_email, 'limit' => 1));
+    $ordini_passati = wc_get_orders(['billing_email' => $user_info->user_email, 'limit' => 1]);
     $messaggio = '🆕 Registrazione completata' . (!empty($ordini_passati) ? ' (Riconosciuto come vecchio cliente FAI)' : '');
     cv_aggiungi_log_utente($user_id, $messaggio);
 }
 
 add_action('template_redirect', 'cv_track_access_tickets');
-function cv_track_access_tickets() {
+function cv_track_access_tickets()
+{
     if (is_user_logged_in() && is_account_page() && is_wc_endpoint_url('orders')) {
         $user_id = get_current_user_id();
         $lock_key = 'cv_log_tickets_lock_' . $user_id;
@@ -136,12 +157,14 @@ function cv_track_access_tickets() {
 
 add_action('show_user_profile', 'cv_mostra_log_nel_profilo');
 add_action('edit_user_profile', 'cv_mostra_log_nel_profilo');
-function cv_mostra_log_nel_profilo($user) {
+function cv_mostra_log_nel_profilo($user)
+{
     $log = get_user_meta($user->ID, '_cv_user_activity_log', true);
     ?>
     <div style="margin-top: 30px; background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 5px;">
         <h3>📜 Log Attività CandleVibes</h3>
-        <?php if (empty($log)) : echo '<p>Nessuna attività.</p>'; else : $log = array_reverse($log); ?>
+        <?php if (empty($log)) : echo '<p>Nessuna attività.</p>';
+        else : $log = array_reverse($log); ?>
             <table class="wp-list-table widefat fixed striped">
                 <thead><tr><th style="width:180px;">Data e Ora</th><th>Azione</th><th style="width:120px;">Indirizzo IP</th></tr></thead>
                 <tbody>

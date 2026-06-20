@@ -9,12 +9,12 @@
  * @since   2.0.0
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
+if (! defined('ABSPATH')) {
     exit;
 }
 
 // Aggancia il caricamento degli asset dello scanner
-add_action( 'admin_enqueue_scripts', 'dfn_enqueue_scanner_assets' );
+add_action('admin_enqueue_scripts', 'dfn_enqueue_scanner_assets');
 
 /**
  * Carica gli asset dello scanner solo sulla pagina dedicata dello scanner live.
@@ -22,8 +22,9 @@ add_action( 'admin_enqueue_scripts', 'dfn_enqueue_scanner_assets' );
  * @param string $hook Pagina admin corrente.
  * @return void
  */
-function dfn_enqueue_scanner_assets( $hook ): void {
-    if ( strpos( $hook, 'dfn-scanner-live' ) === false ) {
+function dfn_enqueue_scanner_assets($hook): void
+{
+    if (strpos($hook, 'dfn-scanner-live') === false) {
         return;
     }
 
@@ -31,33 +32,33 @@ function dfn_enqueue_scanner_assets( $hook ): void {
     wp_enqueue_style(
         'dfn-scanner-css',
         get_stylesheet_directory_uri() . '/assets/css/dfn-scanner.css',
-        array(),
-        '2.0.0'
+        [],
+        '2.0.0',
     );
 
     // Libreria esterna per la decodifica dei QR Code via camera
     wp_enqueue_script(
         'html5-qrcode',
         'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
-        array(),
+        [],
         null,
-        false
+        false,
     );
 
     // Controller script dello scanner
     wp_enqueue_script(
         'dfn-scanner-js',
         get_stylesheet_directory_uri() . '/assets/js/dfn-scanner.js',
-        array( 'html5-qrcode', 'jquery' ),
+        [ 'html5-qrcode', 'jquery' ],
         '2.0.0',
-        true
+        true,
     );
 
     // Localizza variabili utili per AJAX dello scanner
-    wp_localize_script( 'dfn-scanner-js', 'dfnScannerVars', array(
-        'ajaxurl' => admin_url( 'admin-ajax.php' ),
-        'nonce'   => wp_create_nonce( 'dfn_scanner_nonce' ),
-    ) );
+    wp_localize_script('dfn-scanner-js', 'dfnScannerVars', [
+        'ajaxurl' => admin_url('admin-ajax.php'),
+        'nonce'   => wp_create_nonce('dfn_scanner_nonce'),
+    ]);
 }
 
 /**
@@ -65,15 +66,16 @@ function dfn_enqueue_scanner_assets( $hook ): void {
  *
  * @return void
  */
-function dfn_render_pagina_scanner_live(): void {
-    if ( ! current_user_can( 'dfn_use_scanner' ) ) {
-        wp_die( esc_html__( 'Non hai i permessi necessari per accedere allo scanner.', 'dfn-theme' ) );
+function dfn_render_pagina_scanner_live(): void
+{
+    if (! current_user_can('dfn_use_scanner')) {
+        wp_die(esc_html__('Non hai i permessi necessari per accedere allo scanner.', 'dfn-theme'));
     }
     ?>
     <div class="dfn-scanner-wrapper">
         <div class="dfn-scanner-header">
             <h1>📷 FAI Prenotazioni — Check-in Live</h1>
-            <p><?php esc_html_e( 'Mostra il codice QR ricevuto per convalidare l\'accesso ed incassare le quote In Loco.', 'dfn-theme' ); ?></p>
+            <p><?php esc_html_e('Mostra il codice QR ricevuto per convalidare l\'accesso ed incassare le quote In Loco.', 'dfn-theme'); ?></p>
         </div>
 
         <!-- Sezione telecamera -->
@@ -81,7 +83,7 @@ function dfn_render_pagina_scanner_live(): void {
 
         <button id="dfn-btn-start" class="dfn-scanner-btn-start">
             <span class="dashicons dashicons-camera" style="margin-right: 6px;"></span>
-            <?php esc_html_e( 'Avvia Fotocamera', 'dfn-theme' ); ?>
+            <?php esc_html_e('Avvia Fotocamera', 'dfn-theme'); ?>
         </button>
 
         <!-- Area per visualizzare le modali di successo/errore/saldo -->
@@ -93,7 +95,7 @@ function dfn_render_pagina_scanner_live(): void {
 // -------------------------------------------------------------------
 // PWA STANDALONE CONFIGURATION (NASCONDE LA BARRA DI ADMIN DI WP)
 // -------------------------------------------------------------------
-add_action( 'admin_head', 'dfn_scanner_pwa_head_adaptations' );
+add_action('admin_head', 'dfn_scanner_pwa_head_adaptations');
 
 /**
  * Ottimizza l'interfaccia rimuovendo menu e barre di amministrazione di WordPress
@@ -101,11 +103,12 @@ add_action( 'admin_head', 'dfn_scanner_pwa_head_adaptations' );
  *
  * @return void
  */
-function dfn_scanner_pwa_head_adaptations(): void {
-    if ( isset( $_GET['page'] ) && $_GET['page'] === 'dfn-scanner-live' ) {
+function dfn_scanner_pwa_head_adaptations(): void
+{
+    if (isset($_GET['page']) && $_GET['page'] === 'dfn-scanner-live') {
         echo '<meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#111827">';
         echo '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">';
-        
+
         // CSS per nascondere l'admin bar e la barra laterale di WordPress per gli operatori
         echo '<style>
             #wpadminbar { display: none !important; }

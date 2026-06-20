@@ -1,62 +1,77 @@
 <?php
-if ( !defined( 'ABSPATH' ) ) exit;
+
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /**
  * ========================================================================
  * REPORT CHECK-IN E MAPPA TAVOLI (SOLO INTERFACCIA)
  * ========================================================================
  */
-add_action( 'admin_menu', 'cv_aggiungi_pagina_report_checkin' );
-function cv_aggiungi_pagina_report_checkin() {
+add_action('admin_menu', 'cv_aggiungi_pagina_report_checkin');
+function cv_aggiungi_pagina_report_checkin()
+{
     $hook = add_submenu_page(
-        'dfn-events', 'Report Check-in Eventi', 'Check-in Eventi', 'manage_woocommerce', 'cv-report-checkin', 'cv_render_pagina_report_checkin'
+        'dfn-events',
+        'Report Check-in Eventi',
+        'Check-in Eventi',
+        'manage_woocommerce',
+        'cv-report-checkin',
+        'cv_render_pagina_report_checkin',
     );
-    add_action( "admin_enqueue_scripts", 'cv_enqueue_report_assets' );
+    add_action("admin_enqueue_scripts", 'cv_enqueue_report_assets');
 }
 
-function cv_enqueue_report_assets( $hook ) {
-    if ( strpos( $hook, 'cv-report-checkin' ) === false ) return;
+function cv_enqueue_report_assets($hook)
+{
+    if (strpos($hook, 'cv-report-checkin') === false) {
+        return;
+    }
 
 
-    wp_enqueue_style( 'cv-report-css', get_stylesheet_directory_uri() . '/assets/css/cv-report.css', array(), '1.0' );
-    wp_enqueue_script( 'cv-report-js', get_stylesheet_directory_uri() . '/assets/js/cv-report.js', array('jquery'), '1.0', true );
+    wp_enqueue_style('cv-report-css', get_stylesheet_directory_uri() . '/assets/css/cv-report.css', [], '1.0');
+    wp_enqueue_script('cv-report-js', get_stylesheet_directory_uri() . '/assets/js/cv-report.js', ['jquery'], '1.0', true);
 
-    $selected_event = isset( $_GET['event_id'] ) ? intval( $_GET['event_id'] ) : 0;
-    
-    wp_localize_script( 'cv-report-js', 'cvReportVars', array(
-        'ajaxurl'       => admin_url( 'admin-ajax.php' ),
+    $selected_event = isset($_GET['event_id']) ? intval($_GET['event_id']) : 0;
+
+    wp_localize_script('cv-report-js', 'cvReportVars', [
+        'ajaxurl'       => admin_url('admin-ajax.php'),
         'eventId'       => $selected_event,
         'nonceFetch'    => wp_create_nonce('cv_fetch_report_nonce'),
         'nonceManual'   => wp_create_nonce('cv_manual_checkin_nonce'),
         'nonceTable'    => wp_create_nonce('cv_assign_table_nonce'),
         'nonceReminder' => wp_create_nonce('cv_reminder_nonce'),
-        'nonceFeedback' => wp_create_nonce('cv_feedback_nonce') 
-    ) );
+        'nonceFeedback' => wp_create_nonce('cv_feedback_nonce'),
+    ]);
 }
 
-function cv_render_pagina_report_checkin() {
-    if ( ! current_user_can( 'manage_woocommerce' ) ) return;
+function cv_render_pagina_report_checkin()
+{
+    if (! current_user_can('manage_woocommerce')) {
+        return;
+    }
 
-    $selected_event = isset( $_GET['event_id'] ) ? intval( $_GET['event_id'] ) : 0;
-    $products = wc_get_products( array( 'limit' => -1, 'status' => 'publish', 'return' => 'objects' ) );
-    
+    $selected_event = isset($_GET['event_id']) ? intval($_GET['event_id']) : 0;
+    $products = wc_get_products([ 'limit' => -1, 'status' => 'publish', 'return' => 'objects' ]);
+
     $is_delitto = ($selected_event === CV_EVENT_ID_DELITTO);
 
     echo '<div class="wrap"><h1 class="wp-heading-inline">Report & Cassa Check-in</h1>';
     echo '<p style="font-size:15px; color:#555;">Seleziona un evento per monitorare gli accessi in tempo reale, validare manualmente i biglietti e gestire l\'evento.</p>';
-    
+
     echo '<form method="GET" style="margin-top:20px; margin-bottom: 20px; background:#fff; padding:15px; border:1px solid #ccd0d4; border-radius:4px; display:inline-block;">';
     echo '<input type="hidden" name="page" value="cv-report-checkin">';
     echo '<label style="font-weight:bold; margin-right:10px;">Seleziona l\'evento:</label>';
     echo '<select name="event_id" id="cv-event-selector" style="min-width:300px;"><option value="">-- Seleziona un Evento --</option>';
-    foreach ( $products as $product ) {
-        echo '<option value="' . esc_attr( $product->get_id() ) . '" ' . selected( $selected_event, $product->get_id(), false ) . '>' . esc_html( $product->get_name() ) . '</option>';
+    foreach ($products as $product) {
+        echo '<option value="' . esc_attr($product->get_id()) . '" ' . selected($selected_event, $product->get_id(), false) . '>' . esc_html($product->get_name()) . '</option>';
     }
     echo '</select><button type="submit" class="button button-primary" style="margin-left:10px;">Carica Partecipanti</button></form>';
 
-    if ( $selected_event > 0 ) {
+    if ($selected_event > 0) {
         echo '<div style="background:#fff; border-left:4px solid #2271b1; padding:20px; margin-bottom:20px; box-shadow:0 1px 1px rgba(0,0,0,.04); max-width: 1000px; display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 20px;">';
-        
+
         echo '<div style="flex-grow:1;">';
         echo '<h2 style="margin-top:0; display:flex; align-items:center; font-size:18px;">Riepilogo Ingressi <span id="cv-sync-icon" class="dashicons dashicons-update" style="display:none; margin-left:10px; color:#888;"></span></h2>';
         echo '<div style="display:flex; gap:30px; margin-top:15px; flex-wrap:wrap;">';
@@ -65,16 +80,16 @@ function cv_render_pagina_report_checkin() {
         echo '<div style="background:#fef2f2; padding:10px 20px; border-radius:8px; border:1px solid #fecaca; min-width:120px;"><span style="font-size:12px; color:#555; text-transform:uppercase; font-weight:bold;">In Attesa</span><br><strong style="color:#d63638; font-size:32px;" id="cv-tot-residui">-</strong></div>';
         echo '<div style="background:#fffbeb; padding:10px 20px; border-radius:8px; border:1px solid #fde68a; min-width:120px;"><span style="font-size:12px; color:#555; text-transform:uppercase; font-weight:bold;">Posti Liberi</span><br><strong style="color:#d97706; font-size:32px;" id="cv-tot-liberi">-</strong></div>';
         echo '</div></div>';
-        
+
         echo '<div style="text-align:right; border-left: 1px solid #eee; padding-left: 20px; min-width: 250px;">';
-        if ( $is_delitto ) {
+        if ($is_delitto) {
             echo '<button id="cv-auto-assign-tables-btn" class="button" style="background:#10b981; color:#fff; border-color:#10b981; font-size: 14px; padding: 5px 15px; margin-bottom: 8px; display:block; width:100%;">🪄 Smistamento Automatico</button>';
             echo '<button id="cv-show-map-btn" class="button" style="background:#8b5cf6; color:#fff; border-color:#8b5cf6; font-size: 14px; padding: 5px 15px; margin-bottom: 8px; display:block; width:100%;">🗺️ Mappa Tavoli (Stampa)</button>';
         }
-        
+
         echo '<button id="cv-send-reminders-btn" class="button button-primary" style="background:#ff6600; border-color:#ff6600; font-size: 14px; padding: 5px 15px; display:block; width:100%;">📧 Invia Reminder a Tutti</button>';
         echo '<button id="cv-send-feedback-btn" class="button" style="background:#eab308; color:#fff; border-color:#d97706; font-size: 14px; padding: 5px 15px; display:block; width:100%; margin-top:8px;">⭐ Richiedi Recensioni</button>';
-        
+
         echo '</div></div>';
 
         echo '<div id="cv-validator-leaderboard" style="margin-bottom:20px;"></div>';

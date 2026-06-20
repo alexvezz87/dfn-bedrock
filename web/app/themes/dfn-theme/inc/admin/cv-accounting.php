@@ -1,5 +1,7 @@
 <?php
-if ( !defined( 'ABSPATH' ) ) exit;
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /**
  * ========================================================================
@@ -7,37 +9,44 @@ if ( !defined( 'ABSPATH' ) ) exit;
  * ========================================================================
  */
 
-add_action( 'admin_menu', 'cv_aggiungi_pagina_bilancio' );
-function cv_aggiungi_pagina_bilancio() {
+add_action('admin_menu', 'cv_aggiungi_pagina_bilancio');
+function cv_aggiungi_pagina_bilancio()
+{
     $hook = add_submenu_page(
         'dfn-events',
         'Bilancio Eventi',
         '📊 Bilancio Eventi',
         'manage_woocommerce',
         'cv-bilancio-eventi',
-        'cv_render_pagina_bilancio'
+        'cv_render_pagina_bilancio',
     );
 
     // Carichiamo la libreria per i grafici (Chart.js) solo in questa pagina
-    add_action( "admin_enqueue_scripts", 'cv_enqueue_accounting_assets' );
+    add_action("admin_enqueue_scripts", 'cv_enqueue_accounting_assets');
 }
 
-function cv_enqueue_accounting_assets( $hook ) {
-    if ( strpos( $hook, 'cv-bilancio-eventi' ) === false ) return;
+function cv_enqueue_accounting_assets($hook)
+{
+    if (strpos($hook, 'cv-bilancio-eventi') === false) {
+        return;
+    }
 
     // Includiamo Chart.js via CDN in modo asincrono
-    wp_enqueue_script( 'chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', array(), null, true );
+    wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', [], null, true);
 }
 
-function cv_render_pagina_bilancio() {
-    if ( ! current_user_can( 'manage_woocommerce' ) ) return;
+function cv_render_pagina_bilancio()
+{
+    if (! current_user_can('manage_woocommerce')) {
+        return;
+    }
 
-    $selected_event = isset( $_GET['event_id'] ) ? intval( $_GET['event_id'] ) : 0;
-    $products = wc_get_products( array( 'limit' => -1, 'status' => 'publish', 'return' => 'objects' ) );
+    $selected_event = isset($_GET['event_id']) ? intval($_GET['event_id']) : 0;
+    $products = wc_get_products([ 'limit' => -1, 'status' => 'publish', 'return' => 'objects' ]);
 
     // Fallback di emergenza
-    $stripe_percent_fallback = 0.014; 
-    $stripe_fisso_fallback   = 0.25;  
+    $stripe_percent_fallback = 0.014;
+    $stripe_fisso_fallback   = 0.25;
 
     echo '<div class="wrap"><h1>Analisi e Bilancio Eventi</h1>';
     echo '<p>Riepilogo finanziario, andamento temporale e registro dettagliato.</p>';
@@ -45,82 +54,84 @@ function cv_render_pagina_bilancio() {
     echo '<form method="GET" style="margin-bottom: 20px; background:#fff; padding:15px; border:1px solid #ccd0d4; border-radius:4px; display:inline-block;">';
     echo '<input type="hidden" name="page" value="cv-bilancio-eventi">';
     echo '<select name="event_id" style="min-width:300px;"><option value="">-- Seleziona un Evento --</option>';
-    foreach ( $products as $product ) {
-        echo '<option value="' . esc_attr( $product->get_id() ) . '" ' . selected( $selected_event, $product->get_id(), false ) . '>' . esc_html( $product->get_name() ) . '</option>';
+    foreach ($products as $product) {
+        echo '<option value="' . esc_attr($product->get_id()) . '" ' . selected($selected_event, $product->get_id(), false) . '>' . esc_html($product->get_name()) . '</option>';
     }
     echo '</select> <button type="submit" class="button button-primary">Genera Consuntivo</button></form>';
 
-    if ( $selected_event > 0 ) {
-        $orders = wc_get_orders( array( 
-            'status' => array( 'wc-processing', 'wc-completed' ), 
-            'limit' => -1, 
-            'product_id' => $selected_event 
-        ) );
+    if ($selected_event > 0) {
+        $orders = wc_get_orders([
+            'status' => [ 'wc-processing', 'wc-completed' ],
+            'limit' => -1,
+            'product_id' => $selected_event,
+        ]);
 
-        $stats = array(
+        $stats = [
             'ticket_venduti' => 0,
             'ticket_entrati' => 0,
             'incasso_lordo_totale' => 0,
             'incasso_contanti' => 0,
             'incasso_digitale' => 0,
             'commissioni_reali' => 0,
-            'n_ordini_digitali' => 0
-        );
+            'n_ordini_digitali' => 0,
+        ];
 
-        $transazioni_dettaglio = array();
-        
+        $transazioni_dettaglio = [];
+
         // Array per raccogliere le date per il grafico
-        $vendite_nel_tempo = array();
+        $vendite_nel_tempo = [];
 
-        foreach ( $orders as $order ) {
+        foreach ($orders as $order) {
             $qty = 0;
-            foreach ( $order->get_items() as $item ) {
-                if ( $item->get_product_id() == $selected_event ) {
+            foreach ($order->get_items() as $item) {
+                if ($item->get_product_id() == $selected_event) {
                     $qty += $item->get_quantity();
                 }
             }
-            
-            if ($qty === 0) continue;
+
+            if ($qty === 0) {
+                continue;
+            }
 
             $stats['ticket_venduti'] += $qty;
-            
+
             // RACCOLTA DATI PER IL GRAFICO (Data Y-m-d per poterle ordinare correttamente)
             // FATAL-04: Null-check su get_date_created() per ordini importati/corrotti
             $date_created = $order->get_date_created();
-            $data_ordine  = $date_created ? $date_created->date( 'Y-m-d' ) : current_time( 'Y-m-d' );
-            if ( ! isset( $vendite_nel_tempo[ $data_ordine ] ) ) {
+            $data_ordine  = $date_created ? $date_created->date('Y-m-d') : current_time('Y-m-d');
+            if (! isset($vendite_nel_tempo[ $data_ordine ])) {
                 $vendite_nel_tempo[ $data_ordine ] = 0;
             }
             $vendite_nel_tempo[$data_ordine] += $qty;
-            
-            for ( $i = 1; $i <= $qty; $i++ ) {
-                if ( $order->get_meta( '_cv_ticket_validato_' . $i ) === 'yes' ) {
+
+            for ($i = 1; $i <= $qty; $i++) {
+                if ($order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
                     $stats['ticket_entrati']++;
                 }
             }
 
             $totale_ordine = $order->get_total();
             $stats['incasso_lordo_totale'] += $totale_ordine;
-            
+
             $metodo_pagamento = $order->get_payment_method_title();
-            
-            if ( empty( trim( $metodo_pagamento ) ) ) {
+
+            if (empty(trim($metodo_pagamento))) {
                 $metodo_pagamento = 'Contanti (Vecchio Sistema)';
             }
-            
+
             $metodo_lower = strtolower($metodo_pagamento);
             $fee_applicata = 0;
             $is_fallback = false;
 
-            if ( strpos($metodo_lower, 'contanti') !== false || strpos($metodo_lower, 'autorità') !== false ) {
+            if (strpos($metodo_lower, 'contanti') !== false || strpos($metodo_lower, 'autorità') !== false) {
                 $stats['incasso_contanti'] += $totale_ordine;
             } else {
                 $stats['incasso_digitale'] += $totale_ordine;
                 $stats['n_ordini_digitali']++;
 
-                $stripe_fee = $order->get_meta('_stripe_fee'); 
-                
-                if ( $stripe_fee !== '' ) {
+                $stripe_fee = $order->get_meta('_stripe_fee');
+
+                if ($stripe_fee !== '') {
                     $fee_applicata = floatval($stripe_fee);
                     $stats['commissioni_reali'] += $fee_applicata;
                 } else {
@@ -132,7 +143,7 @@ function cv_render_pagina_bilancio() {
                 }
             }
 
-            $transazioni_dettaglio[] = array(
+            $transazioni_dettaglio[] = [
                 'order_id' => $order->get_id(),
                 'data'     => $date_created ? $date_created->date_i18n('d/m/Y H:i') : 'N/A',
                 'cliente'  => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),
@@ -141,17 +152,17 @@ function cv_render_pagina_bilancio() {
                 'lordo'    => $totale_ordine,
                 'fee'      => $fee_applicata,
                 'netto'    => $totale_ordine - $fee_applicata,
-                'fallback' => $is_fallback
-            );
+                'fallback' => $is_fallback,
+            ];
         }
 
         $netto_totale = $stats['incasso_lordo_totale'] - $stats['commissioni_reali'];
 
         // PREPARAZIONE DATI PER IL GRAFICO
         ksort($vendite_nel_tempo); // Ordina l'array cronologicamente
-        $chart_labels = array();
-        $chart_data = array();
-        foreach ( $vendite_nel_tempo as $data_raw => $totale_biglietti ) {
+        $chart_labels = [];
+        $chart_data = [];
+        foreach ($vendite_nel_tempo as $data_raw => $totale_biglietti) {
             $chart_labels[] = date_i18n('d M', strtotime($data_raw)); // Es. "24 Mar"
             $chart_data[] = $totale_biglietti;
         }
@@ -275,20 +286,20 @@ function cv_render_pagina_bilancio() {
             </thead>
             <tbody>
                 <?php
-                if ( empty($transazioni_dettaglio) ) {
+                if (empty($transazioni_dettaglio)) {
                     echo '<tr><td colspan="8" style="text-align:center; padding:20px;">Nessuna transazione trovata per questo evento.</td></tr>';
                 } else {
-                    foreach ( $transazioni_dettaglio as $tx ) {
+                    foreach ($transazioni_dettaglio as $tx) {
                         $metodo_titolo = esc_html($tx['metodo']);
                         $metodo_lower = strtolower($tx['metodo']);
-                        
-                        if ( strpos($metodo_lower, 'contanti') !== false || strpos($metodo_lower, 'autorità') !== false ) {
+
+                        if (strpos($metodo_lower, 'contanti') !== false || strpos($metodo_lower, 'autorità') !== false) {
                             $badge_class = 'cv-pay-contanti';
                             $metodo_icon = '💵 ';
-                        } elseif ( strpos($metodo_lower, 'klarna') !== false ) {
+                        } elseif (strpos($metodo_lower, 'klarna') !== false) {
                             $badge_class = 'cv-pay-klarna';
                             $metodo_icon = '🛍️ ';
-                        } elseif ( strpos($metodo_lower, 'apple') !== false || strpos($metodo_lower, 'google') !== false ) {
+                        } elseif (strpos($metodo_lower, 'apple') !== false || strpos($metodo_lower, 'google') !== false) {
                             $badge_class = 'cv-pay-apple';
                             $metodo_icon = '📱 ';
                         } else {
@@ -314,7 +325,7 @@ function cv_render_pagina_bilancio() {
                         echo '</tr>';
                     }
                 }
-                ?>
+        ?>
             </tbody>
             <tfoot>
                 <tr style="background:#f0f6fc;">

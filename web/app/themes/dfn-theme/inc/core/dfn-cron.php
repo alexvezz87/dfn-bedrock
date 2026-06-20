@@ -1,4 +1,5 @@
 <?php
+
 /**
  * DFN Booking System 2.0 — Background Cron Jobs
  *
@@ -11,35 +12,37 @@
  * @since   2.0.0
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
+if (! defined('ABSPATH')) {
     exit;
 }
 
 // Registrazione degli eventi cron orari su WordPress
-add_action( 'init', 'dfn_registra_cron_jobs' );
-add_action( 'switch_theme', 'dfn_rimuovi_cron_jobs' );
+add_action('init', 'dfn_registra_cron_jobs');
+add_action('switch_theme', 'dfn_rimuovi_cron_jobs');
 
 /**
  * Registra il cron job orario per le attività di manutenzione in background.
  */
-function dfn_registra_cron_jobs(): void {
-    if ( ! wp_next_scheduled( 'dfn_cron_hourly_maintenance' ) ) {
-        wp_schedule_event( time(), 'hourly', 'dfn_cron_hourly_maintenance' );
+function dfn_registra_cron_jobs(): void
+{
+    if (! wp_next_scheduled('dfn_cron_hourly_maintenance')) {
+        wp_schedule_event(time(), 'hourly', 'dfn_cron_hourly_maintenance');
     }
 }
 
 /**
  * Rimuove il cron job alla disattivazione del tema per evitare orfani nel DB.
  */
-function dfn_rimuovi_cron_jobs(): void {
-    $timestamp = wp_next_scheduled( 'dfn_cron_hourly_maintenance' );
-    if ( $timestamp ) {
-        wp_unschedule_event( $timestamp, 'dfn_cron_hourly_maintenance' );
+function dfn_rimuovi_cron_jobs(): void
+{
+    $timestamp = wp_next_scheduled('dfn_cron_hourly_maintenance');
+    if ($timestamp) {
+        wp_unschedule_event($timestamp, 'dfn_cron_hourly_maintenance');
     }
 }
 
 // Collega l'azione di manutenzione oraria del cron
-add_action( 'dfn_cron_hourly_maintenance', 'dfn_run_hourly_maintenance' );
+add_action('dfn_cron_hourly_maintenance', 'dfn_run_hourly_maintenance');
 
 /**
  * BLOCCO CANCELLAZIONE NATIVA WOOCOMMERCE
@@ -53,18 +56,19 @@ add_action( 'dfn_cron_hourly_maintenance', 'dfn_run_hourly_maintenance' );
  * - Se auto_cancel_hours > 0 → blocca comunque, perché ci penserà dfn_cron_annulla_ordini_scaduti().
  * - Se non c'è booking DFN → lascia passare il comportamento standard di WooCommerce.
  */
-add_filter( 'woocommerce_cancel_unpaid_order', 'dfn_blocca_cancellazione_wc_nativa', 10, 2 );
-function dfn_blocca_cancellazione_wc_nativa( bool $should_cancel, WC_Order $order ): bool {
+add_filter('woocommerce_cancel_unpaid_order', 'dfn_blocca_cancellazione_wc_nativa', 10, 2);
+function dfn_blocca_cancellazione_wc_nativa(bool $should_cancel, WC_Order $order): bool
+{
     // Se WooCommerce non aveva intenzione di cancellarlo, non tocchiamo nulla
-    if ( ! $should_cancel ) {
+    if (! $should_cancel) {
         return false;
     }
 
     $order_id = $order->get_id();
-    $booking  = dfn_db_get_booking_by_order( $order_id );
+    $booking  = dfn_db_get_booking_by_order($order_id);
 
     // Nessun booking DFN: lasciamo fare a WooCommerce il suo lavoro normale
-    if ( ! $booking ) {
+    if (! $booking) {
         return $should_cancel;
     }
 
@@ -75,7 +79,8 @@ function dfn_blocca_cancellazione_wc_nativa( bool $should_cancel, WC_Order $orde
 /**
  * Funzione principale che esegue tutte le operazioni orarie.
  */
-function dfn_run_hourly_maintenance(): void {
+function dfn_run_hourly_maintenance(): void
+{
     dfn_cron_annulla_ordini_scaduti();
     dfn_cron_invia_promemoria_24h();
     dfn_cron_gestisci_scadenza_waitlist();
@@ -89,69 +94,70 @@ function dfn_run_hourly_maintenance(): void {
  * - N = annulla dopo N ore dalla creazione dell'ordine
  * Ordini senza booking DFN associato vengono annullati con il fallback di 24 ore.
  */
-function dfn_cron_annulla_ordini_scaduti(): void {
-    if ( get_transient( 'dfn_spazzino_ordini_lock' ) ) {
+function dfn_cron_annulla_ordini_scaduti(): void
+{
+    if (get_transient('dfn_spazzino_ordini_lock')) {
         return;
     }
-    set_transient( 'dfn_spazzino_ordini_lock', 1, 10 * MINUTE_IN_SECONDS );
+    set_transient('dfn_spazzino_ordini_lock', 1, 10 * MINUTE_IN_SECONDS);
 
     // Recupera ordini in stato pending (senza filtro tempo fisso)
-    $args = array(
+    $args = [
         'status' => 'pending',
-        'limit'  => intval( dfn_get_setting( 'cron_batch_expired', 30 ) ),
-    );
-    $orders = wc_get_orders( $args );
+        'limit'  => intval(dfn_get_setting('cron_batch_expired', 30)),
+    ];
+    $orders = wc_get_orders($args);
 
-    if ( empty( $orders ) ) {
+    if (empty($orders)) {
         return;
     }
 
-    foreach ( $orders as $order ) {
+    foreach ($orders as $order) {
         $order_id = $order->get_id();
 
         // Trova il booking e l'evento associato all'ordine
-        $booking = dfn_db_get_booking_by_order( $order_id );
-        if ( ! $booking ) {
+        $booking = dfn_db_get_booking_by_order($order_id);
+        if (! $booking) {
             // Ordine senza booking DFN: applica il vecchio comportamento configurabile
             $created_ts = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
-            $timeout_no_booking = intval( dfn_get_setting( 'cron_timeout_no_booking', 24 ) );
-            if ( $created_ts > 0 && time() > ( $created_ts + $timeout_no_booking * HOUR_IN_SECONDS ) ) {
-                $order->update_status( 'cancelled', sprintf( __( '⏰ Ordine annullato automaticamente: scaduto il termine di %d ore per il pagamento online.', 'dfn-theme' ), $timeout_no_booking ) );
+            $timeout_no_booking = intval(dfn_get_setting('cron_timeout_no_booking', 24));
+            if ($created_ts > 0 && time() > ($created_ts + $timeout_no_booking * HOUR_IN_SECONDS)) {
+                $order->update_status('cancelled', sprintf(__('⏰ Ordine annullato automaticamente: scaduto il termine di %d ore per il contributo online.', 'dfn-theme'), $timeout_no_booking));
             }
             continue;
         }
 
-        $event = dfn_db_get_event( $booking->event_id );
-        if ( ! $event ) {
+        $event = dfn_db_get_event($booking->event_id);
+        if (! $event) {
             continue;
         }
 
         // Leggi il timeout configurato sull'evento (default 24 per retrocompatibilità)
-        $auto_cancel_hours = isset( $event->auto_cancel_hours ) ? (int) $event->auto_cancel_hours : 24;
+        $auto_cancel_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
 
         // Se 0 → nessun annullamento automatico, skip
-        if ( $auto_cancel_hours === 0 ) {
+        if ($auto_cancel_hours === 0) {
             continue;
         }
 
         // Controlla se l'ordine ha superato il timeout configurato
         $created_ts = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
-        if ( $created_ts <= 0 ) {
+        if ($created_ts <= 0) {
             continue;
         }
 
-        $limite = $created_ts + ( $auto_cancel_hours * HOUR_IN_SECONDS );
+        $limite = $created_ts + ($auto_cancel_hours * HOUR_IN_SECONDS);
 
-        if ( time() < $limite ) {
+        if (time() < $limite) {
             continue; // Non ancora scaduto
         }
 
         // Annulla l'ordine con messaggio che include le ore configurate
-        $order->update_status( 'cancelled', sprintf(
+        $order->update_status('cancelled', sprintf(
             /* translators: %d: number of hours */
-            __( '⏰ Ordine annullato automaticamente: superato il termine di %d ore per il completamento del pagamento.', 'dfn-theme' ),
-            $auto_cancel_hours
-        ) );
+            __('⏰ Ordine annullato automaticamente: superato il termine di %d ore per la ricezione del contributo.', 'dfn-theme'),
+            $auto_cancel_hours,
+        ));
     }
 }
 
@@ -159,122 +165,124 @@ function dfn_cron_annulla_ordini_scaduti(): void {
  * Gestore dell'email di notifica cancellazione ordine online e ripristino stock.
  * Hooked all'azione nativa di WooCommerce.
  */
-add_action( 'woocommerce_order_status_cancelled', 'dfn_email_cliente_ordine_scaduto', 10, 2 );
-function dfn_email_cliente_ordine_scaduto( $order_id, $order ) {
-    if ( ! $order ) {
+add_action('woocommerce_order_status_cancelled', 'dfn_email_cliente_ordine_scaduto', 10, 2);
+function dfn_email_cliente_ordine_scaduto($order_id, $order)
+{
+    if (! $order) {
         return;
     }
 
     // Se l'ordine è stato cancellato dall'amministratore via Gestione Turni, invia l'email specifica
-    if ( 'yes' === $order->get_meta( '_dfn_admin_cancelled' ) ) {
-        $booking = dfn_db_get_booking_by_order( $order_id );
-        if ( $booking ) {
-            dfn_send_booking_admin_cancellation( $booking->id );
+    if ('yes' === $order->get_meta('_dfn_admin_cancelled')) {
+        $booking = dfn_db_get_booking_by_order($order_id);
+        if ($booking) {
+            dfn_send_booking_admin_cancellation($booking->id);
         }
         return;
     }
 
     // Se l'ordine è stato annullato manualmente dall'utente, non inviare l'email di scadenza automatica
-    if ( 'yes' === $order->get_meta( '_dfn_cancelled_manually' ) ) {
+    if ('yes' === $order->get_meta('_dfn_cancelled_manually')) {
         return;
     }
 
     // Evita il raddoppio del ripristino stock di WooCommerce
-    remove_action( 'woocommerce_order_status_pending_to_cancelled', 'wc_maybe_increase_stock_levels' );
-    remove_action( 'woocommerce_order_status_cancelled', 'wc_maybe_increase_stock_levels' );
+    remove_action('woocommerce_order_status_pending_to_cancelled', 'wc_maybe_increase_stock_levels');
+    remove_action('woocommerce_order_status_cancelled', 'wc_maybe_increase_stock_levels');
 
     // Se l'ordine era con saldo "In Loco" e viene cancellato,
     // o se viene annullato un ordine online scaduto, ripristiniamo le scorte
-    foreach ( $order->get_items() as $item ) {
+    foreach ($order->get_items() as $item) {
         $product = $item->get_product();
-        if ( $product && $product->managing_stock() ) {
+        if ($product && $product->managing_stock()) {
             $qty = $item->get_quantity();
             $vecchio_stock = $product->get_stock_quantity();
-            $nuovo_stock = wc_update_product_stock( $product, $qty, 'increase' );
-            $nota = sprintf( '🎟️ Magazzino ripristinato dal sistema: %s (%d &rarr; %d).', $product->get_name(), $vecchio_stock, $nuovo_stock );
-            $order->add_order_note( $nota );
+            $nuovo_stock = wc_update_product_stock($product, $qty, 'increase');
+            $nota = sprintf('🎟️ Magazzino ripristinato dal sistema: %s (%d &rarr; %d).', $product->get_name(), $vecchio_stock, $nuovo_stock);
+            $order->add_order_note($nota);
         }
     }
 
     // Se esiste un booking per questo ordine, gestiamo l'annullamento della prenotazione e il rilascio della capienza
-    $booking = dfn_db_get_booking_by_order( $order_id );
-    if ( $booking ) {
+    $booking = dfn_db_get_booking_by_order($order_id);
+    if ($booking) {
         // Procedi solo se la prenotazione non è già stata annullata (es. da cancellazione autonoma visitatore)
-        if ( $booking->status !== 'cancelled' ) {
+        if ($booking->status !== 'cancelled') {
             global $wpdb;
             $table_slots = $wpdb->prefix . 'dfn_event_slots';
             $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
 
-            $wpdb->query( 'START TRANSACTION' );
+            $wpdb->query('START TRANSACTION');
 
             // 1. Rilascia la capienza negli slot orari associati
-            $assocs = $wpdb->get_results( $wpdb->prepare(
+            $assocs = $wpdb->get_results($wpdb->prepare(
                 "SELECT slot_id, persons FROM {$table_booking_slots} WHERE booking_id = %d",
-                $booking->id
-            ) );
+                $booking->id,
+            ));
 
-            foreach ( $assocs as $assoc ) {
-                $wpdb->query( $wpdb->prepare(
+            foreach ($assocs as $assoc) {
+                $wpdb->query($wpdb->prepare(
                     "UPDATE {$table_slots} SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
-                    intval( $assoc->persons ),
-                    intval( $assoc->slot_id )
-                ) );
+                    intval($assoc->persons),
+                    intval($assoc->slot_id),
+                ));
             }
 
             // 2. Aggiorna lo stato in 'cancelled' nella tabella prenotazioni
             $wpdb->update(
                 $wpdb->prefix . 'dfn_bookings',
-                array( 'status' => 'cancelled' ),
-                array( 'id' => $booking->id ),
-                array( '%s' ),
-                array( '%d' )
+                [ 'status' => 'cancelled' ],
+                [ 'id' => $booking->id ],
+                [ '%s' ],
+                [ '%d' ],
             );
 
-            $wpdb->query( 'COMMIT' );
+            $wpdb->query('COMMIT');
 
             // 3. Invia email di cancellazione centralizzata
-            dfn_send_booking_cancellation( $booking->id );
+            dfn_send_booking_cancellation($booking->id);
         }
         return;
     }
 
     // Se è un normale ordine online scaduto, invia l'email di notifica scadenza online
     $email_cliente = $order->get_billing_email();
-    if ( empty( $email_cliente ) ) {
+    if (empty($email_cliente)) {
         return;
     }
 
-    $nomi_eventi = array();
-    foreach ( $order->get_items() as $item ) {
+    $nomi_eventi = [];
+    foreach ($order->get_items() as $item) {
         $nomi_eventi[] = $item->get_name();
     }
-    $titolo_evento = implode( ' + ', $nomi_eventi );
+    $titolo_evento = implode(' + ', $nomi_eventi);
 
     $subject = 'Prenotazione Temporanea Scaduta - ' . $titolo_evento;
 
-    $messaggio  = '<p>Ciao <strong>' . esc_html( $order->get_billing_first_name() ) . '</strong>,</p>';
-    $messaggio .= '<p>Ti informiamo che la tua prenotazione temporanea (Ordine #' . $order_id . ') per l\'evento <strong>' . esc_html( $titolo_evento ) . '</strong> è stata <strong>annullata automaticamente</strong>.</p>';
-    $messaggio .= '<p>Come indicato al checkout, i posti venivano riservati per un massimo di 24 ore in attesa del saldo online. Non avendo completato la transazione nei termini, i biglietti sono tornati disponibili per il pubblico.</p>';
+    $messaggio  = '<p>Ciao <strong>' . esc_html($order->get_billing_first_name()) . '</strong>,</p>';
+    $messaggio .= '<p>Ti informiamo che la tua prenotazione temporanea (Ordine #' . $order_id . ') per l\'evento <strong>' . esc_html($titolo_evento) . '</strong> è stata <strong>annullata automaticamente</strong>.</p>';
+    $messaggio .= '<p>Come indicato al checkout, i posti venivano riservati per un massimo di 24 ore in attesa del contributo online. Non avendo completato la transazione nei termini, i posti sono tornati disponibili per il pubblico.</p>';
     $messaggio .= '<p>Se desideri ancora partecipare, puoi effettuare una nuova prenotazione sul nostro portale, verificando la disponibilità di posti rimasti.</p>';
     $messaggio .= '<p>A presto!</p>';
 
-    dfn_send_notification_email( $email_cliente, $subject, 'Prenotazione Scaduta', $messaggio );
+    dfn_send_notification_email($email_cliente, $subject, 'Prenotazione Scaduta', $messaggio);
 }
 
 /**
  * 2. PROMEMORIA PRE-EVENTO AUTOMATICO (24 ore prima dell'inizio dello slot)
  */
-function dfn_cron_invia_promemoria_24h(): void {
+function dfn_cron_invia_promemoria_24h(): void
+{
     global $wpdb;
 
-    if ( dfn_get_setting( 'enable_reminder_24h', 'yes' ) !== 'yes' ) {
+    if (dfn_get_setting('enable_reminder_24h', 'yes') !== 'yes') {
         return;
     }
 
-    if ( get_transient( 'dfn_reminder_cron_lock' ) ) {
+    if (get_transient('dfn_reminder_cron_lock')) {
         return;
     }
-    set_transient( 'dfn_reminder_cron_lock', 1, 15 * MINUTE_IN_SECONDS );
+    set_transient('dfn_reminder_cron_lock', 1, 15 * MINUTE_IN_SECONDS);
 
     // Trova le prenotazioni confermate per eventi o slot che si tengono nelle prossime 24-36 ore,
     // e che non hanno ancora ricevuto il promemoria
@@ -283,13 +291,13 @@ function dfn_cron_invia_promemoria_24h(): void {
     $table_bs       = $wpdb->prefix . 'dfn_booking_slots';
     $table_events   = $wpdb->prefix . 'dfn_events';
 
-    $reminder_start = intval( dfn_get_setting( 'cron_reminder_start', 12 ) );
-    $reminder_end   = intval( dfn_get_setting( 'cron_reminder_end', 36 ) );
-    $batch_reminder = intval( dfn_get_setting( 'cron_batch_reminder', 20 ) );
+    $reminder_start = intval(dfn_get_setting('cron_reminder_start', 12));
+    $reminder_end   = intval(dfn_get_setting('cron_reminder_end', 36));
+    $batch_reminder = intval(dfn_get_setting('cron_batch_reminder', 20));
 
-    $now = current_time( 'mysql' );
-    $target_time_start = date( 'Y-m-d H:i:s', time() + $reminder_start * HOUR_IN_SECONDS );
-    $target_time_end   = date( 'Y-m-d H:i:s', time() + $reminder_end * HOUR_IN_SECONDS );
+    $now = current_time('mysql');
+    $target_time_start = date('Y-m-d H:i:s', time() + $reminder_start * HOUR_IN_SECONDS);
+    $target_time_end   = date('Y-m-d H:i:s', time() + $reminder_end * HOUR_IN_SECONDS);
 
     // 1. Trova le prenotazioni con slot orari definiti nelle prossime 24-36 ore
     $query_slots = $wpdb->prepare(
@@ -304,9 +312,9 @@ function dfn_cron_invia_promemoria_24h(): void {
          LIMIT %d",
         $target_time_start,
         $target_time_end,
-        $batch_reminder
+        $batch_reminder,
     );
-    $bookings_slots = $wpdb->get_col( $query_slots );
+    $bookings_slots = $wpdb->get_col($query_slots);
 
     // 2. Trova le prenotazioni a ingresso libero (free-flow) senza slot per eventi nelle prossime 24-36 ore
     $query_free = $wpdb->prepare(
@@ -321,27 +329,27 @@ function dfn_cron_invia_promemoria_24h(): void {
          LIMIT %d",
         $target_time_start,
         $target_time_end,
-        $batch_reminder
+        $batch_reminder,
     );
-    $bookings_free = $wpdb->get_col( $query_free );
+    $bookings_free = $wpdb->get_col($query_free);
 
-    $all_bookings = array_unique( array_merge( $bookings_slots, $bookings_free ) );
+    $all_bookings = array_unique(array_merge($bookings_slots, $bookings_free));
 
-    if ( empty( $all_bookings ) ) {
+    if (empty($all_bookings)) {
         return;
     }
 
-    foreach ( $all_bookings as $booking_id ) {
+    foreach ($all_bookings as $booking_id) {
         $booking_id = (int) $booking_id;
-        
-        // Invia l'email di promemoria 24 ore prima
-        $sent = dfn_send_booking_24h_reminder( $booking_id );
 
-        if ( $sent ) {
+        // Invia l'email di promemoria 24 ore prima
+        $sent = dfn_send_booking_24h_reminder($booking_id);
+
+        if ($sent) {
             // Segna il promemoria come inviato utilizzando i postmeta dell'ordine WooCommerce legato alla prenotazione
-            $booking = $wpdb->get_row( $wpdb->prepare( "SELECT order_id FROM {$table_bookings} WHERE id = %d", $booking_id ) );
-            if ( $booking ) {
-                update_post_meta( $booking->order_id, '_dfn_reminder_sent', 'yes' );
+            $booking = $wpdb->get_row($wpdb->prepare("SELECT order_id FROM {$table_bookings} WHERE id = %d", $booking_id));
+            if ($booking) {
+                update_post_meta($booking->order_id, '_dfn_reminder_sent', 'yes');
             }
         }
     }
@@ -350,69 +358,70 @@ function dfn_cron_invia_promemoria_24h(): void {
 /**
  * 3. GESTORE SCADENZA WAITLIST (TTL 2 ORE) E FIFO AUTOMATICO
  */
-function dfn_cron_gestisci_scadenza_waitlist(): void {
+function dfn_cron_gestisci_scadenza_waitlist(): void
+{
     global $wpdb;
 
-    if ( get_transient( 'dfn_waitlist_cron_lock' ) ) {
+    if (get_transient('dfn_waitlist_cron_lock')) {
         return;
     }
-    set_transient( 'dfn_waitlist_cron_lock', 1, 5 * MINUTE_IN_SECONDS );
+    set_transient('dfn_waitlist_cron_lock', 1, 5 * MINUTE_IN_SECONDS);
 
     $table_waitlist = $wpdb->prefix . 'dfn_waitlist';
-    $now = current_time( 'mysql' );
+    $now = current_time('mysql');
 
     // 1. Trova tutte le prenotazioni in waitlist notificate il cui TTL è scaduto
-    $expired_entries = $wpdb->get_results( $wpdb->prepare(
+    $expired_entries = $wpdb->get_results($wpdb->prepare(
         "SELECT * FROM {$table_waitlist} WHERE status = 'notified' AND ttl_expires_at < %s",
-        $now
-    ) );
+        $now,
+    ));
 
-    if ( empty( $expired_entries ) ) {
+    if (empty($expired_entries)) {
         return;
     }
 
-    foreach ( $expired_entries as $entry ) {
+    foreach ($expired_entries as $entry) {
         // Aggiorna lo stato della voce scaduta a 'expired'
         $wpdb->update(
             $table_waitlist,
-            array( 'status' => 'expired' ),
-            array( 'id' => $entry->id ),
-            array( '%s' ),
-            array( '%d' )
+            [ 'status' => 'expired' ],
+            [ 'id' => $entry->id ],
+            [ '%s' ],
+            [ '%d' ],
         );
 
         // Se la voce era legata a uno slot specifico, sblocca la capacità temporaneamente occupata,
         // o procedi a notificare il prossimo in coda FIFO per lo stesso evento ed eventuale slot
-        $slot_id_filter = $entry->slot_id ? $wpdb->prepare( "AND slot_id = %d", $entry->slot_id ) : "AND slot_id IS NULL";
-        
-        $next_in_queue = $wpdb->get_row( $wpdb->prepare(
+        $slot_id_filter = $entry->slot_id ? $wpdb->prepare("AND slot_id = %d", $entry->slot_id) : "AND slot_id IS NULL";
+
+        $next_in_queue = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM {$table_waitlist} 
              WHERE event_id = %d 
                {$slot_id_filter} 
                AND status = 'waiting' 
              ORDER BY created_at ASC 
              LIMIT 1",
-            $entry->event_id
-        ) );
+            $entry->event_id,
+        ));
 
-        if ( $next_in_queue ) {
-            $waitlist_ttl = intval( dfn_get_setting( 'cron_waitlist_ttl', 2 ) );
-            $ttl_limit = date( 'Y-m-d H:i:s', time() + $waitlist_ttl * HOUR_IN_SECONDS ); // TTL di priorità configurabile
+        if ($next_in_queue) {
+            $waitlist_ttl = intval(dfn_get_setting('cron_waitlist_ttl', 2));
+            $ttl_limit = date('Y-m-d H:i:s', time() + $waitlist_ttl * HOUR_IN_SECONDS); // TTL di priorità configurabile
 
             $wpdb->update(
                 $table_waitlist,
-                array(
+                [
                     'status'         => 'notified',
                     'notified_at'    => $now,
                     'ttl_expires_at' => $ttl_limit,
-                ),
-                array( 'id' => $next_in_queue->id ),
-                array( '%s', '%s', '%s' ),
-                array( '%d' )
+                ],
+                [ 'id' => $next_in_queue->id ],
+                [ '%s', '%s', '%s' ],
+                [ '%d' ],
             );
 
             // Invia la notifica via email per promuovere l'utente
-            dfn_send_waitlist_notification( $next_in_queue->id );
+            dfn_send_waitlist_notification($next_in_queue->id);
         }
     }
 }

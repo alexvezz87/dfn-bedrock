@@ -1,11 +1,14 @@
 <?php
+
 /**
  * DFN Theme - Functions
  * Architettura Modulare FAI Prenotazioni & CandleVibes Legacy
  */
 
 // Exit if accessed directly
-if ( !defined( 'ABSPATH' ) ) exit;
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /**
  * ========================================================================

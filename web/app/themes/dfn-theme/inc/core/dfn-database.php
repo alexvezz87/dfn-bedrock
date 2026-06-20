@@ -1,4 +1,5 @@
 <?php
+
 /**
  * DFN Booking System 2.0 — Database Schema & Migration
  *
@@ -14,12 +15,12 @@
  * @since   2.0.0
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
+if (! defined('ABSPATH')) {
     exit;
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define( 'DFN_DB_VERSION', '2.0.7' );
+define('DFN_DB_VERSION', '2.0.7');
 
 /**
  * ========================================================================
@@ -27,16 +28,17 @@ define( 'DFN_DB_VERSION', '2.0.7' );
  * ========================================================================
  */
 
-add_action( 'after_switch_theme', 'dfn_db_install' );
-add_action( 'init', 'dfn_db_install_if_needed' );
+add_action('after_switch_theme', 'dfn_db_install');
+add_action('init', 'dfn_db_install_if_needed');
 
 /**
  * Verifica se lo schema deve essere aggiornato (version check).
  *
  * @return void
  */
-function dfn_db_install_if_needed(): void {
-    if ( get_option( 'dfn_db_version' ) !== DFN_DB_VERSION ) {
+function dfn_db_install_if_needed(): void
+{
+    if (get_option('dfn_db_version') !== DFN_DB_VERSION) {
         dfn_db_install();
     }
 }
@@ -49,7 +51,8 @@ function dfn_db_install_if_needed(): void {
  *
  * @return void
  */
-function dfn_db_install(): void {
+function dfn_db_install(): void
+{
     global $wpdb;
 
     $charset_collate = $wpdb->get_charset_collate();
@@ -214,21 +217,21 @@ function dfn_db_install(): void {
     ) {$charset_collate};";
 
     // Esecuzione idempotente di tutte le tabelle
-    dbDelta( $sql_events );
-    dbDelta( $sql_slots );
-    dbDelta( $sql_bookings );
-    dbDelta( $sql_booking_slots );
-    dbDelta( $sql_fai );
-    dbDelta( $sql_waitlist );
+    dbDelta($sql_events);
+    dbDelta($sql_slots);
+    dbDelta($sql_bookings);
+    dbDelta($sql_booking_slots);
+    dbDelta($sql_fai);
+    dbDelta($sql_waitlist);
 
     // Forza la creazione della colonna description se manca (dbDelta a volte fallisce l'alter)
-    $row = $wpdb->get_results( "SHOW COLUMNS FROM {$table_events} LIKE 'description'" );
-    if ( empty( $row ) ) {
-        $wpdb->query( "ALTER TABLE {$table_events} ADD COLUMN description text DEFAULT NULL AFTER location" );
+    $row = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'description'");
+    if (empty($row)) {
+        $wpdb->query("ALTER TABLE {$table_events} ADD COLUMN description text DEFAULT NULL AFTER location");
     }
 
     // Forza la nullabilità di card_expiry nella tabella fai_members (dbDelta a volte fallisce l'alter)
-    $wpdb->query( "ALTER TABLE {$table_fai} MODIFY COLUMN card_expiry date DEFAULT NULL" );
+    $wpdb->query("ALTER TABLE {$table_fai} MODIFY COLUMN card_expiry date DEFAULT NULL");
 
     // Migra dati legacy dalla waitlist su wp_options (one-shot)
     dfn_migrate_waitlist_from_options();
@@ -237,7 +240,7 @@ function dfn_db_install(): void {
     dfn_migrate_in_loco_auto_cancel();
 
     // Aggiorna la versione per evitare re-esecuzioni
-    update_option( 'dfn_db_version', DFN_DB_VERSION );
+    update_option('dfn_db_version', DFN_DB_VERSION);
 }
 
 /**
@@ -254,49 +257,50 @@ function dfn_db_install(): void {
  *
  * @return void
  */
-function dfn_migrate_waitlist_from_options(): void {
+function dfn_migrate_waitlist_from_options(): void
+{
     // Se la migrazione è già stata eseguita, esci
-    if ( get_option( 'dfn_waitlist_migrated' ) === 'yes' ) {
+    if (get_option('dfn_waitlist_migrated') === 'yes') {
         return;
     }
 
-    $legacy_data = get_option( 'cv_waitlist_data', array() );
-    if ( empty( $legacy_data ) || ! is_array( $legacy_data ) ) {
-        update_option( 'dfn_waitlist_migrated', 'yes' );
+    $legacy_data = get_option('cv_waitlist_data', []);
+    if (empty($legacy_data) || ! is_array($legacy_data)) {
+        update_option('dfn_waitlist_migrated', 'yes');
         return;
     }
 
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_waitlist';
 
-    foreach ( $legacy_data as $event_id => $entries ) {
-        if ( ! is_array( $entries ) ) {
+    foreach ($legacy_data as $event_id => $entries) {
+        if (! is_array($entries)) {
             continue;
         }
-        foreach ( $entries as $entry ) {
-            $nome    = isset( $entry['nome'] ) ? sanitize_text_field( $entry['nome'] ) : '';
-            $cognome = isset( $entry['cognome'] ) ? sanitize_text_field( $entry['cognome'] ) : '';
+        foreach ($entries as $entry) {
+            $nome    = isset($entry['nome']) ? sanitize_text_field($entry['nome']) : '';
+            $cognome = isset($entry['cognome']) ? sanitize_text_field($entry['cognome']) : '';
 
             $wpdb->insert(
                 $table,
-                array(
-                    'event_id'       => absint( $event_id ),
-                    'customer_name'  => trim( $nome . ' ' . $cognome ),
-                    'customer_email' => isset( $entry['email'] ) ? sanitize_email( $entry['email'] ) : '',
-                    'customer_phone' => isset( $entry['tel'] ) ? sanitize_text_field( $entry['tel'] ) : null,
-                    'persons'        => isset( $entry['qty'] ) ? absint( $entry['qty'] ) : 1,
-                    'fai_cards'      => isset( $entry['tessere'] ) ? absint( $entry['tessere'] ) : 0,
+                [
+                    'event_id'       => absint($event_id),
+                    'customer_name'  => trim($nome . ' ' . $cognome),
+                    'customer_email' => isset($entry['email']) ? sanitize_email($entry['email']) : '',
+                    'customer_phone' => isset($entry['tel']) ? sanitize_text_field($entry['tel']) : null,
+                    'persons'        => isset($entry['qty']) ? absint($entry['qty']) : 1,
+                    'fai_cards'      => isset($entry['tessere']) ? absint($entry['tessere']) : 0,
                     'status'         => 'waiting',
-                    'created_at'     => isset( $entry['date'] ) ? $entry['date'] : current_time( 'mysql' ),
-                ),
-                array( '%d', '%s', '%s', '%s', '%d', '%d', '%s', '%s' )
+                    'created_at'     => isset($entry['date']) ? $entry['date'] : current_time('mysql'),
+                ],
+                [ '%d', '%s', '%s', '%s', '%d', '%d', '%s', '%s' ],
             );
         }
     }
 
     // Backup dell'option originale, poi segna la migrazione come completata
-    update_option( 'cv_waitlist_data_backup_v2', $legacy_data );
-    update_option( 'dfn_waitlist_migrated', 'yes' );
+    update_option('cv_waitlist_data_backup_v2', $legacy_data);
+    update_option('dfn_waitlist_migrated', 'yes');
 }
 
 /**
@@ -305,8 +309,9 @@ function dfn_migrate_waitlist_from_options(): void {
  *
  * @return void
  */
-function dfn_migrate_in_loco_auto_cancel(): void {
-    if ( get_option( 'dfn_in_loco_auto_cancel_migrated' ) === 'yes' ) {
+function dfn_migrate_in_loco_auto_cancel(): void
+{
+    if (get_option('dfn_in_loco_auto_cancel_migrated') === 'yes') {
         return;
     }
 
@@ -314,10 +319,10 @@ function dfn_migrate_in_loco_auto_cancel(): void {
     $table = $wpdb->prefix . 'dfn_events';
 
     $wpdb->query(
-        "UPDATE {$table} SET auto_cancel_hours = 0 WHERE payment_mode = 'in_loco'"
+        "UPDATE {$table} SET auto_cancel_hours = 0 WHERE payment_mode = 'in_loco'",
     );
 
-    update_option( 'dfn_in_loco_auto_cancel_migrated', 'yes' );
+    update_option('dfn_in_loco_auto_cancel_migrated', 'yes');
 }
 
 /**
@@ -334,12 +339,13 @@ function dfn_migrate_in_loco_auto_cancel(): void {
  * @param int $event_id ID dell'evento.
  * @return object|null Riga evento o null se non trovato.
  */
-function dfn_db_get_event( int $event_id ): ?object {
+function dfn_db_get_event(int $event_id): ?object
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_events';
 
     return $wpdb->get_row(
-        $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $event_id )
+        $wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $event_id),
     );
 }
 
@@ -349,12 +355,13 @@ function dfn_db_get_event( int $event_id ): ?object {
  * @param int $product_id ID del prodotto WC.
  * @return object|null Riga evento o null.
  */
-function dfn_db_get_event_by_product( int $product_id ): ?object {
+function dfn_db_get_event_by_product(int $product_id): ?object
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_events';
 
     return $wpdb->get_row(
-        $wpdb->prepare( "SELECT * FROM {$table} WHERE product_id = %d AND status != 'archived'", $product_id )
+        $wpdb->prepare("SELECT * FROM {$table} WHERE product_id = %d AND status != 'archived'", $product_id),
     );
 }
 
@@ -364,18 +371,19 @@ function dfn_db_get_event_by_product( int $product_id ): ?object {
  * @param string $status Stato da filtrare (default 'published').
  * @return array Lista di oggetti evento.
  */
-function dfn_db_get_events( string $status = 'published' ): array {
+function dfn_db_get_events(string $status = 'published'): array
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_events';
 
     $results = $wpdb->get_results(
         $wpdb->prepare(
             "SELECT * FROM {$table} WHERE status = %s ORDER BY event_date_start ASC, event_time_start ASC",
-            $status
-        )
+            $status,
+        ),
     );
 
-    return is_array( $results ) ? $results : array();
+    return is_array($results) ? $results : [];
 }
 
 /**
@@ -385,28 +393,29 @@ function dfn_db_get_events( string $status = 'published' ): array {
  * @param string|null $date     Data (Y-m-d). Se null, ritorna tutti gli slot.
  * @return array Lista di oggetti slot.
  */
-function dfn_db_get_slots( int $event_id, ?string $date = null ): array {
+function dfn_db_get_slots(int $event_id, ?string $date = null): array
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_event_slots';
 
-    if ( $date ) {
+    if ($date) {
         $results = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$table} WHERE event_id = %d AND slot_date = %s ORDER BY slot_time_start ASC",
                 $event_id,
-                $date
-            )
+                $date,
+            ),
         );
     } else {
         $results = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$table} WHERE event_id = %d ORDER BY slot_date ASC, slot_time_start ASC",
-                $event_id
-            )
+                $event_id,
+            ),
         );
     }
 
-    return is_array( $results ) ? $results : array();
+    return is_array($results) ? $results : [];
 }
 
 /**
@@ -416,7 +425,8 @@ function dfn_db_get_slots( int $event_id, ?string $date = null ): array {
  * @param string $date     Data (Y-m-d).
  * @return array Lista di slot con campo calcolato `available`.
  */
-function dfn_db_get_available_slots( int $event_id, string $date ): array {
+function dfn_db_get_available_slots(int $event_id, string $date): array
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_event_slots';
 
@@ -431,11 +441,11 @@ function dfn_db_get_available_slots( int $event_id, string $date ): array {
                AND is_locked = 0
              ORDER BY slot_time_start ASC",
             $event_id,
-            $date
-        )
+            $date,
+        ),
     );
 
-    return is_array( $results ) ? $results : array();
+    return is_array($results) ? $results : [];
 }
 
 /**
@@ -444,12 +454,13 @@ function dfn_db_get_available_slots( int $event_id, string $date ): array {
  * @param string $qr_token Token QR univoco.
  * @return object|null Riga booking o null.
  */
-function dfn_db_get_booking_by_token( string $qr_token ): ?object {
+function dfn_db_get_booking_by_token(string $qr_token): ?object
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_bookings';
 
     return $wpdb->get_row(
-        $wpdb->prepare( "SELECT * FROM {$table} WHERE qr_token = %s", $qr_token )
+        $wpdb->prepare("SELECT * FROM {$table} WHERE qr_token = %s", $qr_token),
     );
 }
 
@@ -460,28 +471,29 @@ function dfn_db_get_booking_by_token( string $qr_token ): ?object {
  * @param string $status   Filtro stato (default '' = tutti).
  * @return array Lista di prenotazioni.
  */
-function dfn_db_get_bookings_by_event( int $event_id, string $status = '' ): array {
+function dfn_db_get_bookings_by_event(int $event_id, string $status = ''): array
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_bookings';
 
-    if ( ! empty( $status ) ) {
+    if (! empty($status)) {
         $results = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$table} WHERE event_id = %d AND status = %s ORDER BY created_at ASC",
                 $event_id,
-                $status
-            )
+                $status,
+            ),
         );
     } else {
         $results = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$table} WHERE event_id = %d AND status != 'cancelled' ORDER BY created_at ASC",
-                $event_id
-            )
+                $event_id,
+            ),
         );
     }
 
-    return is_array( $results ) ? $results : array();
+    return is_array($results) ? $results : [];
 }
 
 /**
@@ -490,12 +502,13 @@ function dfn_db_get_bookings_by_event( int $event_id, string $status = '' ): arr
  * @param int $order_id ID dell'ordine WC.
  * @return object|null Riga booking o null.
  */
-function dfn_db_get_booking_by_order( int $order_id ): ?object {
+function dfn_db_get_booking_by_order(int $order_id): ?object
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_bookings';
 
     return $wpdb->get_row(
-        $wpdb->prepare( "SELECT * FROM {$table} WHERE order_id = %d", $order_id )
+        $wpdb->prepare("SELECT * FROM {$table} WHERE order_id = %d", $order_id),
     );
 }
 
@@ -505,7 +518,8 @@ function dfn_db_get_booking_by_order( int $order_id ): ?object {
  * @param string $email Email del socio.
  * @return object|null Record del socio o null se non valido.
  */
-function dfn_db_get_valid_fai_member( string $email ): ?object {
+function dfn_db_get_valid_fai_member(string $email): ?object
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_fai_members';
 
@@ -517,8 +531,8 @@ function dfn_db_get_valid_fai_member( string $email ): ?object {
                AND card_expiry >= CURDATE()
              ORDER BY card_expiry DESC
              LIMIT 1",
-            $email
-        )
+            $email,
+        ),
     );
 }
 
@@ -529,7 +543,8 @@ function dfn_db_get_valid_fai_member( string $email ): ?object {
  * @param string $status   Filtro stato (default 'waiting').
  * @return array Lista voci waitlist.
  */
-function dfn_db_get_waitlist( int $event_id, string $status = 'waiting' ): array {
+function dfn_db_get_waitlist(int $event_id, string $status = 'waiting'): array
+{
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_waitlist';
 
@@ -537,11 +552,11 @@ function dfn_db_get_waitlist( int $event_id, string $status = 'waiting' ): array
         $wpdb->prepare(
             "SELECT * FROM {$table} WHERE event_id = %d AND status = %s ORDER BY created_at ASC",
             $event_id,
-            $status
-        )
+            $status,
+        ),
     );
 
-    return is_array( $results ) ? $results : array();
+    return is_array($results) ? $results : [];
 }
 
 /**
@@ -553,23 +568,24 @@ function dfn_db_get_waitlist( int $event_id, string $status = 'waiting' ): array
  * @param int $event_id ID dell'evento.
  * @return int Numero di slot generati.
  */
-function dfn_db_generate_slots_for_event( int $event_id ): int {
+function dfn_db_generate_slots_for_event(int $event_id): int
+{
     global $wpdb;
 
     /** @var \stdClass|null $event */
-    $event = dfn_db_get_event( $event_id );
-    if ( ! $event || $event->access_type !== 'time_slots' ) {
+    $event = dfn_db_get_event($event_id);
+    if (! $event || $event->access_type !== 'time_slots') {
         return 0;
     }
 
-    if ( empty( $event->first_slot_time ) || $event->slot_duration <= 0 ) {
+    if (empty($event->first_slot_time) || $event->slot_duration <= 0) {
         return 0;
     }
 
     $table_slots = $wpdb->prefix . 'dfn_event_slots';
 
     // Rimuovi slot esistenti (rigenerazione)
-    $wpdb->delete( $table_slots, array( 'event_id' => $event_id ), array( '%d' ) );
+    $wpdb->delete($table_slots, [ 'event_id' => $event_id ], [ '%d' ]);
 
     $start_date = $event->event_date_start;
     $end_date   = $event->event_date_end ?: $event->event_date_start;
@@ -577,27 +593,27 @@ function dfn_db_generate_slots_for_event( int $event_id ): int {
     $capacity   = (int) $event->slot_capacity;
     $bonus      = (int) $event->slot_bonus;
 
-    $first_slot = strtotime( $event->first_slot_time );
-    $last_slot  = $event->last_slot_time ? strtotime( $event->last_slot_time ) : null;
+    $first_slot = strtotime($event->first_slot_time);
+    $last_slot  = $event->last_slot_time ? strtotime($event->last_slot_time) : null;
 
     $count = 0;
     $current_date = $start_date;
 
-    while ( strtotime( $current_date ) <= strtotime( $end_date ) ) {
+    while (strtotime($current_date) <= strtotime($end_date)) {
         $current_time = $first_slot;
 
-        while ( true ) {
-            $slot_start = gmdate( 'H:i:s', $current_time );
-            $slot_end   = gmdate( 'H:i:s', $current_time + ( $duration * 60 ) );
+        while (true) {
+            $slot_start = gmdate('H:i:s', $current_time);
+            $slot_end   = gmdate('H:i:s', $current_time + ($duration * 60));
 
             // Se abbiamo un ultimo turno e lo abbiamo superato, fermiamoci
-            if ( $last_slot !== null && $current_time > $last_slot ) {
+            if ($last_slot !== null && $current_time > $last_slot) {
                 break;
             }
 
             $wpdb->insert(
                 $table_slots,
-                array(
+                [
                     'event_id'       => $event_id,
                     'slot_date'      => $current_date,
                     'slot_time_start' => $slot_start,
@@ -606,21 +622,21 @@ function dfn_db_generate_slots_for_event( int $event_id ): int {
                     'bonus_capacity' => $bonus,
                     'booked_count'   => 0,
                     'is_locked'      => 0,
-                ),
-                array( '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d' )
+                ],
+                [ '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d' ],
             );
             $count++;
 
             $current_time += $duration * 60;
 
             // Safety: se non c'è un ultimo turno, facciamo max 50 slot per giorno
-            if ( $last_slot === null && $count >= 50 ) {
+            if ($last_slot === null && $count >= 50) {
                 break;
             }
         }
 
         // Giorno successivo (per eventi multi-giorno)
-        $current_date = gmdate( 'Y-m-d', strtotime( $current_date . ' +1 day' ) );
+        $current_date = gmdate('Y-m-d', strtotime($current_date . ' +1 day'));
     }
 
     return $count;
@@ -633,42 +649,42 @@ function dfn_db_generate_slots_for_event( int $event_id ): int {
  * @param int $event_id ID dell'evento.
  * @return void
  */
-function dfn_db_recalculate_event_slots_booked_count( int $event_id ): void {
+function dfn_db_recalculate_event_slots_booked_count(int $event_id): void
+{
     global $wpdb;
     $table_slots = $wpdb->prefix . 'dfn_event_slots';
     $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
     $table_bookings = $wpdb->prefix . 'dfn_bookings';
 
     // Recupera tutti gli slot associati all'evento
-    $slots = $wpdb->get_results( $wpdb->prepare(
+    $slots = $wpdb->get_results($wpdb->prepare(
         "SELECT id FROM {$table_slots} WHERE event_id = %d",
-        $event_id
-    ) );
+        $event_id,
+    ));
 
-    if ( empty( $slots ) ) {
+    if (empty($slots)) {
         return;
     }
 
-    foreach ( $slots as $slot ) {
+    foreach ($slots as $slot) {
         // Calcola la somma delle persone per le prenotazioni non cancellate associate a questo slot
-        $actual_booked = $wpdb->get_var( $wpdb->prepare(
+        $actual_booked = $wpdb->get_var($wpdb->prepare(
             "SELECT SUM(bs.persons) 
              FROM {$table_booking_slots} bs
              JOIN {$table_bookings} b ON bs.booking_id = b.id
              WHERE bs.slot_id = %d AND b.status != 'cancelled'",
-            $slot->id
-        ) );
+            $slot->id,
+        ));
 
-        $actual_booked = $actual_booked !== null ? intval( $actual_booked ) : 0;
+        $actual_booked = $actual_booked !== null ? intval($actual_booked) : 0;
 
         // Aggiorna lo slot
         $wpdb->update(
             $table_slots,
-            array( 'booked_count' => $actual_booked ),
-            array( 'id' => $slot->id ),
-            array( '%d' ),
-            array( '%d' )
+            [ 'booked_count' => $actual_booked ],
+            [ 'id' => $slot->id ],
+            [ '%d' ],
+            [ '%d' ],
         );
     }
 }
-

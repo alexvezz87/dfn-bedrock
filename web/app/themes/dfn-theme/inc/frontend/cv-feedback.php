@@ -1,5 +1,8 @@
 <?php
-if ( !defined( 'ABSPATH' ) ) exit;
+
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 /**
  * ========================================================================
@@ -7,42 +10,50 @@ if ( !defined( 'ABSPATH' ) ) exit;
  * ========================================================================
  */
 
-add_action( 'template_redirect', 'cv_render_feedback_page' );
-function cv_render_feedback_page() {
+add_action('template_redirect', 'cv_render_feedback_page');
+function cv_render_feedback_page()
+{
     // Intercettiamo l'URL univoco della recensione
-    if ( isset( $_GET['cv_feedback'] ) && isset( $_GET['order_id'] ) && isset( $_GET['token'] ) ) {
-        
-        $order_id = intval( $_GET['order_id'] );
-        $token = sanitize_text_field( $_GET['token'] );
-        $order = wc_get_order( $order_id );
-        
-        if ( ! $order ) wp_die( 'Ordine non trovato.' );
-        
+    if (isset($_GET['cv_feedback']) && isset($_GET['order_id']) && isset($_GET['token'])) {
+
+        $order_id = intval($_GET['order_id']);
+        $token = sanitize_text_field($_GET['token']);
+        $order = wc_get_order($order_id);
+
+        if (! $order) {
+            wp_die('Ordine non trovato.');
+        }
+
         // Verifica Sicurezza
-        $expected_token = hash_hmac( 'sha256', $order->get_order_key() . '_feedback', wp_salt('nonce') );
-        if ( ! hash_equals( $expected_token, $token ) ) wp_die( 'Link non valido o scaduto.', 'Errore di sicurezza' );
+        $expected_token = hash_hmac('sha256', $order->get_order_key() . '_feedback', wp_salt('nonce'));
+        if (! hash_equals($expected_token, $token)) {
+            wp_die('Link non valido o scaduto.', 'Errore di sicurezza');
+        }
 
         $titolo_evento = '';
-        foreach ( $order->get_items() as $item ) { $titolo_evento = $item->get_name(); break; }
-        
+        foreach ($order->get_items() as $item) {
+            $titolo_evento = $item->get_name();
+            break;
+        }
+
         // Controllo: ha già votato?
-        $voto_esistente = $order->get_meta( '_cv_event_rating' );
-        
+        $voto_esistente = $order->get_meta('_cv_event_rating');
+
         // LOGICA DI SALVATAGGIO
         // SEC-08: Verifica CSRF tramite nonce WordPress
-        if ( $_SERVER['REQUEST_METHOD'] === 'POST'
-             && isset( $_POST['cv_rating'] )
-             && isset( $_POST['_cv_feedback_nonce'] )
-             && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_cv_feedback_nonce'] ) ), 'cv_submit_feedback_' . $order_id )
+        if ($_SERVER['REQUEST_METHOD'] === 'POST'
+             && isset($_POST['cv_rating'])
+             && isset($_POST['_cv_feedback_nonce'])
+             && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_cv_feedback_nonce'])), 'cv_submit_feedback_' . $order_id)
         ) {
-            if ( empty( $voto_esistente ) ) {
-                $rating = intval( $_POST['cv_rating'] );
-                $review = isset( $_POST['cv_review'] ) ? sanitize_textarea_field( wp_unslash( $_POST['cv_review'] ) ) : '';
-                
-                if ( $rating >= 1 && $rating <= 5 ) {
-                    $order->update_meta_data( '_cv_event_rating', $rating );
-                    $order->update_meta_data( '_cv_event_review', $review );
-                    $order->update_meta_data( '_cv_event_rating_date', current_time( 'mysql' ) );
+            if (empty($voto_esistente)) {
+                $rating = intval($_POST['cv_rating']);
+                $review = isset($_POST['cv_review']) ? sanitize_textarea_field(wp_unslash($_POST['cv_review'])) : '';
+
+                if ($rating >= 1 && $rating <= 5) {
+                    $order->update_meta_data('_cv_event_rating', $rating);
+                    $order->update_meta_data('_cv_event_review', $review);
+                    $order->update_meta_data('_cv_event_rating_date', current_time('mysql'));
                     $order->save();
                     $voto_esistente = $rating;
                 }
@@ -67,10 +78,10 @@ function cv_render_feedback_page() {
             .btn:disabled { background: #ccc; cursor: not-allowed; }
             .success-box { background: #eaf7ea; color: #166534; padding: 20px; border-radius: 10px; border: 2px solid #c3e6c3; margin-top: 20px; }
         </style></head><body>';
-        
+
         echo '<div class="feedback-card">';
-        
-        if ( ! empty($voto_esistente) ) {
+
+        if (! empty($voto_esistente)) {
             echo '<h1>Grazie di cuore! 💛</h1>';
             echo '<div class="success-box">';
             echo '<h2 style="margin:0 0 10px 0;">Hai valutato l\'evento con ' . $voto_esistente . ' stelle.</h2>';
@@ -80,10 +91,10 @@ function cv_render_feedback_page() {
         } else {
             echo '<h1>Com\'è andata?</h1>';
             echo '<p>Hai partecipato a <strong>' . esc_html($titolo_evento) . '</strong>.<br>Ci piacerebbe tantissimo sapere cosa ne pensi!</p>';
-            
+
             echo '<form method="POST" action="">';
             // SEC-08: Protezione CSRF
-            wp_nonce_field( 'cv_submit_feedback_' . $order_id, '_cv_feedback_nonce' );
+            wp_nonce_field('cv_submit_feedback_' . $order_id, '_cv_feedback_nonce');
             echo '<div class="stars">';
             echo '<input type="radio" id="star5" name="cv_rating" value="5" required><label for="star5" title="5 stelle"></label>';
             echo '<input type="radio" id="star4" name="cv_rating" value="4"><label for="star4" title="4 stelle"></label>';
@@ -91,12 +102,12 @@ function cv_render_feedback_page() {
             echo '<input type="radio" id="star2" name="cv_rating" value="2"><label for="star2" title="2 stelle"></label>';
             echo '<input type="radio" id="star1" name="cv_rating" value="1"><label for="star1" title="1 stella"></label>';
             echo '</div>';
-            
+
             echo '<textarea name="cv_review" placeholder="Lasciaci un commento o un suggerimento per i prossimi eventi... (Opzionale)"></textarea>';
-            
+
             echo '<button type="submit" class="btn" id="submit-btn" disabled>Invia Recensione</button>';
             echo '</form>';
-            
+
             echo '<script>
                 document.querySelectorAll("input[name=\'cv_rating\']").forEach(function(radio) {
                     radio.addEventListener("change", function() {
@@ -105,7 +116,7 @@ function cv_render_feedback_page() {
                 });
             </script>';
         }
-        
+
         echo '</div></body></html>';
         exit;
     }
