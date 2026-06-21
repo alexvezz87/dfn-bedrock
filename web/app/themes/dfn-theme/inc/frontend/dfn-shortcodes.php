@@ -217,8 +217,11 @@ function dfn_render_evento_shortcode($atts): string
 
                             <!-- Calendario / Data della prenotazione -->
                             <?php
-                $is_single_day = empty($event->event_date_end) || ($event->event_date_start === $event->event_date_end);
-                    ?>
+                            $is_single_day = empty($event->event_date_end) || ($event->event_date_start === $event->event_date_end);
+                            $today = date('Y-m-d');
+                            $min_date = ($today > $event->event_date_start) ? $today : $event->event_date_start;
+                            $max_date = ! empty($event->event_date_end) ? $event->event_date_end : '';
+                            ?>
                             <div class="dfn-booking-section"<?php if ($is_single_day) {
                                 echo ' style="display:none;"';
                             } ?>>
@@ -228,8 +231,9 @@ function dfn_render_evento_shortcode($atts): string
                                            name="dfn_booking_date" 
                                            id="dfn_booking_date" 
                                            class="dfn-date-input" 
-                                           min="<?php echo esc_attr(date('Y-m-d')); ?>"
-                                           value="<?php echo esc_attr($event->event_date_start); ?>">
+                                           min="<?php echo esc_attr($min_date); ?>"
+                                           <?php if ($max_date) : ?>max="<?php echo esc_attr($max_date); ?>"<?php endif; ?>
+                                           value="<?php echo esc_attr($min_date); ?>">
                                 </div>
                             </div>
 
