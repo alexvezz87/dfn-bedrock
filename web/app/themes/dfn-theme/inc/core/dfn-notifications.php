@@ -43,6 +43,20 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
         $to = array_filter($to, 'is_email');
     }
 
+    // Evita l'invio all'indirizzo fittizio no-email@dfn.it
+    if (is_string($to)) {
+        if (trim(strtolower($to)) === 'no-email@dfn.it') {
+            return true;
+        }
+    } elseif (is_array($to)) {
+        $to = array_filter($to, function ($email) {
+            return trim(strtolower($email)) !== 'no-email@dfn.it';
+        });
+        if (empty($to)) {
+            return true;
+        }
+    }
+
     // Genera il template HTML completo
     $body = dfn_get_email_html_template($title, $content_html);
 
@@ -785,3 +799,39 @@ function dfn_notify_admin_unverified_fai_card($card_number, $first_name, $last_n
 
     return dfn_send_notification_email($to, $subject, 'Verifica Tessera FAI', $content);
 }
+
+add_filter('woocommerce_send_email', 'dfn_prevent_dummy_email_notifications', 10, 6);
+/**
+ * Previene l'invio delle notifiche WooCommerce (es: Nuovo Ordine, Ordine Completato)
+ * all'indirizzo email fittizio no-email@dfn.it.
+ */
+function dfn_prevent_dummy_email_notifications($send, $to, $subject, $message, $headers, $attachments) {
+    if (empty($to)) {
+        return $send;
+    }
+    if (is_string($to)) {
+        if (strpos($to, ',') !== false) {
+            $emails = array_map('trim', explode(',', $to));
+            $filtered = array_filter($emails, function($email) {
+                return trim(strtolower($email)) !== 'no-email@dfn.it';
+            });
+            if (empty($filtered)) {
+                return false;
+            }
+        } else {
+            if (trim(strtolower($to)) === 'no-email@dfn.it') {
+                return false;
+            }
+        }
+    } elseif (is_array($to)) {
+        $filtered = array_filter($to, function($email) {
+            return trim(strtolower($email)) !== 'no-email@dfn.it';
+        });
+        if (empty($filtered)) {
+            return false;
+        }
+    }
+    return $send;
+}
+
+

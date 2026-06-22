@@ -150,6 +150,9 @@ function dfn_render_slot_manager()
                     <button type="button" id="dfn-btn-export-csv" class="dfn-btn dfn-btn-outline">
                         <span class="dashicons dashicons-download"></span> <?php esc_html_e('Esporta CSV', 'dfn-theme'); ?>
                     </button>
+                    <button type="button" id="dfn-btn-print-pdf" class="dfn-btn dfn-btn-outline">
+                        <span class="dashicons dashicons-printer"></span> <?php esc_html_e('Stampa PDF', 'dfn-theme'); ?>
+                    </button>
                     <button type="button" id="dfn-btn-add-slot-modal" class="dfn-btn dfn-btn-secondary">
                         <span class="dashicons dashicons-plus"></span> <?php esc_html_e('Aggiungi Slot', 'dfn-theme'); ?>
                     </button>

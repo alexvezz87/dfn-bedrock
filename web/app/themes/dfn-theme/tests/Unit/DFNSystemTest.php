@@ -43,6 +43,8 @@ namespace DFN\Theme\Tests\Unit {
     require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-fai-members.php';
     require_once dirname(dirname(__DIR__)) . '/inc/admin/dfn-waitlist.php';
     require_once dirname(dirname(__DIR__)) . '/inc/core/dfn-cron.php';
+    require_once dirname(dirname(__DIR__)) . '/inc/core/dfn-notifications.php';
+    require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-slot-manager.php';
     require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-bookings.php';
 
     use PHPUnit\Framework\TestCase;
@@ -76,6 +78,9 @@ namespace DFN\Theme\Tests\Unit {
                     return md5($val);
                 },
                 'sanitize_text_field' => function ($val) {
+                    return $val;
+                },
+                'sanitize_textarea_field' => function ($val) {
                     return $val;
                 },
                 'sanitize_email' => function ($val) {
@@ -872,5 +877,200 @@ namespace DFN\Theme\Tests\Unit {
 
             $wpdb = $original_wpdb;
         }
+
+        /**
+         * Test: dfn_send_notification_email evita l'invio all'indirizzo fittizio no-email@dfn.it
+         */
+        public function test_send_notification_email_filters_dummy_no_email_address()
+        {
+            // Stub helper functions called in dfn_send_notification_email
+            Functions\when('dfn_get_setting')->alias(function ($key, $default = '') {
+                return $default;
+            });
+
+            // Mock wp_mail to check what parameters it receives
+            $wp_mail_called = false;
+            $received_to = null;
+
+            Functions\when('wp_mail')->alias(function ($to, $subject, $body, $headers, $attachments) use (&$wp_mail_called, &$received_to) {
+                $wp_mail_called = true;
+                $received_to = $to;
+                return true;
+            });
+
+            // 1. Invio a no-email@dfn.it (dovrebbe essere filtrato e ritornare true direttamente senza chiamare wp_mail)
+            $res1 = dfn_send_notification_email('no-email@dfn.it', 'Test Subject', 'Test Title', '<p>Test</p>');
+            $this->assertTrue($res1);
+            $this->assertFalse($wp_mail_called);
+
+            // Reset flags
+            $wp_mail_called = false;
+
+            // 2. Invio a email valida (dovrebbe chiamare wp_mail)
+            $res2 = dfn_send_notification_email('visitor@example.com', 'Test Subject', 'Test Title', '<p>Test</p>');
+            $this->assertTrue($res2);
+            $this->assertTrue($wp_mail_called);
+            $this->assertEquals('visitor@example.com', $received_to);
+
+            // Reset flags
+            $wp_mail_called = false;
+            $received_to = null;
+
+            // 3. Invio a array misto (dovrebbe filtrare no-email@dfn.it e inviare solo a visitor@example.com)
+            $res3 = dfn_send_notification_email(['no-email@dfn.it', 'visitor@example.com'], 'Test Subject', 'Test Title', '<p>Test</p>');
+            $this->assertTrue($res3);
+            $this->assertTrue($wp_mail_called);
+            $this->assertEquals(['visitor@example.com'], array_values((array) $received_to));
+        }
+
+        /**
+         * Test: dfn_ajax_admin_add_booking salva la tessera FAI e invia la notifica all'admin
+         */
+        public function test_admin_add_booking_saves_fai_card_and_notifies_admin()
+        {
+            global $wpdb;
+            $original_wpdb = $wpdb;
+
+            // Mock del database
+            $wpdb = $this->getMockBuilder(\stdClass::class)
+                ->addMethods(['get_row', 'insert', 'update', 'prepare', 'get_col', 'get_var'])
+                ->getMock();
+
+            $wpdb->prefix = 'wp_';
+            $wpdb->insert_id = 999;
+
+            // Mock $_POST per simulare l'inserimento manuale
+            $_POST['event_id'] = 4;
+            $_POST['slot_id'] = 202;
+            $_POST['date'] = '2027-06-02';
+            $_POST['first_name'] = 'Mario';
+            $_POST['last_name'] = 'Marlone';
+            $_POST['email'] = ''; // Genererà 'no-email@dfn.it'
+            $_POST['phone'] = '12345';
+            $_POST['qty_standard'] = 2;
+            $_POST['qty_fai'] = 1;
+            $_POST['notes'] = 'Test Note';
+            $_POST['fai_cards'] = [
+                0 => [
+                    'nome' => 'Gino',
+                    'cognome' => 'Strada',
+                    'tessera' => '1111'
+                ]
+            ];
+            $_POST['nonce'] = 'MOCK_NONCE';
+
+            // Mock check_ajax_referer e current_user_can
+            Functions\when('current_user_can')->justReturn(true);
+            Functions\when('check_ajax_referer')->justReturn(true);
+
+            // Mock dfn_db_get_event
+            $event_mock = (object) [
+                'id' => 4,
+                'product_id' => 2201,
+                'access_type' => 'time_slots',
+                'event_date_start' => '2027-06-02',
+                'price_standard' => 10.00,
+                'price_fai' => 8.00,
+            ];
+            Functions\when('dfn_db_get_event')->justReturn($event_mock);
+
+            // Mock database calls
+            $wpdb->method('prepare')->willReturn('PREPARED');
+            
+            // Per il controllo tessera esistente: ritorna null (la tessera non esiste ancora)
+            $wpdb->method('get_row')->willReturnCallback(function($query) use ($event_mock) {
+                if (str_contains($query, 'wp_dfn_events')) {
+                    return $event_mock;
+                }
+                return null; // La tessera 1111 non esiste
+            });
+
+            $order_mock = $this->getMockBuilder(\WC_Order::class)
+                ->addMethods([
+                    'get_id', 'get_items', 'add_product', 'add_item', 'calculate_totals', 'save', 'update_status', 'update_meta_data',
+                    'set_billing_first_name', 'set_billing_last_name', 'set_billing_email', 'set_billing_phone', 'set_customer_note', 'set_payment_method'
+                ])
+                ->getMock();
+            $order_mock->method('get_id')->willReturn(9001);
+            $order_mock->method('get_items')->willReturn([]);
+            $order_mock->expects($this->once())
+                ->method('update_status')
+                ->with($this->equalTo('pending'), $this->anything());
+
+            Functions\when('wc_create_order')->justReturn($order_mock);
+            
+            $product_mock = $this->getMockBuilder(\stdClass::class)->getMock();
+            Functions\when('wc_get_product')->justReturn($product_mock);
+
+            // Mock della notifica dell'admin
+            $notify_called = false;
+            $notify_card = '';
+            $notify_email = '';
+            Functions\when('dfn_notify_admin_unverified_fai_card')->alias(function($card, $nome, $cognome, $email) use (&$notify_called, &$notify_card, &$notify_email) {
+                $notify_called = true;
+                $notify_card = $card;
+                $notify_email = $email;
+                return true;
+            });
+            Functions\when('dfn_send_notification_email')->justReturn(true);
+
+            // Verifica che il salvataggio nel database usi la stringa vuota '' invece di null per l'email fittizia
+            $wpdb->expects($this->once())
+                ->method('insert')
+                ->willReturnCallback(function($table, $data) {
+                    if (str_contains($table, 'dfn_fai_members')) {
+                        $this->assertEquals('Gino', $data['first_name']);
+                        $this->assertEquals('Strada', $data['last_name']);
+                        $this->assertEquals('1111', $data['card_number']);
+                        $this->assertEquals('', $data['email']); // empty string!
+                        $this->assertEquals(0, $data['verified']);
+                    }
+                    return true;
+                });
+
+            // Catch the success send json of wp_send_json_success
+            $wp_json_success_called = false;
+            Functions\when('wp_send_json_success')->alias(function($data = null) use (&$wp_json_success_called) {
+                $wp_json_success_called = true;
+                throw new \Error('SUCCESS_JSON');
+            });
+
+            try {
+                dfn_ajax_admin_add_booking();
+            } catch (\Throwable $e) {
+                $this->assertEquals('SUCCESS_JSON', $e->getMessage());
+            }
+
+            $this->assertTrue($wp_json_success_called);
+            $this->assertTrue($notify_called);
+            $this->assertEquals('1111', $notify_card);
+            $this->assertEquals('', $notify_email); // empty string passed to notify!
+
+            // Restore global $wpdb
+            $wpdb = $original_wpdb;
+
+            // Clear $_POST
+            unset($_POST['event_id'], $_POST['slot_id'], $_POST['date'], $_POST['first_name'], $_POST['last_name'], $_POST['email'], $_POST['phone'], $_POST['qty_standard'], $_POST['qty_fai'], $_POST['notes'], $_POST['fai_cards'], $_POST['nonce']);
+        }
+
+        /**
+         * Test: dfn_prevent_dummy_email_notifications blocca le email di WooCommerce verso no-email@dfn.it
+         */
+        public function test_woocommerce_email_suppressed_for_dummy_recipient()
+        {
+            // Caso stringa fittizia
+            $this->assertFalse(dfn_prevent_dummy_email_notifications(true, 'no-email@dfn.it', 'Subj', 'Msg', '', ''));
+            // Caso email valida
+            $this->assertTrue(dfn_prevent_dummy_email_notifications(true, 'user@example.com', 'Subj', 'Msg', '', ''));
+            // Caso array misto
+            $this->assertTrue(dfn_prevent_dummy_email_notifications(true, ['user@example.com', 'no-email@dfn.it'], 'Subj', 'Msg', '', ''));
+            // Caso array solo fittizie
+            $this->assertFalse(dfn_prevent_dummy_email_notifications(true, ['no-email@dfn.it'], 'Subj', 'Msg', '', ''));
+            // Caso stringa multipla con fittizia
+            $this->assertTrue(dfn_prevent_dummy_email_notifications(true, 'user@example.com, no-email@dfn.it', 'Subj', 'Msg', '', ''));
+            // Caso stringa multipla solo fittizie
+            $this->assertFalse(dfn_prevent_dummy_email_notifications(true, 'no-email@dfn.it, no-email@dfn.it', 'Subj', 'Msg', '', ''));
+        }
     }
 }
+

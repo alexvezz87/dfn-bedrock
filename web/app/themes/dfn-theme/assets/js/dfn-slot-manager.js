@@ -104,9 +104,12 @@
                 var filteredBookings = slot.bookings;
                 if (searchQuery !== '') {
                     filteredBookings = slot.bookings.filter(function(b) {
-                        return b.customer_name.toLowerCase().indexOf(searchQuery) !== -1 ||
-                               b.customer_email.toLowerCase().indexOf(searchQuery) !== -1 ||
-                               b.customer_phone.toLowerCase().indexOf(searchQuery) !== -1;
+                        var name = b.customer_name ? b.customer_name.toLowerCase() : '';
+                        var email = b.customer_email ? b.customer_email.toLowerCase() : '';
+                        var phone = b.customer_phone ? b.customer_phone.toLowerCase() : '';
+                        return name.indexOf(searchQuery) !== -1 ||
+                               email.indexOf(searchQuery) !== -1 ||
+                               phone.indexOf(searchQuery) !== -1;
                     });
                     
                     // Se non ci sono prenotazioni corrispondenti e lo slot non corrisponde all'orario, lo saltiamo se c'è una query attiva
@@ -274,11 +277,24 @@
             // Salva lo slotId nel modale per i click interni
             $modal.data('current-slot-id', slot.id);
 
-            // Reset ricerca interna
-            $('#dfn-slot-bookings-search').val('');
+            // Sincronizza ricerca interna con la ricerca principale se presente
+            var mainSearchQuery = $('#dfn-sm-search').val().trim();
+            $('#dfn-slot-bookings-search').val(mainSearchQuery);
 
-            // Renderizza la lista prenotazioni
-            renderBookingsListInModal(slot.bookings, slot);
+            if (mainSearchQuery !== '') {
+                var query = mainSearchQuery.toLowerCase();
+                var filtered = slot.bookings.filter(function(b) {
+                    var name = b.customer_name ? b.customer_name.toLowerCase() : '';
+                    var email = b.customer_email ? b.customer_email.toLowerCase() : '';
+                    var phone = b.customer_phone ? b.customer_phone.toLowerCase() : '';
+                    return name.indexOf(query) !== -1 ||
+                           email.indexOf(query) !== -1 ||
+                           phone.indexOf(query) !== -1;
+                });
+                renderBookingsListInModal(filtered, slot);
+            } else {
+                renderBookingsListInModal(slot.bookings, slot);
+            }
 
             openModal($modal);
         }
@@ -347,9 +363,12 @@
                 renderBookingsListInModal(slot.bookings, slot);
             } else {
                 var filtered = slot.bookings.filter(function(b) {
-                    return b.customer_name.toLowerCase().indexOf(query) !== -1 ||
-                           b.customer_email.toLowerCase().indexOf(query) !== -1 ||
-                           b.customer_phone.toLowerCase().indexOf(query) !== -1;
+                    var name = b.customer_name ? b.customer_name.toLowerCase() : '';
+                    var email = b.customer_email ? b.customer_email.toLowerCase() : '';
+                    var phone = b.customer_phone ? b.customer_phone.toLowerCase() : '';
+                    return name.indexOf(query) !== -1 ||
+                           email.indexOf(query) !== -1 ||
+                           phone.indexOf(query) !== -1;
                 });
                 renderBookingsListInModal(filtered, slot);
             }
@@ -779,7 +798,7 @@
         $('#dfn-form-add-booking').on('submit', function(e) {
             e.preventDefault();
             var formData = $(this).serializeArray();
-            formData.push({ name: 'action', value: 'dfn_ajax_admin_add_booking' });
+            formData.push({ name: 'action', value: 'dfn_admin_add_booking' });
             formData.push({ name: 'event_id', value: eventId });
             formData.push({ name: 'date', value: activeDate });
             formData.push({ name: 'nonce', value: nonce });
@@ -854,6 +873,196 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        });
+
+        // ========================================================================
+        // 8. STAMPA PDF (LATO CLIENT CON FORMATTAZIONE PREMIUM)
+        // ========================================================================
+        $(document).on('click', '#dfn-btn-print-pdf', function() {
+            if (!currentData || currentData.length === 0) {
+                alert('Nessun dato da stampare.');
+                return;
+            }
+
+            // Recupera dettagli dell'evento per l'intestazione
+            var eventTitle = $('.dfn-logo-area h1').text().replace('Gestione Turni — ', '').replace('Prenotazioni — ', '');
+            var formattedDate = $('.dfn-pill-date.active').text().trim();
+
+            var printHtml = '<!DOCTYPE html><html><head><meta charset="utf-8">';
+            printHtml += '<title>Prenotazioni ' + eventTitle + ' - ' + formattedDate + '</title>';
+            printHtml += '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">';
+            printHtml += '<style>';
+            printHtml += 'body { font-family: "Inter", sans-serif; color: #1e293b; line-height: 1.3; margin: 0; padding: 0; background: #fff; font-size: 10px; }';
+            printHtml += '.print-header { border-bottom: 2px solid #004b23; padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end; }';
+            printHtml += '.print-header h1 { font-size: 16px; color: #004b23; margin: 0; font-weight: 700; }';
+            printHtml += '.print-header .date-badge { font-size: 11px; background: #c69c3a; color: #fff; padding: 2px 8px; border-radius: 12px; font-weight: 700; }';
+            
+            printHtml += '.stats-summary { display: flex; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 6px; margin-bottom: 12px; }';
+            printHtml += '.stat-item { display: flex; align-items: center; gap: 4px; }';
+            printHtml += '.stat-val { font-size: 12px; font-weight: 700; color: #004b23; }';
+            printHtml += '.stat-lbl { font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; }';
+
+            printHtml += '.turno-section { margin-bottom: 15px; page-break-inside: avoid; }';
+            printHtml += '.turno-title-bar { background: #004b23; color: #fff; padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 4px 4px 0 0; display: flex; justify-content: space-between; }';
+            printHtml += '.turno-title-bar span { font-weight: 700; }';
+            printHtml += '.print-table { width: 100%; border-collapse: collapse; margin-top: 0; border: 1px solid #cbd5e1; border-top: none; }';
+            printHtml += '.print-table th, .print-table td { padding: 4px 6px; font-size: 10px; text-align: left; border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; }';
+            printHtml += '.print-table th { background: #f1f5f9; color: #475569; font-weight: 700; text-transform: uppercase; }';
+            printHtml += '.print-table th:last-child, .print-table td:last-child { border-right: none; }';
+            printHtml += '.print-table tr:last-child td { border-bottom: none; }';
+            printHtml += '.print-table tr:nth-child(even) { background: #f8fafc; }';
+            
+            printHtml += '.col-nowrap { white-space: nowrap; }';
+            printHtml += '.payment-status-badge { font-weight: 700; }';
+            printHtml += '.payment-status-pagato { color: #166534; }';
+            printHtml += '.payment-status-non-pagato { color: #c2410c; }';
+            
+            printHtml += '@page { margin: 10mm; }';
+            printHtml += '@media print {';
+            printHtml += '  body { margin: 0; }';
+            printHtml += '  .no-print { display: none; }';
+            printHtml += '  .turno-section { page-break-inside: avoid; }';
+            printHtml += '}';
+            printHtml += '</style></head><body>';
+
+            // Header
+            printHtml += '<div class="print-header">';
+            printHtml += '<div><h1>Prenotazioni Evento: ' + eventTitle + '</h1></div>';
+            printHtml += '<div><span class="date-badge">' + formattedDate + '</span></div>';
+            printHtml += '</div>';
+
+            // Calcolo statistiche globali della giornata
+            var totalBookings = 0;
+            var totalPlaces = 0;
+            var totalStandard = 0;
+            var totalFai = 0;
+
+            currentData.forEach(function(slot) {
+                totalBookings += slot.bookings.length;
+                totalPlaces += slot.booked_count;
+                slot.bookings.forEach(function(b) {
+                    totalStandard += b.persons_standard;
+                    totalFai += b.persons_fai;
+                });
+            });
+
+            // Riepilogo Statistiche
+            printHtml += '<div class="stats-summary">';
+            printHtml += '<div class="stat-item"><div class="stat-val">' + totalBookings + '</div><div class="stat-lbl">Prenotazioni</div></div>';
+            printHtml += '<div class="stat-item"><div class="stat-val">' + totalPlaces + '</div><div class="stat-lbl">Posti Totali</div></div>';
+            printHtml += '<div class="stat-item"><div class="stat-val">' + totalStandard + '</div><div class="stat-lbl">Standard</div></div>';
+            printHtml += '<div class="stat-item"><div class="stat-val">' + totalFai + '</div><div class="stat-lbl">Soci FAI</div></div>';
+            printHtml += '</div>';
+
+            // Lista Turni
+            var hasBookings = false;
+
+            currentData.forEach(function(slot) {
+                if (slot.bookings.length === 0) {
+                    return; // Salta i turni senza prenotazioni
+                }
+                hasBookings = true;
+
+                var totalCapacity = slot.capacity + slot.bonus_capacity;
+                var slotLabel = slot.is_free_flow 
+                    ? 'Flusso Libero (' + slot.time_start + ' - ' + slot.time_end + ')' 
+                    : 'Turno: ' + slot.time_start + ' - ' + slot.time_end;
+
+                printHtml += '<div class="turno-section">';
+                printHtml += '<div class="turno-title-bar">';
+                printHtml += '<span>' + slotLabel + '</span>';
+                printHtml += '<span>Posti occupati: ' + slot.booked_count + ' / ' + totalCapacity + '</span>';
+                printHtml += '</div>';
+
+                printHtml += '<table class="print-table">';
+                printHtml += '<thead><tr>';
+                printHtml += '<th style="width: 5%;">N°</th>';
+                printHtml += '<th style="width: 45%;">Nominativo</th>';
+                printHtml += '<th class="col-nowrap" style="width: 20%;">Posti prenotati</th>';
+                printHtml += '<th class="col-nowrap" style="width: 15%;">Contributo da versare</th>';
+                printHtml += '<th class="col-nowrap" style="width: 15%;">Stato pagamento</th>';
+                printHtml += '</tr></thead>';
+                printHtml += '<tbody>';
+
+                // Ordina prenotazioni per cognome (e nome) in ordine alfabetico crescente
+                var sortedBookings = slot.bookings.slice().sort(function(a, b) {
+                    var lastNameA = (a.customer_last_name || '').trim().toLowerCase();
+                    var lastNameB = (b.customer_last_name || '').trim().toLowerCase();
+                    var firstNameA = (a.customer_first_name || '').trim().toLowerCase();
+                    var firstNameB = (b.customer_first_name || '').trim().toLowerCase();
+                    
+                    if (lastNameA !== lastNameB) {
+                        return lastNameA.localeCompare(lastNameB);
+                    }
+                    return firstNameA.localeCompare(firstNameB);
+                });
+
+                sortedBookings.forEach(function(b, idx) {
+                    var ticketsDesc = b.slot_persons + ' tot. (' + b.persons_standard + ' Std';
+                    if (b.persons_fai > 0) {
+                        ticketsDesc += ' + ' + b.persons_fai + ' FAI';
+                    }
+                    ticketsDesc += ')';
+
+                    var displayName = '';
+                    if (b.customer_last_name) {
+                        displayName = b.customer_last_name + ' ' + b.customer_first_name;
+                    } else {
+                        displayName = b.customer_name;
+                    }
+
+                    var contribution = parseFloat(b.order_total || 0).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+                    var paymentStatusText = b.payment_status === 'pagato' ? 'Pagato' : 'Ancora da pagare';
+                    var paymentStatusClass = b.payment_status === 'pagato' ? 'payment-status-pagato' : 'payment-status-non-pagato';
+
+                    printHtml += '<tr>';
+                    printHtml += '<td>' + (idx + 1) + '</td>';
+                    printHtml += '<td><strong>' + displayName + '</strong></td>';
+                    printHtml += '<td class="col-nowrap">' + ticketsDesc + '</td>';
+                    printHtml += '<td class="col-nowrap">' + contribution + '</td>';
+                    printHtml += '<td class="col-nowrap"><span class="payment-status-badge ' + paymentStatusClass + '">' + paymentStatusText + '</span></td>';
+                    printHtml += '</tr>';
+                });
+
+                printHtml += '</tbody></table>';
+                printHtml += '</div>';
+            });
+
+            if (!hasBookings) {
+                printHtml += '<div style="text-align:center; padding:50px; color:#64748b;">Nessuna prenotazione presente per questa giornata.</div>';
+            }
+
+            printHtml += '</body>';
+            printHtml += '<script>';
+            printHtml += 'function startPrint() {';
+            printHtml += '    window.focus();';
+            printHtml += '    window.print();';
+            printHtml += '}';
+            printHtml += 'if (document.readyState === "complete") {';
+            printHtml += '    startPrint();';
+            printHtml += '} else {';
+            printHtml += '    window.onload = startPrint;';
+            printHtml += '}';
+            printHtml += '</script>';
+            printHtml += '</html>';
+
+            // Scrive il documento in un iframe nascosto per attivare la stampa senza aprire tab
+            var iframe = document.getElementById('dfn-print-iframe');
+            if (!iframe) {
+                iframe = document.createElement('iframe');
+                iframe.id = 'dfn-print-iframe';
+                iframe.style.position = 'absolute';
+                iframe.style.width = '0px';
+                iframe.style.height = '0px';
+                iframe.style.border = 'none';
+                iframe.style.left = '-9999px';
+                iframe.style.top = '-9999px';
+                document.body.appendChild(iframe);
+            }
+            var doc = iframe.contentWindow.document;
+            doc.open();
+            doc.write(printHtml);
+            doc.close();
         });
 
     });

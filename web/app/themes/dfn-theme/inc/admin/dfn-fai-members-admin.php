@@ -20,10 +20,23 @@ add_action('admin_menu', 'dfn_fai_members_register_menu');
  */
 function dfn_fai_members_register_menu(): void
 {
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_fai_members';
+
+    $unverified_count = 0;
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$table}'") === $table) {
+        $unverified_count = intval($wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE verified = 0"));
+    }
+
+    $menu_title = esc_html__('Soci FAI', 'dfn-theme');
+    if ($unverified_count > 0) {
+        $menu_title .= sprintf(' <span class="update-plugins count-%d"><span class="plugin-count">%d</span></span>', $unverified_count, $unverified_count);
+    }
+
     add_submenu_page(
         'dfn-events',
         esc_html__('Anagrafica Soci FAI', 'dfn-theme'),
-        esc_html__('Soci FAI', 'dfn-theme'),
+        $menu_title,
         'dfn_manage_events',
         'dfn-fai-members',
         'dfn_render_fai_members_page',
@@ -208,6 +221,36 @@ function dfn_render_fai_members_page(): void
     // Filtro e ricerca in tempo reale
     $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
     $filter = isset($_GET['filter']) ? sanitize_text_field($_GET['filter']) : '';
+    
+    // 1. Query per Tessere da Verificare (verified = 0)
+    if (! empty($search)) {
+        $search_query = '%' . $wpdb->esc_like($search) . '%';
+        $unverified_members = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$table} 
+             WHERE verified = 0 
+               AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s)
+             ORDER BY created_at DESC",
+            $search_query,
+            $search_query,
+            $search_query,
+            $search_query
+        ));
+    } else {
+        $unverified_members = $wpdb->get_results(
+            "SELECT * FROM {$table} WHERE verified = 0 ORDER BY created_at DESC"
+        );
+    }
+
+    // 2. Query per Soci FAI Registrati (verified = 1)
+    $orderby = isset($_GET['orderby']) ? sanitize_text_field($_GET['orderby']) : 'date';
+    $order = isset($_GET['order']) ? sanitize_text_field($_GET['order']) : 'desc';
+
+    $orderby_sql = 'created_at';
+    if ($orderby === 'name') {
+        $orderby_sql = 'last_name ASC, first_name';
+    }
+
+    $order_sql = (strtolower($order) === 'asc') ? 'ASC' : 'DESC';
 
     if ('expiring' === $filter) {
         if (! empty($search)) {
@@ -219,7 +262,7 @@ function dfn_render_fai_members_page(): void
                    AND card_expiry >= CURDATE() 
                    AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)
                    AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s)
-                 ORDER BY card_expiry ASC",
+                 ORDER BY {$orderby_sql} {$order_sql}",
                 $warning_days,
                 $search_query,
                 $search_query,
@@ -233,7 +276,7 @@ function dfn_render_fai_members_page(): void
                    AND card_expiry IS NOT NULL 
                    AND card_expiry >= CURDATE() 
                    AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY) 
-                 ORDER BY card_expiry ASC",
+                 ORDER BY {$orderby_sql} {$order_sql}",
                 $warning_days,
             ));
         }
@@ -241,11 +284,9 @@ function dfn_render_fai_members_page(): void
         $search_query = '%' . $wpdb->esc_like($search) . '%';
         $members = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$table} 
-             WHERE first_name LIKE %s 
-                OR last_name LIKE %s 
-                OR email LIKE %s 
-                OR card_number LIKE %s 
-             ORDER BY last_name ASC, first_name ASC",
+             WHERE verified = 1 
+               AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s) 
+             ORDER BY {$orderby_sql} {$order_sql}",
             $search_query,
             $search_query,
             $search_query,
@@ -253,9 +294,21 @@ function dfn_render_fai_members_page(): void
         ));
     } else {
         $max_visible_members = intval(dfn_get_setting('limit_max_fai_members', 100));
-        $members = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$table} ORDER BY last_name ASC, first_name ASC LIMIT %d", $max_visible_members));
+        $members = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$table} 
+             WHERE verified = 1 
+             ORDER BY {$orderby_sql} {$order_sql} 
+             LIMIT %d",
+            $max_visible_members
+        ));
     }
 
+    // Toggle per link ordinamento
+    $toggle_name_order = ($orderby === 'name' && $order === 'asc') ? 'desc' : 'asc';
+    $name_sort_url = add_query_arg([ 'orderby' => 'name', 'order' => $toggle_name_order ]);
+
+    $toggle_date_order = ($orderby === 'date' && $order === 'desc') ? 'asc' : 'desc';
+    $date_sort_url = add_query_arg([ 'orderby' => 'date', 'order' => $toggle_date_order ]);
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header" style="margin-bottom: 25px;">
@@ -278,18 +331,18 @@ function dfn_render_fai_members_page(): void
                     <span>
                         <?php
                         $warning_days = intval(dfn_get_setting('fai_expiry_warning_days', 15));
-            printf(
-                // Translators: %d is the number of expiring cards, %d is the warning days limit
-                _n(
-                    'C\'è %d tessera FAI verificata in scadenza nei prossimi %d giorni.',
-                    'Ci sono %d tessere FAI verificate in scadenza nei prossimi %d giorni.',
-                    $expiring_count,
-                    'dfn-theme',
-                ),
-                $expiring_count,
-                $warning_days,
-            );
-            ?>
+                        printf(
+                            // Translators: %d is the number of expiring cards, %d is the warning days limit
+                            _n(
+                                'C\'è %d tessera FAI verificata in scadenza nei prossimi %d giorni.',
+                                'Ci sono %d tessere FAI verificate in scadenza nei prossimi %d giorni.',
+                                $expiring_count,
+                                'dfn-theme',
+                            ),
+                            $expiring_count,
+                            $warning_days,
+                        );
+                        ?>
                         <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&filter=expiring')); ?>" style="margin-left: 10px; font-weight: bold; color: #b45309; text-decoration: underline;">
                             <?php esc_html_e('Visualizza tessere in scadenza', 'dfn-theme'); ?>
                         </a>
@@ -368,24 +421,24 @@ function dfn_render_fai_members_page(): void
                             <label style="display: block; font-weight: 700; margin-bottom: 5px; font-size: 13px;"><?php esc_html_e('Tipologia Tessera', 'dfn-theme'); ?></label>
                             <select name="card_type" style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; height: 38px;">
                                 <?php
-                    $selected_type = $edit_member && ! empty($edit_member->card_type) ? $edit_member->card_type : 'INDIVIDUALE';
+                                $selected_type = $edit_member && ! empty($edit_member->card_type) ? $edit_member->card_type : 'INDIVIDUALE';
 
-                    $types_string = dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA');
-                    $valid_types = array_map('trim', explode(',', strtoupper($types_string)));
-                    $options = [];
-                    foreach ($valid_types as $t) {
-                        if (! empty($t)) {
-                            $options[$t] = esc_html($t);
-                        }
-                    }
-                    if (empty($options)) {
-                        $options['INDIVIDUALE'] = 'INDIVIDUALE';
-                    }
+                                $types_string = dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA');
+                                $valid_types = array_map('trim', explode(',', strtoupper($types_string)));
+                                $options = [];
+                                foreach ($valid_types as $t) {
+                                    if (! empty($t)) {
+                                        $options[$t] = esc_html($t);
+                                    }
+                                }
+                                if (empty($options)) {
+                                    $options['INDIVIDUALE'] = 'INDIVIDUALE';
+                                }
 
-                    foreach ($options as $val => $label) {
-                        echo '<option value="' . esc_attr($val) . '" ' . selected($selected_type, $val, false) . '>' . esc_html($label) . '</option>';
-                    }
-                    ?>
+                                foreach ($options as $val => $label) {
+                                    echo '<option value="' . esc_attr($val) . '" ' . selected($selected_type, $val, false) . '>' . esc_html($label) . '</option>';
+                                }
+                                ?>
                             </select>
                         </div>
  
@@ -397,121 +450,201 @@ function dfn_render_fai_members_page(): void
                 <?php endif; ?>
             </div>
  
-            <!-- Tabella dei Soci Registrati (Colonna Destra) -->
-            <div style="flex: 2 1 600px; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid #f1f5f9;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 20px;">
-                    <h3 style="margin: 0; color: #004b23; font-weight: 800; font-size: 18px;"><?php esc_html_e('Soci FAI Registrati', 'dfn-theme'); ?></h3>
-                    
-                    <form method="GET" style="display: flex; gap: 8px;">
-                        <input type="hidden" name="page" value="dfn-fai-members">
-                        <?php if (! empty($filter)) : ?>
-                            <input type="hidden" name="filter" value="<?php echo esc_attr($filter); ?>">
-                        <?php endif; ?>
-                        <input type="text" name="s" placeholder="<?php esc_attr_e('Cerca socio...', 'dfn-theme'); ?>" value="<?php echo esc_attr($search); ?>" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
-                        <button type="submit" class="button" style="font-weight: 700;"><?php esc_html_e('Cerca', 'dfn-theme'); ?></button>
-                    </form>
-                </div>
+            <!-- Tabella dei Soci (Colonna Destra - Doppia sezione) -->
+            <div style="flex: 2 1 600px; display: flex; flex-direction: column; gap: 30px;">
+                
+                <!-- 1. SEZIONE: TESSERE DA VERIFICARE -->
+                <?php if (! empty($unverified_members)) : ?>
+                    <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid #f1f5f9; border-top: 4px solid #c69c3a;">
+                        <div style="border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 20px;">
+                            <h3 style="margin: 0; color: #c69c3a; font-weight: 800; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                                <span class="dashicons dashicons-warning" style="color:#c69c3a;"></span>
+                                <?php esc_html_e('Tessere da Verificare', 'dfn-theme'); ?>
+                            </h3>
+                        </div>
 
-                <?php if ('expiring' === $filter) : ?>
-                    <div style="margin-bottom: 15px; padding: 10px 12px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; font-size: 13px; color: #b45309; display: flex; align-items: center; justify-content: space-between;">
-                        <span>
-                            <strong><?php esc_html_e('Filtro attivo:', 'dfn-theme'); ?></strong>
-                            <?php esc_html_e('Tessere in scadenza nei prossimi 15 giorni', 'dfn-theme'); ?>
-                        </span>
-                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members')); ?>" class="button button-small" style="color: #b91c1c; border-color: #fca5a5; background: #fef2f2;"><?php esc_html_e('Rimuovi Filtro', 'dfn-theme'); ?></a>
-                    </div>
-                <?php endif; ?>
- 
-                <table class="wp-list-table widefat fixed striped dfn-events-table">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Cognome & Nome', 'dfn-theme'); ?></th>
-                            <th><?php esc_html_e('Email', 'dfn-theme'); ?></th>
-                            <th><?php esc_html_e('Numero Tessera', 'dfn-theme'); ?></th>
-                            <th><?php esc_html_e('Tipologia', 'dfn-theme'); ?></th>
-                            <th><?php esc_html_e('Scadenza Tessera', 'dfn-theme'); ?></th>
-                            <th><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
-                            <th><?php esc_html_e('Azioni', 'dfn-theme'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($members)) : ?>
-                            <tr>
-                                <td colspan="7" style="text-align: center; padding: 20px; color: #94a3b8;"><?php esc_html_e('Nessun socio FAI registrato o corrispondente alla ricerca.', 'dfn-theme'); ?></td>
-                            </tr>
-                        <?php else : ?>
-                            <?php foreach ($members as $m) :
-                                $is_expired   = ! empty($m->card_expiry) && strtotime($m->card_expiry) < time();
-                                $is_verified  = intval($m->verified) === 1;
-
-                                $is_expiring = false;
-                                if ($is_verified && ! empty($m->card_expiry) && ! $is_expired) {
-                                    $expiry_time = strtotime($m->card_expiry);
-                                    $warning_days = intval(dfn_get_setting('fai_expiry_warning_days', 15));
-                                    $limit_time  = strtotime('+' . $warning_days . ' days 23:59:59');
-                                    if ($expiry_time <= $limit_time) {
-                                        $is_expiring = true;
-                                    }
-                                }
-
-                                if (! $is_verified) {
+                        <table class="wp-list-table widefat fixed striped dfn-events-table">
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e('Cognome & Nome', 'dfn-theme'); ?></th>
+                                    <th><?php esc_html_e('Email', 'dfn-theme'); ?></th>
+                                    <th><?php esc_html_e('Numero Tessera', 'dfn-theme'); ?></th>
+                                    <th><?php esc_html_e('Tipologia', 'dfn-theme'); ?></th>
+                                    <th><?php esc_html_e('Data Ricezione', 'dfn-theme'); ?></th>
+                                    <th><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
+                                    <th><?php esc_html_e('Azioni', 'dfn-theme'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($unverified_members as $m) :
                                     $status_class = 'dfn-status-draft';
                                     $status_label = esc_html__('Da verificare', 'dfn-theme');
                                     $custom_badge_style = 'background: #fff3cd; color: #856404; border: 1px solid #ffeeba;';
-                                } elseif (empty($m->card_expiry)) {
-                                    $status_class = 'dfn-status-draft';
-                                    $status_label = esc_html__('Senza scadenza', 'dfn-theme');
-                                    $custom_badge_style = 'background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1;';
-                                } elseif ($is_expired) {
-                                    $status_class = 'dfn-status-draft';
-                                    $status_label = esc_html__('Scaduta', 'dfn-theme');
-                                    $custom_badge_style = 'background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;';
-                                } elseif ($is_expiring) {
-                                    $status_class = 'dfn-status-draft';
-                                    $status_label = esc_html__('In scadenza', 'dfn-theme');
-                                    $custom_badge_style = 'background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;';
-                                } else {
-                                    $status_class = 'dfn-status-published';
-                                    $status_label = esc_html__('Attiva', 'dfn-theme');
-                                    $custom_badge_style = 'background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;';
-                                }
-                                ?>
-                                <tr>
-                                    <td><strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong></td>
-                                    <td><?php echo esc_html($m->email ?: ''); ?></td>
-                                    <td><code><?php echo esc_html($m->card_number); ?></code></td>
-                                    <td>
-                                        <?php
-                                        $type = ! empty($m->card_type) ? esc_html($m->card_type) : 'INDIVIDUALE';
-                                $type_badge_style = 'font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; display: inline-block; ';
-                                if ('FAMIGLIA' === $type) {
-                                    $type_badge_style .= 'background: #fdf2f8; color: #db2777; border: 1px solid #fbcfe8;';
-                                } elseif ('COPPIA' === $type) {
-                                    $type_badge_style .= 'background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;';
-                                } else {
-                                    $type_badge_style .= 'background: #f8fafc; color: #475569; border: 1px solid #e2e8f0;';
-                                }
-                                ?>
-                                        <span style="<?php echo esc_attr($type_badge_style); ?>"><?php echo esc_html($type); ?></span>
-                                    </td>
-                                    <td><strong><?php echo ! empty($m->card_expiry) ? date_i18n('d M Y', strtotime($m->card_expiry)) : esc_html__('Da definire', 'dfn-theme'); ?></strong></td>
-                                    <td>
-                                        <span class="dfn-badge <?php echo esc_attr($status_class); ?>" style="<?php echo esc_attr($custom_badge_style); ?>"><?php echo esc_html($status_label); ?></span>
-                                    </td>
-                                    <td>
-                                        <?php if (! $is_verified) : ?>
+                                    ?>
+                                    <tr>
+                                        <td><strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong></td>
+                                        <td><?php echo esc_html($m->email ?: ''); ?></td>
+                                        <td><code><?php echo esc_html($m->card_number); ?></code></td>
+                                        <td>
+                                            <?php
+                                            $type = ! empty($m->card_type) ? esc_html($m->card_type) : 'INDIVIDUALE';
+                                            $type_badge_style = 'font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; display: inline-block; ';
+                                            if ('FAMIGLIA' === $type) {
+                                                $type_badge_style .= 'background: #fdf2f8; color: #db2777; border: 1px solid #fbcfe8;';
+                                            } elseif ('COPPIA' === $type) {
+                                                $type_badge_style .= 'background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;';
+                                            } else {
+                                                $type_badge_style .= 'background: #f8fafc; color: #475569; border: 1px solid #e2e8f0;';
+                                            }
+                                            ?>
+                                            <span style="<?php echo esc_attr($type_badge_style); ?>"><?php echo esc_html($type); ?></span>
+                                        </td>
+                                        <td><strong><?php echo ! empty($m->created_at) ? date_i18n('d/m/Y H:i', strtotime($m->created_at)) : esc_html__('Non disponibile', 'dfn-theme'); ?></strong></td>
+                                        <td>
+                                            <span class="dfn-badge <?php echo esc_attr($status_class); ?>" style="<?php echo esc_attr($custom_badge_style); ?>"><?php echo esc_html($status_label); ?></span>
+                                        </td>
+                                        <td>
                                             <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=approve&member_id=' . $m->id), 'dfn_approve_fai_' . $m->id)); ?>" class="button button-small" style="background:#dcfce7; border-color:#bbf7d0; color:#166534; font-weight:bold;" title="<?php esc_attr_e('Applica sconto e approva', 'dfn-theme'); ?>">✅ Approva</a>
                                             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=reject&member_id=' . $m->id)); ?>" class="button button-small" style="background:#fee2e2; border-color:#fecaca; color:#991b1b; font-weight:bold;" title="<?php esc_attr_e('Rifiuta e spiega motivo', 'dfn-theme'); ?>">❌ Rifiuta</a>
-                                        <?php else: ?>
-                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=edit&member_id=' . $m->id)); ?>" class="button button-small" title="<?php esc_attr_e('Modifica dati socio', 'dfn-theme'); ?>">✏️</a>
-                                        <?php endif; ?>
-                                        <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=delete&member_id=' . $m->id), 'dfn_del_fai_' . $m->id)); ?>" class="button button-small dfn-btn-delete" title="<?php esc_attr_e('Elimina socio permanentemente', 'dfn-theme'); ?>" onclick="return confirm('Sei sicuro di voler eliminare questo socio?');">🗑️</a>
-                                    </td>
+                                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=delete&member_id=' . $m->id), 'dfn_del_fai_' . $m->id)); ?>" class="button button-small dfn-btn-delete" title="<?php esc_attr_e('Elimina socio permanentemente', 'dfn-theme'); ?>" onclick="return confirm('Sei sicuro di voler eliminare questo socio?');">🗑️</a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
+                <!-- 2. SEZIONE: SOCI FAI REGISTRATI (VERIFICATI) -->
+                <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid #f1f5f9; border-top: 4px solid #004b23;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 20px;">
+                        <h3 style="margin: 0; color: #004b23; font-weight: 800; font-size: 18px;"><?php esc_html_e('Soci FAI Registrati', 'dfn-theme'); ?></h3>
+                        
+                        <form method="GET" style="display: flex; gap: 8px;">
+                            <input type="hidden" name="page" value="dfn-fai-members">
+                            <?php if (! empty($filter)) : ?>
+                                <input type="hidden" name="filter" value="<?php echo esc_attr($filter); ?>">
+                            <?php endif; ?>
+                            <?php if (! empty($orderby)) : ?>
+                                <input type="hidden" name="orderby" value="<?php echo esc_attr($orderby); ?>">
+                            <?php endif; ?>
+                            <?php if (! empty($order)) : ?>
+                                <input type="hidden" name="order" value="<?php echo esc_attr($order); ?>">
+                            <?php endif; ?>
+                            <input type="text" name="s" placeholder="<?php esc_attr_e('Cerca socio...', 'dfn-theme'); ?>" value="<?php echo esc_attr($search); ?>" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                            <button type="submit" class="button" style="font-weight: 700;"><?php esc_html_e('Cerca', 'dfn-theme'); ?></button>
+                        </form>
+                    </div>
+
+                    <?php if ('expiring' === $filter) : ?>
+                        <div style="margin-bottom: 15px; padding: 10px 12px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; font-size: 13px; color: #b45309; display: flex; align-items: center; justify-content: space-between;">
+                            <span>
+                                <strong><?php esc_html_e('Filtro attivo:', 'dfn-theme'); ?></strong>
+                                <?php esc_html_e('Tessere in scadenza nei prossimi 15 giorni', 'dfn-theme'); ?>
+                            </span>
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members')); ?>" class="button button-small" style="color: #b91c1c; border-color: #fca5a5; background: #fef2f2;"><?php esc_html_e('Rimuovi Filtro', 'dfn-theme'); ?></a>
+                        </div>
+                    <?php endif; ?>
+     
+                    <table class="wp-list-table widefat fixed striped dfn-events-table">
+                        <thead>
+                            <tr>
+                                <th class="manage-column <?php echo ($orderby === 'name') ? 'sorted ' . $order : 'sortable'; ?>">
+                                    <a href="<?php echo esc_url($name_sort_url); ?>" style="display:inline-flex; align-items:center; gap:4px; text-decoration:none; color:inherit;">
+                                        <span><?php esc_html_e('Cognome & Nome', 'dfn-theme'); ?></span>
+                                        <span class="dashicons <?php echo ($orderby === 'name') ? (($order === 'asc') ? 'dashicons-arrow-up-alt2' : 'dashicons-arrow-down-alt2') : 'dashicons-sort'; ?>" style="font-size:14px; width:14px; height:14px;"></span>
+                                    </a>
+                                </th>
+                                <th><?php esc_html_e('Email', 'dfn-theme'); ?></th>
+                                <th><?php esc_html_e('Numero Tessera', 'dfn-theme'); ?></th>
+                                <th><?php esc_html_e('Tipologia', 'dfn-theme'); ?></th>
+                                <th class="manage-column <?php echo ($orderby === 'date') ? 'sorted ' . $order : 'sortable'; ?>">
+                                    <a href="<?php echo esc_url($date_sort_url); ?>" style="display:inline-flex; align-items:center; gap:4px; text-decoration:none; color:inherit;">
+                                        <span><?php esc_html_e('Data Ricezione', 'dfn-theme'); ?></span>
+                                        <span class="dashicons <?php echo ($orderby === 'date') ? (($order === 'asc') ? 'dashicons-arrow-up-alt2' : 'dashicons-arrow-down-alt2') : 'dashicons-sort'; ?>" style="font-size:14px; width:14px; height:14px;"></span>
+                                    </a>
+                                </th>
+                                <th><?php esc_html_e('Scadenza Tessera', 'dfn-theme'); ?></th>
+                                <th><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
+                                <th><?php esc_html_e('Azioni', 'dfn-theme'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($members)) : ?>
+                                <tr>
+                                    <td colspan="8" style="text-align: center; padding: 20px; color: #94a3b8;"><?php esc_html_e('Nessun socio FAI registrato o corrispondente alla ricerca.', 'dfn-theme'); ?></td>
                                 </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                            <?php else : ?>
+                                <?php foreach ($members as $m) :
+                                    $is_expired   = ! empty($m->card_expiry) && strtotime($m->card_expiry) < time();
+                                    $is_verified  = intval($m->verified) === 1;
+
+                                    $is_expiring = false;
+                                    if ($is_verified && ! empty($m->card_expiry) && ! $is_expired) {
+                                        $expiry_time = strtotime($m->card_expiry);
+                                        $warning_days = intval(dfn_get_setting('fai_expiry_warning_days', 15));
+                                        $limit_time  = strtotime('+' . $warning_days . ' days 23:59:59');
+                                        if ($expiry_time <= $limit_time) {
+                                            $is_expiring = true;
+                                        }
+                                    }
+
+                                    if (! $is_verified) {
+                                        $status_class = 'dfn-status-draft';
+                                        $status_label = esc_html__('Da verificare', 'dfn-theme');
+                                        $custom_badge_style = 'background: #fff3cd; color: #856404; border: 1px solid #ffeeba;';
+                                    } elseif (empty($m->card_expiry)) {
+                                        $status_class = 'dfn-status-draft';
+                                        $status_label = esc_html__('Senza scadenza', 'dfn-theme');
+                                        $custom_badge_style = 'background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1;';
+                                    } elseif ($is_expired) {
+                                        $status_class = 'dfn-status-draft';
+                                        $status_label = esc_html__('Scaduta', 'dfn-theme');
+                                        $custom_badge_style = 'background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;';
+                                    } elseif ($is_expiring) {
+                                        $status_class = 'dfn-status-draft';
+                                        $status_label = esc_html__('In scadenza', 'dfn-theme');
+                                        $custom_badge_style = 'background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;';
+                                    } else {
+                                        $status_class = 'dfn-status-published';
+                                        $status_label = esc_html__('Attiva', 'dfn-theme');
+                                        $custom_badge_style = 'background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;';
+                                    }
+                                    ?>
+                                    <tr>
+                                        <td><strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong></td>
+                                        <td><?php echo esc_html($m->email ?: ''); ?></td>
+                                        <td><code><?php echo esc_html($m->card_number); ?></code></td>
+                                        <td>
+                                            <?php
+                                            $type = ! empty($m->card_type) ? esc_html($m->card_type) : 'INDIVIDUALE';
+                                            $type_badge_style = 'font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; display: inline-block; ';
+                                            if ('FAMIGLIA' === $type) {
+                                                $type_badge_style .= 'background: #fdf2f8; color: #db2777; border: 1px solid #fbcfe8;';
+                                            } elseif ('COPPIA' === $type) {
+                                                $type_badge_style .= 'background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;';
+                                            } else {
+                                                $type_badge_style .= 'background: #f8fafc; color: #475569; border: 1px solid #e2e8f0;';
+                                            }
+                                            ?>
+                                            <span style="<?php echo esc_attr($type_badge_style); ?>"><?php echo esc_html($type); ?></span>
+                                        </td>
+                                        <td><?php echo ! empty($m->created_at) ? date_i18n('d/m/Y H:i', strtotime($m->created_at)) : esc_html__('Non disponibile', 'dfn-theme'); ?></td>
+                                        <td><strong><?php echo ! empty($m->card_expiry) ? date_i18n('d M Y', strtotime($m->card_expiry)) : esc_html__('Da definire', 'dfn-theme'); ?></strong></td>
+                                        <td>
+                                            <span class="dfn-badge <?php echo esc_attr($status_class); ?>" style="<?php echo esc_attr($custom_badge_style); ?>"><?php echo esc_html($status_label); ?></span>
+                                        </td>
+                                        <td>
+                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=edit&member_id=' . $m->id)); ?>" class="button button-small" title="<?php esc_attr_e('Modifica dati socio', 'dfn-theme'); ?>">✏️</a>
+                                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=delete&member_id=' . $m->id), 'dfn_del_fai_' . $m->id)); ?>" class="button button-small dfn-btn-delete" title="<?php esc_attr_e('Elimina socio permanentemente', 'dfn-theme'); ?>" onclick="return confirm('Sei sicuro di voler eliminare questo socio?');">🗑️</a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+
             </div>
         </div>
     </div>

@@ -82,16 +82,36 @@ function dfn_ajax_admin_get_slots(): void
         $bookings_list = [];
         foreach ($bookings_raw as $b) {
             $fai_cards = [];
+            $order_total = 0.00;
+            $payment_status = 'ancora da pagare';
+            $first_name = '';
+            $last_name = '';
             if ($b->order_id) {
                 $order = wc_get_order($b->order_id);
                 if ($order) {
                     $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
+                    $order_total = floatval($order->get_total());
+                    $status = $order->get_status();
+                    if (in_array($status, ['completed', 'processing'], true)) {
+                        $payment_status = 'pagato';
+                    } else {
+                        $payment_status = 'ancora da pagare';
+                    }
+                    $first_name = $order->get_billing_first_name();
+                    $last_name  = $order->get_billing_last_name();
                 }
+            }
+            if (empty($first_name) && empty($last_name)) {
+                $parts = explode(' ', $b->customer_name, 2);
+                $first_name = $parts[0];
+                $last_name  = isset($parts[1]) ? $parts[1] : '';
             }
             $bookings_list[] = [
                 'id'               => intval($b->id),
                 'order_id'         => intval($b->order_id),
                 'customer_name'    => esc_html($b->customer_name),
+                'customer_first_name'=> esc_html($first_name),
+                'customer_last_name' => esc_html($last_name),
                 'customer_email'   => esc_html($b->customer_email),
                 'customer_phone'   => esc_html($b->customer_phone),
                 'total_persons'    => intval($b->total_persons),
@@ -103,6 +123,8 @@ function dfn_ajax_admin_get_slots(): void
                 'notes'            => esc_html($b->notes),
                 'created_at'       => esc_html($b->created_at),
                 'fai_cards'        => $fai_cards,
+                'order_total'      => $order_total,
+                'payment_status'   => $payment_status,
             ];
         }
 
@@ -148,16 +170,36 @@ function dfn_ajax_admin_get_slots(): void
         $bookings_list = [];
         foreach ($bookings as $b) {
             $fai_cards = [];
+            $order_total = 0.00;
+            $payment_status = 'ancora da pagare';
+            $first_name = '';
+            $last_name = '';
             if ($b->order_id) {
                 $order = wc_get_order($b->order_id);
                 if ($order) {
                     $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
+                    $order_total = floatval($order->get_total());
+                    $status = $order->get_status();
+                    if (in_array($status, ['completed', 'processing'], true)) {
+                        $payment_status = 'pagato';
+                    } else {
+                        $payment_status = 'ancora da pagare';
+                    }
+                    $first_name = $order->get_billing_first_name();
+                    $last_name  = $order->get_billing_last_name();
                 }
+            }
+            if (empty($first_name) && empty($last_name)) {
+                $parts = explode(' ', $b->customer_name, 2);
+                $first_name = $parts[0];
+                $last_name  = isset($parts[1]) ? $parts[1] : '';
             }
             $bookings_list[] = [
                 'id'               => intval($b->id),
                 'order_id'         => intval($b->order_id),
                 'customer_name'    => esc_html($b->customer_name),
+                'customer_first_name'=> esc_html($first_name),
+                'customer_last_name' => esc_html($last_name),
                 'customer_email'   => esc_html($b->customer_email),
                 'customer_phone'   => esc_html($b->customer_phone),
                 'total_persons'    => intval($b->total_persons),
@@ -169,6 +211,8 @@ function dfn_ajax_admin_get_slots(): void
                 'notes'            => esc_html($b->notes),
                 'created_at'       => esc_html($b->created_at),
                 'fai_cards'        => $fai_cards,
+                'order_total'      => $order_total,
+                'payment_status'   => $payment_status,
             ];
         }
 
@@ -444,26 +488,58 @@ function dfn_ajax_admin_add_booking(): void
             $c_nome    = isset($card_data['nome']) ? sanitize_text_field($card_data['nome']) : '';
             $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
             $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
-            // Data di scadenza vuota di default al momento dell'inserimento per verifica admin successiva
-            $c_expiry  = null;
 
             if (empty($c_nome) || empty($c_cognome) || empty($c_num)) {
                 wp_send_json_error([ 'message' => sprintf(esc_html__('Dati tessera Socio FAI incompleti per il partecipante #%d.', 'dfn-theme'), $index + 1) ]);
             }
 
-            // Inserisci o aggiorna nel DB (stato da verificare = 0, scadenza NULL/vuota)
-            $wpdb->insert(
-                $table_members,
-                [
-                    'first_name'  => $c_nome,
-                    'last_name'   => $c_cognome,
-                    'email'       => ($email === 'no-email@dfn.it') ? null : $email,
-                    'card_number' => $c_num,
-                    'card_expiry' => $c_expiry,
-                    'verified'    => 0,
-                ],
-                [ '%s', '%s', '%s', '%s', '%s', '%d' ],
-            );
+            // Controlla se la tessera esiste già in assoluto nel database per evitare duplicati
+            $existing_member = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$table_members} WHERE card_number = %s LIMIT 1",
+                $c_num,
+            ));
+
+            $email_to_save = ($email === 'no-email@dfn.it') ? '' : $email;
+
+            if ($existing_member) {
+                $member_verified = intval($existing_member->verified) === 1;
+                $member_expired  = ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
+
+                if ($member_verified && ! $member_expired) {
+                    // La tessera è attiva e verificata
+                } else {
+                    // Esiste ma non è valida (scaduta o da verificare)
+                    // Aggiorna anagrafica
+                    $wpdb->update(
+                        $table_members,
+                        [
+                            'first_name' => $c_nome,
+                            'last_name'  => $c_cognome,
+                            'email'      => $email_to_save,
+                        ],
+                        [ 'id' => $existing_member->id ],
+                        [ '%s', '%s', '%s' ],
+                        [ '%d' ],
+                    );
+                    dfn_notify_admin_unverified_fai_card($c_num, $c_nome, $c_cognome, $email_to_save);
+                }
+            } else {
+                // Non esiste affatto nel database, la inseriamo
+                $wpdb->insert(
+                    $table_members,
+                    [
+                        'first_name'  => $c_nome,
+                        'last_name'   => $c_cognome,
+                        'email'       => $email_to_save,
+                        'card_number' => $c_num,
+                        'card_expiry' => null,
+                        'card_type'   => 'INDIVIDUALE',
+                        'verified'    => 0,
+                    ],
+                    [ '%s', '%s', '%s', '%s', '%s', '%s', '%d' ]
+                );
+                dfn_notify_admin_unverified_fai_card($c_num, $c_nome, $c_cognome, $email_to_save);
+            }
 
             $fai_cards[] = [
                 'nome'    => $c_nome,
@@ -532,8 +608,9 @@ function dfn_ajax_admin_add_booking(): void
         }
         $order->save();
 
-        // Salva in stato completato direttamente trattandosi di inserimento da admin
-        $order->update_status('completed', __('Prenotazione creata manualmente dall\'amministratore.', 'dfn-theme'));
+        // Salva in stato in attesa di pagamento (pending) trattandosi di inserimento da admin
+        $order->update_status('pending', __('Prenotazione creata manualmente dall\'amministratore.', 'dfn-theme'));
+
 
         // Esegui allocazione
         if ($is_free_flow) {
