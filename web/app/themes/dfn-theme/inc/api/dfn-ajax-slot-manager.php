@@ -866,9 +866,9 @@ function dfn_ajax_quick_get_events(): void
     $today = current_time('Y-m-d');
 
     $events = $wpdb->get_results($wpdb->prepare(
-        "SELECT id, event_name, access_type, event_date_start, event_date_end, allocation_mode
+        "SELECT id, product_id, access_type, event_date_start, event_date_end, allocation_mode
          FROM {$table_events}
-         WHERE status = 'active'
+         WHERE status = 'published'
            AND event_date_end >= %s
          ORDER BY event_date_start ASC",
         $today,
@@ -876,6 +876,10 @@ function dfn_ajax_quick_get_events(): void
 
     if (empty($events)) {
         wp_send_json_error([ 'message' => esc_html__('Nessun evento attivo trovato.', 'dfn-theme') ]);
+    }
+
+    foreach ($events as $event) {
+        $event->event_name = get_the_title($event->product_id) ?: sprintf(__('Evento %d', 'dfn-theme'), $event->id);
     }
 
     wp_send_json_success([ 'events' => $events ]);
