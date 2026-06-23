@@ -54,10 +54,49 @@ function dfn_get_setting($key, $default = null)
         'enable_auto_complete_paid'   => 'yes',
         'setup_roles_version'         => '2.0',
         'setup_fai_discount'          => 5,
+
+        // Defaults per i testi e-mail
+        'email_confirm_subject'       => 'Conferma Prenotazione: {nome_evento}',
+        'email_confirm_title'         => 'Prenotazione Confermata!',
+        'email_confirm_intro'         => "Gentile <strong>{nome_cliente}</strong>,<br><br>La tua prenotazione per l'evento <strong>{nome_evento}</strong> è stata confermata con successo!",
+        'email_confirm_notes'         => "<strong>⚠️ Importante:</strong> Ti chiediamo di presentarti presso il luogo dell'evento <strong>almeno 10 minuti prima</strong> dell'orario d'inizio della visita indicato per facilitare le operazioni di accettazione.",
+
+        'email_pending_subject'       => 'Richiesta di Prenotazione Ricevuta: {nome_evento}',
+        'email_pending_title'         => 'Richiesta in Fase di Verifica',
+        'email_pending_body'          => "Gentile <strong>{nome_cliente}</strong>,<br><br>Abbiamo ricevuto la tua richiesta di prenotazione per l'evento <strong>{nome_evento}</strong>.<br><br>Questo evento richiede l'<strong>approvazione manuale</strong> da parte del nostro staff. Stiamo verificando la disponibilità e ti invieremo un'email di conferma non appena la richiesta sarà approvata (solitamente entro poche ore).",
+
+        'email_declined_subject'      => 'Richiesta di Prenotazione Rifiutata: {nome_evento}',
+        'email_declined_title'        => 'Richiesta non Approvata',
+        'email_declined_body'         => "Gentile <strong>{nome_cliente}</strong>,<br><br>Siamo spiacenti di informarti che la tua richiesta di prenotazione per l'evento <strong>{nome_evento}</strong> non è stata approvata dallo staff.<br><br>Ciò può essere dovuto al superamento della capacità massima dei turni disponibili o ad altre esigenze logistiche organizzative.",
+
+        'email_cancelled_subject'     => 'Annullamento Prenotazione: {nome_evento}',
+        'email_cancelled_title'       => 'Prenotazione Annullata',
+        'email_cancelled_body'        => "Gentile <strong>{nome_cliente}</strong>,<br><br>Ti confermiamo che la tua prenotazione per l'evento <strong>{nome_evento}</strong> è stata <strong>annullata</strong> con successo.<br><br>I posti precedentemente riservati a tuo nome sono stati liberati e resi nuovamente disponibili per altri visitatori.",
+
+        'email_admin_cancelled_subject'=> 'Prenotazione Annullata dallo Staff: {nome_evento}',
+        'email_admin_cancelled_title' => 'Prenotazione Annullata dallo Staff',
+        'email_admin_cancelled_body'  => "Gentile <strong>{nome_cliente}</strong>,<br><br>Ti informiamo che la tua prenotazione per l'evento <strong>{nome_evento}</strong> è stata <strong>annullata dal nostro staff</strong>.<br><br>Se hai domande o desideri chiarimenti, ti invitiamo a contattarci rispondendo a questa email o telefonicamente.",
+
+        'email_reminder_subject'      => 'Promemoria Evento Domani: {nome_evento}',
+        'email_reminder_title'        => 'Ti aspettiamo domani!',
+        'email_reminder_intro'        => "Gentile <strong>{nome_cliente}</strong>,<br><br>Questo è un promemoria per ricordarti che domani si terrà l'evento <strong>{nome_evento}</strong> a cui ti sei prenotato!",
+        'email_reminder_notes'        => "<ul>\n<li>Ti chiediamo di presentarti presso il luogo dell'evento <strong>almeno 10 minuti prima</strong> dell'orario d'inizio della visita indicato per facilitare l'accettazione.</li>\n<li>Tieni a portata di mano questo messaggio per mostrare il codice QR all'ingresso. Clicca sul pulsante in basso per aprire la prenotazione digitale sul tuo telefono.</li>\n<li>Ti ricordiamo di portare con te la tessera di iscrizione FAI (in corso di validità) per ciascun partecipante registrato come Socio FAI, in quanto lo staff effettuerà la verifica all'ingresso.</li>\n</ul>",
+
+        'email_waitlist_subject'      => 'Un posto si è liberato! Prenota ora: {nome_evento}',
+        'email_waitlist_title'        => "Posto Disponibile in Lista d'Attesa!",
+        'email_waitlist_body'         => "Gentile <strong>{nome_cliente}</strong>,<br><br>Buone notizie! Si è liberata la disponibilità per l'evento <strong>{nome_evento}</strong> a cui eri iscritto in lista d'attesa.<br><br>Avendo priorità di prenotazione, abbiamo riservato i posti per te. Hai a disposizione <strong>{ore_waitlist} ore</strong> da questo momento per completare la tua prenotazione prima che il posto venga offerto alla persona successiva in lista.",
+
+        'email_fai_approved_subject'  => 'Tessera FAI Verificata con Successo',
+        'email_fai_approved_title'    => 'Tessera FAI Approvata',
+        'email_fai_approved_body'     => "Gentile <strong>{nome_cliente}</strong>,<br><br>Ti informiamo che il nostro staff ha completato con successo la verifica della tua <strong>Tessera Socio FAI n° {numero_tessera}</strong>.<br><br>La tessera risulta <strong>attiva e valida</strong>. La tariffa scontata riservata ai Soci FAI è stata confermata correttamente per la tua prenotazione.<br><br>Non devi fare altro! Ti basterà presentare la tua tessera FAI e il codice QR della prenotazione all'ingresso dell'evento.",
+
+        'email_fai_rejected_subject'  => 'Aggiornamento Verifica Tessera FAI',
+        'email_fai_rejected_title'    => 'Verifica Tessera FAI Fallita',
+        'email_fai_rejected_body'     => "Gentile <strong>{nome_cliente}</strong>,<br><br>Ti informiamo che abbiamo effettuato la verifica della tua <strong>Tessera Socio FAI n° {numero_tessera}</strong> inserita in fase di prenotazione.<br><br>Purtroppo, la tessera <strong>non è risultata valida</strong> per il seguente motivo:<br><br><strong>{motivo_rifiuto}</strong><br><br>Ti ricordiamo che, qualora non fosse possibile presentare una tessera FAI valida e attiva all'ingresso dell'evento, ti verrà richiesto di lasciare il contributo alla tariffa Standard (Intero).<br><br>Se si tratta di un errore di inserimento, puoi rispondere a questa email o contattare il nostro staff per fornirci i dati corretti.",
     ];
 
     if (isset($settings[ $key ])) {
-        return $settings[ $key ];
+        return is_string($settings[ $key ]) ? stripslashes($settings[ $key ]) : $settings[ $key ];
     }
 
     if ($default !== null) {
@@ -329,4 +368,19 @@ function dfn_mostra_log_nel_profilo($user)
         <?php endif; ?>
     </div>
     <?php
+}
+
+/**
+ * Sostituisce i segnaposto in un testo con i valori reali passati.
+ *
+ * @param string $text Il testo contenente i segnaposto tipo {nome_cliente}.
+ * @param array $replacements Array associativo chiave => valore di sostituzioni.
+ * @return string Il testo con i segnaposto sostituiti.
+ */
+function dfn_replace_email_placeholders(string $text, array $replacements): string
+{
+    foreach ($replacements as $placeholder => $value) {
+        $text = str_replace('{' . $placeholder . '}', (string) $value, $text);
+    }
+    return $text;
 }

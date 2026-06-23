@@ -254,7 +254,6 @@ function dfn_send_booking_confirmation(int $booking_id)
     }
 
     $product_name = get_the_title($event->product_id);
-    $subject = 'Conferma Prenotazione: ' . $product_name;
 
     // Link all'hub biglietti / QR effettivo
     $token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
@@ -272,26 +271,36 @@ function dfn_send_booking_confirmation(int $booking_id)
         'token'              => $cancel_token,
     ], home_url('/'));
 
-    $content = '<p>Gentile <strong>' . esc_html($booking->customer_name) . '</strong>,</p>';
-    $content .= '<p>La tua prenotazione per l\'evento <strong>' . esc_html($product_name) . '</strong> è stata confermata con successo!</p>';
-
-    $content .= '<div class="info-box">';
-    $content .= '<div class="info-box-title">Dettagli della Prenotazione</div>';
-    $content .= '<table>';
-    $content .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
-    $content .= '<tr><td class="label">Data e Inizio Visita:</td><td>' . esc_html($slot_info) . '</td></tr>';
-    $content .= '<tr><td class="label">Luogo:</td><td>' . esc_html($event->location) . '</td></tr>';
-    $content .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali (' . absint($booking->persons_standard) . ' Standard + ' . absint($booking->persons_fai) . ' Soci FAI)</td></tr>';
-    $content .= '<tr><td class="label">Modalità Contributo:</td><td>' . ($booking->payment_method === 'dfn_in_loco' ? 'Contributo all\'ingresso (Botteghino)' : 'Versato Online') . '</td></tr>';
+    $details_table = '<div class="info-box">';
+    $details_table .= '<div class="info-box-title">Dettagli della Prenotazione</div>';
+    $details_table .= '<table>';
+    $details_table .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Data e Inizio Visita:</td><td>' . esc_html($slot_info) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Luogo:</td><td>' . esc_html($event->location) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali (' . absint($booking->persons_standard) . ' Standard + ' . absint($booking->persons_fai) . ' Soci FAI)</td></tr>';
+    $details_table .= '<tr><td class="label">Modalità Contributo:</td><td>' . ($booking->payment_method === 'dfn_in_loco' ? 'Contributo all\'ingresso (Botteghino)' : 'Versato Online') . '</td></tr>';
     if ($booking->payment_method === 'dfn_in_loco' && $booking->amount_due > 0) {
-        $content .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#ff6600;">' . wc_price($booking->amount_due) . '</td></tr>';
+        $details_table .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#ff6600;">' . wc_price($booking->amount_due) . '</td></tr>';
     }
-    $content .= '</table>';
-    $content .= '</div>';
+    $details_table .= '</table>';
+    $details_table .= '</div>';
 
-    $content .= '<p style="font-size: 14px; color: #4a5568; margin-top: 15px; margin-bottom: 15px;"><strong>⚠️ Importante:</strong> Ti chiediamo di presentarti presso il luogo dell\'evento <strong>almeno 10 minuti prima</strong> dell\'orario d\'inizio della visita indicato per facilitare le operazioni di accettazione.</p>';
+    $replacements = [
+        'nome_cliente' => esc_html($booking->customer_name),
+        'nome_evento'  => esc_html($product_name),
+        'dettagli_prenotazione' => $details_table,
+        'url_biglietto' => esc_url($hub_url),
+        'url_annullamento' => esc_url($cancel_url),
+    ];
 
-    $content .= '<p>Per accedere all\'evento, mostra all\'ingresso il codice QR del tuo gruppo cliccando sul pulsante sottostante (è sufficiente mostrare un solo codice QR per todo il gruppo).</p>';
+    $intro_html = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_intro'), $replacements);
+    $notes_html = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_notes'), $replacements);
+
+    $content = $intro_html;
+    $content .= $details_table;
+    $content .= $notes_html;
+
+    $content .= '<p>Per accedere all\'evento, mostra all\'ingresso il codice QR del tuo gruppo cliccando sul pulsante sottostante (è sufficiente mostrare un solo codice QR per tutto il gruppo).</p>';
     $content .= '<div class="text-center"><a href="' . esc_url($hub_url) . '" class="button">Mostra Codice QR / Ingressi</a></div>';
 
     if ($booking->payment_method === 'dfn_in_loco') {
@@ -300,7 +309,10 @@ function dfn_send_booking_confirmation(int $booking_id)
 
     $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Non puoi più partecipare? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
 
-    return dfn_send_notification_email($booking->customer_email, $subject, 'Prenotazione Confermata!', $content);
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_title'), $replacements);
+
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
 }
 
 /**
@@ -323,24 +335,35 @@ function dfn_send_booking_pending_approval(int $booking_id)
     }
 
     $product_name = get_the_title($event->product_id);
-    $subject = 'Richiesta di Prenotazione Ricevuta: ' . $product_name;
 
-    $content = '<p>Gentile <strong>' . esc_html($booking->customer_name) . '</strong>,</p>';
-    $content .= '<p>Abbiamo ricevuto la tua richiesta di prenotazione per l\'evento <strong>' . esc_html($product_name) . '</strong>.</p>';
-    $content .= '<p>Questo evento richiede l\'<strong>approvazione manuale</strong> da parte del nostro staff. Stiamo verificando la disponibilità e ti invieremo un\'email di conferma non appena la richiesta sarà approvata (solitamente entro poche ore).</p>';
+    $details_table = '<div class="info-box">';
+    $details_table .= '<div class="info-box-title">Dettagli della Richiesta</div>';
+    $details_table .= '<table>';
+    $details_table .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#c69c3a;">In Attesa di Approvazione Staff</td></tr>';
+    $details_table .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali</td></tr>';
+    $details_table .= '</table>';
+    $details_table .= '</div>';
 
-    $content .= '<div class="info-box">';
-    $content .= '<div class="info-box-title">Dettagli della Richiesta</div>';
-    $content .= '<table>';
-    $content .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
-    $content .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#c69c3a;">In Attesa di Approvazione Staff</td></tr>';
-    $content .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali</td></tr>';
-    $content .= '</table>';
-    $content .= '</div>';
+    $replacements = [
+        'nome_cliente' => esc_html($booking->customer_name),
+        'nome_evento'  => esc_html($product_name),
+        'dettagli_prenotazione' => $details_table,
+    ];
+
+    $body_template = dfn_get_setting('email_pending_body');
+    $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+    if (strpos($body_template, '{dettagli_prenotazione}') === false) {
+        $content .= $details_table;
+    }
 
     $content .= '<p>Non è ancora necessario versare alcun contributo o mostrare QR code. Riceverai un secondo messaggio con l\'esito della richiesta.</p>';
 
-    return dfn_send_notification_email($booking->customer_email, $subject, 'Richiesta in Fase di Verifica', $content);
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_pending_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_pending_title'), $replacements);
+
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
 }
 
 /**
@@ -369,13 +392,23 @@ function dfn_send_booking_approval_status(int $booking_id, bool $approved = true
         // Se approvato, invia direttamente la conferma classica che include dettagli e QR
         return dfn_send_booking_confirmation($booking_id);
     } else {
-        $subject = 'Richiesta di Prenotazione Rifiutata: ' . $product_name;
+        $body_template = dfn_get_setting('email_declined_body');
+        $has_motivo_placeholder = (strpos($body_template, '{motivo_rifiuto}') !== false);
 
-        $content = '<p>Gentile <strong>' . esc_html($booking->customer_name) . '</strong>,</p>';
-        $content .= '<p>Siamo spiacenti di informarti che la tua richiesta di prenotazione per l\'evento <strong>' . esc_html($product_name) . '</strong> non è stata approvata dallo staff.</p>';
-        $content .= '<p>Ciò può essere dovuto al superamento della capacità massima dei turni disponibili o ad altre esigenze logistiche organizzative.</p>';
-
+        $motivo_text = '';
         if (! empty($booking->notes)) {
+            $motivo_text = esc_html($booking->notes);
+        }
+
+        $replacements = [
+            'nome_cliente' => esc_html($booking->customer_name),
+            'nome_evento'  => esc_html($product_name),
+            'motivo_rifiuto' => $motivo_text,
+        ];
+
+        $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+        if (!$has_motivo_placeholder && ! empty($booking->notes)) {
             $content .= '<div class="info-box">';
             $content .= '<div class="info-box-title">Nota dallo Staff</div>';
             $content .= '<p style="margin:0; font-size:14px;">' . esc_html($booking->notes) . '</p>';
@@ -384,7 +417,10 @@ function dfn_send_booking_approval_status(int $booking_id, bool $approved = true
 
         $content .= '<p>Se hai già effettuato transazioni online relative a questo ordine, verrà emesso un rimborso integrale nel più breve tempo possibile.</p>';
 
-        return dfn_send_notification_email($booking->customer_email, $subject, 'Richiesta non Approvata', $content);
+        $subject = dfn_replace_email_placeholders(dfn_get_setting('email_declined_subject'), $replacements);
+        $title   = dfn_replace_email_placeholders(dfn_get_setting('email_declined_title'), $replacements);
+
+        return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
     }
 }
 
@@ -408,24 +444,35 @@ function dfn_send_booking_cancellation(int $booking_id)
     }
 
     $product_name = get_the_title($event->product_id);
-    $subject = 'Annullamento Prenotazione: ' . $product_name;
 
-    $content = '<p>Gentile <strong>' . esc_html($booking->customer_name) . '</strong>,</p>';
-    $content .= '<p>Ti confermiamo che la tua prenotazione per l\'evento <strong>' . esc_html($product_name) . '</strong> è stata <strong>annullata</strong> con successo.</p>';
-    $content .= '<p>I posti precedentemente riservati a tuo nome sono stati liberati e resi nuovamente disponibili per altri visitatori.</p>';
+    $details_table = '<div class="info-box">';
+    $details_table .= '<div class="info-box-title">Riepilogo Annullamento</div>';
+    $details_table .= '<table>';
+    $details_table .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Data Prenotata:</td><td>' . date_i18n('d F Y', strtotime($event->event_date_start)) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#e53e3e;">ANNULLATA</td></tr>';
+    $details_table .= '</table>';
+    $details_table .= '</div>';
 
-    $content .= '<div class="info-box">';
-    $content .= '<div class="info-box-title">Riepilogo Annullamento</div>';
-    $content .= '<table>';
-    $content .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
-    $content .= '<tr><td class="label">Data Prenotata:</td><td>' . date_i18n('d F Y', strtotime($event->event_date_start)) . '</td></tr>';
-    $content .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#e53e3e;">ANNULLATA</td></tr>';
-    $content .= '</table>';
-    $content .= '</div>';
+    $replacements = [
+        'nome_cliente' => esc_html($booking->customer_name),
+        'nome_evento'  => esc_html($product_name),
+        'dettagli_prenotazione' => $details_table,
+    ];
+
+    $body_template = dfn_get_setting('email_cancelled_body');
+    $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+    if (strpos($body_template, '{dettagli_prenotazione}') === false) {
+        $content .= $details_table;
+    }
 
     $content .= '<p>Speriamo di poterti accogliere in uno dei nostri prossimi eventi FAI.</p>';
 
-    return dfn_send_notification_email($booking->customer_email, $subject, 'Prenotazione Annullata', $content);
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_cancelled_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_cancelled_title'), $replacements);
+
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
 }
 
 /**
@@ -452,21 +499,29 @@ function dfn_send_booking_admin_cancellation(int $booking_id): bool
     }
 
     $product_name = get_the_title($event->product_id);
-    $subject = 'Prenotazione Annullata dallo Staff: ' . $product_name;
 
-    $content = '<p>Gentile <strong>' . esc_html($booking->customer_name) . '</strong>,</p>';
-    $content .= '<p>Ti informiamo che la tua prenotazione per l\'evento <strong>' . esc_html($product_name) . '</strong> è stata <strong>annullata dal nostro staff</strong>.</p>';
-    $content .= '<p>Se hai domande o desideri chiarimenti, ti invitiamo a contattarci rispondendo a questa email o telefonicamente.</p>';
+    $details_table = '<div class="info-box">';
+    $details_table .= '<div class="info-box-title">Riepilogo Annullamento</div>';
+    $details_table .= '<table>';
+    $details_table .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Data Prenotata:</td><td>' . date_i18n('d F Y', strtotime($event->event_date_start)) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali</td></tr>';
+    $details_table .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#e53e3e;">ANNULLATA DALLO STAFF</td></tr>';
+    $details_table .= '</table>';
+    $details_table .= '</div>';
 
-    $content .= '<div class="info-box">';
-    $content .= '<div class="info-box-title">Riepilogo Annullamento</div>';
-    $content .= '<table>';
-    $content .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
-    $content .= '<tr><td class="label">Data Prenotata:</td><td>' . date_i18n('d F Y', strtotime($event->event_date_start)) . '</td></tr>';
-    $content .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali</td></tr>';
-    $content .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#e53e3e;">ANNULLATA DALLO STAFF</td></tr>';
-    $content .= '</table>';
-    $content .= '</div>';
+    $replacements = [
+        'nome_cliente' => esc_html($booking->customer_name),
+        'nome_evento'  => esc_html($product_name),
+        'dettagli_prenotazione' => $details_table,
+    ];
+
+    $body_template = dfn_get_setting('email_admin_cancelled_body');
+    $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+    if (strpos($body_template, '{dettagli_prenotazione}') === false) {
+        $content .= $details_table;
+    }
 
     if ($booking->payment_method !== 'dfn_in_loco' && (float) $booking->amount_paid > 0) {
         $content .= '<p>Qualora tu abbia già versato il contributo online, ti sarà emesso un rimborso integrale nel più breve tempo possibile.</p>';
@@ -474,7 +529,10 @@ function dfn_send_booking_admin_cancellation(int $booking_id): bool
 
     $content .= '<p>Speriamo di poterti accogliere in uno dei nostri prossimi eventi FAI.</p>';
 
-    return dfn_send_notification_email($booking->customer_email, $subject, 'Prenotazione Annullata dallo Staff', $content);
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_admin_cancelled_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_admin_cancelled_title'), $replacements);
+
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
 }
 
 /**
@@ -526,7 +584,6 @@ function dfn_send_booking_24h_reminder(int $booking_id)
     }
 
     $product_name = get_the_title($event->product_id);
-    $subject = 'Promemoria Evento Domani: ' . $product_name;
 
     // Link all'hub biglietti / QR effettivo
     $token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
@@ -544,36 +601,45 @@ function dfn_send_booking_24h_reminder(int $booking_id)
         'token'              => $cancel_token,
     ], home_url('/'));
 
-    $content = '<p>Gentile <strong>' . esc_html($booking->customer_name) . '</strong>,</p>';
-    $content .= '<p>Questo è un promemoria per ricordarti che domani si terrà l\'evento <strong>' . esc_html($product_name) . '</strong> a cui ti sei prenotato!</p>';
-
-    $content .= '<div class="info-box">';
-    $content .= '<div class="info-box-title">Dettagli per Domani</div>';
-    $content .= '<table>';
-    $content .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
-    $content .= '<tr><td class="label">Data e Inizio Visita:</td><td><strong>' . esc_html($slot_info) . '</strong></td></tr>';
-    $content .= '<tr><td class="label">Luogo di Ritrovo:</td><td>' . esc_html($event->location) . '</td></tr>';
+    $details_table = '<div class="info-box">';
+    $details_table .= '<div class="info-box-title">Dettagli per Domani</div>';
+    $details_table .= '<table>';
+    $details_table .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Data e Inizio Visita:</td><td><strong>' . esc_html($slot_info) . '</strong></td></tr>';
+    $details_table .= '<tr><td class="label">Luogo di Ritrovo:</td><td>' . esc_html($event->location) . '</td></tr>';
     if ($booking->payment_method === 'dfn_in_loco' && $booking->amount_due > 0) {
-        $content .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#ff6600;">' . wc_price($booking->amount_due) . ' (Cassa Live)</td></tr>';
+        $details_table .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#ff6600;">' . wc_price($booking->amount_due) . ' (Cassa Live)</td></tr>';
     }
-    $content .= '</table>';
-    $content .= '</div>';
+    $details_table .= '</table>';
+    $details_table .= '</div>';
 
-    $content .= '<p><strong>Informazioni importanti per l\'accesso:</strong></p>';
-    $content .= '<ul>';
-    $content .= '<li>Ti chiediamo di presentarti presso il luogo dell\'evento <strong>almeno 10 minuti prima</strong> dell\'orario d\'inizio della visita indicato per facilitare l\'accettazione.</li>';
-    $content .= '<li>Tieni a portata di mano questo messaggio per mostrare il codice QR all\'ingresso. Clicca sul pulsante in basso per aprire la prenotazione digitale sul tuo telefono.</li>';
+    $replacements = [
+        'nome_cliente' => esc_html($booking->customer_name),
+        'nome_evento'  => esc_html($product_name),
+        'dettagli_prenotazione' => $details_table,
+        'url_biglietto' => esc_url($hub_url),
+        'url_annullamento' => esc_url($cancel_url),
+    ];
+
+    $intro_html = dfn_replace_email_placeholders(dfn_get_setting('email_reminder_intro'), $replacements);
+    $notes_html = dfn_replace_email_placeholders(dfn_get_setting('email_reminder_notes'), $replacements);
+
+    $content = $intro_html;
+    $content .= $details_table;
+    $content .= $notes_html;
+
     if ($booking->payment_method === 'dfn_in_loco') {
-        $content .= '<li>Avendo optato per il contributo all\'ingresso, per favore presentati con qualche minuto di anticipo al fine di evitare code e velocizzare il check-in.</li>';
+        $content .= '<p style="font-size: 14px; color: #4a5568;"><em>Nota: Avendo optato per il contributo all\'ingresso, ti chiediamo di presentarti con qualche minuto di anticipo al fine di evitare code e velocizzare il check-in.</em></p>';
     }
-    $content .= '<li>Ti ricordiamo di portare con te la tessera di iscrizione FAI (in corso di validità) per ciascun partecipante registrato come Socio FAI, in quanto lo staff effettuerà la verifica all\'ingresso.</li>';
-    $content .= '</ul>';
 
     $content .= '<div class="text-center"><a href="' . esc_url($hub_url) . '" class="button">Apri Prenotazione con Codice QR</a></div>';
 
     $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Non puoi più partecipare? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
 
-    return dfn_send_notification_email($booking->customer_email, $subject, 'Ti aspettiamo domani!', $content);
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_reminder_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_reminder_title'), $replacements);
+
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
 }
 
 /**
@@ -597,11 +663,7 @@ function dfn_send_waitlist_notification(int $waitlist_id)
     }
 
     $product_name = get_the_title($event->product_id);
-    $subject = 'Un posto si è liberato! Prenota ora: ' . $product_name;
 
-    // Genera il link di acquisto prioritario con parametri waitlist e hash di sicurezza
-    // Questo link porterà al checkout con il prodotto e i turni pre-selezionati,
-    // e convaliderà la sessione della waitlist per 2h.
     $hash = wp_hash($waitlist->id . '|' . $waitlist->customer_email . '|' . $waitlist->ttl_expires_at);
     $checkout_url = add_query_arg([
         'add-to-cart' => $event->product_id,
@@ -610,26 +672,40 @@ function dfn_send_waitlist_notification(int $waitlist_id)
         'dfn_wl_hash' => $hash,
     ], wc_get_checkout_url());
 
-    $content = '<p>Gentile <strong>' . esc_html($waitlist->customer_name) . '</strong>,</p>';
-    $content .= '<p>Buone notizie! Si è liberata la disponibilità per l\'evento <strong>' . esc_html($product_name) . '</strong> a cui eri iscritto in lista d\'attesa.</p>';
+    $waitlist_ttl = intval(dfn_get_setting('cron_waitlist_ttl', 2));
 
-    $content .= '<p>Avendo priorità di prenotazione, abbiamo riservato i posti per te. Hai a disposizione <strong>2 ore</strong> da questo momento per completare la tua prenotazione prima che il posto venga offerto alla persona successiva in lista.</p>';
+    $details_table = '<div class="info-box">';
+    $details_table .= '<div class="info-box-title">La tua Prenotazione Riservata</div>';
+    $details_table .= '<table>';
+    $details_table .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Posti Riservati:</td><td>' . absint($waitlist->persons) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Scadenza Priorità:</td><td style="color:#e53e3e; font-weight:bold;">' . date('H:i', strtotime($waitlist->ttl_expires_at)) . ' di oggi</td></tr>';
+    $details_table .= '</table>';
+    $details_table .= '</div>';
 
-    $content .= '<div class="info-box">';
-    $content .= '<div class="info-box-title">La tua Prenotazione Riservata</div>';
-    $content .= '<table>';
-    $content .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
-    $content .= '<tr><td class="label">Posti Riservati:</td><td>' . absint($waitlist->persons) . '</td></tr>';
-    $content .= '<tr><td class="label">Scadenza Priorità:</td><td style="color:#e53e3e; font-weight:bold;">' . date('H:i', strtotime($waitlist->ttl_expires_at)) . ' di oggi</td></tr>';
-    $content .= '</table>';
-    $content .= '</div>';
+    $replacements = [
+        'nome_cliente' => esc_html($waitlist->customer_name),
+        'nome_evento'  => esc_html($product_name),
+        'ore_waitlist' => $waitlist_ttl,
+        'dettagli_prenotazione' => $details_table,
+    ];
+
+    $body_template = dfn_get_setting('email_waitlist_body');
+    $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+    if (strpos($body_template, '{dettagli_prenotazione}') === false) {
+        $content .= $details_table;
+    }
 
     $content .= '<p>Clicca sul pulsante sottostante per accedere direttamente al checkout veloce e confermare subito la tua presenza:</p>';
     $content .= '<div class="text-center"><a href="' . esc_url($checkout_url) . '" class="button">Completa la Prenotazione Ora</a></div>';
 
     $content .= '<p style="font-size: 13px; color: #718096;"><em>Se non completerai la prenotazione entro le ore ' . date('H:i', strtotime($waitlist->ttl_expires_at)) . ', il sistema annullerà automaticamente la tua prenotazione riservata e sbloccherà lo slot per il prossimo utente in attesa.</em></p>';
 
-    return dfn_send_notification_email($waitlist->customer_email, $subject, 'Posto Disponibile in Lista d\'Attesa!', $content);
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_waitlist_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_waitlist_title'), $replacements);
+
+    return dfn_send_notification_email($waitlist->customer_email, $subject, $title, $content);
 }
 
 /**
@@ -643,14 +719,31 @@ function dfn_send_waitlist_notification(int $waitlist_id)
  */
 function dfn_send_fai_card_approved_email(string $email, string $first_name, string $last_name, string $card_number): bool
 {
-    $subject = 'Tessera FAI Verificata con Successo';
+    $subject = dfn_replace_email_placeholders(
+        dfn_get_setting('email_fai_approved_subject'),
+        [
+            'nome_cliente' => esc_html($first_name . ' ' . $last_name),
+            'numero_tessera' => esc_html($card_number),
+        ]
+    );
 
-    $content = '<p>Gentile <strong>' . esc_html($first_name . ' ' . $last_name) . '</strong>,</p>';
-    $content .= '<p>Ti informiamo che il nostro staff ha completato con successo la verifica della tua <strong>Tessera Socio FAI n° ' . esc_html($card_number) . '</strong>.</p>';
-    $content .= '<p>La tessera risulta <strong>attiva e valida</strong>. La tariffa scontata riservata ai Soci FAI è stata confermata correttamente per la tua prenotazione.</p>';
-    $content .= '<p>Non devi fare altro! Ti basterà presentare la tua tessera FAI e il codice QR della prenotazione all\'ingresso dell\'evento.</p>';
+    $title = dfn_replace_email_placeholders(
+        dfn_get_setting('email_fai_approved_title'),
+        [
+            'nome_cliente' => esc_html($first_name . ' ' . $last_name),
+            'numero_tessera' => esc_html($card_number),
+        ]
+    );
 
-    return dfn_send_notification_email($email, $subject, 'Tessera FAI Approvata', $content);
+    $content = dfn_replace_email_placeholders(
+        dfn_get_setting('email_fai_approved_body'),
+        [
+            'nome_cliente' => esc_html($first_name . ' ' . $last_name),
+            'numero_tessera' => esc_html($card_number),
+        ]
+    );
+
+    return dfn_send_notification_email($email, $subject, $title, $content);
 }
 
 /**
@@ -665,19 +758,45 @@ function dfn_send_fai_card_approved_email(string $email, string $first_name, str
  */
 function dfn_send_fai_card_rejected_email(string $email, string $first_name, string $last_name, string $card_number, string $reason): bool
 {
-    $subject = 'Aggiornamento Verifica Tessera FAI';
+    $subject = dfn_replace_email_placeholders(
+        dfn_get_setting('email_fai_rejected_subject'),
+        [
+            'nome_cliente' => esc_html($first_name . ' ' . $last_name),
+            'numero_tessera' => esc_html($card_number),
+            'motivo_rifiuto' => esc_html($reason),
+        ]
+    );
 
-    $content = '<p>Gentile <strong>' . esc_html($first_name . ' ' . $last_name) . '</strong>,</p>';
-    $content .= '<p>Ti informiamo che abbiamo effettuato la verifica della tua <strong>Tessera Socio FAI n° ' . esc_html($card_number) . '</strong> inserita in fase di prenotazione.</p>';
-    $content .= '<p>Purtroppo, la tessera <strong>non è risultata valida</strong> per il seguente motivo:</p>';
-    $content .= '<div class="info-box" style="border-left: 4px solid #e53e3e; background: #fff5f5; padding: 15px; margin: 15px 0;">';
-    $content .= '<div class="info-box-title" style="color: #e53e3e; font-weight: bold; margin-bottom: 5px;">Motivazione dello Staff</div>';
-    $content .= '<p style="margin:0; font-size:14px; color: #c53030;">' . esc_html($reason) . '</p>';
-    $content .= '</div>';
-    $content .= '<p>Ti ricordiamo che, qualora non fosse possibile presentare una tessera FAI valida e attiva all\'ingresso dell\'evento, ti verrà richiesto di lasciare il contributo alla tariffa Standard (Intero).</p>';
-    $content .= '<p>Se si tratta di un errore di inserimento, puoi rispondere a questa email o contattare il nostro staff per fornirci i dati corretti.</p>';
+    $title = dfn_replace_email_placeholders(
+        dfn_get_setting('email_fai_rejected_title'),
+        [
+            'nome_cliente' => esc_html($first_name . ' ' . $last_name),
+            'numero_tessera' => esc_html($card_number),
+            'motivo_rifiuto' => esc_html($reason),
+        ]
+    );
 
-    return dfn_send_notification_email($email, $subject, 'Verifica Tessera FAI Fallita', $content);
+    $body_template = dfn_get_setting('email_fai_rejected_body');
+    $has_motivo_placeholder = (strpos($body_template, '{motivo_rifiuto}') !== false);
+
+    $replacements = [
+        'nome_cliente' => esc_html($first_name . ' ' . $last_name),
+        'numero_tessera' => esc_html($card_number),
+    ];
+    if ($has_motivo_placeholder) {
+        $replacements['motivo_rifiuto'] = esc_html($reason);
+    }
+
+    $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+    if (!$has_motivo_placeholder) {
+        $content .= '<div class="info-box" style="border-left: 4px solid #e53e3e; background: #fff5f5; padding: 15px; margin: 15px 0;">';
+        $content .= '<div class="info-box-title" style="color: #e53e3e; font-weight: bold; margin-bottom: 5px;">Motivazione dello Staff</div>';
+        $content .= '<p style="margin:0; font-size:14px; color: #c53030;">' . esc_html($reason) . '</p>';
+        $content .= '</div>';
+    }
+
+    return dfn_send_notification_email($email, $subject, $title, $content);
 }
 
 /**
