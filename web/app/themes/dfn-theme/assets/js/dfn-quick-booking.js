@@ -424,15 +424,14 @@
             `📅 ${dateLabel} &nbsp;👥 ${totalPersons} ${persLabel}`
         );
 
-        // Messaggio copiabile (per chi non ha email)
-        const msgText = buildConfirmationText(b, dateLabel, totalPersons, persLabel);
-        $successMsg.text(msgText);
-        $successMsgW.show();
-
-        // Nota email automatica
+        // Messaggio copiabile (solo per chi NON ha inserito l'email)
         if (b.email && b.email.trim() !== '') {
+            $successMsgW.hide();
             $emailNote.show();
         } else {
+            const msgText = buildConfirmationText(b, dateLabel, totalPersons, persLabel);
+            $successMsg.text(msgText);
+            $successMsgW.show();
             $emailNote.hide();
         }
 
