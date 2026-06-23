@@ -29,6 +29,12 @@ add_action('wp_ajax_dfn_quick_get_events', 'dfn_ajax_quick_get_events');
 add_action('wp_ajax_dfn_quick_get_dates', 'dfn_ajax_quick_get_dates');
 add_action('wp_ajax_dfn_quick_get_slots', 'dfn_ajax_quick_get_slots');
 
+// Hook AJAX per il Botteghino Live
+add_action('wp_ajax_dfn_botteghino_create_booking', 'dfn_ajax_botteghino_create_booking');
+add_action('wp_ajax_dfn_botteghino_get_events', 'dfn_ajax_botteghino_get_events');
+add_action('wp_ajax_dfn_botteghino_get_dates', 'dfn_ajax_botteghino_get_dates');
+add_action('wp_ajax_dfn_botteghino_get_slots', 'dfn_ajax_botteghino_get_slots');
+
 /**
  * Verifica i permessi di sicurezza dell'amministratore.
  */
@@ -940,6 +946,476 @@ function dfn_ajax_quick_get_dates(): void
 function dfn_ajax_quick_get_slots(): void
 {
     dfn_ajax_quick_verify_access();
+
+    $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+    $date     = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
+
+    if ($event_id <= 0 || empty($date)) {
+        wp_send_json_error([ 'message' => esc_html__('Parametri mancanti.', 'dfn-theme') ]);
+    }
+
+    global $wpdb;
+    $slots_raw = $wpdb->get_results($wpdb->prepare(
+        "SELECT id, slot_time_start, slot_time_end, capacity, bonus_capacity, booked_count, is_locked
+         FROM {$wpdb->prefix}dfn_event_slots
+         WHERE event_id = %d AND slot_date = %s
+         ORDER BY slot_time_start ASC",
+        $event_id,
+        $date,
+    ));
+
+    $slots = [];
+    foreach ($slots_raw as $s) {
+        $available = (intval($s->capacity) + intval($s->bonus_capacity)) - intval($s->booked_count);
+        $slots[] = [
+            'id'         => intval($s->id),
+            'time_start' => substr($s->slot_time_start, 0, 5),
+            'time_end'   => substr($s->slot_time_end, 0, 5),
+            'available'  => max(0, $available),
+            'is_locked'  => intval($s->is_locked) === 1,
+        ];
+    }
+
+    wp_send_json_success([ 'slots' => $slots ]);
+}
+
+// ============================================================================
+// BOTTEGHINO LIVE — Endpoint AJAX per creazione prenotazione dal Botteghino
+// ============================================================================
+
+/**
+ * BL-1. Crea una prenotazione dal Botteghino Live.
+ *
+ * Supporta 4 modalità di pagamento:
+ * - contanti: Ordine completed, allocazione, opzionalmente auto-checkin
+ * - link: Ordine pending, allocazione, email con link di pagamento
+ * - autorita: Ordine completed omaggio, allocazione, auto-checkin
+ * - prenotazione: Ordine pending con dfn_in_loco, allocazione, email conferma opzionale
+ */
+function dfn_ajax_botteghino_create_booking(): void
+{
+    dfn_ajax_admin_verify_access();
+
+    $event_id       = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+    $date           = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
+    $slot_id        = isset($_POST['slot_id']) ? intval($_POST['slot_id']) : 0;
+    $first_name     = isset($_POST['first_name']) ? sanitize_text_field($_POST['first_name']) : '';
+    $last_name      = isset($_POST['last_name']) ? sanitize_text_field($_POST['last_name']) : '';
+    $email          = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+    $phone          = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : '';
+    $qty_standard   = isset($_POST['qty_standard']) ? intval($_POST['qty_standard']) : 0;
+    $qty_fai        = isset($_POST['qty_fai']) ? intval($_POST['qty_fai']) : 0;
+    $notes          = isset($_POST['notes']) ? sanitize_textarea_field($_POST['notes']) : '';
+    $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'prenotazione';
+    $auto_checkin   = isset($_POST['auto_checkin']) && '1' === $_POST['auto_checkin'];
+    $fai_cards_raw  = isset($_POST['fai_cards']) ? $_POST['fai_cards'] : [];
+    $confirm_split  = isset($_POST['confirm_split']) && '1' === $_POST['confirm_split'];
+
+    // Email fittizia se il campo è vuoto
+    $has_real_email = ! empty($email);
+    if (! $has_real_email) {
+        $email = 'no-email-' . time() . '@dfn.local';
+    }
+
+    // Per le autorità non servono nome/cognome reali
+    if ($payment_method === 'autorita') {
+        $first_name   = 'Riserva';
+        $last_name    = 'Autorità';
+        $email        = 'autorita_' . time() . '@fainovara.local';
+        $phone        = 'CERIMONIALE';
+        $auto_checkin = true;
+        $has_real_email = false;
+    }
+
+    // Validazione
+    if ($event_id <= 0 || empty($date)) {
+        wp_send_json_error([ 'message' => esc_html__('Seleziona un evento e una data.', 'dfn-theme') ]);
+    }
+
+    if ($payment_method !== 'autorita' && (empty($first_name) || empty($last_name))) {
+        wp_send_json_error([ 'message' => esc_html__('Nome e Cognome sono obbligatori.', 'dfn-theme') ]);
+    }
+
+    $total_qty = $qty_standard + $qty_fai;
+    if ($total_qty <= 0) {
+        wp_send_json_error([ 'message' => esc_html__('Specifica almeno un biglietto.', 'dfn-theme') ]);
+    }
+
+    if (! function_exists('dfn_db_get_event')) {
+        require_once get_template_directory() . '/inc/core/dfn-database.php';
+    }
+
+    $event = dfn_db_get_event($event_id);
+    if (! $event) {
+        wp_send_json_error([ 'message' => esc_html__('Evento non valido.', 'dfn-theme') ]);
+    }
+
+    global $wpdb;
+
+    // --- Controllo split per eventi time_slots ---
+    if ('time_slots' === $event->access_type && ! $confirm_split) {
+        $has_single_slot = false;
+
+        if ($slot_id > 0) {
+            $slot = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, capacity, bonus_capacity, booked_count FROM {$wpdb->prefix}dfn_event_slots WHERE id = %d",
+                $slot_id,
+            ));
+            if ($slot) {
+                $avail = (intval($slot->capacity) + intval($slot->bonus_capacity)) - intval($slot->booked_count);
+                if ($avail >= $total_qty) {
+                    $has_single_slot = true;
+                }
+            }
+        } else {
+            $best_slot = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}dfn_event_slots 
+                 WHERE event_id = %d AND slot_date = %s AND is_locked = 0 
+                   AND (capacity + bonus_capacity - booked_count) >= %d
+                 LIMIT 1",
+                $event->id,
+                $date,
+                $total_qty,
+            ));
+            if ($best_slot) {
+                $has_single_slot = true;
+            }
+        }
+
+        if (! $has_single_slot) {
+            $total_avail = $wpdb->get_var($wpdb->prepare(
+                "SELECT SUM(capacity + bonus_capacity - booked_count) 
+                 FROM {$wpdb->prefix}dfn_event_slots 
+                 WHERE event_id = %d AND slot_date = %s AND is_locked = 0",
+                $event->id,
+                $date,
+            )) ?: 0;
+
+            if ($total_avail >= $total_qty) {
+                wp_send_json_success([
+                    'status'  => 'split_warning',
+                    'message' => __('I posti disponibili nei singoli turni non sono sufficienti per accogliere tutto il gruppo in un unico orario. Proseguendo, la prenotazione verrà suddivisa su due o più turni. Vuoi continuare?', 'dfn-theme'),
+                ]);
+            } elseif (intval($total_avail) < $total_qty) {
+                // Avviso overbooking ma lascia proseguire dall'admin
+            }
+        }
+    }
+
+    // --- Processa tessere FAI ---
+    $fai_cards = [];
+    if ($qty_fai > 0 && is_array($fai_cards_raw)) {
+        $table_members = $wpdb->prefix . 'dfn_fai_members';
+        $email_to_save = ($has_real_email) ? $email : '';
+        foreach ($fai_cards_raw as $index => $card_data) {
+            $c_nome    = isset($card_data['nome']) ? sanitize_text_field($card_data['nome']) : '';
+            $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
+            $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
+
+            if (empty($c_nome) || empty($c_cognome) || empty($c_num)) {
+                wp_send_json_error([ 'message' => sprintf(esc_html__('Dati tessera Socio FAI incompleti per il partecipante #%d.', 'dfn-theme'), $index + 1) ]);
+            }
+
+            $existing_member = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$table_members} WHERE card_number = %s LIMIT 1",
+                $c_num,
+            ));
+
+            if ($existing_member) {
+                $member_verified = intval($existing_member->verified) === 1;
+                $member_expired  = ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
+                if (! $member_verified || $member_expired) {
+                    $wpdb->update(
+                        $table_members,
+                        [ 'first_name' => $c_nome, 'last_name' => $c_cognome, 'email' => $email_to_save ],
+                        [ 'id' => $existing_member->id ],
+                        [ '%s', '%s', '%s' ],
+                        [ '%d' ],
+                    );
+                    if (function_exists('dfn_notify_admin_unverified_fai_card')) {
+                        dfn_notify_admin_unverified_fai_card($c_num, $c_nome, $c_cognome, $email_to_save);
+                    }
+                }
+            } else {
+                $wpdb->insert(
+                    $table_members,
+                    [
+                        'first_name'  => $c_nome,
+                        'last_name'   => $c_cognome,
+                        'email'       => $email_to_save,
+                        'card_number' => $c_num,
+                        'card_expiry' => null,
+                        'card_type'   => 'INDIVIDUALE',
+                        'verified'    => 0,
+                    ],
+                    [ '%s', '%s', '%s', '%s', '%s', '%s', '%d' ],
+                );
+                if (function_exists('dfn_notify_admin_unverified_fai_card')) {
+                    dfn_notify_admin_unverified_fai_card($c_num, $c_nome, $c_cognome, $email_to_save);
+                }
+            }
+
+            $fai_cards[] = [
+                'nome'    => $c_nome,
+                'cognome' => $c_cognome,
+                'tessera' => $c_num,
+            ];
+        }
+    }
+
+    // --- Creazione ordine WooCommerce ---
+    try {
+        if (! function_exists('wc_create_order')) {
+            wp_send_json_error([ 'message' => esc_html__('WooCommerce non è attivo.', 'dfn-theme') ]);
+        }
+
+        $order = wc_create_order();
+        $product = wc_get_product($event->product_id);
+        if (! $product) {
+            throw new \Exception('Prodotto WooCommerce dell\'evento non trovato.');
+        }
+
+        $order->add_product($product, $total_qty);
+        $order->set_billing_first_name($first_name);
+        $order->set_billing_last_name($last_name);
+        $order->set_billing_email($email);
+        $order->set_billing_phone($phone);
+        $order->set_customer_note($notes);
+
+        // Applica sconto/adeguamento Soci FAI
+        $price_standard = floatval($event->price_standard);
+        $price_fai      = floatval($event->price_fai);
+        $unit_discount  = $price_standard - $price_fai;
+        $total_discount = $unit_discount * $qty_fai;
+
+        if ($payment_method === 'autorita') {
+            // Omaggio completo per autorità
+            $total_price = $product->get_price() * $total_qty;
+            $fee = new \WC_Order_Item_Fee();
+            $fee->set_name('Riserva Posti Autorità (Omaggio)');
+            $fee->set_amount(-$total_price);
+            $fee->set_total(-$total_price);
+            $order->add_item($fee);
+        } elseif ($total_discount !== 0.00) {
+            $item_fee = new \WC_Order_Item_Fee();
+            $fee_name = $total_discount > 0.00
+                ? sprintf(__('Sconto Soci FAI (%d tessere) - Botteghino', 'dfn-theme'), $qty_fai)
+                : sprintf(__('Adeguamento Soci FAI (%d tessere) - Botteghino', 'dfn-theme'), $qty_fai);
+            $item_fee->set_name($fee_name);
+            $item_fee->set_amount((string) (-$total_discount));
+            $item_fee->set_total((string) (-$total_discount));
+            $order->add_item($item_fee);
+        }
+
+        $order->calculate_totals();
+
+        // Metadati per l'allocazione sulla riga prodotto
+        foreach ($order->get_items() as $item) {
+            if (is_a($item, 'WC_Order_Item_Product') && $item->get_product_id() === intval($event->product_id)) {
+                $item->update_meta_data('_dfn_booking_date', $date);
+                $item->update_meta_data('_dfn_booking_slot_id', (string) $slot_id);
+                $item->update_meta_data('_dfn_qty_standard', (string) $qty_standard);
+                $item->update_meta_data('_dfn_qty_fai', (string) $qty_fai);
+                $item->save();
+            }
+        }
+
+        // Metadati generali ordine
+        $order->update_meta_data('_dfn_source', 'botteghino');
+        if (! empty($fai_cards)) {
+            $order->update_meta_data('_dfn_fai_cards', $fai_cards);
+        }
+        $order->save();
+
+        // --- Flussi di pagamento ---
+        $messaggio_esito = '';
+
+        if ($payment_method === 'contanti' || $payment_method === 'autorita') {
+            $order->set_payment_method('cod');
+            $order->set_payment_method_title(
+                $payment_method === 'autorita'
+                    ? 'Cerimoniale Autorità'
+                    : 'Contanti in Loco (Botteghino)'
+            );
+            $order->update_status('completed', __('Operazione registrata dal Botteghino Live.', 'dfn-theme'));
+            wc_reduce_stock_levels($order->get_id());
+
+            // Auto-checkin
+            if ($auto_checkin) {
+                for ($i = 1; $i <= $total_qty; $i++) {
+                    $order->update_meta_data('_cv_ticket_validato_' . $i, 'yes');
+                    $order->update_meta_data('_cv_ticket_validato_' . $i . '_orario', current_time('mysql'));
+                    $order->update_meta_data('_cv_ticket_validato_' . $i . '_operatore', get_current_user_id());
+                }
+                $order->add_order_note('✅ Check-in immediato eseguito dal Botteghino Live.');
+            } elseif ($has_real_email) {
+                // Invio biglietti via email se non auto-checkin
+                /** @var \WC_Email_Customer_Completed_Order|null $email_completed */
+                $email_completed = WC()->mailer()->get_emails()['WC_Email_Customer_Completed_Order'] ?? null;
+                if ($email_completed) {
+                    $email_completed->trigger($order->get_id());
+                }
+                $order->add_order_note('📧 Inviata mail con i BIGLIETTI (Botteghino Live).');
+            }
+
+            $order->save();
+
+            if ($payment_method === 'autorita') {
+                $messaggio_esito = __('🎁 Posti riservati per le Autorità con check-in immediato.', 'dfn-theme');
+            } elseif ($auto_checkin) {
+                $messaggio_esito = __('✅ Incassato in contanti. Biglietti validati per l\'ingresso.', 'dfn-theme');
+            } else {
+                $messaggio_esito = sprintf(
+                    __('✅ Incassato in contanti. Biglietti inviati a %s.', 'dfn-theme'),
+                    esc_html($email)
+                );
+            }
+
+        } elseif ($payment_method === 'link') {
+            $order->update_status('pending', __('Ordine dal Botteghino. In attesa di pagamento tramite link.', 'dfn-theme'));
+            wc_reduce_stock_levels($order->get_id());
+
+            if ($has_real_email) {
+                /** @var \WC_Email_Customer_Invoice|null $email_invoice */
+                $email_invoice = WC()->mailer()->get_emails()['WC_Email_Customer_Invoice'] ?? null;
+                if ($email_invoice) {
+                    $email_invoice->trigger($order->get_id());
+                }
+                $order->add_order_note(sprintf(
+                    __('📧 Link di pagamento inviato a %s (Botteghino Live).', 'dfn-theme'),
+                    esc_html($email)
+                ));
+            }
+
+            $messaggio_esito = sprintf(
+                __('💳 Link di pagamento inviato a %s.', 'dfn-theme'),
+                esc_html($email)
+            );
+
+        } else {
+            // 'prenotazione' — Solo prenotazione senza pagamento
+            $order->set_payment_method('dfn_in_loco');
+            $order->update_meta_data('_dfn_payment_in_loco', 'yes');
+            $order->save();
+            $order->update_status('pending', __('Prenotazione registrata dal Botteghino Live (pagamento in loco).', 'dfn-theme'));
+
+            $messaggio_esito = __('📋 Prenotazione registrata. Il pagamento verrà gestito all\'arrivo.', 'dfn-theme');
+        }
+
+        // --- Esegui allocazione DFN 2.0 ---
+        if (! function_exists('dfn_allocate_slots_on_checkout')) {
+            require_once get_template_directory() . '/inc/api/dfn-ajax-bookings.php';
+        }
+        dfn_allocate_slots_on_checkout($order->get_id(), [], $order);
+
+        // Verifica esito allocazione
+        $booking = dfn_db_get_booking_by_order($order->get_id());
+
+        // Invia email di conferma prenotazione DFN se c'è una mail reale
+        // (per 'prenotazione' e 'link', l'email di conferma booking è gestita internamente dall'allocatore)
+
+        $response_data = [
+            'status'       => $booking ? 'confirmed' : 'waitlist',
+            'message'      => $messaggio_esito,
+            'order_id'     => $order->get_id(),
+            'edit_url'     => admin_url('post.php?post=' . $order->get_id() . '&action=edit'),
+        ];
+
+        if (! $booking) {
+            $response_data['message'] = __('⚠️ Posti esauriti. Il cliente è stato inserito in Lista d\'Attesa.', 'dfn-theme');
+        }
+
+        wp_send_json_success($response_data);
+
+    } catch (\Exception $e) {
+        wp_send_json_error([ 'message' => $e->getMessage() ]);
+    }
+}
+
+/**
+ * BL-2. Wrapper per caricare gli eventi dal Botteghino (usa nonce admin).
+ */
+function dfn_ajax_botteghino_get_events(): void
+{
+    dfn_ajax_admin_verify_access();
+
+    global $wpdb;
+    $table_events = $wpdb->prefix . 'dfn_events';
+    $today = current_time('Y-m-d');
+
+    $events = $wpdb->get_results($wpdb->prepare(
+        "SELECT id, product_id, access_type, event_date_start, event_date_end, allocation_mode
+         FROM {$table_events}
+         WHERE status = 'published'
+           AND event_date_end >= %s
+         ORDER BY event_date_start ASC",
+        $today,
+    ));
+
+    if (empty($events)) {
+        wp_send_json_error([ 'message' => esc_html__('Nessun evento attivo trovato.', 'dfn-theme') ]);
+    }
+
+    foreach ($events as $event) {
+        $event->event_name = get_the_title($event->product_id) ?: sprintf(__('Evento %d', 'dfn-theme'), $event->id);
+    }
+
+    wp_send_json_success([ 'events' => $events ]);
+}
+
+/**
+ * BL-3. Wrapper per caricare le date dal Botteghino (usa nonce admin).
+ */
+function dfn_ajax_botteghino_get_dates(): void
+{
+    dfn_ajax_admin_verify_access();
+
+    $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+    if ($event_id <= 0) {
+        wp_send_json_error([ 'message' => esc_html__('Evento non valido.', 'dfn-theme') ]);
+    }
+
+    if (! function_exists('dfn_db_get_event')) {
+        require_once get_template_directory() . '/inc/core/dfn-database.php';
+    }
+
+    $event = dfn_db_get_event($event_id);
+    if (! $event) {
+        wp_send_json_error([ 'message' => esc_html__('Evento non trovato.', 'dfn-theme') ]);
+    }
+
+    global $wpdb;
+    $today = current_time('Y-m-d');
+
+    if ('free_flow' === $event->access_type) {
+        $dates = [];
+        $start = max($event->event_date_start, $today);
+        $end   = $event->event_date_end;
+        $current = new \DateTime($start);
+        $endDt   = new \DateTime($end);
+        while ($current <= $endDt) {
+            $dates[] = $current->format('Y-m-d');
+            $current->modify('+1 day');
+        }
+        wp_send_json_success([ 'dates' => $dates, 'access_type' => 'free_flow' ]);
+    } else {
+        $dates = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT slot_date FROM {$wpdb->prefix}dfn_event_slots
+             WHERE event_id = %d AND slot_date >= %s AND is_locked = 0
+             ORDER BY slot_date ASC",
+            $event_id,
+            $today,
+        ));
+        wp_send_json_success([ 'dates' => $dates, 'access_type' => 'time_slots', 'allocation_mode' => $event->allocation_mode ]);
+    }
+}
+
+/**
+ * BL-4. Wrapper per caricare gli slot dal Botteghino (usa nonce admin).
+ */
+function dfn_ajax_botteghino_get_slots(): void
+{
+    dfn_ajax_admin_verify_access();
 
     $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
     $date     = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
