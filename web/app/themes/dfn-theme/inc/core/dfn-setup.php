@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
  */
 
 /** Versione del setup ruoli — incrementare per forzare aggiornamento */
-define('DFN_ROLES_VERSION', '2.0');
+define('DFN_ROLES_VERSION', '2.1');
 
 /** Sconto unitario per tessera FAI (in euro) */
 define('DFN_FAI_SCONTO_UNITARIO', 5);
@@ -277,6 +277,7 @@ function dfn_setup_roles_and_caps(): void
         'dfn_checkin_and_collect',
         'dfn_view_reports',
         'dfn_manage_fai_members',
+        'dfn_quick_booking',
     ];
 
     // Capability del volontario (sottoinsieme limitato)
@@ -291,6 +292,16 @@ function dfn_setup_roles_and_caps(): void
     // -------------------------------------------------------------------
     remove_role('dfn_volunteer');
     add_role('dfn_volunteer', 'Volontario FAI', $volunteer_caps);
+
+    // -------------------------------------------------------------------
+    // RUOLO: dfn_segretaria (Segreteria — Inserimento Rapido Prenotazioni)
+    // -------------------------------------------------------------------
+    $segretaria_caps = [
+        'read'              => true,
+        'dfn_quick_booking' => true,
+    ];
+    remove_role('dfn_segretaria');
+    add_role('dfn_segretaria', 'Segretaria FAI', $segretaria_caps);
 
     // -------------------------------------------------------------------
     // ADMINISTRATOR: tutte le capability
@@ -355,7 +366,7 @@ function dfn_setup_roles_and_caps(): void
  */
 function dfn_sblocca_backend_volontari(bool $prevent_access): bool
 {
-    if (current_user_can('dfn_use_scanner') || current_user_can('cv_use_scanner')) {
+    if (current_user_can('dfn_use_scanner') || current_user_can('cv_use_scanner') || current_user_can('dfn_quick_booking')) {
         return false;
     }
     return $prevent_access;
@@ -374,6 +385,9 @@ function dfn_redirect_volunteer_wc(string $redirect, $user): string
     if (is_a($user, 'WP_User') && (in_array('dfn_volunteer', (array) $user->roles, true) || in_array('cv_scanner', (array) $user->roles, true))) {
         return admin_url('admin.php?page=dfn-scanner-live');
     }
+    if (is_a($user, 'WP_User') && in_array('dfn_segretaria', (array) $user->roles, true)) {
+        return admin_url('admin.php?page=dfn-quick-booking');
+    }
     return $redirect;
 }
 add_filter('woocommerce_login_redirect', 'dfn_redirect_volunteer_wc', 99, 2);
@@ -390,6 +404,9 @@ function dfn_redirect_volunteer_wp(string $redirect_to, string $request, $user):
 {
     if (is_a($user, 'WP_User') && (in_array('dfn_volunteer', (array) $user->roles, true) || in_array('cv_scanner', (array) $user->roles, true))) {
         return admin_url('admin.php?page=dfn-scanner-live');
+    }
+    if (is_a($user, 'WP_User') && in_array('dfn_segretaria', (array) $user->roles, true)) {
+        return admin_url('admin.php?page=dfn-quick-booking');
     }
     return $redirect_to;
 }

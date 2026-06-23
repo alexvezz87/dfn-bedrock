@@ -72,6 +72,16 @@ function dfn_admin_register_menus()
         'dfn_render_slot_manager',
     );
 
+    // Sottomenu "Inserimento Rapido" (visibile alla segretaria e agli admin)
+    add_submenu_page(
+        'dfn-events',
+        __('Inserimento Rapido', 'dfn-theme'),
+        __('✏️ Inserimento Rapido', 'dfn-theme'),
+        'dfn_quick_booking',
+        'dfn-quick-booking',
+        'dfn_render_quick_booking',
+    );
+
     // Enqueue degli asset specifici per l'admin
     add_action('admin_enqueue_scripts', 'dfn_enqueue_admin_assets');
 }
@@ -84,7 +94,13 @@ function dfn_admin_register_menus()
 function dfn_enqueue_admin_assets($hook)
 {
     // Carichiamo gli asset solo per le nostre pagine
-    if (strpos($hook, 'dfn-events') === false && strpos($hook, 'dfn-event-edit') === false && strpos($hook, 'dfn-slot-manager') === false && strpos($hook, 'dfn-settings') === false) {
+    if (
+        strpos($hook, 'dfn-events') === false
+        && strpos($hook, 'dfn-event-edit') === false
+        && strpos($hook, 'dfn-slot-manager') === false
+        && strpos($hook, 'dfn-settings') === false
+        && strpos($hook, 'dfn-quick-booking') === false
+    ) {
         return;
     }
 
@@ -115,6 +131,27 @@ function dfn_enqueue_admin_assets($hook)
         wp_localize_script('dfn-slot-manager-js', 'dfnAdminVars', [
             'ajaxurl' => admin_url('admin-ajax.php'),
             'nonce'   => wp_create_nonce('dfn_admin_events_nonce'),
+        ]);
+    } elseif (strpos($hook, 'dfn-quick-booking') !== false) {
+        // CSS Quick Booking
+        wp_enqueue_style(
+            'dfn-quick-booking-css',
+            get_stylesheet_directory_uri() . '/assets/css/dfn-quick-booking.css',
+            [],
+            '1.0.0',
+        );
+        // JS Quick Booking
+        wp_enqueue_script(
+            'dfn-quick-booking-js',
+            get_stylesheet_directory_uri() . '/assets/js/dfn-quick-booking.js',
+            [ 'jquery' ],
+            '1.0.0',
+            true,
+        );
+        wp_localize_script('dfn-quick-booking-js', 'dfnQuickVars', [
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce('dfn_quick_booking_nonce'),
+            'admin_nonce' => wp_create_nonce('dfn_admin_events_nonce'),
         ]);
     } else {
         // Altrimenti carichiamo il JS dell'Events Manager standard

@@ -24,15 +24,31 @@ add_action('wp_ajax_dfn_admin_add_booking', 'dfn_ajax_admin_add_booking');
 add_action('wp_ajax_dfn_admin_move_booking', 'dfn_ajax_admin_move_booking');
 add_action('wp_ajax_dfn_admin_delete_booking', 'dfn_ajax_admin_delete_booking');
 
+// Hook AJAX per la pagina Quick Booking (Inserimento Rapido Segreteria)
+add_action('wp_ajax_dfn_quick_get_events', 'dfn_ajax_quick_get_events');
+add_action('wp_ajax_dfn_quick_get_dates', 'dfn_ajax_quick_get_dates');
+add_action('wp_ajax_dfn_quick_get_slots', 'dfn_ajax_quick_get_slots');
+
 /**
  * Verifica i permessi di sicurezza dell'amministratore.
  */
 function dfn_ajax_admin_verify_access(): void
 {
-    if (! current_user_can('manage_options') && ! current_user_can('edit_pages')) {
+    if (! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! current_user_can('dfn_manage_events')) {
         wp_send_json_error([ 'message' => esc_html__('Permessi insufficienti.', 'dfn-theme') ]);
     }
     check_ajax_referer('dfn_admin_events_nonce', 'nonce');
+}
+
+/**
+ * Verifica i permessi per la pagina Quick Booking (segreteria).
+ */
+function dfn_ajax_quick_verify_access(): void
+{
+    if (! current_user_can('dfn_quick_booking') && ! current_user_can('dfn_manage_events') && ! current_user_can('manage_options')) {
+        wp_send_json_error([ 'message' => esc_html__('Permessi insufficienti.', 'dfn-theme') ]);
+    }
+    check_ajax_referer('dfn_quick_booking_nonce', 'nonce');
 }
 
 /**
@@ -144,7 +160,6 @@ function dfn_ajax_admin_get_slots(): void
         ];
 
         wp_send_json_success([ 'slots' => [ $virtual_slot ] ]);
-        return;
     }
     // --- Fine gestione free_flow ---
 
@@ -472,11 +487,11 @@ function dfn_ajax_admin_add_booking(): void
         wp_send_json_error([ 'message' => esc_html__('Evento non valido.', 'dfn-theme') ]);
     }
 
-    // Per eventi time_slots, lo slot_id è obbligatorio
+    // slot_id = 0 è permesso per tutti i tipi di evento:
+    // - free_flow: non ha slot fisici, ignorato dall'algoritmo
+    // - time_slots con slot_id = 0: l'algoritmo di smistamento in dfn_allocate_slots_on_checkout()
+    //   troverà automaticamente il turno ottimale (riga 200: 'automatic' === mode || slot_id <= 0)
     $is_free_flow = ('free_flow' === $event->access_type);
-    if (! $is_free_flow && $slot_id <= 0) {
-        wp_send_json_error([ 'message' => esc_html__('Seleziona un turno valido.', 'dfn-theme') ]);
-    }
 
     global $wpdb;
 
@@ -832,4 +847,124 @@ function dfn_ajax_admin_delete_booking(): void
     }
 
     wp_send_json_success([ 'message' => esc_html__('Prenotazione cancellata con successo.', 'dfn-theme') ]);
+}
+
+
+// ============================================================================
+// QUICK BOOKING — Endpoint AJAX per il form Inserimento Rapido Segreteria
+// ============================================================================
+
+/**
+ * QB-1. Restituisce la lista degli eventi attivi e futuri.
+ */
+function dfn_ajax_quick_get_events(): void
+{
+    dfn_ajax_quick_verify_access();
+
+    global $wpdb;
+    $table_events = $wpdb->prefix . 'dfn_events';
+    $today = current_time('Y-m-d');
+
+    $events = $wpdb->get_results($wpdb->prepare(
+        "SELECT id, event_name, access_type, event_date_start, event_date_end, allocation_mode
+         FROM {$table_events}
+         WHERE status = 'active'
+           AND event_date_end >= %s
+         ORDER BY event_date_start ASC",
+        $today,
+    ));
+
+    if (empty($events)) {
+        wp_send_json_error([ 'message' => esc_html__('Nessun evento attivo trovato.', 'dfn-theme') ]);
+    }
+
+    wp_send_json_success([ 'events' => $events ]);
+}
+
+/**
+ * QB-2. Restituisce le date disponibili per un evento.
+ */
+function dfn_ajax_quick_get_dates(): void
+{
+    dfn_ajax_quick_verify_access();
+
+    $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+    if ($event_id <= 0) {
+        wp_send_json_error([ 'message' => esc_html__('Evento non valido.', 'dfn-theme') ]);
+    }
+
+    if (! function_exists('dfn_db_get_event')) {
+        require_once get_template_directory() . '/inc/core/dfn-database.php';
+    }
+
+    $event = dfn_db_get_event($event_id);
+    if (! $event) {
+        wp_send_json_error([ 'message' => esc_html__('Evento non trovato.', 'dfn-theme') ]);
+    }
+
+    global $wpdb;
+    $today = current_time('Y-m-d');
+
+    if ('free_flow' === $event->access_type) {
+        // Per eventi free_flow: genera lista date tra start e end
+        $dates = [];
+        $start = max($event->event_date_start, $today);
+        $end   = $event->event_date_end;
+        $current = new \DateTime($start);
+        $endDt   = new \DateTime($end);
+        while ($current <= $endDt) {
+            $dates[] = $current->format('Y-m-d');
+            $current->modify('+1 day');
+        }
+        wp_send_json_success([ 'dates' => $dates, 'access_type' => 'free_flow' ]);
+    } else {
+        // Per eventi time_slots: recupera le date distinte dagli slot esistenti
+        $dates = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT slot_date FROM {$wpdb->prefix}dfn_event_slots
+             WHERE event_id = %d AND slot_date >= %s AND is_locked = 0
+             ORDER BY slot_date ASC",
+            $event_id,
+            $today,
+        ));
+        wp_send_json_success([ 'dates' => $dates, 'access_type' => 'time_slots', 'allocation_mode' => $event->allocation_mode ]);
+    }
+}
+
+/**
+ * QB-3. Restituisce gli slot disponibili per evento + data (con opzione Auto).
+ */
+function dfn_ajax_quick_get_slots(): void
+{
+    dfn_ajax_quick_verify_access();
+
+    $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+    $date     = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
+
+    if ($event_id <= 0 || empty($date)) {
+        wp_send_json_error([ 'message' => esc_html__('Parametri mancanti.', 'dfn-theme') ]);
+    }
+
+    global $wpdb;
+    $slots_raw = $wpdb->get_results($wpdb->prepare(
+        "SELECT id, slot_time_start, slot_time_end, capacity, bonus_capacity, booked_count, is_locked
+         FROM {$wpdb->prefix}dfn_event_slots
+         WHERE event_id = %d AND slot_date = %s
+         ORDER BY slot_time_start ASC",
+        $event_id,
+        $date,
+    ));
+
+    $slots = [];
+    foreach ($slots_raw as $s) {
+        $available = (intval($s->capacity) + intval($s->bonus_capacity)) - intval($s->booked_count);
+        $slots[] = [
+            'id'         => intval($s->id),
+            'time_start' => substr($s->slot_time_start, 0, 5),
+            'time_end'   => substr($s->slot_time_end, 0, 5),
+            'available'  => max(0, $available),
+            'is_locked'  => intval($s->is_locked) === 1,
+        ];
+    }
+
+    wp_send_json_success([ 'slots' => $slots ]);
 }

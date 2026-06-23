@@ -44,6 +44,7 @@ require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteer-dashboard.ph
 require_once get_stylesheet_directory() . '/inc/admin/dfn-report.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-members-admin.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-waitlist.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-quick-booking.php';
 
 // API / Router
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slots.php';
