@@ -152,11 +152,18 @@
                 },
                 success: function (res) {
                     if (res.success && res.data.dates && res.data.dates.length > 0) {
-                        let html = '<option value="">— Seleziona una data —</option>';
+                        let html = '';
+                        if (res.data.dates.length > 1) {
+                            html += '<option value="">— Seleziona una data —</option>';
+                        }
                         res.data.dates.forEach(function (d) {
                             html += `<option value="${d}">${formatDate(d)}</option>`;
                         });
                         $dateSel.html(html).prop('disabled', false);
+
+                        if (res.data.dates.length === 1) {
+                            $dateSel.val(res.data.dates[0]).trigger('change');
+                        }
                     } else {
                         $dateSel.html('<option value="">Nessuna data disponibile</option>').prop('disabled', true);
                     }
