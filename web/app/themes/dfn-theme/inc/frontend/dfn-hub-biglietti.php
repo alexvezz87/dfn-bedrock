@@ -342,6 +342,143 @@ function dfn_handle_visitor_cancellation(): void
         wp_die(esc_html__('Nessuna prenotazione custom associata a questo ordine nel database.', 'dfn-theme'));
     }
 
+    // --- CHIEDI CONFERMA DI ANNULLAMENTO SE MANCA IL PARAMETRO DI CONFERMA ---
+    if (! isset($_GET['confirm_cancel'])) {
+        $event_title = get_the_title($booking->event_id) ?: esc_html__('Evento FAI', 'dfn-theme');
+        $booking_date = '';
+
+        $booking_details = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.slot_date FROM {$wpdb->prefix}dfn_booking_slots bs
+             JOIN {$wpdb->prefix}dfn_event_slots s ON bs.slot_id = s.id
+             WHERE bs.booking_id = %d",
+            $booking->id
+        ));
+
+        if (! empty($booking_details)) {
+            $dates = [];
+            foreach ($booking_details as $b_det) {
+                $dates[] = date_i18n('d/m/Y', strtotime($b_det->slot_date));
+            }
+            $booking_date = implode(', ', array_unique($dates));
+        } else {
+            $meta_date = $order->get_meta('_dfn_booking_date');
+            if (! empty($meta_date)) {
+                $booking_date = date_i18n('d/m/Y', strtotime($meta_date));
+            }
+        }
+
+        $confirm_url = site_url('/?dfn_cancel_booking=1&order_id=' . $order_id . '&token=' . $token . '&confirm_cancel=1');
+        $keep_url    = site_url();
+        ?>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title><?php esc_html_e('Conferma Annullamento Prenotazione', 'dfn-theme'); ?></title>
+            <style>
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                    background: #f4f7f6; 
+                    padding: 20px; 
+                    display: flex; 
+                    justify-content: center; 
+                    align-items: center; 
+                    min-height: 80vh; 
+                    margin: 0;
+                } 
+                .card { 
+                    background: #fff; 
+                    padding: 40px 30px; 
+                    border-radius: 16px; 
+                    text-align: center; 
+                    max-width: 500px; 
+                    width: 100%;
+                    box-shadow: 0 10px 30px rgba(0, 75, 35, 0.05); 
+                    box-sizing: border-box;
+                    border-top: 4px solid #d32f2f;
+                }
+                .warning-icon {
+                    font-size: 54px;
+                    margin-bottom: 20px;
+                }
+                h1 {
+                    color: #1d2327;
+                    margin-top: 0;
+                    font-size: 22px;
+                    font-weight: 700;
+                    margin-bottom: 15px;
+                }
+                p {
+                    font-size: 16px; 
+                    color: #4b5563; 
+                    line-height: 1.6;
+                    margin-bottom: 30px;
+                }
+                .btn-group {
+                    display: flex;
+                    gap: 15px;
+                    justify-content: center;
+                    flex-wrap: wrap;
+                }
+                .btn {
+                    padding: 12px 24px;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    font-size: 15px;
+                    display: inline-block;
+                    transition: transform 0.1s, opacity 0.2s;
+                }
+                .btn:active {
+                    transform: scale(0.98);
+                }
+                .btn-confirm {
+                    background: #d32f2f;
+                    color: #fff;
+                    border: none;
+                    cursor: pointer;
+                    box-shadow: 0 4px 6px rgba(211, 47, 47, 0.2);
+                }
+                .btn-confirm:hover {
+                    background: #b71c1c;
+                }
+                .btn-keep {
+                    background: #004b23;
+                    color: #fff;
+                    box-shadow: 0 4px 6px rgba(0, 75, 35, 0.2);
+                }
+                .btn-keep:hover {
+                    background: #003619;
+                }
+            </style>
+        </head>
+        <body>
+        <div class="card">
+            <div class="warning-icon">⚠️</div>
+            <h1><?php esc_html_e('Annulla Prenotazione', 'dfn-theme'); ?></h1>
+            <p>
+                <?php 
+                echo sprintf(
+                    esc_html__('Sei sicuro di voler annullare la tua prenotazione per l\'evento %s in data %s?', 'dfn-theme'),
+                    '<strong>' . esc_html($event_title) . '</strong>',
+                    '<strong>' . esc_html($booking_date) . '</strong>'
+                ); 
+                ?>
+                <br><br>
+                <span style="color: #64748b; font-size: 14px;"><?php esc_html_e('Attenzione: questa operazione è irreversibile e i posti verranno riaperti al pubblico.', 'dfn-theme'); ?></span>
+            </p>
+            <div class="btn-group">
+                <a href="<?php echo esc_url($confirm_url); ?>" class="btn btn-confirm"><?php esc_html_e('Sì, annulla', 'dfn-theme'); ?></a>
+                <a href="<?php echo esc_url($keep_url); ?>" class="btn btn-keep"><?php esc_html_e('No, mantieni', 'dfn-theme'); ?></a>
+            </div>
+        </div>
+        </body>
+        </html>
+        <?php
+        exit;
+    }
+
     $table_slots = $wpdb->prefix . 'dfn_event_slots';
     $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
 
