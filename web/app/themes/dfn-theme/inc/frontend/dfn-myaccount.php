@@ -41,8 +41,21 @@ function dfn_enqueue_myaccount_assets(): void
             'dfn-visitor-dashboard-css',
             get_stylesheet_directory_uri() . '/assets/css/dfn-visitor-dashboard.css',
             [],
-            '2.0.0',
+            '2.1.0',
         );
+
+        wp_enqueue_script(
+            'dfn-myaccount-modals',
+            get_stylesheet_directory_uri() . '/assets/js/dfn-myaccount-modals.js',
+            [ 'jquery' ],
+            '2.1.0',
+            true // in_footer = true: il JS viene caricato prima del </body>, quando il DOM è già completo
+        );
+
+        // Passa l'URL AJAX al file JS in modo sicuro (non inline nel template PHP)
+        wp_localize_script('dfn-myaccount-modals', 'dfnMyaccountModals', [
+            'ajaxUrl' => esc_url(admin_url('admin-ajax.php')),
+        ]);
     }
 }
 
@@ -738,145 +751,8 @@ function dfn_custom_myaccount_bookings_content(): void
             }
         </style>
 
-        <script>
-            function openVisitorModifyModal(orderId, token) {
-                var modal = document.getElementById('dfn-modal-visitor-modify');
-                modal.classList.add('active');
-                
-                document.getElementById('dfn-visitor-modify-loading').style.display = 'block';
-                document.getElementById('dfn-visitor-modify-form-container').style.display = 'none';
-                document.getElementById('dfn-visitor-modify-form-container').innerHTML = '';
 
-                jQuery.ajax({
-                    url: '<?php echo esc_url(admin_url('admin-ajax.php')); ?>',
-                    type: 'POST',
-                    data: {
-                        action: 'dfn_visitor_get_modify_details',
-                        order_id: orderId,
-                        token: token
-                    },
-                    success: function(response) {
-                        document.getElementById('dfn-visitor-modify-loading').style.display = 'none';
-                        if (response.success) {
-                            var container = document.getElementById('dfn-visitor-modify-form-container');
-                            container.innerHTML = response.data.html;
-                            container.style.display = 'block';
-                            
-                            jQuery('#dfn-visitor-modify-modal-form').on('submit', function(e) {
-                                e.preventDefault();
-                                var $form = jQuery(this);
-                                var $btn = $form.find('button[type="submit"]');
-                                var origText = $btn.text();
-                                $btn.prop('disabled', true).text('Salvataggio...');
-                                jQuery('#dfn-visitor-modify-modal-error').hide().text('');
 
-                                jQuery.ajax({
-                                    url: '<?php echo esc_url(admin_url('admin-ajax.php')); ?>',
-                                    type: 'POST',
-                                    data: $form.serialize(),
-                                    success: function(res) {
-                                        if (res.success) {
-                                            alert('Prenotazione modificata con successo!');
-                                            window.location.reload();
-                                        } else {
-                                            $btn.prop('disabled', false).text(origText);
-                                            jQuery('#dfn-visitor-modify-modal-error').text(res.data).show();
-                                        }
-                                    },
-                                    error: function() {
-                                        $btn.prop('disabled', false).text(origText);
-                                        jQuery('#dfn-visitor-modify-modal-error').text('Errore di connessione. Riprova.').show();
-                                    }
-                                });
-                            });
-                        } else {
-                            document.getElementById('dfn-visitor-modify-loading').innerHTML = '<span style="color:#dc2626;">' + response.data + '</span>';
-                        }
-                    },
-                    error: function() {
-                        document.getElementById('dfn-visitor-modify-loading').innerHTML = '<span style="color:#dc2626;">Errore di caricamento.</span>';
-                    }
-                });
-            }
-
-            function closeVisitorModifyModal() {
-                document.getElementById('dfn-modal-visitor-modify').classList.remove('active');
-            }
-
-            function openVisitorCancelModal(orderId, token, eventTitle, bookingDate) {
-                var modal = document.getElementById('dfn-modal-visitor-cancel');
-                modal.classList.add('active');
-                
-                var cancelText = 'Sei sicuro di voler annullare la tua prenotazione per l\'evento <strong>' + eventTitle + '</strong> in data <strong>' + bookingDate + '</strong>?<br><br><span style="font-size:13px; color:#64748b;">Nota: Questa operazione è irreversibile e i posti verranno riaperti al pubblico.</span>';
-                document.getElementById('dfn-visitor-cancel-text').innerHTML = cancelText;
-
-                jQuery('#dfn-btn-confirm-cancel').off('click').on('click', function() {
-                    var $btn = jQuery(this);
-                    $btn.prop('disabled', true).text('Annullamento...');
-
-                    jQuery.ajax({
-                        url: '<?php echo esc_url(admin_url('admin-ajax.php')); ?>',
-                        type: 'POST',
-                        data: {
-                            action: 'dfn_visitor_submit_cancel',
-                            order_id: orderId,
-                            token: token
-                        },
-                        success: function(res) {
-                            if (res.success) {
-                                alert('La tua prenotazione è stata annullata con successo.');
-                                window.location.reload();
-                            } else {
-                                $btn.prop('disabled', false).text('Sì, annulla');
-                                alert('Errore: ' + res.data);
-                            }
-                        },
-                        error: function() {
-                            $btn.prop('disabled', false).text('Sì, annulla');
-                            alert('Errore di connessione.');
-                        }
-                    });
-                });
-            }
-
-            function closeVisitorCancelModal() {
-                document.getElementById('dfn-modal-visitor-cancel').classList.remove('active');
-            }
-
-            function decrementQty(id) {
-                var input = document.getElementById(id);
-                var val = parseInt(input.value) || 0;
-                if (val > 0) {
-                    input.value = val - 1;
-                }
-            }
-
-            function incrementQty(id, max) {
-                var input = document.getElementById(id);
-                var val = parseInt(input.value) || 0;
-                if (val < max) {
-                    input.value = val + 1;
-                }
-            }
-
-            jQuery(document).ready(function() {
-                jQuery('.dfn-action-modify').on('click', function(e) {
-                    e.preventDefault();
-                    var orderId = jQuery(this).data('order-id');
-                    var token = jQuery(this).data('token');
-                    openVisitorModifyModal(orderId, token);
-                });
-
-                jQuery('.dfn-btn-cancel-booking').on('click', function(e) {
-                    e.preventDefault();
-                    var orderId = jQuery(this).data('order-id');
-                    var token = jQuery(this).data('token');
-                    var title = jQuery(this).data('event-title');
-                    var date = jQuery(this).data('booking-date');
-                    openVisitorCancelModal(orderId, token, title, date);
-                });
-            });
-        </script>
     </div>
     <?php
 }
