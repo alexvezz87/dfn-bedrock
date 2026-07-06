@@ -510,9 +510,19 @@ function dfn_ajax_admin_add_booking(): void
             $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
             $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
 
-            if (empty($c_nome) || empty($c_cognome) || empty($c_num)) {
-                wp_send_json_error([ 'message' => sprintf(esc_html__('Dati tessera Socio FAI incompleti per il partecipante #%d.', 'dfn-theme'), $index + 1) ]);
+            // Se il numero di tessera è vuoto, non verifichiamo/inseriamo nulla nel DB dei membri FAI
+            if (empty($c_num)) {
+                $fai_cards[] = [
+                    'nome'    => $c_nome,
+                    'cognome' => $c_cognome,
+                    'tessera' => '',
+                ];
+                continue;
             }
+
+            // Fallback per nome/cognome se lasciati vuoti ma c'è il numero tessera
+            $c_nome    = ! empty($c_nome) ? $c_nome : $first_name;
+            $c_cognome = ! empty($c_cognome) ? $c_cognome : $last_name;
 
             // Controlla se la tessera esiste già in assoluto nel database per evitare duplicati
             $existing_member = $wpdb->get_row($wpdb->prepare(
@@ -1112,9 +1122,19 @@ function dfn_ajax_botteghino_create_booking(): void
             $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
             $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
 
-            if (empty($c_nome) || empty($c_cognome) || empty($c_num)) {
-                wp_send_json_error([ 'message' => sprintf(esc_html__('Dati tessera Socio FAI incompleti per il partecipante #%d.', 'dfn-theme'), $index + 1) ]);
+            // Se il numero di tessera è vuoto, non verifichiamo/inseriamo nulla nel DB dei membri FAI
+            if (empty($c_num)) {
+                $fai_cards[] = [
+                    'nome'    => $c_nome,
+                    'cognome' => $c_cognome,
+                    'tessera' => '',
+                ];
+                continue;
             }
+
+            // Fallback per nome/cognome se lasciati vuoti ma c'è il numero tessera
+            $c_nome    = ! empty($c_nome) ? $c_nome : $first_name;
+            $c_cognome = ! empty($c_cognome) ? $c_cognome : $last_name;
 
             $existing_member = $wpdb->get_row($wpdb->prepare(
                 "SELECT * FROM {$table_members} WHERE card_number = %s LIMIT 1",

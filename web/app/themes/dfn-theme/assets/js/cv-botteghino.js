@@ -252,9 +252,9 @@ jQuery(document).ready(function ($) {
             html += '<div class="cv-bott-fai-card">'
                 + '<strong>Socio FAI #' + (i + 1) + '</strong>'
                 + '<div style="display:flex; gap:10px; margin-top:6px;">'
-                + '  <input type="text" class="fai-card-nome" placeholder="Nome" style="flex:1; padding:6px 10px; border:1px solid #8c8f94; border-radius:4px;">'
-                + '  <input type="text" class="fai-card-cognome" placeholder="Cognome" style="flex:1; padding:6px 10px; border:1px solid #8c8f94; border-radius:4px;">'
-                + '  <input type="text" class="fai-card-tessera" placeholder="N° Tessera" style="flex:1; padding:6px 10px; border:1px solid #8c8f94; border-radius:4px;">'
+                + '  <input type="text" class="fai-card-nome" placeholder="Nome (facoltativo)" style="flex:1; padding:6px 10px; border:1px solid #8c8f94; border-radius:4px;">'
+                + '  <input type="text" class="fai-card-cognome" placeholder="Cognome (facoltativo)" style="flex:1; padding:6px 10px; border:1px solid #8c8f94; border-radius:4px;">'
+                + '  <input type="text" class="fai-card-tessera" placeholder="N° Tessera (facoltativo)" style="flex:1; padding:6px 10px; border:1px solid #8c8f94; border-radius:4px;">'
                 + '</div>'
                 + '</div>';
         }
@@ -401,21 +401,7 @@ jQuery(document).ready(function ($) {
             return false;
         }
 
-        // Valida tessere FAI
-        if (qtyFaiVal > 0) {
-            var faiCardsOk = true;
-            $('.cv-bott-fai-card').each(function (i) {
-                var nome = $(this).find('.fai-card-nome').val().trim();
-                var cognome = $(this).find('.fai-card-cognome').val().trim();
-                var tessera = $(this).find('.fai-card-tessera').val().trim();
-                if (!nome || !cognome || !tessera) {
-                    alert('Compila tutti i dati per la tessera FAI #' + (i + 1));
-                    faiCardsOk = false;
-                    return false; // break
-                }
-            });
-            if (!faiCardsOk) return false;
-        }
+
 
         return true;
     }

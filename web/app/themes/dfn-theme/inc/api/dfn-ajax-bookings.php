@@ -703,9 +703,19 @@ function dfn_ajax_create_direct_booking(): void
             $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
             $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
 
-            if (empty($c_nome) || empty($c_cognome) || empty($c_num)) {
-                wp_send_json_error([ 'message' => sprintf(esc_html__('Dati tessera Socio FAI incompleti per il partecipante #%d.', 'dfn-theme'), $index + 1) ]);
+            // Se il numero di tessera è vuoto, non verifichiamo/inseriamo nulla nel DB dei membri FAI e non eseguiamo controlli duplicati
+            if (empty($c_num)) {
+                $fai_cards[] = [
+                    'nome'    => $c_nome,
+                    'cognome' => $c_cognome,
+                    'tessera' => '',
+                ];
+                continue;
             }
+
+            // Fallback per nome/cognome se lasciati vuoti ma c'è il numero tessera
+            $c_nome    = ! empty($c_nome) ? $c_nome : $first_name;
+            $c_cognome = ! empty($c_cognome) ? $c_cognome : $last_name;
 
             // Controllo se la tessera è già stata usata per questo evento
             if (in_array($c_num, $used_cards, true)) {

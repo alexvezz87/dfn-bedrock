@@ -281,17 +281,17 @@
                     <div class="dfn-qb-fai-card-title">Socio FAI #${n}</div>
                     <div class="dfn-qb-fai-row">
                         <div class="dfn-qb-field">
-                            <label class="dfn-qb-label">Cognome *</label>
-                            <input class="dfn-qb-input" type="text" name="fai_cards[${i}][cognome]" placeholder="Cognome" required>
+                            <label class="dfn-qb-label">Cognome</label>
+                            <input class="dfn-qb-input" type="text" name="fai_cards[${i}][cognome]" placeholder="Cognome (facoltativo)">
                         </div>
                         <div class="dfn-qb-field">
-                            <label class="dfn-qb-label">Nome *</label>
-                            <input class="dfn-qb-input" type="text" name="fai_cards[${i}][nome]" placeholder="Nome" required>
+                            <label class="dfn-qb-label">Nome</label>
+                            <input class="dfn-qb-input" type="text" name="fai_cards[${i}][nome]" placeholder="Nome (facoltativo)">
                         </div>
                     </div>
                     <div class="dfn-qb-field">
-                        <label class="dfn-qb-label">N° Tessera *</label>
-                        <input class="dfn-qb-input" type="text" name="fai_cards[${i}][tessera]" placeholder="Es. 1234567" required>
+                        <label class="dfn-qb-label">N° Tessera</label>
+                        <input class="dfn-qb-input" type="text" name="fai_cards[${i}][tessera]" placeholder="Es. 1234567 (facoltativo)">
                     </div>
                 </div>
             `);
