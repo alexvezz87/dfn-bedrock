@@ -26,6 +26,11 @@ add_filter('woocommerce_registration_redirect', 'dfn_registration_redirect_with_
 // Aggiunge la voce di menu rapida "Biglietto Gruppo" alla lista degli ordini cliente
 add_filter('woocommerce_my_account_my_orders_actions', 'dfn_add_group_tickets_action_button', 10, 2);
 
+// AJAX Handlers per Modifica e Annullamento in popup dall'area riservata
+add_action('wp_ajax_dfn_visitor_get_modify_details', 'dfn_ajax_visitor_get_modify_details');
+add_action('wp_ajax_dfn_visitor_submit_modify', 'dfn_ajax_visitor_submit_modify');
+add_action('wp_ajax_dfn_visitor_submit_cancel', 'dfn_ajax_visitor_submit_cancel');
+
 /**
  * Registra gli asset CSS dedicati alla bacheca visitatori e all'hub biglietti.
  */
@@ -510,13 +515,13 @@ function dfn_custom_myaccount_bookings_content(): void
                                                             $modify_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_modify', wp_salt('nonce'));
                                                             $modify_url   = home_url('/?dfn_modify_booking=1&order_id=' . $order->get_id() . '&token=' . $modify_token);
                                                             ?>
-                                                            <a href="<?php echo esc_url($modify_url); ?>" class="button dfn-action-modify"><?php esc_html_e('Modifica partecipanti', 'dfn-theme'); ?></a>
+                                                            <a href="<?php echo esc_url($modify_url); ?>" class="button dfn-action-modify" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-token="<?php echo esc_attr($modify_token); ?>"><?php esc_html_e('Modifica partecipanti', 'dfn-theme'); ?></a>
                                                             
                                                             <?php
                                                             $cancel_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_cancel', wp_salt('nonce'));
                                                             $cancel_url   = home_url('/?dfn_cancel_booking=1&order_id=' . $order->get_id() . '&token=' . $cancel_token);
                                                             ?>
-                                                            <a href="<?php echo esc_url($cancel_url); ?>" class="dfn-btn-cancel-booking" onclick="return confirm('<?php echo esc_js(__('Sei sicuro di voler annullare questa prenotazione?', 'dfn-theme')); ?>');"><?php esc_html_e('Annulla la prenotazione', 'dfn-theme'); ?></a>
+                                                            <a href="<?php echo esc_url($cancel_url); ?>" class="dfn-btn-cancel-booking" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-token="<?php echo esc_attr($cancel_token); ?>" data-event-title="<?php echo esc_attr($event_title); ?>" data-booking-date="<?php echo esc_attr($date_formatted); ?>"><?php esc_html_e('Annulla la prenotazione', 'dfn-theme'); ?></a>
                                                         </div>
                                                     <?php elseif ($is_cancelled) : ?>
                                                         <span class="dfn-booking-status-badge dfn-status-cancelled"><?php esc_html_e('Annullata', 'dfn-theme'); ?></span>
@@ -670,6 +675,410 @@ function dfn_custom_myaccount_bookings_content(): void
                 </div>
             <?php endif; ?>
         </div>
+
+        <!-- Modal 1: Modifica Partecipanti Visitatore -->
+        <div id="dfn-modal-visitor-modify" class="dfn-myaccount-modal" style="display:none; position: fixed; z-index: 99999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+            <div class="dfn-myaccount-modal-content" style="background-color: #fff; margin: auto; padding: 24px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; animation: dfnFadeIn 0.3s ease;">
+                <div class="dfn-myaccount-modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+                    <h3 style="margin:0; color:#004b23; font-size:18px; font-weight:700;">✏️ Modifica Partecipanti</h3>
+                    <span class="dfn-myaccount-modal-close" onclick="closeVisitorModifyModal()" style="font-size:24px; font-weight:bold; color:#94a3b8; cursor:pointer; line-height:1;">&times;</span>
+                </div>
+                <div class="dfn-myaccount-modal-body">
+                    <div id="dfn-visitor-modify-loading" style="text-align:center; padding:30px; font-weight:bold; color:#64748b;">Caricamento in corso...</div>
+                    <div id="dfn-visitor-modify-form-container" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal 2: Annullamento Prenotazione Visitatore -->
+        <div id="dfn-modal-visitor-cancel" class="dfn-myaccount-modal" style="display:none; position: fixed; z-index: 99999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+            <div class="dfn-myaccount-modal-content" style="background-color: #fff; margin: auto; padding: 24px; border-radius: 12px; max-width: 450px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; animation: dfnFadeIn 0.3s ease;">
+                <div class="dfn-myaccount-modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+                    <h3 style="margin:0; color:#dc2626; font-size:18px; font-weight:700;">⚠️ Annulla Prenotazione</h3>
+                    <span class="dfn-myaccount-modal-close" onclick="closeVisitorCancelModal()" style="font-size:24px; font-weight:bold; color:#94a3b8; cursor:pointer; line-height:1;">&times;</span>
+                </div>
+                <div class="dfn-myaccount-modal-body" style="text-align:center; padding: 12px 0 0 0;">
+                    <p style="font-size:15px; color:#475569; line-height:1.6; margin-bottom: 24px;" id="dfn-visitor-cancel-text"></p>
+                    <div style="display:flex; gap:12px; justify-content:center;">
+                        <button type="button" class="button" style="background:#dc2626; color:#fff; border-color:#dc2626; border-radius:20px; font-weight:bold; padding:8px 20px;" id="dfn-btn-confirm-cancel">Sì, annulla</button>
+                        <button type="button" class="button" style="background:#64748b; color:#fff; border-color:#64748b; border-radius:20px; font-weight:bold; padding:8px 20px;" onclick="closeVisitorCancelModal()">No, mantieni</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            @keyframes dfnFadeIn {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .btn-spin-minus, .btn-spin-plus {
+                background: #e2e8f0;
+                border: none;
+                width: 30px;
+                height: 30px;
+                font-size: 16px;
+                font-weight: bold;
+                color: #334155;
+                border-radius: 6px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.15s;
+            }
+            .btn-spin-minus:hover, .btn-spin-plus:hover {
+                background: #cbd5e1;
+            }
+            .dfn-myaccount-modal {
+                display: none;
+            }
+            .dfn-myaccount-modal.active {
+                display: flex !important;
+            }
+        </style>
+
+        <script>
+            function openVisitorModifyModal(orderId, token) {
+                var modal = document.getElementById('dfn-modal-visitor-modify');
+                modal.classList.add('active');
+                
+                document.getElementById('dfn-visitor-modify-loading').style.display = 'block';
+                document.getElementById('dfn-visitor-modify-form-container').style.display = 'none';
+                document.getElementById('dfn-visitor-modify-form-container').innerHTML = '';
+
+                jQuery.ajax({
+                    url: '<?php echo esc_url(admin_url('admin-ajax.php')); ?>',
+                    type: 'POST',
+                    data: {
+                        action: 'dfn_visitor_get_modify_details',
+                        order_id: orderId,
+                        token: token
+                    },
+                    success: function(response) {
+                        document.getElementById('dfn-visitor-modify-loading').style.display = 'none';
+                        if (response.success) {
+                            var container = document.getElementById('dfn-visitor-modify-form-container');
+                            container.innerHTML = response.data.html;
+                            container.style.display = 'block';
+                            
+                            jQuery('#dfn-visitor-modify-modal-form').on('submit', function(e) {
+                                e.preventDefault();
+                                var $form = jQuery(this);
+                                var $btn = $form.find('button[type="submit"]');
+                                var origText = $btn.text();
+                                $btn.prop('disabled', true).text('Salvataggio...');
+                                jQuery('#dfn-visitor-modify-modal-error').hide().text('');
+
+                                jQuery.ajax({
+                                    url: '<?php echo esc_url(admin_url('admin-ajax.php')); ?>',
+                                    type: 'POST',
+                                    data: $form.serialize(),
+                                    success: function(res) {
+                                        if (res.success) {
+                                            alert('Prenotazione modificata con successo!');
+                                            window.location.reload();
+                                        } else {
+                                            $btn.prop('disabled', false).text(origText);
+                                            jQuery('#dfn-visitor-modify-modal-error').text(res.data).show();
+                                        }
+                                    },
+                                    error: function() {
+                                        $btn.prop('disabled', false).text(origText);
+                                        jQuery('#dfn-visitor-modify-modal-error').text('Errore di connessione. Riprova.').show();
+                                    }
+                                });
+                            });
+                        } else {
+                            document.getElementById('dfn-visitor-modify-loading').innerHTML = '<span style="color:#dc2626;">' + response.data + '</span>';
+                        }
+                    },
+                    error: function() {
+                        document.getElementById('dfn-visitor-modify-loading').innerHTML = '<span style="color:#dc2626;">Errore di caricamento.</span>';
+                    }
+                });
+            }
+
+            function closeVisitorModifyModal() {
+                document.getElementById('dfn-modal-visitor-modify').classList.remove('active');
+            }
+
+            function openVisitorCancelModal(orderId, token, eventTitle, bookingDate) {
+                var modal = document.getElementById('dfn-modal-visitor-cancel');
+                modal.classList.add('active');
+                
+                var cancelText = 'Sei sicuro di voler annullare la tua prenotazione per l\'evento <strong>' + eventTitle + '</strong> in data <strong>' + bookingDate + '</strong>?<br><br><span style="font-size:13px; color:#64748b;">Nota: Questa operazione è irreversibile e i posti verranno riaperti al pubblico.</span>';
+                document.getElementById('dfn-visitor-cancel-text').innerHTML = cancelText;
+
+                jQuery('#dfn-btn-confirm-cancel').off('click').on('click', function() {
+                    var $btn = jQuery(this);
+                    $btn.prop('disabled', true).text('Annullamento...');
+
+                    jQuery.ajax({
+                        url: '<?php echo esc_url(admin_url('admin-ajax.php')); ?>',
+                        type: 'POST',
+                        data: {
+                            action: 'dfn_visitor_submit_cancel',
+                            order_id: orderId,
+                            token: token
+                        },
+                        success: function(res) {
+                            if (res.success) {
+                                alert('La tua prenotazione è stata annullata con successo.');
+                                window.location.reload();
+                            } else {
+                                $btn.prop('disabled', false).text('Sì, annulla');
+                                alert('Errore: ' + res.data);
+                            }
+                        },
+                        error: function() {
+                            $btn.prop('disabled', false).text('Sì, annulla');
+                            alert('Errore di connessione.');
+                        }
+                    });
+                });
+            }
+
+            function closeVisitorCancelModal() {
+                document.getElementById('dfn-modal-visitor-cancel').classList.remove('active');
+            }
+
+            function decrementQty(id) {
+                var input = document.getElementById(id);
+                var val = parseInt(input.value) || 0;
+                if (val > 0) {
+                    input.value = val - 1;
+                }
+            }
+
+            function incrementQty(id, max) {
+                var input = document.getElementById(id);
+                var val = parseInt(input.value) || 0;
+                if (val < max) {
+                    input.value = val + 1;
+                }
+            }
+
+            jQuery(document).ready(function() {
+                jQuery('.dfn-action-modify').on('click', function(e) {
+                    e.preventDefault();
+                    var orderId = jQuery(this).data('order-id');
+                    var token = jQuery(this).data('token');
+                    openVisitorModifyModal(orderId, token);
+                });
+
+                jQuery('.dfn-btn-cancel-booking').on('click', function(e) {
+                    e.preventDefault();
+                    var orderId = jQuery(this).data('order-id');
+                    var token = jQuery(this).data('token');
+                    var title = jQuery(this).data('event-title');
+                    var date = jQuery(this).data('booking-date');
+                    openVisitorCancelModal(orderId, token, title, date);
+                });
+            });
+        </script>
     </div>
     <?php
+}
+
+/**
+ * AJAX handler per recuperare i dettagli di modifica prenotazione.
+ */
+function dfn_ajax_visitor_get_modify_details(): void
+{
+    $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+    $token    = isset($_POST['token']) ? sanitize_text_field($_POST['token']) : '';
+
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        wp_send_json_error(__('Ordine non trovato.', 'dfn-theme'));
+    }
+
+    $expected_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_modify', wp_salt('nonce'));
+    if (! hash_equals($expected_token, $token)) {
+        wp_send_json_error(__('Token di sicurezza non valido.', 'dfn-theme'));
+    }
+
+    if ($order->has_status([ 'cancelled', 'refunded', 'failed' ])) {
+        wp_send_json_error(__('Questa prenotazione non è più valida e non può essere modificata.', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table_bookings} WHERE order_id = %d LIMIT 1",
+        $order_id
+    ));
+
+    if (! $booking) {
+        wp_send_json_error(__('Prenotazione non trovata.', 'dfn-theme'));
+    }
+
+    if (! function_exists('dfn_db_get_event')) {
+        require_once get_template_directory() . '/inc/core/dfn-database.php';
+    }
+
+    $event = dfn_db_get_event($booking->event_id);
+    if (! $event) {
+        wp_send_json_error(__('Dettagli evento non trovati.', 'dfn-theme'));
+    }
+
+    $event_title = get_the_title($event->product_id) ?: __('Evento FAI', 'dfn-theme');
+
+    ob_start();
+    ?>
+    <form id="dfn-visitor-modify-modal-form" method="POST">
+        <input type="hidden" name="action" value="dfn_visitor_submit_modify">
+        <input type="hidden" name="order_id" value="<?php echo esc_attr($order_id); ?>">
+        <input type="hidden" name="token" value="<?php echo esc_attr($token); ?>">
+        
+        <div style="margin-bottom: 20px; font-family: 'Outfit', sans-serif;">
+            <div style="font-size: 15px; font-weight: bold; color: #1e293b; margin-bottom: 4px;"><?php echo esc_html($event_title); ?></div>
+            <div style="font-size: 13px; color: #64748b;">
+                <?php
+                if (! empty($booking->event_date_start)) {
+                    echo '🗓️ ' . date_i18n('d F Y', strtotime($booking->event_date_start));
+                }
+                ?>
+            </div>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; font-family: 'Outfit', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div>
+                    <div style="font-weight: 700; color: #1e293b; font-size: 14px;">Biglietti Standard</div>
+                    <div style="font-size: 12px; color: #64748b;">Max attuale: <?php echo absint($booking->persons_standard); ?></div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="btn-spin-minus" onclick="decrementQty('qty_standard')">-</button>
+                    <input type="number" id="qty_standard" name="qty_standard" value="<?php echo absint($booking->persons_standard); ?>" min="0" max="<?php echo absint($booking->persons_standard); ?>" readonly style="width: 55px; text-align: center; font-size: 15px; font-weight: 700; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 0; background: #fff;">
+                    <button type="button" class="btn-spin-plus" onclick="incrementQty('qty_standard', <?php echo absint($booking->persons_standard); ?>)">+</button>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div>
+                    <div style="font-weight: 700; color: #1e293b; font-size: 14px;">Biglietti Soci FAI</div>
+                    <div style="font-size: 12px; color: #64748b;">Max attuale: <?php echo absint($booking->persons_fai); ?></div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="btn-spin-minus" onclick="decrementQty('qty_fai')">-</button>
+                    <input type="number" id="qty_fai" name="qty_fai" value="<?php echo absint($booking->persons_fai); ?>" min="0" max="<?php echo absint($booking->persons_fai); ?>" readonly style="width: 55px; text-align: center; font-size: 15px; font-weight: 700; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 0; background: #fff;">
+                    <button type="button" class="btn-spin-plus" onclick="incrementQty('qty_fai', <?php echo absint($booking->persons_fai); ?>)">+</button>
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 12px 16px; border-radius: 8px; font-size: 13px; line-height: 1.5; margin-bottom: 24px; font-family: 'Outfit', sans-serif;">
+            💡 <strong>Nota:</strong> Puoi solo ridurre il numero di partecipanti. Per aggiungere nuovi partecipanti è necessario effettuare una prenotazione aggiuntiva.
+        </div>
+
+        <div id="dfn-visitor-modify-modal-error" style="color: #dc2626; background: #fef2f2; border: 1px solid #fee2e2; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 20px; display: none; font-family: 'Outfit', sans-serif;"></div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end; font-family: 'Outfit', sans-serif;">
+            <button type="button" class="button" onclick="closeVisitorModifyModal()" style="background: #64748b; color: #fff; border-color: #64748b; border-radius: 20px; font-weight: bold; padding: 8px 20px;"><?php esc_html_e('Chiudi', 'dfn-theme'); ?></button>
+            <button type="submit" class="button" style="background: #004b23; color: #fff; border-color: #004b23; border-radius: 20px; font-weight: bold; padding: 8px 20px;"><?php esc_html_e('Salva Modifiche', 'dfn-theme'); ?></button>
+        </div>
+    </form>
+    <?php
+    $html = ob_get_clean();
+    wp_send_json_success([ 'html' => $html ]);
+}
+
+/**
+ * AJAX handler per salvare le modifiche prenotazione da parte del visitatore.
+ */
+function dfn_ajax_visitor_submit_modify(): void
+{
+    $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+    $token    = isset($_POST['token']) ? sanitize_text_field($_POST['token']) : '';
+    $qty_standard = isset($_POST['qty_standard']) ? intval($_POST['qty_standard']) : 0;
+    $qty_fai      = isset($_POST['qty_fai']) ? intval($_POST['qty_fai']) : 0;
+
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        wp_send_json_error(__('Ordine non trovato.', 'dfn-theme'));
+    }
+
+    $expected_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_modify', wp_salt('nonce'));
+    if (! hash_equals($expected_token, $token)) {
+        wp_send_json_error(__('Token di sicurezza non valido.', 'dfn-theme'));
+    }
+
+    if ($order->has_status([ 'cancelled', 'refunded', 'failed' ])) {
+        wp_send_json_error(__('Questa prenotazione non è più valida e non può essere modificata.', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table_bookings} WHERE order_id = %d LIMIT 1",
+        $order_id
+    ));
+
+    if (! $booking) {
+        wp_send_json_error(__('Prenotazione non trovata.', 'dfn-theme'));
+    }
+
+    if ($qty_standard < 0 || $qty_fai < 0) {
+        wp_send_json_error(__('Quantità non valide.', 'dfn-theme'));
+    }
+
+    if ($qty_standard > intval($booking->persons_standard) || $qty_fai > intval($booking->persons_fai)) {
+        wp_send_json_error(__('Non è consentito aumentare il numero di partecipanti. Puoi solo ridurre o mantenere le quantità.', 'dfn-theme'));
+    }
+
+    $new_total_qty = $qty_standard + $qty_fai;
+    if ($new_total_qty < 1) {
+        wp_send_json_error(__('La prenotazione deve contenere almeno 1 partecipante. Per annullarla usa la voce "Annulla".', 'dfn-theme'));
+    }
+
+    // Esegui la modifica
+    if (function_exists('dfn_process_booking_modification')) {
+        dfn_process_booking_modification($booking, $order, $qty_standard, $qty_fai);
+    }
+
+    // Invia email di notifica modifica
+    if (function_exists('dfn_send_booking_modification_notifications')) {
+        dfn_send_booking_modification_notifications($booking->id);
+    }
+
+    wp_send_json_success(__('Prenotazione modificata con successo.', 'dfn-theme'));
+}
+
+/**
+ * AJAX handler per annullare la prenotazione da parte del visitatore.
+ */
+function dfn_ajax_visitor_submit_cancel(): void
+{
+    $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+    $token    = isset($_POST['token']) ? sanitize_text_field($_POST['token']) : '';
+
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        wp_send_json_error(__('Ordine non trovato.', 'dfn-theme'));
+    }
+
+    $expected_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_cancel', wp_salt('nonce'));
+    if (! hash_equals($expected_token, $token)) {
+        wp_send_json_error(__('Token di sicurezza non valido.', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table_bookings} WHERE order_id = %d LIMIT 1",
+        $order_id
+    ));
+
+    if (! $booking) {
+        wp_send_json_error(__('Prenotazione non trovata.', 'dfn-theme'));
+    }
+
+    if (function_exists('dfn_cancel_booking_by_id')) {
+        dfn_cancel_booking_by_id($booking->id, __('Prenotazione annullata autonomamente dal visitatore tramite area riservata.', 'dfn-theme'));
+        wp_send_json_success(__('Prenotazione annullata con successo.', 'dfn-theme'));
+    } else {
+        wp_send_json_error(__('Errore di sistema nell\'annullamento.', 'dfn-theme'));
+    }
 }

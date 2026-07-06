@@ -480,45 +480,7 @@ function dfn_handle_visitor_cancellation(): void
         exit;
     }
 
-    $table_slots = $wpdb->prefix . 'dfn_event_slots';
-    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
-
-    $wpdb->query('START TRANSACTION');
-
-    // 1. Decrementa booked_count sugli slot associati
-    $assocs = $wpdb->get_results($wpdb->prepare(
-        "SELECT slot_id, persons FROM {$table_booking_slots} WHERE booking_id = %d",
-        $booking->id,
-    ));
-
-    foreach ($assocs as $assoc) {
-        $wpdb->query($wpdb->prepare(
-            "UPDATE {$table_slots} SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
-            intval($assoc->persons),
-            intval($assoc->slot_id),
-        ));
-    }
-
-    // 2. Cambia lo stato in 'cancelled' nella tabella prenotazioni
-    $wpdb->update(
-        $table_bookings,
-        [ 'status' => 'cancelled' ],
-        [ 'id' => $booking->id ],
-        [ '%s' ],
-        [ '%d' ],
-    );
-
-    $wpdb->query('COMMIT');
-
-    // Segna l'ordine come annullato manualmente per evitare l'invio dell'email di scadenza automatica
-    $order->update_meta_data('_dfn_cancelled_manually', 'yes');
-    $order->save();
-
-    // 3. Aggiorna lo stato dell'ordine WooCommerce (questo farà partire i ripristini stock)
-    $order->update_status('cancelled', __('Prenotazione annullata autonomamente dal visitatore tramite link email.', 'dfn-theme'));
-
-    // Invia email di annullamento centralizzata al visitatore
-    dfn_send_booking_cancellation($booking->id);
+    dfn_cancel_booking_by_id($booking->id, __('Prenotazione annullata autonomamente dal visitatore tramite link email.', 'dfn-theme'));
 
     echo '</div></body></html>';
     exit;
@@ -584,142 +546,11 @@ function dfn_handle_visitor_modification(): void
             wp_die(esc_html__('Errore: la prenotazione deve contenere almeno 1 partecipante. Se desideri annullarla completamente, usa il link di annullamento.', 'dfn-theme'));
         }
 
-        $diff_std   = intval($booking->persons_standard) - $new_qty_standard;
-        $diff_fai   = intval($booking->persons_fai) - $new_qty_fai;
-        $total_diff = $diff_std + $diff_fai;
+        dfn_process_booking_modification($booking, $order, $new_qty_standard, $new_qty_fai);
 
-        if ($total_diff > 0) {
-            if (! function_exists('dfn_db_get_event')) {
-                require_once get_template_directory() . '/inc/core/dfn-database.php';
-            }
-
-            // Avvia transazione per DB
-            $wpdb->query('START TRANSACTION');
-
-            $event = dfn_db_get_event($booking->event_id);
-            $new_amount = 0.00;
-            if ($event) {
-                $price_std  = floatval($event->price_standard);
-                $price_fai  = floatval($event->price_fai);
-                $new_amount = ($new_qty_standard * $price_std) + ($new_qty_fai * $price_fai);
-            }
-
-            // 1. Aggiorna dfn_bookings
-            $update_fields = [
-                'persons_standard' => $new_qty_standard,
-                'persons_fai'      => $new_qty_fai,
-                'total_persons'    => $new_total_qty,
-            ];
-            if ($booking->payment_method === 'dfn_in_loco') {
-                $update_fields['amount_due'] = $new_amount;
-            } else {
-                $update_fields['amount_paid'] = $new_amount;
-            }
-
-            $wpdb->update(
-                $table_bookings,
-                $update_fields,
-                [ 'id' => $booking->id ],
-                [ '%d', '%d', '%d', '%f' ],
-                [ '%d' ]
-            );
-
-            // 2. Decrementa la capienza dagli slot (dfn_booking_slots e dfn_event_slots)
-            $booking_slots = $wpdb->get_results($wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}dfn_booking_slots WHERE booking_id = %d ORDER BY id DESC",
-                $booking->id
-            ));
-
-            $remaining_diff = $total_diff;
-            foreach ($booking_slots as $bs_row) {
-                if ($remaining_diff <= 0) {
-                    break;
-                }
-                $current_persons = intval($bs_row->persons);
-                if ($current_persons <= 0) {
-                    continue;
-                }
-                $reduce_by = min($current_persons, $remaining_diff);
-                $new_persons = $current_persons - $reduce_by;
-
-                if ($new_persons > 0) {
-                    $wpdb->update(
-                        $wpdb->prefix . 'dfn_booking_slots',
-                        [ 'persons' => $new_persons ],
-                        [ 'id' => $bs_row->id ],
-                        [ '%d' ],
-                        [ '%d' ]
-                    );
-                } else {
-                    $wpdb->delete(
-                        $wpdb->prefix . 'dfn_booking_slots',
-                        [ 'id' => $bs_row->id ],
-                        [ '%d' ]
-                    );
-                }
-
-                $wpdb->query($wpdb->prepare(
-                    "UPDATE {$wpdb->prefix}dfn_event_slots SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
-                    $reduce_by,
-                    intval($bs_row->slot_id)
-                ));
-
-                $remaining_diff -= $reduce_by;
-            }
-
-            $wpdb->query('COMMIT');
-
-            // 3. Aggiorna riga prodotto e metadati WooCommerce
-            $has_changed = false;
-            foreach ($order->get_items() as $item) {
-                if (is_a($item, 'WC_Order_Item_Product')) {
-                    $item->update_meta_data('_dfn_qty_standard', (string) $new_qty_standard);
-                    $item->update_meta_data('_dfn_qty_fai', (string) $new_qty_fai);
-                    $item->set_quantity($new_total_qty);
-                    $item->save();
-                    $has_changed = true;
-                }
-            }
-
-            if ($has_changed) {
-                if ($event) {
-                    $price_standard = floatval($event->price_standard);
-                    $price_fai      = floatval($event->price_fai);
-                    $unit_discount  = $price_standard - $price_fai;
-                    $new_total_discount = $unit_discount * $new_qty_fai;
-
-                    foreach ($order->get_items('fee') as $fee_item) {
-                        if (strpos($fee_item->get_name(), 'Sconto Soci FAI') !== false || strpos($fee_item->get_name(), 'Adeguamento Soci FAI') !== false) {
-                            $fee_item->set_amount(-$new_total_discount);
-                            $fee_item->set_total(-$new_total_discount);
-                            $fee_item->save();
-                        }
-                    }
-                }
-
-                // Riduce anche le tessere FAI salvate nei metadati se in eccesso
-                $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
-                if (count($fai_cards) > $new_qty_fai) {
-                    $fai_cards = array_slice($fai_cards, 0, $new_qty_fai);
-                    $order->update_meta_data('_dfn_fai_cards', $fai_cards);
-                }
-
-                $order->calculate_totals();
-                $note_text = sprintf(
-                    __('Prenotazione modificata dal visitatore via email. Nuovi quantitativi: %d Standard, %d Soci FAI (Totale: %d). Precedente totale: %d.', 'dfn-theme'),
-                    $new_qty_standard,
-                    $new_qty_fai,
-                    $new_total_qty,
-                    $booking->total_persons
-                );
-                $order->add_order_note($note_text);
-                $order->save();
-            }
-
-            // Invia email di notifica modifica all'utente e all'amministratore
-            if (function_exists('dfn_send_booking_modification_notifications')) {
-                dfn_send_booking_modification_notifications($booking->id);
-            }
+        // Invia email di notifica modifica all'utente e all'amministratore
+        if (function_exists('dfn_send_booking_modification_notifications')) {
+            dfn_send_booking_modification_notifications($booking->id);
         }
 
         // Render della pagina di successo
@@ -992,4 +823,201 @@ function dfn_handle_visitor_modification(): void
     </html>
     <?php
     exit;
+}
+
+/**
+ * Annulla una prenotazione tramite ID.
+ */
+function dfn_cancel_booking_by_id(int $booking_id, string $note = ''): bool
+{
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $table_slots = $wpdb->prefix . 'dfn_event_slots';
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_bookings} WHERE id = %d", $booking_id));
+    if (! $booking) {
+        return false;
+    }
+
+    $order = wc_get_order($booking->order_id);
+    if (! $order) {
+        return false;
+    }
+
+    $wpdb->query('START TRANSACTION');
+
+    $assocs = $wpdb->get_results($wpdb->prepare(
+        "SELECT slot_id, persons FROM {$table_booking_slots} WHERE booking_id = %d",
+        $booking->id
+    ));
+
+    foreach ($assocs as $assoc) {
+        $wpdb->query($wpdb->prepare(
+            "UPDATE {$table_slots} SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
+            intval($assoc->persons),
+            intval($assoc->slot_id)
+        ));
+    }
+
+    $wpdb->update(
+        $table_bookings,
+        [ 'status' => 'cancelled' ],
+        [ 'id' => $booking->id ],
+        [ '%s' ],
+        [ '%d' ]
+    );
+
+    $wpdb->query('COMMIT');
+
+    $order->update_meta_data('_dfn_cancelled_manually', 'yes');
+    $order->save();
+
+    $order->update_status('cancelled', ! empty($note) ? $note : __('Prenotazione annullata.', 'dfn-theme'));
+
+    if (function_exists('dfn_send_booking_cancellation')) {
+        dfn_send_booking_cancellation($booking->id);
+    }
+
+    return true;
+}
+
+/**
+ * Esegue l'aggiornamento a DB e WooCommerce per una modifica prenotazione (riduzione posti).
+ */
+function dfn_process_booking_modification($booking, $order, int $new_qty_standard, int $new_qty_fai): bool
+{
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+
+    $new_total_qty = $new_qty_standard + $new_qty_fai;
+    $diff_std   = intval($booking->persons_standard) - $new_qty_standard;
+    $diff_fai   = intval($booking->persons_fai) - $new_qty_fai;
+    $total_diff = $diff_std + $diff_fai;
+
+    if ($total_diff > 0) {
+        if (! function_exists('dfn_db_get_event')) {
+            require_once get_template_directory() . '/inc/core/dfn-database.php';
+        }
+
+        $wpdb->query('START TRANSACTION');
+
+        $event = dfn_db_get_event($booking->event_id);
+        $new_amount = 0.00;
+        if ($event) {
+            $price_std  = floatval($event->price_standard);
+            $price_fai  = floatval($event->price_fai);
+            $new_amount = ($new_qty_standard * $price_std) + ($new_qty_fai * $price_fai);
+        }
+
+        $update_fields = [
+            'persons_standard' => $new_qty_standard,
+            'persons_fai'      => $new_qty_fai,
+            'total_persons'    => $new_total_qty,
+        ];
+        if ($booking->payment_method === 'dfn_in_loco') {
+            $update_fields['amount_due'] = $new_amount;
+        } else {
+            $update_fields['amount_paid'] = $new_amount;
+        }
+
+        $wpdb->update(
+            $table_bookings,
+            $update_fields,
+            [ 'id' => $booking->id ],
+            [ '%d', '%d', '%d', '%f' ],
+            [ '%d' ]
+        );
+
+        $booking_slots = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}dfn_booking_slots WHERE booking_id = %d ORDER BY id DESC",
+            $booking->id
+        ));
+
+        $remaining_diff = $total_diff;
+        foreach ($booking_slots as $bs_row) {
+            if ($remaining_diff <= 0) {
+                break;
+            }
+            $current_persons = intval($bs_row->persons);
+            if ($current_persons <= 0) {
+                continue;
+            }
+            $reduce_by = min($current_persons, $remaining_diff);
+            $new_persons = $current_persons - $reduce_by;
+
+            if ($new_persons > 0) {
+                $wpdb->update(
+                    $wpdb->prefix . 'dfn_booking_slots',
+                    [ 'persons' => $new_persons ],
+                    [ 'id' => $bs_row->id ],
+                    [ '%d' ],
+                    [ '%d' ]
+                );
+            } else {
+                $wpdb->delete(
+                    $wpdb->prefix . 'dfn_booking_slots',
+                    [ 'id' => $bs_row->id ],
+                    [ '%d' ]
+                );
+            }
+
+            $wpdb->query($wpdb->prepare(
+                "UPDATE {$wpdb->prefix}dfn_event_slots SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
+                $reduce_by,
+                intval($bs_row->slot_id)
+            ));
+
+            $remaining_diff -= $reduce_by;
+        }
+
+        $wpdb->query('COMMIT');
+
+        $has_changed = false;
+        foreach ($order->get_items() as $item) {
+            if (is_a($item, 'WC_Order_Item_Product')) {
+                $item->update_meta_data('_dfn_qty_standard', (string) $new_qty_standard);
+                $item->update_meta_data('_dfn_qty_fai', (string) $new_qty_fai);
+                $item->set_quantity($new_total_qty);
+                $item->save();
+                $has_changed = true;
+            }
+        }
+
+        if ($has_changed) {
+            if ($event) {
+                $price_standard = floatval($event->price_standard);
+                $price_fai      = floatval($event->price_fai);
+                $unit_discount  = $price_standard - $price_fai;
+                $new_total_discount = $unit_discount * $new_qty_fai;
+
+                foreach ($order->get_items('fee') as $fee_item) {
+                    if (strpos($fee_item->get_name(), 'Sconto Soci FAI') !== false || strpos($fee_item->get_name(), 'Adeguamento Soci FAI') !== false) {
+                        $fee_item->set_amount(-$new_total_discount);
+                        $fee_item->set_total(-$new_total_discount);
+                        $fee_item->save();
+                    }
+                }
+            }
+
+            $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
+            if (count($fai_cards) > $new_qty_fai) {
+                $fai_cards = array_slice($fai_cards, 0, $new_qty_fai);
+                $order->update_meta_data('_dfn_fai_cards', $fai_cards);
+            }
+
+            $order->calculate_totals();
+            $note_text = sprintf(
+                __('Prenotazione modificata. Nuovi quantitativi: %d Standard, %d Soci FAI (Totale: %d). Precedente totale: %d.', 'dfn-theme'),
+                $new_qty_standard,
+                $new_qty_fai,
+                $new_total_qty,
+                $booking->total_persons
+            );
+            $order->add_order_note($note_text);
+            $order->save();
+        }
+    }
+
+    return true;
 }
