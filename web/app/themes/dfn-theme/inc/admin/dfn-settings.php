@@ -87,11 +87,15 @@ function dfn_settings_save_fields(): void
         'text_no_bookings_myaccount'  => 'sanitize_textarea_field',
         'text_checkout_btn'           => 'sanitize_text_field',
 
-        // Tab Testi E-mail
         'email_confirm_subject'       => 'sanitize_text_field',
         'email_confirm_title'         => 'sanitize_text_field',
         'email_confirm_intro'         => 'sanitize_textarea_field',
         'email_confirm_notes'         => 'sanitize_textarea_field',
+
+        'email_modify_subject'        => 'sanitize_text_field',
+        'email_modify_title'          => 'sanitize_text_field',
+        'email_modify_intro'          => 'sanitize_textarea_field',
+        'email_modify_notes'          => 'sanitize_textarea_field',
 
         'email_pending_subject'       => 'sanitize_text_field',
         'email_pending_title'         => 'sanitize_text_field',
@@ -502,6 +506,39 @@ function dfn_render_settings_page(): void
                                 <th scope="row"><label for="email_confirm_notes">Note Importanti / Regole Accesso</label></th>
                                 <td>
                                     <textarea name="dfn_settings[email_confirm_notes]" id="email_confirm_notes" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_confirm_notes')); ?></textarea>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
+                            <span>1b. Modifica Prenotazione (Autonoma)</span>
+                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="modify" data-email-name="Modifica Prenotazione" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
+                        </h3>
+                        <table class="form-table" role="presentation">
+                            <tr>
+                                <th scope="row"><label for="email_modify_subject">Oggetto E-mail</label></th>
+                                <td>
+                                    <input name="dfn_settings[email_modify_subject]" type="text" id="email_modify_subject" value="<?php echo esc_attr(dfn_get_setting('email_modify_subject')); ?>" class="large-text" />
+                                    <p class="description">Segnaposto: <code>{nome_evento}</code></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="email_modify_title">Titolo Banner Visivo</label></th>
+                                <td>
+                                    <input name="dfn_settings[email_modify_title]" type="text" id="email_modify_title" value="<?php echo esc_attr(dfn_get_setting('email_modify_title')); ?>" class="regular-text" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="email_modify_intro">Testo Introduzione</label></th>
+                                <td>
+                                    <textarea name="dfn_settings[email_modify_intro]" id="email_modify_intro" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_modify_intro')); ?></textarea>
+                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code>, <code>{url_modifica}</code>, <code>{url_annullamento}</code></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="email_modify_notes">Note Importanti / Regole Accesso</label></th>
+                                <td>
+                                    <textarea name="dfn_settings[email_modify_notes]" id="email_modify_notes" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_modify_notes')); ?></textarea>
                                 </td>
                             </tr>
                         </table>
@@ -920,6 +957,32 @@ function dfn_ajax_send_test_email(): void
 
             $subject = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_subject'), $replacements);
             $title   = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_title'), $replacements);
+            break;
+
+        case 'modify':
+            $modify_url = home_url('/');
+            $replacements = [
+                'nome_cliente' => esc_html($customer_name),
+                'nome_evento'  => esc_html($product_name),
+                'dettagli_prenotazione' => $details_table,
+                'url_biglietto' => esc_url($hub_url),
+                'url_annullamento' => esc_url($cancel_url),
+                'url_modifica' => esc_url($modify_url),
+            ];
+            $intro_html = dfn_replace_email_placeholders(dfn_get_setting('email_modify_intro'), $replacements);
+            $notes_html = dfn_replace_email_placeholders(dfn_get_setting('email_modify_notes'), $replacements);
+
+            $content = $intro_html;
+            $content .= $details_table;
+            $content .= $notes_html;
+            $content .= '<p>Per accedere all\'evento, mostra all\'ingresso il codice QR del tuo gruppo cliccando sul pulsante sottostante (è sufficiente mostrare un solo codice QR per tutto il gruppo).</p>';
+            $content .= '<div style="text-align:center; margin:20px 0;"><a href="' . esc_url($hub_url) . '" style="background-color:' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; color:#ffffff; padding:10px 20px; text-decoration:none; border-radius:4px; font-weight:bold; display:inline-block;">Mostra Codice QR / Ingressi</a></div>';
+            $content .= '<p style="font-size:14px; color:#4a5568;"><em>Nota: Avendo scelto il contributo all\'ingresso, ti chiediamo di arrivare circa 10 minuti prima dell\'orario indicato per agevolare la ricezione del contributo presso il botteghino.</em></p>';
+            $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Devi modificare ulteriormente il numero di partecipanti? <a href="' . esc_url($modify_url) . '" style="color: #004b23; text-decoration: underline; font-weight: bold;">Modifica la prenotazione qui</a></p>';
+            $content .= '<p style="text-align: center; margin-top: 10px; font-size: 13px; color: #718096;">Non puoi più partecipare affatto? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
+
+            $subject = dfn_replace_email_placeholders(dfn_get_setting('email_modify_subject'), $replacements);
+            $title   = dfn_replace_email_placeholders(dfn_get_setting('email_modify_title'), $replacements);
             break;
 
         case 'pending':

@@ -61,6 +61,11 @@ function dfn_get_setting($key, $default = null)
         'email_confirm_intro'         => "Gentile <strong>{nome_cliente}</strong>,<br><br>La tua prenotazione per l'evento <strong>{nome_evento}</strong> è stata confermata con successo!",
         'email_confirm_notes'         => "<strong>⚠️ Importante:</strong> Ti chiediamo di presentarti presso il luogo dell'evento <strong>almeno 10 minuti prima</strong> dell'orario d'inizio della visita indicato per facilitare le operazioni di accettazione.",
 
+        'email_modify_subject'        => 'Modifica Prenotazione: {nome_evento}',
+        'email_modify_title'          => 'Prenotazione Modificata!',
+        'email_modify_intro'          => "Gentile <strong>{nome_cliente}</strong>,<br><br>La tua prenotazione per l'evento <strong>{nome_evento}</strong> è stata modificata con successo con i nuovi quantitativi indicati di seguito.",
+        'email_modify_notes'          => "<strong>⚠️ Importante:</strong> Ti chiediamo di presentarti presso il luogo dell'evento <strong>almeno 10 minuti prima</strong> dell'orario d'inizio della visita indicato per facilitare le operazioni di accettazione.",
+
         'email_pending_subject'       => 'Richiesta di Prenotazione Ricevuta: {nome_evento}',
         'email_pending_title'         => 'Richiesta in Fase di Verifica',
         'email_pending_body'          => "Gentile <strong>{nome_cliente}</strong>,<br><br>Abbiamo ricevuto la tua richiesta di prenotazione per l'evento <strong>{nome_evento}</strong>.<br><br>Questo evento richiede l'<strong>approvazione manuale</strong> da parte del nostro staff. Stiamo verificando la disponibilità e ti invieremo un'email di conferma non appena la richiesta sarà approvata (solitamente entro poche ore).",

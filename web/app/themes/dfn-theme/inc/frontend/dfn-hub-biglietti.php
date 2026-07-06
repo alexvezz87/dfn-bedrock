@@ -716,9 +716,9 @@ function dfn_handle_visitor_modification(): void
                 $order->save();
             }
 
-            // Invia nuova email di conferma aggiornata
-            if (function_exists('dfn_send_booking_confirmation')) {
-                dfn_send_booking_confirmation($booking->id);
+            // Invia email di notifica modifica all'utente e all'amministratore
+            if (function_exists('dfn_send_booking_modification_notifications')) {
+                dfn_send_booking_modification_notifications($booking->id);
             }
         }
 

@@ -963,4 +963,138 @@ function dfn_prevent_dummy_email_notifications($send, $to, $subject, $message, $
     return $send;
 }
 
+/**
+ * Invia le email di notifica modifica (una all'utente con i nuovi dati e una all'amministratore).
+ *
+ * @param int $booking_id ID della prenotazione.
+ * @return bool
+ */
+function dfn_send_booking_modification_notifications(int $booking_id): bool
+{
+    global $wpdb;
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    if (! $booking) {
+        return false;
+    }
+
+    $event = dfn_db_get_event($booking->event_id);
+    if (! $event) {
+        return false;
+    }
+
+    $order = wc_get_order($booking->order_id);
+    if (! $order) {
+        return false;
+    }
+
+    // Recupera informazioni sullo slot
+    $slot_info = '';
+    $slots = $wpdb->get_results($wpdb->prepare(
+        "SELECT s.*, bs.persons FROM {$wpdb->prefix}dfn_event_slots s 
+         JOIN {$wpdb->prefix}dfn_booking_slots bs ON s.id = bs.slot_id 
+         WHERE bs.booking_id = %d",
+        $booking_id
+    ));
+
+    if (! empty($slots)) {
+        if (count($slots) === 1) {
+            $slot = $slots[0];
+            $slot_info = date_i18n('d F Y', strtotime($slot->slot_date)) . ' - ore ' . date('H:i', strtotime($slot->slot_time_start));
+        } else {
+            $slot_info_parts = [];
+            foreach ($slots as $s) {
+                $slot_info_parts[] = 'ore ' . date('H:i', strtotime($s->slot_time_start)) . ' (' . absint($s->persons) . ' ' . ($s->persons == 1 ? 'persona' : 'persone') . ')';
+            }
+            $slot_info = date_i18n('d F Y', strtotime($slots[0]->slot_date)) . ' — ' . implode(', ', $slot_info_parts);
+        }
+    } else {
+        $slot_info = date_i18n('d F Y', strtotime($event->event_date_start)) . ' (Ingresso Libero)';
+    }
+
+    $product_name = get_the_title($event->product_id);
+
+    // Link all'hub biglietti / QR effettivo
+    $token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+    $hub_url = add_query_arg([
+        'dfn_hub'  => 1,
+        'order_id' => $booking->order_id,
+        'token'    => $token,
+    ], home_url('/'));
+
+    // Link di cancellazione
+    $cancel_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_cancel', wp_salt('nonce'));
+    $cancel_url = add_query_arg([
+        'dfn_cancel_booking' => 1,
+        'order_id'           => $booking->order_id,
+        'token'              => $cancel_token,
+    ], home_url('/'));
+
+    // Link di modifica
+    $modify_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_modify', wp_salt('nonce'));
+    $modify_url = add_query_arg([
+        'dfn_modify_booking' => 1,
+        'order_id'           => $booking->order_id,
+        'token'              => $modify_token,
+    ], home_url('/'));
+
+    $details_table = '<div class="info-box">';
+    $details_table .= '<div class="info-box-title">Dettagli della Prenotazione Aggiornata</div>';
+    $details_table .= '<table>';
+    $details_table .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Data e Inizio Visita:</td><td>' . esc_html($slot_info) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Luogo:</td><td>' . esc_html($event->location) . '</td></tr>';
+    $details_table .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali (' . absint($booking->persons_standard) . ' Standard + ' . absint($booking->persons_fai) . ' Soci FAI)</td></tr>';
+    $details_table .= '<tr><td class="label">Modalità Contributo:</td><td>' . ($booking->payment_method === 'dfn_in_loco' ? 'Contributo all\'ingresso (Botteghino)' : 'Versato Online') . '</td></tr>';
+    if ($booking->payment_method === 'dfn_in_loco' && $booking->amount_due > 0) {
+        $details_table .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#ff6600;">' . wc_price($booking->amount_due) . '</td></tr>';
+    }
+    $details_table .= '</table>';
+    $details_table .= '</div>';
+
+    $replacements = [
+        'nome_cliente' => esc_html($booking->customer_name),
+        'nome_evento'  => esc_html($product_name),
+        'dettagli_prenotazione' => $details_table,
+        'url_biglietto' => esc_url($hub_url),
+        'url_annullamento' => esc_url($cancel_url),
+        'url_modifica' => esc_url($modify_url),
+    ];
+
+    // --- 1. EMAIL PER L'UTENTE (MODIFICA CONFERMATA) ---
+    $intro_html = dfn_replace_email_placeholders(dfn_get_setting('email_modify_intro'), $replacements);
+    $notes_html = dfn_replace_email_placeholders(dfn_get_setting('email_modify_notes'), $replacements);
+
+    $content = $intro_html;
+    $content .= $details_table;
+    $content .= $notes_html;
+
+    $content .= '<p>Per accedere all\'evento, mostra all\'ingresso il codice QR del tuo gruppo cliccando sul pulsante sottostante (è sufficiente mostrare un solo codice QR per tutto il gruppo).</p>';
+    $content .= '<div class="text-center"><a href="' . esc_url($hub_url) . '" class="button">Mostra Codice QR / Ingressi</a></div>';
+
+    if ($booking->payment_method === 'dfn_in_loco') {
+        $content .= '<p style="font-size: 14px; color: #4a5568;"><em>Nota: Avendo scelto il contributo all\'ingresso, ti chiediamo di arrivare circa 10 minuti prima dell\'orario indicato per agevolare la ricezione del contributo presso il botteghino.</em></p>';
+    }
+
+    $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Devi modificare ulteriormente il numero di partecipanti? <a href="' . esc_url($modify_url) . '" style="color: #004b23; text-decoration: underline; font-weight: bold;">Modifica la prenotazione qui</a></p>';
+    $content .= '<p style="text-align: center; margin-top: 10px; font-size: 13px; color: #718096;">Non puoi più partecipare affatto? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
+
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_modify_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_modify_title'), $replacements);
+
+    $sent_user = dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
+
+    // --- 2. EMAIL PER L'AMMINISTRATORE (NOTIFICA MODIFICA) ---
+    $admin_email = dfn_get_setting('email_verify_fai', get_option('admin_email'));
+    $admin_subject = '[Notifica FAI] Prenotazione Modificata dall\'Utente: ' . $product_name;
+    
+    $admin_content = '<p>Gentile Staff della Delegazione FAI,</p>';
+    $admin_content .= '<p>La prenotazione di <strong>' . esc_html($booking->customer_name) . '</strong> per l\'evento <strong>' . esc_html($product_name) . '</strong> è stata modificata autonomamente dall\'utente tramite l\'area di salvagente e-mail o l\'area riservata.</p>';
+    $admin_content .= $details_table;
+    $admin_content .= '<p>I posti liberati sono stati reinseriti nella disponibilità dello slot.</p>';
+
+    $sent_admin = dfn_send_notification_email($admin_email, $admin_subject, 'Notifica di Modifica', $admin_content);
+
+    return $sent_user && $sent_admin;
+}
+
 
