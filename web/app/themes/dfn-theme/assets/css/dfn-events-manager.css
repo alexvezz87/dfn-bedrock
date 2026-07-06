@@ -1371,3 +1371,24 @@ select.dfn-input {
 .dfn-sm-bookings-btn-area {
     margin-top: 15px;
 }
+
+/* Allargamento del popup dettagli prenotazione */
+#dfn-modal-booking-details .dfn-sm-modal-content {
+    max-width: 800px;
+}
+
+/* Griglia per le tessere FAI per disporle su colonne */
+.dfn-fai-card-row {
+    display: grid !important;
+    grid-template-columns: 80px 1fr 1fr 1fr;
+    gap: 12px !important;
+    align-items: center;
+}
+
+/* Media query per schermi piccoli */
+@media (max-width: 768px) {
+    .dfn-fai-card-row {
+        grid-template-columns: 1fr !important;
+        gap: 6px !important;
+    }
+}
