@@ -56,7 +56,7 @@ function cv_pwa_manifest_endpoint($wp)
 {
     if (isset($_GET['cv_manifest'])) {
         header('Content-Type: application/json; charset=utf-8');
-        $icon_url = site_url('/wp-content/uploads/2023/02/favicon-dfn.png');
+        $icon_url = home_url('/wp-content/uploads/2023/02/favicon-dfn.png');
 
         echo json_encode([
             'name'             => 'Scanner CandleVibes',
@@ -79,7 +79,7 @@ add_action('admin_head', 'cv_pwa_add_head_tags');
 function cv_pwa_add_head_tags()
 {
     if (isset($_GET['page']) && $_GET['page'] === 'cv-scanner-live') {
-        $manifest_url = site_url('/?cv_manifest=1');
+        $manifest_url = home_url('/?cv_manifest=1');
         echo '<link rel="manifest" href="' . esc_url($manifest_url) . '">';
         echo '<meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#111111">';
         echo '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Scanner CV">';

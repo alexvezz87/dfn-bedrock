@@ -79,7 +79,7 @@ function dfn_add_group_tickets_action_button(array $actions, $order): array
 {
     if ($order->has_status([ 'processing', 'completed' ])) {
         $hub_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
-        $hub_url   = site_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
+        $hub_url   = home_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
 
         $ticket_action = [
             'dfn_group_ticket' => [
@@ -501,15 +501,15 @@ function dfn_custom_myaccount_bookings_content(): void
                                                     <?php if (! $is_cancelled && $order) : ?>
                                                         <div class="dfn-table-actions-container">
                                                             <?php
-                                                $hub_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
-                                                        $hub_url   = site_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
-                                                        ?>
+                                                            $hub_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+                                                            $hub_url   = home_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
+                                                            ?>
                                                             <a href="<?php echo esc_url($hub_url); ?>" class="button dfn-action-tickets"><?php esc_html_e('Vedi prenotazione', 'dfn-theme'); ?></a>
                                                             
                                                             <?php
-                                                        $cancel_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_cancel', wp_salt('nonce'));
-                                                        $cancel_url   = site_url('/?dfn_cancel_booking=1&order_id=' . $order->get_id() . '&token=' . $cancel_token);
-                                                        ?>
+                                                            $cancel_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_cancel', wp_salt('nonce'));
+                                                            $cancel_url   = home_url('/?dfn_cancel_booking=1&order_id=' . $order->get_id() . '&token=' . $cancel_token);
+                                                            ?>
                                                             <a href="<?php echo esc_url($cancel_url); ?>" class="dfn-btn-cancel-booking" onclick="return confirm('<?php echo esc_js(__('Sei sicuro di voler annullare questa prenotazione?', 'dfn-theme')); ?>');"><?php esc_html_e('Annulla la prenotazione', 'dfn-theme'); ?></a>
                                                         </div>
                                                     <?php elseif ($is_cancelled) : ?>
@@ -527,7 +527,7 @@ function dfn_custom_myaccount_bookings_content(): void
             <?php else : ?>
                 <div class="dfn-bookings-empty">
                     <p><?php esc_html_e('Non hai prenotazioni imminenti per i prossimi eventi.', 'dfn-theme'); ?></p>
-                    <a href="<?php echo esc_url(site_url()); ?>" class="button dfn-booking-browse-btn"><?php esc_html_e('Esplora il calendario eventi', 'dfn-theme'); ?></a>
+                    <a href="<?php echo esc_url(home_url()); ?>" class="button dfn-booking-browse-btn"><?php esc_html_e('Esplora il calendario eventi', 'dfn-theme'); ?></a>
                 </div>
             <?php endif; ?>
         </div>

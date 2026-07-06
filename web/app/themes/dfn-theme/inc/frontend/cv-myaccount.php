@@ -43,7 +43,7 @@ function cv_aggiungi_bottone_hub_ordini($actions, $order)
 {
     if ($order->has_status([ 'processing', 'completed' ])) {
         $hub_token = hash_hmac('sha256', $order->get_order_key() . '_hub', wp_salt('nonce'));
-        $hub_url = site_url('/?cv_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
+        $hub_url = home_url('/?cv_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
         $azione_biglietti = [ 'cv_biglietti' => [ 'url'  => $hub_url, 'name' => '🎟️ Mostra Biglietti' ] ];
         $actions = array_merge($azione_biglietti, $actions);
     }

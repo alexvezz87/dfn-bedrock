@@ -87,7 +87,7 @@ function cv_render_feedback_page()
             echo '<h2 style="margin:0 0 10px 0;">Hai valutato l\'evento con ' . $voto_esistente . ' stelle.</h2>';
             echo '<p style="margin:0;">Il tuo feedback è prezioso e ci aiuta a migliorare sempre di più le nostre iniziative.</p>';
             echo '</div>';
-            echo '<a href="' . site_url() . '" style="display:inline-block; margin-top:30px; color:#2271b1; text-decoration:none; font-weight:bold;">Torna al sito</a>';
+            echo '<a href="' . home_url() . '" style="display:inline-block; margin-top:30px; color:#2271b1; text-decoration:none; font-weight:bold;">Torna al sito</a>';
         } else {
             echo '<h1>Com\'è andata?</h1>';
             echo '<p>Hai partecipato a <strong>' . esc_html($titolo_evento) . '</strong>.<br>Ci piacerebbe tantissimo sapere cosa ne pensi!</p>';

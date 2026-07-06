@@ -127,7 +127,7 @@ function cv_aggiungi_link_hub_email($order, $sent_to_admin, $plain_text, $email)
     }
 
     $hub_token = hash_hmac('sha256', $order->get_order_key() . '_hub', wp_salt('nonce'));
-    $hub_url = site_url('/?cv_hub=1&order_id=' . $order_id . '&token=' . $hub_token);
+    $hub_url = home_url('/?cv_hub=1&order_id=' . $order_id . '&token=' . $hub_token);
 
     echo '<div style="text-align:center; margin: 30px 0; padding: 20px; border: 2px dashed #e5e5e5; border-radius: 10px; background-color: #f9f9f9;"><h2 style="margin-top:0; color: #ff6600;">Le tue Prenotazioni (' . $tot_biglietti . ')</h2><p style="font-size: 16px;">Clicca sul pulsante qui sotto per accedere al tuo Pannello. Potrai <strong>stampare la ricevuta</strong> o <strong>inviarla</strong> ai tuoi amici su WhatsApp.</p><a href="' . esc_url($hub_url) . '" style="background-color: #2271b1; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 10px; font-size:16px;">🎟️ Gestisci e Stampa Ingressi</a></div>';
 }
@@ -148,7 +148,7 @@ function cv_aggiungi_link_hub_thankyou($order_id)
         $tot_biglietti += $item->get_quantity();
     }
     $hub_token = hash_hmac('sha256', $order->get_order_key() . '_hub', wp_salt('nonce'));
-    $hub_url = site_url('/?cv_hub=1&order_id=' . $order_id . '&token=' . $hub_token);
+    $hub_url = home_url('/?cv_hub=1&order_id=' . $order_id . '&token=' . $hub_token);
 
     echo '<div style="text-align:center; margin: 40px auto; padding: 30px; border: 2px dashed #e5e5e5; border-radius: 10px; background-color: #f9f9f9; max-width: 500px;"><h2 style="margin-top:0; color: #ff6600;">Le tue Prenotazioni (' . $tot_biglietti . ')</h2><p style="font-size: 16px;">Accedi al tuo hub personale per <strong>visualizzare i QR Code</strong> o smistarli su WhatsApp.</p><a href="' . esc_url($hub_url) . '" style="background-color: #2271b1; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 10px; font-size:18px;">🎟️ Gestisci e Stampa Ingressi</a></div>';
 }

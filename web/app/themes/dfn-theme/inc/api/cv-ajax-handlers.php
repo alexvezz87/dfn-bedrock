@@ -646,7 +646,7 @@ function cv_send_event_reminders_ajax()
         $nome_cliente  = $order->get_billing_first_name();
 
         $hub_token = hash_hmac('sha256', $order->get_order_key() . '_hub', wp_salt('nonce'));
-        $hub_url = site_url('/?cv_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
+        $hub_url = home_url('/?cv_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
 
         ob_start();
         wc_get_template('emails/email-header.php', [ 'email_heading' => 'I tuoi biglietti digitali' ]);
@@ -797,7 +797,7 @@ function cv_send_feedback_requests_ajax()
         $titolo_evento = implode(' + ', $nomi_eventi);
 
         $feedback_token = hash_hmac('sha256', $order->get_order_key() . '_feedback', wp_salt('nonce'));
-        $feedback_url = site_url('/?cv_feedback=1&order_id=' . $order->get_id() . '&token=' . $feedback_token);
+        $feedback_url = home_url('/?cv_feedback=1&order_id=' . $order->get_id() . '&token=' . $feedback_token);
 
         ob_start();
         wc_get_template('emails/email-header.php', [ 'email_heading' => 'Grazie per aver partecipato!' ]);

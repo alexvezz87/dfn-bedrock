@@ -64,7 +64,7 @@ function dfn_render_group_ticket_hub(): void
         echo '<div class="card">';
         echo '<h1 style="color: #dc2626; margin-top: 0;">🚫 ' . esc_html__('Prenotazione Non Valida', 'dfn-theme') . '</h1>';
         echo '<p style="font-size: 16px; color: #64748b; line-height: 1.6;">' . esc_html__('La prenotazione cercata non è disponibile. L\'ordine potrebbe essere stato annullato, scaduto o rimborsato.', 'dfn-theme') . '</p>';
-        echo '<a href="' . esc_url(site_url()) . '" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #004b23; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold;">' . esc_html__('Torna alla Home', 'dfn-theme') . '</a>';
+        echo '<a href="' . esc_url(home_url()) . '" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #004b23; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold;">' . esc_html__('Torna alla Home', 'dfn-theme') . '</a>';
         echo '</div></body></html>';
         exit;
     }
@@ -87,8 +87,8 @@ function dfn_render_group_ticket_hub(): void
     // Enqueue degli stili dedicati
     wp_enqueue_style('dfn-visitor-dashboard-css', get_stylesheet_directory_uri() . '/assets/css/dfn-visitor-dashboard.css', [], '2.0.0');
 
-    $wa_text = urlencode(sprintf(__('Ecco le prenotazioni di gruppo per %s. Mostra questi QR Code all\'ingresso: %s', 'dfn-theme'), $event_title, site_url('/?dfn_hub=1&order_id=' . $order_id . '&token=' . $token)));
-    $download_url = site_url('/?dfn_download_qr=1&order_id=' . $order_id . '&token=' . $token);
+    $wa_text = urlencode(sprintf(__('Ecco le prenotazioni di gruppo per %s. Mostra questi QR Code all\'ingresso: %s', 'dfn-theme'), $event_title, home_url('/?dfn_hub=1&order_id=' . $order_id . '&token=' . $token)));
+    $download_url = home_url('/?dfn_download_qr=1&order_id=' . $order_id . '&token=' . $token);
     ?>
     <!DOCTYPE html>
     <html <?php language_attributes(); ?>>
@@ -159,7 +159,7 @@ function dfn_render_group_ticket_hub(): void
                         <?php foreach ($slots as $s) :
                             $qr_token_slot = $booking->qr_token . '-' . $s->slot_id;
                             $qr_api_url = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($qr_token_slot) . '&margin=10';
-                            $download_url_slot = site_url('/?dfn_download_qr=1&order_id=' . $order_id . '&token=' . $token . '&slot_id=' . $s->slot_id);
+                            $download_url_slot = home_url('/?dfn_download_qr=1&order_id=' . $order_id . '&token=' . $token . '&slot_id=' . $s->slot_id);
                             $is_slot_checked_in = ! empty($s->checked_in_at);
                             ?>
                             <div class="dfn-ticket-slot-card">
@@ -368,8 +368,8 @@ function dfn_handle_visitor_cancellation(): void
             }
         }
 
-        $confirm_url = site_url('/?dfn_cancel_booking=1&order_id=' . $order_id . '&token=' . $token . '&confirm_cancel=1');
-        $keep_url    = site_url();
+        $confirm_url = home_url('/?dfn_cancel_booking=1&order_id=' . $order_id . '&token=' . $token . '&confirm_cancel=1');
+        $keep_url    = home_url();
         ?>
         <!DOCTYPE html>
         <html>
@@ -763,7 +763,7 @@ function dfn_handle_visitor_modification(): void
     }
 
     $cancel_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_cancel', wp_salt('nonce'));
-    $cancel_url   = site_url('/?dfn_cancel_booking=1&order_id=' . $order_id . '&token=' . $cancel_token);
+    $cancel_url   = home_url('/?dfn_cancel_booking=1&order_id=' . $order_id . '&token=' . $cancel_token);
     ?>
     <!DOCTYPE html>
     <html>
@@ -984,7 +984,7 @@ function dfn_handle_visitor_modification(): void
 
             <div class="btn-group">
                 <button type="submit" id="submit-btn" class="btn btn-submit">Conferma Modifica</button>
-                <a href="<?php echo esc_url(site_url()); ?>" class="btn btn-cancel">Indietro</a>
+                <a href="<?php echo esc_url(home_url()); ?>" class="btn btn-cancel">Indietro</a>
             </div>
         </form>
     </div>

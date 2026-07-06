@@ -34,7 +34,7 @@ function cv_render_hub_biglietti()
             echo '<div style="background:#fff; padding:40px; border-radius:10px; text-align:center; max-width:500px; box-shadow:0 4px 15px rgba(0,0,0,0.1);">';
             echo '<h1 style="color:#d63638; margin-top:0;">🚫 Ordine Non Valido</h1>';
             echo '<p style="font-size:18px; color:#555; line-height:1.5;">I biglietti associati a questo ordine non sono più disponibili poiché la prenotazione risulta <strong>annullata, scaduta o rimborsata</strong>.</p>';
-            echo '<a href="' . site_url() . '" style="display:inline-block; margin-top:25px; padding:12px 25px; background:#2271b1; color:#fff; text-decoration:none; border-radius:5px; font-weight:bold;">Torna al sito</a>';
+            echo '<a href="' . home_url() . '" style="display:inline-block; margin-top:25px; padding:12px 25px; background:#2271b1; color:#fff; text-decoration:none; border-radius:5px; font-weight:bold;">Torna al sito</a>';
             echo '</div></body></html>';
             exit;
         }
@@ -66,9 +66,9 @@ function cv_render_hub_biglietti()
 
         for ($i = 1; $i <= $tot_biglietti; $i++) {
             $ticket_token = hash_hmac('sha256', $order->get_order_key() . '_ticket_' . $i, wp_salt('nonce'));
-            $single_ticket_url = site_url('/?cv_ticket=1&order_id=' . $order_id . '&t=' . $i . '&token=' . $ticket_token);
-            $download_url = site_url('/?cv_download_qr=1&order_id=' . $order_id . '&t=' . $i . '&token=' . $ticket_token);
-            $checkin_url = site_url('/?cv_checkin=1&order_id=' . $order_id . '&ticket=' . $i . '&token=' . $ticket_token);
+            $single_ticket_url = home_url('/?cv_ticket=1&order_id=' . $order_id . '&t=' . $i . '&token=' . $ticket_token);
+            $download_url = home_url('/?cv_download_qr=1&order_id=' . $order_id . '&t=' . $i . '&token=' . $ticket_token);
+            $checkin_url = home_url('/?cv_checkin=1&order_id=' . $order_id . '&ticket=' . $i . '&token=' . $ticket_token);
             $qr_api_url = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($checkin_url) . '&margin=10';
             $is_validato = $order->get_meta('_cv_ticket_validato_' . $i) === 'yes';
 
@@ -90,7 +90,7 @@ function cv_render_hub_biglietti()
             echo '</div>';
         }
 
-        echo '<div class="no-print" style="text-align:center; margin-top:30px;"><a href="' . site_url() . '" style="color:#666; text-decoration:none;">Torna al sito principale</a></div>';
+        echo '<div class="no-print" style="text-align:center; margin-top:30px;"><a href="' . home_url() . '" style="color:#666; text-decoration:none;">Torna al sito principale</a></div>';
         echo '<script>document.addEventListener("DOMContentLoaded", function() { var ajaxurl = "' . admin_url('admin-ajax.php') . '"; function sendTrack(actionDesc) { var formData = new FormData(); formData.append("action", "cv_track_ticket_action"); formData.append("order_id", "' . $order_id . '"); formData.append("token", "' . esc_js($token) . '"); formData.append("action_type", actionDesc); fetch(ajaxurl, { method: "POST", body: formData, keepalive: true }).catch(function(){}); } if (!sessionStorage.getItem("cv_hub_viewed_" + ' . $order_id . ')) { sendTrack("Accesso visualizzazione Hub Biglietti"); sessionStorage.setItem("cv_hub_viewed_" + ' . $order_id . ', "yes"); } var trackBtns = document.querySelectorAll(".cv-track-btn"); trackBtns.forEach(function(btn) { btn.addEventListener("click", function() { sendTrack(this.getAttribute("data-action")); }); }); });</script></body></html>';
         exit;
     }
@@ -128,9 +128,9 @@ function cv_render_singolo_biglietto()
         $titolo_evento = implode(' + ', $nomi_eventi);
         $nome_cliente = $order->get_billing_first_name() . ' ' . $order->get_billing_last_name();
 
-        $checkin_url = site_url('/?cv_checkin=1&order_id=' . $order_id . '&ticket=' . $ticket_index . '&token=' . $token);
+        $checkin_url = home_url('/?cv_checkin=1&order_id=' . $order_id . '&ticket=' . $ticket_index . '&token=' . $token);
         $qr_api_url = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($checkin_url) . '&margin=10';
-        $download_url = site_url('/?cv_download_qr=1&order_id=' . $order_id . '&t=' . $ticket_index . '&token=' . $token);
+        $download_url = home_url('/?cv_download_qr=1&order_id=' . $order_id . '&t=' . $ticket_index . '&token=' . $token);
         $is_validato = $order->get_meta('_cv_ticket_validato_' . $ticket_index) === 'yes';
 
         echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Biglietto ' . $ticket_index . '</title><style>body{font-family:sans-serif; background:#111; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:20px; box-sizing:border-box;} .ticket-container{background:#fff; color:#000; border-radius:15px; padding:30px; text-align:center; max-width:400px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,0.5);} .qr-image{width:100%; max-width:250px; height:auto; margin:20px auto 10px auto; display:block; border: 1px solid #eee; padding:10px; border-radius:10px;} .badge{background:#eaf7ea; color:#166534; padding:5px 15px; border-radius:20px; font-weight:bold; display:inline-block; margin-bottom:15px;} </style></head><body><div class="ticket-container">';
@@ -168,7 +168,7 @@ function cv_gestisci_download_qr()
             wp_die('Token di sicurezza non valido.', 'Errore Sicurezza');
         }
 
-        $checkin_url = site_url('/?cv_checkin=1&order_id=' . $order_id . '&ticket=' . $ticket_index . '&token=' . $token);
+        $checkin_url = home_url('/?cv_checkin=1&order_id=' . $order_id . '&ticket=' . $ticket_index . '&token=' . $token);
         $qr_api_url = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($checkin_url) . '&margin=20';
 
         $response = wp_remote_get($qr_api_url, [ 'timeout' => 10 ]);
