@@ -495,7 +495,7 @@ function dfn_render_settings_page(): void
                                 <th scope="row"><label for="email_confirm_intro">Testo Introduzione</label></th>
                                 <td>
                                     <textarea name="dfn_settings[email_confirm_intro]" id="email_confirm_intro" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_confirm_intro')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code></p>
+                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code>, <code>{url_modifica}</code>, <code>{url_annullamento}</code></p>
                                 </td>
                             </tr>
                             <tr>
@@ -636,7 +636,7 @@ function dfn_render_settings_page(): void
                                 <th scope="row"><label for="email_reminder_intro">Testo Introduzione</label></th>
                                 <td>
                                     <textarea name="dfn_settings[email_reminder_intro]" id="email_reminder_intro" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_reminder_intro')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code></p>
+                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code>, <code>{url_modifica}</code>, <code>{url_annullamento}</code></p>
                                 </td>
                             </tr>
                             <tr>
@@ -897,12 +897,14 @@ function dfn_ajax_send_test_email(): void
 
     switch ($email_type) {
         case 'confirm':
+            $modify_url = home_url('/');
             $replacements = [
                 'nome_cliente' => esc_html($customer_name),
                 'nome_evento'  => esc_html($product_name),
                 'dettagli_prenotazione' => $details_table,
                 'url_biglietto' => esc_url($hub_url),
                 'url_annullamento' => esc_url($cancel_url),
+                'url_modifica' => esc_url($modify_url),
             ];
             $intro_html = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_intro'), $replacements);
             $notes_html = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_notes'), $replacements);
@@ -913,7 +915,8 @@ function dfn_ajax_send_test_email(): void
             $content .= '<p>Per accedere all\'evento, mostra all\'ingresso il codice QR del tuo gruppo cliccando sul pulsante sottostante (è sufficiente mostrare un solo codice QR per tutto il gruppo).</p>';
             $content .= '<div style="text-align:center; margin:20px 0;"><a href="' . esc_url($hub_url) . '" style="background-color:' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; color:#ffffff; padding:10px 20px; text-decoration:none; border-radius:4px; font-weight:bold; display:inline-block;">Mostra Codice QR / Ingressi</a></div>';
             $content .= '<p style="font-size:14px; color:#4a5568;"><em>Nota: Avendo scelto il contributo all\'ingresso, ti chiediamo di arrivare circa 10 minuti prima dell\'orario indicato per agevolare la ricezione del contributo presso il botteghino.</em></p>';
-            $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Non puoi più partecipare? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
+            $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Devi modificare il numero di partecipanti? <a href="' . esc_url($modify_url) . '" style="color: #004b23; text-decoration: underline; font-weight: bold;">Modifica la prenotazione qui</a></p>';
+            $content .= '<p style="text-align: center; margin-top: 10px; font-size: 13px; color: #718096;">Non puoi più partecipare affatto? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
 
             $subject = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_subject'), $replacements);
             $title   = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_title'), $replacements);
@@ -1020,6 +1023,7 @@ function dfn_ajax_send_test_email(): void
             break;
 
         case 'reminder':
+            $modify_url = home_url('/');
             $details_table_rem = '<div class="info-box" style="border-left:4px solid ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; background-color:#f7fafc; padding:15px; margin:15px 0;">';
             $details_table_rem .= '<div class="info-box-title" style="color:' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; font-weight:bold; margin-bottom:5px;">Dettagli per Domani</div>';
             $details_table_rem .= '<table style="width:100%; border-collapse:collapse;">';
@@ -1035,6 +1039,7 @@ function dfn_ajax_send_test_email(): void
                 'dettagli_prenotazione' => $details_table_rem,
                 'url_biglietto' => esc_url($hub_url),
                 'url_annullamento' => esc_url($cancel_url),
+                'url_modifica' => esc_url($modify_url),
             ];
             $intro_html = dfn_replace_email_placeholders(dfn_get_setting('email_reminder_intro'), $replacements);
             $notes_html = dfn_replace_email_placeholders(dfn_get_setting('email_reminder_notes'), $replacements);
@@ -1044,7 +1049,8 @@ function dfn_ajax_send_test_email(): void
             $content .= $notes_html;
             $content .= '<p style="font-size:14px; color:#4a5568;"><em>Nota: Avendo optato per il contributo all\'ingresso, ti chiediamo di presentarti con qualche minuto di anticipo al fine di evitare code e velocizzare il check-in.</em></p>';
             $content .= '<div style="text-align:center; margin:20px 0;"><a href="' . esc_url($hub_url) . '" style="background-color:' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; color:#ffffff; padding:10px 20px; text-decoration:none; border-radius:4px; font-weight:bold; display:inline-block;">Apri Prenotazione con Codice QR</a></div>';
-            $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Non puoi più partecipare? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
+            $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Devi modificare il numero di partecipanti? <a href="' . esc_url($modify_url) . '" style="color: #004b23; text-decoration: underline; font-weight: bold;">Modifica la prenotazione qui</a></p>';
+            $content .= '<p style="text-align: center; margin-top: 10px; font-size: 13px; color: #718096;">Non puoi più partecipare affatto? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
 
             $subject = dfn_replace_email_placeholders(dfn_get_setting('email_reminder_subject'), $replacements);
             $title   = dfn_replace_email_placeholders(dfn_get_setting('email_reminder_title'), $replacements);

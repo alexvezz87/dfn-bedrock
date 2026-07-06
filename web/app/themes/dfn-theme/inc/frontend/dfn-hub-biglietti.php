@@ -17,6 +17,7 @@ if (! defined('ABSPATH')) {
 add_action('template_redirect', 'dfn_render_group_ticket_hub');
 add_action('template_redirect', 'dfn_handle_qr_download');
 add_action('template_redirect', 'dfn_handle_visitor_cancellation');
+add_action('template_redirect', 'dfn_handle_visitor_modification');
 
 /**
  * Gestisce il rendering della pagina dell'Hub Biglietti di Gruppo.
@@ -519,13 +520,476 @@ function dfn_handle_visitor_cancellation(): void
     // Invia email di annullamento centralizzata al visitatore
     dfn_send_booking_cancellation($booking->id);
 
-    // Render della pagina di conferma annullamento
-    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>' . esc_html__('Prenotazione Annullata', 'dfn-theme') . '</title>';
-    echo '<style>body { font-family: sans-serif; background: #f3f7f4; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 80vh; } .card { background: #fff; padding: 40px; border-radius: 16px; text-align: center; max-width: 500px; box-shadow: 0 10px 30px rgba(0,75,35,0.05); }</style></head><body>';
-    echo '<div class="card">';
-    echo '<h1 style="color: #166534; margin-top: 0;">✅ ' . esc_html__('Annullamento Completato', 'dfn-theme') . '</h1>';
-    echo '<p style="font-size: 16px; color: #64748b; line-height: 1.6;">' . esc_html__('La tua prenotazione è stata annullata con successo. Ti abbiamo inviato un\'email di conferma dell\'annullamento.', 'dfn-theme') . '</p>';
-    echo '<a href="' . esc_url(site_url()) . '" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #004b23; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold;">' . esc_html__('Torna alla Home', 'dfn-theme') . '</a>';
     echo '</div></body></html>';
+    exit;
+}
+
+/**
+ * Gestisce la modifica autonoma (riduzione partecipanti) della prenotazione da parte del visitatore.
+ */
+function dfn_handle_visitor_modification(): void
+{
+    if (! isset($_GET['dfn_modify_booking']) || ! isset($_GET['order_id']) || ! isset($_GET['token'])) {
+        return;
+    }
+
+    $order_id = intval($_GET['order_id']);
+    $token    = sanitize_text_field($_GET['token']);
+
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        wp_die(esc_html__('Ordine non trovato.', 'dfn-theme'), esc_html__('Errore', 'dfn-theme'), 404);
+    }
+
+    // Verifica token di sicurezza per evitare modifiche non autorizzate
+    $expected_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_modify', wp_salt('nonce'));
+    if (! hash_equals($expected_token, $token)) {
+        wp_die(esc_html__('Link di modifica non valido o scaduto.', 'dfn-theme'), esc_html__('Errore di sicurezza', 'dfn-theme'), 403);
+    }
+
+    // Se l'ordine è già annullato, rimborsato o fallito, non consentiamo modifiche
+    if ($order->has_status([ 'cancelled', 'refunded', 'failed' ])) {
+        wp_die(esc_html__('Questa prenotazione è stata annullata o non è più valida, pertanto non può essere modificata.', 'dfn-theme'), esc_html__('Modifica Non Consentita', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table_bookings} WHERE order_id = %d LIMIT 1",
+        $order_id,
+    ));
+
+    if (! $booking) {
+        wp_die(esc_html__('Nessuna prenotazione custom associata a questo ordine nel database.', 'dfn-theme'));
+    }
+
+    $event_title = get_the_title($booking->event_id) ?: esc_html__('Evento FAI', 'dfn-theme');
+
+    // Se POST, elabora il salvataggio
+    if (isset($_POST['confirm_modify'])) {
+        $new_qty_standard = isset($_POST['new_qty_standard']) ? intval($_POST['new_qty_standard']) : 0;
+        $new_qty_fai      = isset($_POST['new_qty_fai']) ? intval($_POST['new_qty_fai']) : 0;
+
+        // Validazione dei quantitativi
+        if ($new_qty_standard < 0 || $new_qty_fai < 0) {
+            wp_die(esc_html__('Quantità non valide.', 'dfn-theme'));
+        }
+
+        if ($new_qty_standard > intval($booking->persons_standard) || $new_qty_fai > intval($booking->persons_fai)) {
+            wp_die(esc_html__('Errore: non è consentito aumentare il numero di partecipanti. Puoi solo ridurre o mantenere le quantità.', 'dfn-theme'));
+        }
+
+        $new_total_qty = $new_qty_standard + $new_qty_fai;
+        if ($new_total_qty < 1) {
+            wp_die(esc_html__('Errore: la prenotazione deve contenere almeno 1 partecipante. Se desideri annullarla completamente, usa il link di annullamento.', 'dfn-theme'));
+        }
+
+        $diff_std   = intval($booking->persons_standard) - $new_qty_standard;
+        $diff_fai   = intval($booking->persons_fai) - $new_qty_fai;
+        $total_diff = $diff_std + $diff_fai;
+
+        if ($total_diff > 0) {
+            if (! function_exists('dfn_db_get_event')) {
+                require_once get_template_directory() . '/inc/core/dfn-database.php';
+            }
+
+            // Avvia transazione per DB
+            $wpdb->query('START TRANSACTION');
+
+            $event = dfn_db_get_event($booking->event_id);
+            $new_amount = 0.00;
+            if ($event) {
+                $price_std  = floatval($event->price_standard);
+                $price_fai  = floatval($event->price_fai);
+                $new_amount = ($new_qty_standard * $price_std) + ($new_qty_fai * $price_fai);
+            }
+
+            // 1. Aggiorna dfn_bookings
+            $update_fields = [
+                'persons_standard' => $new_qty_standard,
+                'persons_fai'      => $new_qty_fai,
+                'total_persons'    => $new_total_qty,
+            ];
+            if ($booking->payment_method === 'dfn_in_loco') {
+                $update_fields['amount_due'] = $new_amount;
+            } else {
+                $update_fields['amount_paid'] = $new_amount;
+            }
+
+            $wpdb->update(
+                $table_bookings,
+                $update_fields,
+                [ 'id' => $booking->id ],
+                [ '%d', '%d', '%d', '%f' ],
+                [ '%d' ]
+            );
+
+            // 2. Decrementa la capienza dagli slot (dfn_booking_slots e dfn_event_slots)
+            $booking_slots = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}dfn_booking_slots WHERE booking_id = %d ORDER BY id DESC",
+                $booking->id
+            ));
+
+            $remaining_diff = $total_diff;
+            foreach ($booking_slots as $bs_row) {
+                if ($remaining_diff <= 0) {
+                    break;
+                }
+                $current_persons = intval($bs_row->persons);
+                if ($current_persons <= 0) {
+                    continue;
+                }
+                $reduce_by = min($current_persons, $remaining_diff);
+                $new_persons = $current_persons - $reduce_by;
+
+                if ($new_persons > 0) {
+                    $wpdb->update(
+                        $wpdb->prefix . 'dfn_booking_slots',
+                        [ 'persons' => $new_persons ],
+                        [ 'id' => $bs_row->id ],
+                        [ '%d' ],
+                        [ '%d' ]
+                    );
+                } else {
+                    $wpdb->delete(
+                        $wpdb->prefix . 'dfn_booking_slots',
+                        [ 'id' => $bs_row->id ],
+                        [ '%d' ]
+                    );
+                }
+
+                $wpdb->query($wpdb->prepare(
+                    "UPDATE {$wpdb->prefix}dfn_event_slots SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
+                    $reduce_by,
+                    intval($bs_row->slot_id)
+                ));
+
+                $remaining_diff -= $reduce_by;
+            }
+
+            $wpdb->query('COMMIT');
+
+            // 3. Aggiorna riga prodotto e metadati WooCommerce
+            $has_changed = false;
+            foreach ($order->get_items() as $item) {
+                if (is_a($item, 'WC_Order_Item_Product')) {
+                    $item->update_meta_data('_dfn_qty_standard', (string) $new_qty_standard);
+                    $item->update_meta_data('_dfn_qty_fai', (string) $new_qty_fai);
+                    $item->set_quantity($new_total_qty);
+                    $item->save();
+                    $has_changed = true;
+                }
+            }
+
+            if ($has_changed) {
+                if ($event) {
+                    $price_standard = floatval($event->price_standard);
+                    $price_fai      = floatval($event->price_fai);
+                    $unit_discount  = $price_standard - $price_fai;
+                    $new_total_discount = $unit_discount * $new_qty_fai;
+
+                    foreach ($order->get_items('fee') as $fee_item) {
+                        if (strpos($fee_item->get_name(), 'Sconto Soci FAI') !== false || strpos($fee_item->get_name(), 'Adeguamento Soci FAI') !== false) {
+                            $fee_item->set_amount(-$new_total_discount);
+                            $fee_item->set_total(-$new_total_discount);
+                            $fee_item->save();
+                        }
+                    }
+                }
+
+                // Riduce anche le tessere FAI salvate nei metadati se in eccesso
+                $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
+                if (count($fai_cards) > $new_qty_fai) {
+                    $fai_cards = array_slice($fai_cards, 0, $new_qty_fai);
+                    $order->update_meta_data('_dfn_fai_cards', $fai_cards);
+                }
+
+                $order->calculate_totals();
+                $note_text = sprintf(
+                    __('Prenotazione modificata dal visitatore via email. Nuovi quantitativi: %d Standard, %d Soci FAI (Totale: %d). Precedente totale: %d.', 'dfn-theme'),
+                    $new_qty_standard,
+                    $new_qty_fai,
+                    $new_total_qty,
+                    $booking->total_persons
+                );
+                $order->add_order_note($note_text);
+                $order->save();
+            }
+
+            // Invia nuova email di conferma aggiornata
+            if (function_exists('dfn_send_booking_confirmation')) {
+                dfn_send_booking_confirmation($booking->id);
+            }
+        }
+
+        // Render della pagina di successo
+        $hub_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+        $hub_url = add_query_arg([
+            'dfn_hub'  => 1,
+            'order_id' => $order_id,
+            'token'    => $hub_token,
+        ], home_url('/'));
+
+        echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>' . esc_html__('Prenotazione Aggiornata', 'dfn-theme') . '</title>';
+        echo '<style>body { font-family: sans-serif; background: #f3f7f4; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 80vh; } .card { background: #fff; padding: 40px; border-radius: 16px; text-align: center; max-width: 500px; box-shadow: 0 10px 30px rgba(0,75,35,0.05); }</style></head><body>';
+        echo '<div class="card">';
+        echo '<h1 style="color: #004b23; margin-top: 0;">✅ ' . esc_html__('Modifica Completata', 'dfn-theme') . '</h1>';
+        echo '<p style="font-size: 16px; color: #64748b; line-height: 1.6;">' . esc_html__('La tua prenotazione è stata aggiornata correttamente. Ti abbiamo inviato una nuova e-mail di conferma con i dettagli aggiornati e il codice QR.', 'dfn-theme') . '</p>';
+        echo '<a href="' . esc_url($hub_url) . '" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #004b23; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold;">' . esc_html__('Apri Hub Biglietti (QR)', 'dfn-theme') . '</a>';
+        echo '</div></body></html>';
+        exit;
+    }
+
+    // Se GET, mostra la form interattiva
+    $booking_date = '';
+    $booking_details = $wpdb->get_results($wpdb->prepare(
+        "SELECT s.slot_date FROM {$wpdb->prefix}dfn_booking_slots bs
+         JOIN {$wpdb->prefix}dfn_event_slots s ON bs.slot_id = s.id
+         WHERE bs.booking_id = %d",
+         $booking->id
+    ));
+
+    if (! empty($booking_details)) {
+        $dates = [];
+        foreach ($booking_details as $b_det) {
+            $dates[] = date_i18n('d/m/Y', strtotime($b_det->slot_date));
+        }
+        $booking_date = implode(', ', array_unique($dates));
+    } else {
+        $meta_date = $order->get_meta('_dfn_booking_date');
+        if (! empty($meta_date)) {
+            $booking_date = date_i18n('d/m/Y', strtotime($meta_date));
+        }
+    }
+
+    $cancel_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_cancel', wp_salt('nonce'));
+    $cancel_url   = site_url('/?dfn_cancel_booking=1&order_id=' . $order_id . '&token=' . $cancel_token);
+    ?>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title><?php esc_html_e('Modifica la tua Prenotazione', 'dfn-theme'); ?></title>
+        <style>
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                background: #f4f7f6; 
+                padding: 20px; 
+                display: flex; 
+                justify-content: center; 
+                align-items: center; 
+                min-height: 80vh; 
+                margin: 0;
+            } 
+            .card { 
+                background: #fff; 
+                padding: 40px 30px; 
+                border-radius: 16px; 
+                max-width: 500px; 
+                width: 100%;
+                box-shadow: 0 10px 30px rgba(0, 75, 35, 0.05); 
+                box-sizing: border-box;
+                border-top: 4px solid #004b23;
+            }
+            h1 {
+                color: #1d2327;
+                margin-top: 0;
+                font-size: 22px;
+                font-weight: 700;
+                margin-bottom: 10px;
+                text-align: center;
+            }
+            .subtitle {
+                color: #64748b;
+                font-size: 14px;
+                margin-bottom: 25px;
+                text-align: center;
+                line-height: 1.5;
+            }
+            .form-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: #f8fafc;
+                padding: 15px;
+                border-radius: 8px;
+                border: 1px solid #e2e8f0;
+                margin-bottom: 15px;
+            }
+            .label-wrap {
+                display: flex;
+                flex-direction: column;
+            }
+            .ticket-title {
+                font-weight: bold;
+                color: #1e293b;
+            }
+            .ticket-desc {
+                font-size: 12px;
+                color: #64748b;
+            }
+            .spinner-wrap {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .spinner-btn {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                border: 1px solid #cbd5e1;
+                background: #fff;
+                font-size: 18px;
+                font-weight: bold;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                user-select: none;
+                color: #1e293b;
+            }
+            .spinner-btn:active {
+                background: #f1f5f9;
+            }
+            .qty-input {
+                width: 40px;
+                text-align: center;
+                font-size: 16px;
+                font-weight: bold;
+                border: none;
+                background: transparent;
+                color: #1e293b;
+            }
+            .qty-input::-webkit-outer-spin-button,
+            .qty-input::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                appearance: none;
+                margin: 0;
+            }
+            .qty-input[type=number] {
+                -moz-appearance: textfield;
+                appearance: textfield;
+            }
+            .error-message {
+                color: #ef4444;
+                font-size: 14px;
+                margin-bottom: 15px;
+                text-align: center;
+                display: none;
+                background: #fef2f2;
+                padding: 10px;
+                border-radius: 6px;
+                border: 1px solid #fee2e2;
+            }
+            .btn-group {
+                display: flex;
+                gap: 15px;
+                justify-content: center;
+                margin-top: 25px;
+            }
+            .btn {
+                padding: 12px 24px;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 15px;
+                text-align: center;
+                flex: 1;
+                cursor: pointer;
+                border: none;
+                transition: opacity 0.2s;
+            }
+            .btn:hover {
+                opacity: 0.9;
+            }
+            .btn-submit {
+                background: #004b23;
+                color: #fff;
+                box-shadow: 0 4px 6px rgba(0, 75, 35, 0.2);
+            }
+            .btn-cancel {
+                background: #e2e8f0;
+                color: #475569;
+            }
+        </style>
+        <script>
+            function checkTotal() {
+                var std = parseInt(document.getElementById('new_qty_std').value) || 0;
+                var fai = parseInt(document.getElementById('new_qty_fai').value) || 0;
+                var err = document.getElementById('err-msg');
+                var btn = document.getElementById('submit-btn');
+
+                if (std + fai < 1) {
+                    err.innerText = "La prenotazione deve contenere almeno 1 partecipante. Se desideri annullarla completamente, usa il link di annullamento.";
+                    err.style.display = 'block';
+                    btn.disabled = true;
+                    btn.style.opacity = 0.5;
+                } else {
+                    err.style.display = 'none';
+                    btn.disabled = false;
+                    btn.style.opacity = 1;
+                }
+            }
+
+            function changeQty(id, delta, maxVal) {
+                var input = document.getElementById(id);
+                var current = parseInt(input.value) || 0;
+                var newVal = current + delta;
+                if (newVal >= 0 && newVal <= maxVal) {
+                    input.value = newVal;
+                    checkTotal();
+                }
+            }
+        </script>
+    </head>
+    <body>
+    <div class="card">
+        <h1>Modifica Prenotazione</h1>
+        <div class="subtitle">
+            Modifica il numero dei partecipanti per <strong><?php echo esc_html($event_title); ?></strong> del <?php echo esc_html($booking_date); ?>.<br>
+            <span style="color:#d32f2f; font-size:12px; font-weight:bold;">Nota: puoi solo ridurre o mantenere i quantitativi. Per annullare completamente la prenotazione, utilizza il <a href="<?php echo esc_url($cancel_url); ?>" style="color:#d32f2f; text-decoration:underline;">link di annullamento</a>.</span>
+        </div>
+
+        <form method="POST" action="">
+            <input type="hidden" name="confirm_modify" value="1">
+
+            <!-- Biglietti Standard -->
+            <div class="form-row">
+                <div class="label-wrap">
+                    <span class="ticket-title">Ingressi Standard</span>
+                    <span class="ticket-desc">Massimo attuale: <?php echo intval($booking->persons_standard); ?></span>
+                </div>
+                <div class="spinner-wrap">
+                    <button type="button" class="spinner-btn" onclick="changeQty('new_qty_std', -1, <?php echo intval($booking->persons_standard); ?>)">−</button>
+                    <input class="qty-input" type="number" id="new_qty_std" name="new_qty_standard" value="<?php echo intval($booking->persons_standard); ?>" readonly>
+                    <button type="button" class="spinner-btn" onclick="changeQty('new_qty_std', 1, <?php echo intval($booking->persons_standard); ?>)">+</button>
+                </div>
+            </div>
+
+            <!-- Biglietti FAI -->
+            <div class="form-row">
+                <div class="label-wrap">
+                    <span class="ticket-title">Soci FAI</span>
+                    <span class="ticket-desc">Massimo attuale: <?php echo intval($booking->persons_fai); ?></span>
+                </div>
+                <div class="spinner-wrap">
+                    <button type="button" class="spinner-btn" onclick="changeQty('new_qty_fai', -1, <?php echo intval($booking->persons_fai); ?>)">−</button>
+                    <input class="qty-input" type="number" id="new_qty_fai" name="new_qty_fai" value="<?php echo intval($booking->persons_fai); ?>" readonly>
+                    <button type="button" class="spinner-btn" onclick="changeQty('new_qty_fai', 1, <?php echo intval($booking->persons_fai); ?>)">+</button>
+                </div>
+            </div>
+
+            <div id="err-msg" class="error-message"></div>
+
+            <div class="btn-group">
+                <button type="submit" id="submit-btn" class="btn btn-submit">Conferma Modifica</button>
+                <a href="<?php echo esc_url(site_url()); ?>" class="btn btn-cancel">Indietro</a>
+            </div>
+        </form>
+    </div>
+    </body>
+    </html>
+    <?php
     exit;
 }

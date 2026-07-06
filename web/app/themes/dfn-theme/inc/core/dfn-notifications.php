@@ -271,6 +271,14 @@ function dfn_send_booking_confirmation(int $booking_id)
         'token'              => $cancel_token,
     ], home_url('/'));
 
+    // Link di modifica
+    $modify_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_modify', wp_salt('nonce'));
+    $modify_url = add_query_arg([
+        'dfn_modify_booking' => 1,
+        'order_id'           => $booking->order_id,
+        'token'              => $modify_token,
+    ], home_url('/'));
+
     $details_table = '<div class="info-box">';
     $details_table .= '<div class="info-box-title">Dettagli della Prenotazione</div>';
     $details_table .= '<table>';
@@ -291,6 +299,7 @@ function dfn_send_booking_confirmation(int $booking_id)
         'dettagli_prenotazione' => $details_table,
         'url_biglietto' => esc_url($hub_url),
         'url_annullamento' => esc_url($cancel_url),
+        'url_modifica' => esc_url($modify_url),
     ];
 
     $intro_html = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_intro'), $replacements);
@@ -307,7 +316,8 @@ function dfn_send_booking_confirmation(int $booking_id)
         $content .= '<p style="font-size: 14px; color: #4a5568;"><em>Nota: Avendo scelto il contributo all\'ingresso, ti chiediamo di arrivare circa 10 minuti prima dell\'orario indicato per agevolare la ricezione del contributo presso il botteghino.</em></p>';
     }
 
-    $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Non puoi più partecipare? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
+    $content .= '<p style="text-align: center; margin-top: 25px; font-size: 13px; color: #718096;">Devi modificare il numero di partecipanti? <a href="' . esc_url($modify_url) . '" style="color: #004b23; text-decoration: underline; font-weight: bold;">Modifica la prenotazione qui</a></p>';
+    $content .= '<p style="text-align: center; margin-top: 10px; font-size: 13px; color: #718096;">Non puoi più partecipare affatto? <a href="' . esc_url($cancel_url) . '" style="color: #dc2626; text-decoration: underline; font-weight: bold;">Annulla la tua prenotazione qui</a></p>';
 
     $subject = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_subject'), $replacements);
     $title   = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_title'), $replacements);
