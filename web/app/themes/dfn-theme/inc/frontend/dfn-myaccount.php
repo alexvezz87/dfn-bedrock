@@ -510,7 +510,7 @@ function dfn_custom_myaccount_bookings_content(): void
                                                             $modify_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_modify', wp_salt('nonce'));
                                                             $modify_url   = home_url('/?dfn_modify_booking=1&order_id=' . $order->get_id() . '&token=' . $modify_token);
                                                             ?>
-                                                            <a href="<?php echo esc_url($modify_url); ?>" class="button dfn-action-modify" style="background-color: #004b23; color: #fff; border-color: #004b23;"><?php esc_html_e('Modifica partecipanti', 'dfn-theme'); ?></a>
+                                                            <a href="<?php echo esc_url($modify_url); ?>" class="button dfn-action-modify"><?php esc_html_e('Modifica partecipanti', 'dfn-theme'); ?></a>
                                                             
                                                             <?php
                                                             $cancel_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_cancel', wp_salt('nonce'));

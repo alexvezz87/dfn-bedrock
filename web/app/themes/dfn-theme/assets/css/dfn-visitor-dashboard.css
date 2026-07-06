@@ -164,6 +164,51 @@
     box-shadow: 0 4px 12px rgba(198, 156, 58, 0.35);
 }
 
+/* "Modifica Partecipanti" Premium Button */
+.button.dfn-action-modify {
+    background: #004b23 !important;
+    color: var(--dfn-white) !important;
+    padding: 7px 16px !important;
+    border-radius: 20px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    border: none !important;
+    box-shadow: 0 3px 8px rgba(0, 75, 35, 0.15);
+    transition: all 0.2s ease !important;
+    display: inline-block;
+    text-decoration: none;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.button.dfn-action-modify:hover {
+    background: #006b32 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 75, 35, 0.25);
+}
+
+/* Container allineamento azioni in tabella */
+.dfn-table-actions-container {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap;
+}
+
+/* Link di annullamento stile */
+.dfn-btn-cancel-booking {
+    font-size: 12px !important;
+    color: #dc2626 !important;
+    text-decoration: underline !important;
+    transition: color 0.15s ease;
+    white-space: nowrap;
+}
+.dfn-btn-cancel-booking:hover {
+    color: #b91c1c !important;
+}
+
 /* ==========================================================================
    3. TICKET HUB (MONOLITHIC GROUP TICKET VIEW)
    ========================================================================== */
@@ -451,8 +496,15 @@
         flex-direction: column;
         align-items: stretch;
     }
-    .button.dfn-action-tickets {
+    .dfn-table-actions-container {
+        flex-direction: column;
+        align-items: stretch !important;
         width: 100%;
+        gap: 8px !important;
+    }
+    .button.dfn-action-tickets,
+    .button.dfn-action-modify {
+        width: 100% !important;
         text-align: center;
     }
 }
