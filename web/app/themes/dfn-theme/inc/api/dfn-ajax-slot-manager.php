@@ -23,6 +23,7 @@ add_action('wp_ajax_dfn_admin_delete_slot', 'dfn_ajax_admin_delete_slot');
 add_action('wp_ajax_dfn_admin_add_booking', 'dfn_ajax_admin_add_booking');
 add_action('wp_ajax_dfn_admin_move_booking', 'dfn_ajax_admin_move_booking');
 add_action('wp_ajax_dfn_admin_delete_booking', 'dfn_ajax_admin_delete_booking');
+add_action('wp_ajax_dfn_admin_save_fai_cards', 'dfn_ajax_admin_save_fai_cards');
 
 // Hook AJAX per la pagina Quick Booking (Inserimento Rapido Segreteria)
 add_action('wp_ajax_dfn_quick_get_events', 'dfn_ajax_quick_get_events');
@@ -1467,4 +1468,115 @@ function dfn_ajax_botteghino_get_slots(): void
     }
 
     wp_send_json_success([ 'slots' => $slots ]);
+}
+
+/**
+ * Salva e sincronizza le tessere Soci FAI di una prenotazione esistente.
+ */
+function dfn_ajax_admin_save_fai_cards(): void
+{
+    dfn_ajax_admin_verify_access();
+
+    $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    $order_id   = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+    $cards_raw  = isset($_POST['fai_cards']) && is_array($_POST['fai_cards']) ? $_POST['fai_cards'] : [];
+
+    if ($booking_id <= 0 || $order_id <= 0) {
+        wp_send_json_error([ 'message' => esc_html__('Parametri mancanti.', 'dfn-theme') ]);
+    }
+
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        wp_send_json_error([ 'message' => esc_html__('Ordine non trovato.', 'dfn-theme') ]);
+    }
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table_bookings} WHERE id = %d LIMIT 1",
+        $booking_id
+    ));
+
+    if (! $booking) {
+        wp_send_json_error([ 'message' => esc_html__('Prenotazione non trovata.', 'dfn-theme') ]);
+    }
+
+    // Processa e pulisce le tessere
+    $fai_cards = [];
+    $table_members = $wpdb->prefix . 'dfn_fai_members';
+    
+    // Per fallback nomi
+    $billing_first_name = $order->get_billing_first_name();
+    $billing_last_name  = $order->get_billing_last_name();
+    $email_to_save      = ($order->get_billing_email() === 'no-email@dfn.it') ? '' : $order->get_billing_email();
+
+    foreach ($cards_raw as $card_data) {
+        $c_nome    = isset($card_data['nome']) ? sanitize_text_field($card_data['nome']) : '';
+        $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
+        $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
+
+        // Sincronizza nel database soci FAI se presente la tessera
+        if (! empty($c_num)) {
+            $c_nome_sync    = ! empty($c_nome) ? $c_nome : $billing_first_name;
+            $c_cognome_sync = ! empty($c_cognome) ? $c_cognome : $billing_last_name;
+
+            // Controlla duplicato
+            $existing_member = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$table_members} WHERE card_number = %s LIMIT 1",
+                $c_num
+            ));
+
+            if ($existing_member) {
+                $member_verified = intval($existing_member->verified) === 1;
+                $member_expired  = ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
+
+                if (! ($member_verified && ! $member_expired)) {
+                    // Aggiorna anagrafica non attiva
+                    $wpdb->update(
+                        $table_members,
+                        [
+                            'first_name' => $c_nome_sync,
+                            'last_name'  => $c_cognome_sync,
+                            'email'      => $email_to_save,
+                        ],
+                        [ 'id' => $existing_member->id ],
+                        [ '%s', '%s', '%s' ],
+                        [ '%d' ]
+                    );
+                    dfn_notify_admin_unverified_fai_card($c_num, $c_nome_sync, $c_cognome_sync, $email_to_save);
+                }
+            } else {
+                // Inserisce nuovo record
+                $wpdb->insert(
+                    $table_members,
+                    [
+                        'first_name'  => $c_nome_sync,
+                        'last_name'   => $c_cognome_sync,
+                        'email'       => $email_to_save,
+                        'card_number' => $c_num,
+                        'card_expiry' => null,
+                        'card_type'   => 'INDIVIDUALE',
+                        'verified'    => 0,
+                    ],
+                    [ '%s', '%s', '%s', '%s', '%s', '%s', '%d' ]
+                );
+                dfn_notify_admin_unverified_fai_card($c_num, $c_nome_sync, $c_cognome_sync, $email_to_save);
+            }
+        }
+
+        $fai_cards[] = [
+            'nome'    => $c_nome,
+            'cognome' => $c_cognome,
+            'tessera' => $c_num,
+        ];
+    }
+
+    // Salva nei metadati dell'ordine
+    $order->update_meta_data('_dfn_fai_cards', $fai_cards);
+    $order->save();
+
+    wp_send_json_success([
+        'message'   => esc_html__('Tessere salvate e sincronizzate con successo.', 'dfn-theme'),
+        'fai_cards' => $fai_cards
+    ]);
 }

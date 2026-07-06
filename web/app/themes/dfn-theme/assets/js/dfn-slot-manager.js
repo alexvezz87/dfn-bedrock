@@ -416,19 +416,66 @@
                 );
             });
 
+            function escHtml(str) {
+                if (!str) return '';
+                return str.toString()
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
             var $faiSection = $('#dfn-details-fai-cards-section');
             var $faiList = $('#dfn-details-fai-cards-list');
             $faiList.empty();
 
-            if (booking.fai_cards && booking.fai_cards.length > 0) {
+            if (booking.persons_fai && booking.persons_fai > 0) {
                 $faiSection.show();
-                booking.fai_cards.forEach(function(card, idx) {
-                    var borderStyle = (idx === booking.fai_cards.length - 1) ? '' : ' border-bottom:1px dashed #e2e8f0;';
-                    $faiList.append(
-                        '<div style="padding:8px 0; font-size:12px; color:#334155;' + borderStyle + '">' +
-                            '👤 <strong>' + card.nome + ' ' + card.cognome + '</strong> - Tessera FAI: <code>' + card.tessera + '</code>' +
-                        '</div>'
-                    );
+                var html = '<form id="dfn-modal-fai-cards-form" style="margin: 0;">';
+                html += '<input type="hidden" name="action" value="dfn_admin_save_fai_cards">';
+                html += '<input type="hidden" name="booking_id" value="' + booking.id + '">';
+                html += '<input type="hidden" name="order_id" value="' + booking.order_id + '">';
+                
+                for (var i = 0; i < booking.persons_fai; i++) {
+                    var card = (booking.fai_cards && booking.fai_cards[i]) ? booking.fai_cards[i] : { nome: '', cognome: '', tessera: '' };
+                    var borderStyle = (i === booking.persons_fai - 1) ? '' : 'border-bottom:1px dashed #e2e8f0; padding-bottom:12px; margin-bottom:12px;';
+                    
+                    html += '<div class="dfn-fai-card-row" style="display:flex; gap:10px; align-items:center; ' + borderStyle + '">';
+                    html += '  <span style="font-size:12px; color:#64748b; min-width:60px;">Socio ' + (i + 1) + ':</span>';
+                    html += '  <input type="text" name="fai_cards[' + i + '][nome]" value="' + escHtml(card.nome || '') + '" placeholder="Nome" class="dfn-sm-input" style="flex:1; font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px;">';
+                    html += '  <input type="text" name="fai_cards[' + i + '][cognome]" value="' + escHtml(card.cognome || '') + '" placeholder="Cognome" class="dfn-sm-input" style="flex:1; font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px;">';
+                    html += '  <input type="text" name="fai_cards[' + i + '][tessera]" value="' + escHtml(card.tessera || '') + '" placeholder="N° Tessera FAI" class="dfn-sm-input" style="flex:1; font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px;">';
+                    html += '</div>';
+                }
+                
+                html += '<div style="text-align:right; margin-top:12px;">';
+                html += '  <button type="submit" class="dfn-btn dfn-btn-primary" style="font-size:12px; padding:6px 12px; display:inline-flex; align-items:center; gap:5px;"><span class="dashicons dashicons-saved" style="font-size:16px; width:16px; height:16px; line-height:16px;"></span> Salva Tessere</button>';
+                html += '</div>';
+                html += '</form>';
+                $faiList.html(html);
+
+                // Gestione invio form salvataggio tessere
+                $('#dfn-modal-fai-cards-form').off('submit').on('submit', function(e) {
+                    e.preventDefault();
+                    var $form = $(this);
+                    var $btn = $form.find('button[type="submit"]');
+                    $btn.prop('disabled', true).text('Salvataggio...');
+
+                    var data = $form.serialize() + '&nonce=' + dfnAdminVars.nonce;
+
+                    $.post(dfnAdminVars.ajaxurl, data, function(res) {
+                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="font-size:16px; width:16px; height:16px; line-height:16px;"></span> Salva Tessere');
+                        if (res.success) {
+                            alert(res.data.message || 'Tessere salvate con successo.');
+                            booking.fai_cards = res.data.fai_cards;
+                        } else {
+                            alert('Errore: ' + (res.data.message || 'impossibile salvare le tessere.'));
+                        }
+                    }).fail(function() {
+                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="font-size:16px; width:16px; height:16px; line-height:16px;"></span> Salva Tessere');
+                        alert('Si è verificato un errore di rete.');
+                    });
                 });
             } else {
                 $faiSection.hide();
