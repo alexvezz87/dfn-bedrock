@@ -1083,45 +1083,27 @@
 }
 
 .dfn-table-actions-container {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    min-height: 34px !important; /* Forza altezza minima coerente per tutte le righe */
 }
 
-/* Cancel Booking Link */
-.dfn-btn-cancel-booking {
-    display: inline-block;
-    background: transparent !important;
-    color: #ef4444 !important;
-    border: none !important;
-    padding: 0 !important;
-    border-radius: 0 !important;
-    font-size: 11px !important;
-    font-weight: 500 !important;
-    text-transform: none !important;
-    letter-spacing: 0 !important;
-    transition: color 0.2s ease !important;
-    text-decoration: underline !important;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.dfn-btn-cancel-booking:hover {
-    background: transparent !important;
-    color: #dc2626 !important;
-}
-
-/* Status Badges */
+/* Allinea l'altezza del badge ANNULLATA ai bottoni attivi per evitare shift verticali */
 .dfn-booking-status-badge {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 6px 14px;
-    border-radius: 50px;
-    display: inline-block;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    padding: 8px 16px !important; /* Padding simmetrico con i bottoni */
+    border-radius: 20px !important;
+    display: inline-block !important;
+    line-height: 1.2 !important;
+    min-width: 90px !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
 }
 
 .dfn-status-confirmed {
