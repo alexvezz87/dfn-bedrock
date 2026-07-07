@@ -1001,12 +1001,14 @@
 }
 
 .dfn-bookings-table tbody td {
-    padding: 14px 16px !important;
+    padding: 8px 16px !important;
+    height: 58px !important; /* Forza un'altezza identica per ogni riga */
     vertical-align: middle !important;
     color: var(--dfn-text-dark) !important;
     font-size: 13px !important;
     border: none !important;
     line-height: 1.4 !important;
+    box-sizing: border-box !important;
 }
 
 /* Larghezze Colonne per garantire l'allineamento perfetto di ogni riga */
