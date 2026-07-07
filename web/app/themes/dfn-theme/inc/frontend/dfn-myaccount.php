@@ -476,7 +476,13 @@ function dfn_custom_myaccount_bookings_content(): void
                                             ?>
                                             <tr class="<?php echo $is_cancelled ? 'dfn-row-cancelled' : ''; ?>">
                                                 <td data-label="<?php esc_attr_e('Ordine', 'dfn-theme'); ?>">
-                                                    <span class="dfn-table-order-id">#<?php echo esc_html($b->order_id); ?></span>
+                                                    <?php
+                                                    $hub_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+                                                    $hub_url   = home_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
+                                                    ?>
+                                                    <a href="<?php echo esc_url($hub_url); ?>" class="dfn-table-order-id-link" title="<?php esc_attr_e('Vedi prenotazione', 'dfn-theme'); ?>">
+                                                        #<?php echo esc_html($b->order_id); ?>
+                                                    </a>
                                                 </td>
                                                 <td class="dfn-table-time" data-label="<?php esc_attr_e('Orario', 'dfn-theme'); ?>">
                                                     <strong><?php echo esc_html($time_formatted); ?></strong>
@@ -489,18 +495,6 @@ function dfn_custom_myaccount_bookings_content(): void
                                                                 $b->total_persons,
                                                             );
                                             ?></strong>
-                                                        <?php
-                                            $breakdown = [];
-                                            if ($b->persons_standard > 0) {
-                                                $breakdown[] = esc_html(sprintf(_n('%d Ordinario', '%d Ordinari', $b->persons_standard, 'dfn-theme'), $b->persons_standard));
-                                            }
-                                            if ($b->persons_fai > 0) {
-                                                $breakdown[] = esc_html(sprintf(_n('%d Socio FAI', '%d Soci FAI', $b->persons_fai, 'dfn-theme'), $b->persons_fai));
-                                            }
-                                            if (! empty($breakdown)) {
-                                                echo '<span class="dfn-table-seats-breakdown">' . implode(', ', $breakdown) . '</span>';
-                                            }
-                                            ?>
                                                     </div>
                                                 </td>
                                                 <td data-label="<?php esc_attr_e('Contributo', 'dfn-theme'); ?>">
@@ -519,22 +513,16 @@ function dfn_custom_myaccount_bookings_content(): void
                                                     <?php if (! $is_cancelled && $order) : ?>
                                                         <div class="dfn-table-actions-container">
                                                             <?php
-                                                            $hub_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
-                                                            $hub_url   = home_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
-                                                            ?>
-                                                            <a href="<?php echo esc_url($hub_url); ?>" class="button dfn-action-tickets"><?php esc_html_e('Vedi prenotazione', 'dfn-theme'); ?></a>
-                                                            
-                                                            <?php
                                                             $modify_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_modify', wp_salt('nonce'));
                                                             $modify_url   = home_url('/?dfn_modify_booking=1&order_id=' . $order->get_id() . '&token=' . $modify_token);
                                                             ?>
-                                                            <a href="<?php echo esc_url($modify_url); ?>" class="button dfn-action-modify" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-token="<?php echo esc_attr($modify_token); ?>"><?php esc_html_e('Modifica partecipanti', 'dfn-theme'); ?></a>
+                                                            <a href="<?php echo esc_url($modify_url); ?>" class="button dfn-action-modify" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-token="<?php echo esc_attr($modify_token); ?>"><?php esc_html_e('Modifica', 'dfn-theme'); ?></a>
                                                             
                                                             <?php
                                                             $cancel_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_cancel', wp_salt('nonce'));
                                                             $cancel_url   = home_url('/?dfn_cancel_booking=1&order_id=' . $order->get_id() . '&token=' . $cancel_token);
                                                             ?>
-                                                            <a href="<?php echo esc_url($cancel_url); ?>" class="dfn-btn-cancel-booking" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-token="<?php echo esc_attr($cancel_token); ?>" data-event-title="<?php echo esc_attr($event_title); ?>" data-booking-date="<?php echo esc_attr($date_formatted); ?>"><?php esc_html_e('Annulla la prenotazione', 'dfn-theme'); ?></a>
+                                                            <a href="<?php echo esc_url($cancel_url); ?>" class="button dfn-action-cancel dfn-btn-cancel-booking" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-token="<?php echo esc_attr($cancel_token); ?>" data-event-title="<?php echo esc_attr($event_title); ?>" data-booking-date="<?php echo esc_attr($date_formatted); ?>"><?php esc_html_e('Annulla', 'dfn-theme'); ?></a>
                                                         </div>
                                                     <?php elseif ($is_cancelled) : ?>
                                                         <span class="dfn-booking-status-badge dfn-status-cancelled"><?php esc_html_e('Annullata', 'dfn-theme'); ?></span>

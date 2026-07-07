@@ -164,11 +164,22 @@
     box-shadow: 0 4px 12px rgba(198, 156, 58, 0.35);
 }
 
-/* "Modifica Partecipanti" Premium Button */
+/* Link Numero Ordine Cliccabile */
+.dfn-table-order-id-link {
+    font-weight: 700;
+    color: #004b23 !important;
+    text-decoration: underline !important;
+    transition: color 0.15s ease;
+}
+.dfn-table-order-id-link:hover {
+    color: #006b32 !important;
+}
+
+/* Modifica Premium Button */
 .button.dfn-action-modify {
     background: #004b23 !important;
     color: var(--dfn-white) !important;
-    padding: 7px 16px !important;
+    padding: 8px 16px !important;
     border-radius: 20px !important;
     font-size: 11px !important;
     font-weight: 700 !important;
@@ -181,6 +192,7 @@
     text-decoration: none;
     text-align: center;
     white-space: nowrap;
+    min-width: 90px;
 }
 
 .button.dfn-action-modify:hover {
@@ -189,24 +201,38 @@
     box-shadow: 0 4px 12px rgba(0, 75, 35, 0.25);
 }
 
+/* Annulla Premium Button - Symmetrical */
+.button.dfn-action-cancel {
+    background: #dc2626 !important;
+    color: var(--dfn-white) !important;
+    padding: 8px 16px !important;
+    border-radius: 20px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    border: none !important;
+    box-shadow: 0 3px 8px rgba(220, 38, 38, 0.15);
+    transition: all 0.2s ease !important;
+    display: inline-block;
+    text-decoration: none;
+    text-align: center;
+    white-space: nowrap;
+    min-width: 90px;
+}
+
+.button.dfn-action-cancel:hover {
+    background: #b91c1c !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+}
+
 /* Container allineamento azioni in tabella */
 .dfn-table-actions-container {
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
-    flex-wrap: wrap;
-}
-
-/* Link di annullamento stile */
-.dfn-btn-cancel-booking {
-    font-size: 12px !important;
-    color: #dc2626 !important;
-    text-decoration: underline !important;
-    transition: color 0.15s ease;
-    white-space: nowrap;
-}
-.dfn-btn-cancel-booking:hover {
-    color: #b91c1c !important;
+    gap: 8px !important;
+    flex-wrap: nowrap;
 }
 
 /* ==========================================================================
@@ -1205,18 +1231,17 @@
     }
     
     .dfn-table-actions-container {
-        flex-direction: column !important;
-        align-items: flex-end !important;
-        gap: 6px !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 8px !important;
         width: 100% !important;
     }
-
-    .dfn-table-actions-container .dfn-btn-cancel-booking {
-        padding: 0 !important;
-        border: none !important;
-        border-radius: 0 !important;
-        background: transparent !important;
-        text-decoration: underline !important;
+    .button.dfn-action-modify,
+    .button.dfn-action-cancel {
+        flex: 1 !important;
+        min-width: 0 !important;
+        text-align: center !important;
     }
 
     /* Mobile overrides for FAI card */
