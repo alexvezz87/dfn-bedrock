@@ -1001,11 +1001,34 @@
 }
 
 .dfn-bookings-table tbody td {
-    padding: 10px 14px !important;
+    padding: 14px 16px !important;
     vertical-align: middle !important;
     color: var(--dfn-text-dark) !important;
     font-size: 13px !important;
     border: none !important;
+    line-height: 1.4 !important;
+}
+
+/* Larghezze Colonne per garantire l'allineamento perfetto di ogni riga */
+.dfn-bookings-table th:nth-child(1),
+.dfn-bookings-table td:nth-child(1) {
+    width: 12% !important;
+}
+.dfn-bookings-table th:nth-child(2),
+.dfn-bookings-table td:nth-child(2) {
+    width: 13% !important;
+}
+.dfn-bookings-table th:nth-child(3),
+.dfn-bookings-table td:nth-child(3) {
+    width: 18% !important;
+}
+.dfn-bookings-table th:nth-child(4),
+.dfn-bookings-table td:nth-child(4) {
+    width: 22% !important;
+}
+.dfn-bookings-table th:nth-child(5),
+.dfn-bookings-table td:nth-child(5) {
+    width: 35% !important;
 }
 
 .dfn-row-cancelled {

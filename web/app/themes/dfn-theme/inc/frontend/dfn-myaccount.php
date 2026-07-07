@@ -510,8 +510,8 @@ function dfn_custom_myaccount_bookings_content(): void
                                                     </div>
                                                 </td>
                                                 <td class="dfn-table-actions" data-label="<?php esc_attr_e('Azioni', 'dfn-theme'); ?>">
-                                                    <?php if (! $is_cancelled && $order) : ?>
-                                                        <div class="dfn-table-actions-container">
+                                                    <div class="dfn-table-actions-container">
+                                                        <?php if (! $is_cancelled && $order) : ?>
                                                             <?php
                                                             $modify_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_modify', wp_salt('nonce'));
                                                             $modify_url   = home_url('/?dfn_modify_booking=1&order_id=' . $order->get_id() . '&token=' . $modify_token);
@@ -523,10 +523,10 @@ function dfn_custom_myaccount_bookings_content(): void
                                                             $cancel_url   = home_url('/?dfn_cancel_booking=1&order_id=' . $order->get_id() . '&token=' . $cancel_token);
                                                             ?>
                                                             <a href="<?php echo esc_url($cancel_url); ?>" class="button dfn-action-cancel dfn-btn-cancel-booking" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-token="<?php echo esc_attr($cancel_token); ?>" data-event-title="<?php echo esc_attr($event_title); ?>" data-booking-date="<?php echo esc_attr($date_formatted); ?>"><?php esc_html_e('Annulla', 'dfn-theme'); ?></a>
-                                                        </div>
-                                                    <?php elseif ($is_cancelled) : ?>
-                                                        <span class="dfn-booking-status-badge dfn-status-cancelled"><?php esc_html_e('Annullata', 'dfn-theme'); ?></span>
-                                                    <?php endif; ?>
+                                                        <?php elseif ($is_cancelled) : ?>
+                                                            <span class="dfn-booking-status-badge dfn-status-cancelled"><?php esc_html_e('Annullata', 'dfn-theme'); ?></span>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
