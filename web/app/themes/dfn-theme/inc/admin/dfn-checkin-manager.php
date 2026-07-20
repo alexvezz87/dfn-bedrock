@@ -257,28 +257,54 @@ function dfn_render_checkin_manager()
             </div>
         </header>
 
-        <div id="dfn-ci-dashboard">
-            <?php if (count($event_dates) > 1) : ?>
-            <div class="dfn-pills-bar">
-                <?php foreach ($event_dates as $index => $date) :
-                    $dt = new DateTime($date);
-                    $is_active = ($index === 0);
-                    ?>
-                    <button type="button" class="dfn-pill-date <?php echo $is_active ? 'active' : ''; ?>" data-date="<?php echo esc_attr($date); ?>">
-                        <?php echo esc_html($dt->format('D d/m')); ?>
-                    </button>
-                <?php endforeach; ?>
+        <!-- Riepilogo Statistico -->
+        <div class="dfn-stats-row">
+            <div class="dfn-stat-card">
+                <div class="stat-value" id="dfn-ci-stat-venduti">-</div>
+                <div class="stat-label"><?php esc_html_e('Posti Venduti', 'dfn-theme'); ?></div>
             </div>
-            <?php endif; ?>
+            <div class="dfn-stat-card">
+                <div class="stat-value" id="dfn-ci-stat-entrati" style="color: var(--dfn-success);">-</div>
+                <div class="stat-label"><?php esc_html_e('Posti Entrati', 'dfn-theme'); ?></div>
+            </div>
+            <div class="dfn-stat-card">
+                <div class="stat-value" id="dfn-ci-stat-attesa" style="color: var(--dfn-danger);">-</div>
+                <div class="stat-label"><?php esc_html_e('Posti in Attesa', 'dfn-theme'); ?></div>
+            </div>
+            <div class="dfn-stat-card">
+                <div class="stat-value" id="dfn-ci-stat-liberi" style="color: var(--dfn-warning);">-</div>
+                <div class="stat-label"><?php esc_html_e('Posti Liberi', 'dfn-theme'); ?></div>
+            </div>
+        </div>
 
-            <div class="dfn-sm-toolbar">
-                <div class="dfn-search-box">
-                    <span class="dashicons dashicons-search"></span>
-                    <input type="text" id="dfn-ci-search" placeholder="<?php esc_attr_e('Cerca per nome, email o telefono...', 'dfn-theme'); ?>">
+        <div id="dfn-ci-dashboard">
+            <!-- Barra Controlli -->
+            <div class="dfn-controls-bar">
+                <div class="dfn-pills-container">
+                    <?php foreach ($event_dates as $index => $date) :
+                        $dt = new DateTime($date);
+                        $formatted_date = date_i18n('D d M', $dt->getTimestamp());
+                        $is_active = ($index === 0);
+                        ?>
+                        <button type="button" class="dfn-pill-date <?php echo $is_active ? 'active' : ''; ?>" data-date="<?php echo esc_attr($date); ?>">
+                            <?php echo esc_html($formatted_date); ?>
+                        </button>
+                    <?php endforeach; ?>
                 </div>
-                <div class="dfn-toolbar-right" style="display:flex; gap:8px;">
+
+                <div class="dfn-actions-container">
+                    <div class="search-box">
+                        <span class="dashicons dashicons-search"></span>
+                        <input type="text" id="dfn-ci-search" placeholder="<?php esc_attr_e('Cerca prenotazione...', 'dfn-theme'); ?>">
+                    </div>
                     <button type="button" id="dfn-ci-refresh" class="dfn-btn dfn-btn-secondary">
                         <span class="dashicons dashicons-update"></span> <?php esc_html_e('Aggiorna', 'dfn-theme'); ?>
+                    </button>
+                    <button type="button" id="cv-send-reminders-btn" class="dfn-btn" style="background:#ff6600; border-color:#ff6600; color:#fff;">
+                        <span class="dashicons dashicons-email"></span> <?php esc_html_e('Invia Reminder a Tutti', 'dfn-theme'); ?>
+                    </button>
+                    <button type="button" id="cv-send-feedback-btn" class="dfn-btn" style="background:#c69c3a; border-color:#c69c3a; color:#fff;">
+                        <span class="dashicons dashicons-star-filled"></span> <?php esc_html_e('Richiedi Recensioni', 'dfn-theme'); ?>
                     </button>
                 </div>
             </div>
@@ -293,22 +319,40 @@ function dfn_render_checkin_manager()
     </div><!-- .dfn-checkin-manager-wrap -->
 
     <!-- POPUP CASSA CHECK-IN -->
-    <div id="cv-cassa-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:999999; align-items:center; justify-content:center;">
-        <div style="background:#fff; padding:25px; border-radius:10px; width:90%; max-width:450px; box-shadow:0 10px 30px rgba(0,0,0,0.4); max-height:85vh; display:flex; flex-direction:column;">
-            <h2 style="margin-top:0; font-size:22px; border-bottom: 2px solid #eee; padding-bottom: 10px;"><?php esc_html_e('Cassa Check-in', 'dfn-theme'); ?></h2>
-            <p style="font-size:16px;"><?php esc_html_e('Cliente:', 'dfn-theme'); ?> <strong id="cv-modal-cliente-name" style="color:#2271b1;"></strong></p>
-            <div id="cv-modal-buttons-area" style="flex-grow:1; overflow-y:auto; margin: 15px 0; padding-right: 5px;"></div>
-            <button type="button" class="button cv-close-modal-btn" style="text-align:center; width:100%; padding: 10px; height: auto; font-size: 16px;"><?php esc_html_e('Chiudi Finestra', 'dfn-theme'); ?></button>
+    <div id="cv-cassa-modal" class="dfn-sm-modal">
+        <div class="dfn-sm-modal-content" style="max-width: 450px; display: flex; flex-direction: column;">
+            <div class="dfn-sm-modal-header">
+                <h3><?php esc_html_e('Cassa Check-in', 'dfn-theme'); ?></h3>
+                <span class="dfn-modal-close cv-close-modal-btn">&times;</span>
+            </div>
+            <div style="padding: 24px; max-height: 75vh; overflow-y: auto; display: flex; flex-direction: column; flex-grow: 1;">
+                <p style="font-size:15px; margin-top: 0; margin-bottom: 15px; font-weight: 600; color: var(--dfn-text-main);">
+                    <?php esc_html_e('Cliente:', 'dfn-theme'); ?> <strong id="cv-modal-cliente-name" style="color: var(--dfn-primary);"></strong>
+                </p>
+                <div id="cv-modal-buttons-area" style="flex-grow:1; overflow-y:auto; margin-bottom: 20px;"></div>
+                <div class="dfn-sm-modal-footer" style="margin-top: 0; padding-top: 15px;">
+                    <button type="button" class="dfn-btn dfn-btn-secondary cv-close-modal-btn" style="width: 100%; justify-content: center;"><?php esc_html_e('Chiudi Finestra', 'dfn-theme'); ?></button>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- POPUP LOG STORICO -->
-    <div id="cv-history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:999999; align-items:center; justify-content:center;">
-        <div style="background:#fff; padding:25px; border-radius:10px; width:90%; max-width:500px; box-shadow:0 10px 30px rgba(0,0,0,0.4); max-height:85vh; display:flex; flex-direction:column;">
-            <h2 style="margin-top:0; font-size:22px; border-bottom: 2px solid #eee; padding-bottom: 10px;"><?php esc_html_e('Log Operazioni Cliente', 'dfn-theme'); ?></h2>
-            <p style="font-size:16px;"><?php esc_html_e('Ordine Cliente:', 'dfn-theme'); ?> <strong id="cv-history-cliente-name" style="color:#2271b1;"></strong></p>
-            <div id="cv-history-content-area" style="flex-grow:1; overflow-y:auto; margin: 10px 0; padding:10px; background:#f9f9f9; border:1px solid #ddd; border-radius:5px;"></div>
-            <button type="button" class="button cv-close-modal-btn" style="text-align:center; width:100%; padding: 10px; height: auto; font-size: 16px; margin-top:10px;"><?php esc_html_e('Chiudi Log', 'dfn-theme'); ?></button>
+    <div id="cv-history-modal" class="dfn-sm-modal">
+        <div class="dfn-sm-modal-content" style="max-width: 500px; display: flex; flex-direction: column;">
+            <div class="dfn-sm-modal-header">
+                <h3><?php esc_html_e('Log Operazioni Cliente', 'dfn-theme'); ?></h3>
+                <span class="dfn-modal-close cv-close-modal-btn">&times;</span>
+            </div>
+            <div style="padding: 24px; max-height: 75vh; overflow-y: auto; display: flex; flex-direction: column; flex-grow: 1;">
+                <p style="font-size:15px; margin-top: 0; margin-bottom: 15px; font-weight: 600; color: var(--dfn-text-main);">
+                    <?php esc_html_e('Ordine Cliente:', 'dfn-theme'); ?> <strong id="cv-history-cliente-name" style="color: var(--dfn-primary);"></strong>
+                </p>
+                <div id="cv-history-content-area" style="flex-grow:1; overflow-y:auto; padding:12px; background:#f8fafc; border:1px solid var(--dfn-border); border-radius:6px; margin-bottom: 20px; font-family: monospace; font-size: 12px; line-height: 1.4;"></div>
+                <div class="dfn-sm-modal-footer" style="margin-top: 0; padding-top: 15px;">
+                    <button type="button" class="dfn-btn dfn-btn-secondary cv-close-modal-btn" style="width: 100%; justify-content: center;"><?php esc_html_e('Chiudi Log', 'dfn-theme'); ?></button>
+                </div>
+            </div>
         </div>
     </div>
     <?php

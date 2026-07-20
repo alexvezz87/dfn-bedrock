@@ -89,26 +89,15 @@
             var totAttesa  = totVenduti - totCheckin;
             var totLiberi  = Math.max(0, totCapacita - totVenduti);
 
+            // Aggiorna contatori statistici in alto
+            $('#dfn-ci-stat-venduti').text(totVenduti);
+            $('#dfn-ci-stat-entrati').text(totCheckin);
+            $('#dfn-ci-stat-attesa').text(totAttesa);
+            $('#dfn-ci-stat-liberi').text(totLiberi);
+
             var html = '';
 
-            // Box Riepilogo Ingressi + Azioni globali
-            html += '<div style="background:#fff; border-left:4px solid #004b23; padding:20px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border-radius:6px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:20px;">';
-            html += '<div style="flex-grow:1;">';
-            html += '<h2 style="margin-top:0; font-size:16px; font-weight:700; color:#1e293b;">&#128202; Riepilogo Ingressi</h2>';
-            html += '<div style="display:flex; gap:15px; margin-top:15px; flex-wrap:wrap;">';
-            html += '<div style="background:#f0f6fc; padding:10px 15px; border-radius:6px; border:1px solid #c8d7e1; min-width:100px;"><span style="font-size:11px; color:#555; text-transform:uppercase; font-weight:bold;">Venduti</span><br><strong style="font-size:24px; color:#2271b1;" id="cv-tot-venduti">' + totVenduti + '</strong></div>';
-            html += '<div style="background:#eaf7ea; padding:10px 15px; border-radius:6px; border:1px solid #c3e6c3; min-width:100px;"><span style="font-size:11px; color:#555; text-transform:uppercase; font-weight:bold;">Entrati</span><br><strong style="color:#16a34a; font-size:24px;" id="cv-tot-checkin">' + totCheckin + '</strong></div>';
-            html += '<div style="background:#fef2f2; padding:10px 15px; border-radius:6px; border:1px solid #fecaca; min-width:100px;"><span style="font-size:11px; color:#555; text-transform:uppercase; font-weight:bold;">In Attesa</span><br><strong style="color:#d63638; font-size:24px;" id="cv-tot-residui">' + totAttesa + '</strong></div>';
-            html += '<div style="background:#fffbeb; padding:10px 15px; border-radius:6px; border:1px solid #fde68a; min-width:100px;"><span style="font-size:11px; color:#555; text-transform:uppercase; font-weight:bold;">Posti Liberi</span><br><strong style="color:#d97706; font-size:24px;" id="cv-tot-liberi">' + totLiberi + '</strong></div>';
-            html += '</div>';
-            html += '</div>';
-            html += '<div style="text-align:right; border-left:1px solid #eee; padding-left:20px; min-width:220px; display:flex; flex-direction:column; gap:8px;">';
-            html += '<button id="cv-send-reminders-btn" class="button button-primary" style="background:#ff6600; border-color:#ff6600; font-size:13px; padding:6px 12px; display:block; width:100%; color:#fff; font-weight:700; cursor:pointer;">&#128231; Invia Reminder a Tutti</button>';
-            html += '<button id="cv-send-feedback-btn" class="button" style="background:#eab308; color:#fff; border-color:#d97706; font-size:13px; padding:6px 12px; display:block; width:100%; font-weight:700; cursor:pointer;">&#11088; Richiedi Recensioni</button>';
-            html += '</div>';
-            html += '</div>';
-
-            // Per ogni slot: titolo (se multipli) + tabella prenotazioni
+            // Per ogni slot: titolo card con progress bar + tabella
             slots.forEach(function(slot) {
                 var filteredBookings = slot.bookings;
                 if (searchQuery !== '') {
@@ -122,12 +111,27 @@
                     });
                 }
 
-                if (slots.length > 1) {
-                    html += '<div style="margin-bottom:6px; margin-top:24px; background:#004b23; color:#fff; padding:8px 14px; border-radius:6px; font-weight:700; font-size:13px;">';
-                    html += '&#128336; Turno: ' + slot.time_start + ' - ' + slot.time_end + '  &nbsp;&bull;&nbsp;  Posti occupati: ' + slot.booked_count + ' / ' + (slot.capacity + slot.bonus_capacity);
-                    html += '</div>';
-                }
+                var totalCapacity = slot.capacity + slot.bonus_capacity;
+                var booked = slot.booked_count;
+                var percent = totalCapacity > 0 ? Math.min(100, Math.round((booked / totalCapacity) * 100)) : 0;
 
+                var headerHtml =
+                    '<div class="dfn-slot-header-card" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:15px 20px; margin-bottom:15px; margin-top:20px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">' +
+                        '<div class="slot-title-info" style="margin-bottom: 10px;">' +
+                            '<h3 style="margin:0; font-size:15px; font-weight:700; color:#004b23;"><span class="dashicons dashicons-clock" style="font-size:18px; width:18px; height:18px; vertical-align:middle; margin-right:5px;"></span> ' + (slot.label || 'Turno ' + slot.time_start + ' - ' + slot.time_end) + '</h3>' +
+                        '</div>' +
+                        '<div class="slot-progress-info">' +
+                            '<div class="progress-labels" style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px; color:#64748b;">' +
+                                '<span>' + (slot.is_locked ? 'Bloccato' : percent + '% occupato') + '</span>' +
+                                '<span><strong>' + booked + '</strong> / ' + totalCapacity + ' posti &bull; ' + filteredBookings.length + ' prenotazioni</span>' +
+                            '</div>' +
+                            '<div class="progress-bar-bg" style="height:8px; background:#f1f5f9; border-radius:9999px; overflow:hidden;">' +
+                                '<div class="progress-bar-fill" style="height:100%; border-radius:9999px; background:linear-gradient(90deg, #16a34a, #4ade80); width:' + percent + '%;"></div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+
+                html += headerHtml;
                 html += generateCheckinTableHtml(filteredBookings, slot);
             });
 
@@ -143,19 +147,19 @@
         // 3. TABELLA CHECK-IN
         // ====================================================================
         function generateCheckinTableHtml(bookings, slot) {
-            var html = '<div style="overflow-x:auto; margin-bottom:20px;">';
+            var html = '<div style="overflow-x:auto; margin-bottom:30px;">';
             html += '<table class="wp-list-table widefat fixed striped dfn-bookings-rich-table" style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1;">';
             html += '<thead><tr style="background:#f1f5f9;">' +
-                '<th style="padding:10px; font-weight:700; width:80px;">Ordine #</th>' +
-                '<th style="padding:10px; font-weight:700;">Cliente</th>' +
-                '<th style="padding:10px; font-weight:700; width:120px;">Qualifica</th>' +
-                '<th style="padding:10px; font-weight:700; width:120px;">Telefono</th>' +
-                '<th style="padding:10px; font-weight:700; width:80px; text-align:center;">Biglietti</th>' +
-                '<th style="padding:10px; font-weight:700; width:130px; text-align:center;">Stato Arrivi</th>' +
-                '<th style="padding:10px; font-weight:700; width:150px;">Validato da</th>' +
-                '<th style="padding:10px; font-weight:700; width:160px; background:#eaf7ea; text-align:center;">Azioni Cassa</th>' +
-                '<th style="padding:10px; font-weight:700; width:160px; background:#eef6fc; text-align:center;">Messaggi</th>' +
-                '<th style="padding:10px; font-weight:700; width:80px; background:#f6f7f7; text-align:center;">Storico</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:80px; text-align:left;">Ordine #</th>' +
+                '<th style="padding:12px 10px; font-weight:700; text-align:left;">Cliente</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:120px; text-align:left;">Qualifica</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:130px; text-align:left;">Telefono</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:80px; text-align:center;">Biglietti</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:130px; text-align:center;">Stato Arrivi</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:140px; text-align:left;">Validato da</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:160px; text-align:center;">Azioni Cassa</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:160px; text-align:center;">Messaggi</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:80px; text-align:center;">Storico</th>' +
             '</tr></thead>';
             html += '<tbody>';
 
@@ -170,37 +174,37 @@
                     // Stato Arrivi Badge
                     var statoBadge;
                     if (b.checkin_fatti === 0) {
-                        statoBadge = '<span style="color:white; background:#d63638; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:12px; white-space:nowrap;">0 / ' + b.slot_persons + '</span>';
+                        statoBadge = '<span style="background:#fef2f2; color:#991b1b; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700; border:1px solid #fecaca; white-space:nowrap;">0 / ' + b.slot_persons + '</span>';
                     } else if (b.checkin_fatti < b.slot_persons) {
-                        statoBadge = '<span style="color:white; background:#f59e0b; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:12px; white-space:nowrap;">' + b.checkin_fatti + ' / ' + b.slot_persons + '</span>';
+                        statoBadge = '<span style="background:#fffbeb; color:#d97706; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700; border:1px solid #fde68a; white-space:nowrap;">' + b.checkin_fatti + ' / ' + b.slot_persons + '</span>';
                     } else {
-                        statoBadge = '<span style="color:white; background:#16a34a; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:12px; white-space:nowrap;">Completo (' + b.slot_persons + ')</span>';
+                        statoBadge = '<span style="background:#dcfce7; color:#166534; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700; border:1px solid #c3e6c3; white-space:nowrap;">Completo (' + b.slot_persons + ')</span>';
                     }
 
                     // Azioni Cassa
                     var azioniCassaBtn = b.checkin_fatti < b.slot_persons
-                        ? '<button type="button" class="button cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="width:100%; border-color:#00a32a; color:#00a32a; cursor:pointer;">&#127967; Gestisci Ingressi</button>'
-                        : '<button type="button" class="button cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="width:100%; font-size:11px; cursor:pointer;">&#128269; Modifica validazioni</button>';
+                        ? '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#16a34a; color:#166534; font-weight:700; width:100%; display:inline-flex; justify-content:center; gap:4px; height:32px; line-height:24px;"><span class="dashicons dashicons-tickets-alt" style="font-size:14px; width:14px; height:14px; margin-top:2px;"></span> Gestisci Ingressi</button>'
+                        : '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; width:100%; display:inline-flex; justify-content:center; gap:4px; height:32px; line-height:24px;"><span class="dashicons dashicons-search" style="font-size:14px; width:14px; height:14px; margin-top:2px;"></span> Modifica</button>';
                     var azioniCassaHtml = '<div style="position:relative;">' + azioniCassaBtn + (b.html_bottoni_popup || '') + '</div>';
 
                     // Messaggi
-                    var btnReminder = '<button type="button" class="button cv-single-reminder-btn" data-order="' + b.order_id + '" style="font-size:11px; padding:2px 8px; width:100%; margin-bottom:4px; cursor:pointer;">' + (b.reminder_sent ? '&#128231; Reinvia Reminder' : '&#128231; Invia Reminder') + '</button>';
-                    var btnFeedback = '<button type="button" class="button cv-single-feedback-btn" data-order="' + b.order_id + '" style="font-size:11px; padding:2px 8px; width:100%; cursor:pointer;">' + (b.feedback_sent ? '&#11088; Reinvia Recensione' : '&#11088; Chiedi Recensione') + '</button>';
+                    var btnReminder = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-reminder-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; margin-bottom:4px; border-color:#2271b1; color:#2271b1; display:inline-flex; justify-content:center; gap:2px; height:26px; line-height:20px; font-weight:600;"><span class="dashicons dashicons-email" style="font-size:12px; width:12px; height:12px; margin-top:1px;"></span> ' + (b.reminder_sent ? 'Reinvia Rem.' : 'Invia Rem.') + '</button>';
+                    var btnFeedback = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-feedback-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; border-color:#d97706; color:#d97706; display:inline-flex; justify-content:center; gap:2px; height:26px; line-height:20px; font-weight:600;"><span class="dashicons dashicons-star-filled" style="font-size:12px; width:12px; height:12px; margin-top:1px;"></span> ' + (b.feedback_sent ? 'Reinvia Rec.' : 'Chiedi Rec.') + '</button>';
 
                     // Storico
-                    var storicoHtml = '<button type="button" class="button cv-open-history-btn" data-cliente="' + b.customer_name + '" style="cursor:pointer;">&#128220; Log</button>' + (b.html_history_popup || '');
+                    var storicoHtml = '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-history-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; display:inline-flex; justify-content:center; gap:4px; height:32px; line-height:24px; width:100%;"><span class="dashicons dashicons-editor-ul" style="font-size:14px; width:14px; height:14px; margin-top:2px;"></span> Log</button>' + (b.html_history_popup || '');
 
-                    html += '<tr data-booking-id="' + b.id + '" data-slot-id="' + slot.id + '">' +
-                        '<td style="padding:10px; vertical-align:middle;">' + orderLink + '</td>' +
-                        '<td style="padding:10px; vertical-align:middle;"><div style="font-weight:700;">' + b.customer_name + '</div><div style="font-size:11px; color:#64748b;">' + (b.customer_email !== 'no-email@dfn.it' ? b.customer_email : '') + '</div></td>' +
-                        '<td style="padding:10px; vertical-align:middle;">' + (b.qualifica_html || '') + '</td>' +
-                        '<td style="padding:10px; vertical-align:middle;">' + telefonoLink + '</td>' +
-                        '<td style="padding:10px; vertical-align:middle; text-align:center; font-weight:700;">' + b.slot_persons + '</td>' +
-                        '<td style="padding:10px; vertical-align:middle; text-align:center;">' + statoBadge + '</td>' +
-                        '<td style="padding:10px; vertical-align:middle; font-size:12px;">' + (b.operatori_html || '-') + '</td>' +
-                        '<td style="padding:10px; vertical-align:middle; background:#f0fdf4; text-align:center;">' + azioniCassaHtml + '</td>' +
-                        '<td style="padding:10px; vertical-align:middle; background:#f0f9ff; text-align:center;">' + btnReminder + btnFeedback + '</td>' +
-                        '<td style="padding:10px; vertical-align:middle; background:#fafafa; text-align:center;">' + storicoHtml + '</td>' +
+                    html += '<tr class="dfn-slot-booking-row" data-booking-id="' + b.id + '" data-slot-id="' + slot.id + '">' +
+                        '<td style="padding:12px 10px; vertical-align:middle;">' + orderLink + '</td>' +
+                        '<td style="padding:12px 10px; vertical-align:middle;"><div style="font-weight:700;">' + b.customer_name + '</div><div style="font-size:11px; color:#64748b;">' + (b.customer_email !== 'no-email@dfn.it' ? b.customer_email : '') + '</div></td>' +
+                        '<td style="padding:12px 10px; vertical-align:middle;">' + (b.qualifica_html || '') + '</td>' +
+                        '<td style="padding:12px 10px; vertical-align:middle;">' + telefonoLink + '</td>' +
+                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center; font-weight:700;">' + b.slot_persons + '</td>' +
+                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center;">' + statoBadge + '</td>' +
+                        '<td style="padding:12px 10px; vertical-align:middle; font-size:12px;">' + (b.operatori_html || '-') + '</td>' +
+                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center;">' + azioniCassaHtml + '</td>' +
+                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center;">' + btnReminder + btnFeedback + '</td>' +
+                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center;">' + storicoHtml + '</td>' +
                     '</tr>';
                 });
             }
