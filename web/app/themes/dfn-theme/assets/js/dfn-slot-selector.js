@@ -410,6 +410,12 @@ jQuery(document).ready(function($) {
                     if (response.success && response.data) {
                         var res = response.data;
                         
+                        if (res.status === 'pending_payment') {
+                            $feedbackArea.html('<div style="color:#004b23; font-size:13px; font-weight:700; background:#e6f4ea; border:1px solid #34a853; border-radius:6px; padding:10px; margin-top:12px;">🔄 Reindirizzamento al pagamento sicuro...</div>');
+                            window.location.href = res.redirect_url;
+                            return;
+                        }
+                        
                         if (res.status === 'split_warning') {
                             $('.dfn-custom-modal-overlay').remove();
 
@@ -455,6 +461,9 @@ jQuery(document).ready(function($) {
                         if (res.status === 'confirmed') {
                             $step3.find('.dfn-success-icon').html('🎉').css('color', '#166534');
                             $step3.find('.dfn-success-title').html('Prenotazione Confermata!').css('color', '#004b23');
+                        } else if (res.status === 'pending_approval') {
+                            $step3.find('.dfn-success-icon').html('⏳').css('color', '#c69c3a');
+                            $step3.find('.dfn-success-title').html('In Attesa di Verifica').css('color', '#854d0e');
                         } else {
                             $step3.find('.dfn-success-icon').html('⏳').css('color', '#c69c3a');
                             $step3.find('.dfn-success-title').html('In Lista d\'Attesa').css('color', '#854d0e');
@@ -464,6 +473,8 @@ jQuery(document).ready(function($) {
                         var msg = '<p>Grazie <strong>' + postData.first_name + ' ' + postData.last_name + '</strong>!</p>';
                         if (res.status === 'confirmed') {
                             msg += '<p>La tua richiesta è stata registrata. Riceverai a breve un\'email di conferma all\'indirizzo <strong>' + postData.email + '</strong> con il codice QR da presentare all\'ingresso dell\'evento.</p>';
+                        } else if (res.status === 'pending_approval') {
+                            msg += '<p>' + res.message + '</p>';
                         } else {
                             msg += '<p>Al momento i posti per questo turno sono esauriti. Sei stato inserito in <strong>Lista di Attesa</strong>. Se si libereranno dei posti, riceverai una notifica email immediata per completare la tua prenotazione.</p>';
                         }
@@ -474,6 +485,11 @@ jQuery(document).ready(function($) {
                         var dateParts = postData.date.split('-');
                         var dateStrFormatted = dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0];
 
+                        var payLabel = 'Saldo all\'ingresso (In Loco)';
+                        if (res.status === 'pending_approval') {
+                            payLabel = 'Pagamento Online (In Attesa di Convalida Tessere)';
+                        }
+
                         var summaryHtml = '<div style="font-weight:700; color:#004b23; margin-bottom:8px; border-bottom:1px solid #cbd5e1; padding-bottom:6px; font-size:14px;">Dettaglio Prenotazione</div>' +
                                           '<table>' +
                                           '  <tr><td style="font-weight:700; width:120px; color:#475569;">Giorno:</td><td>' + dateStrFormatted + '</td></tr>';
@@ -481,11 +497,15 @@ jQuery(document).ready(function($) {
                             summaryHtml += '  <tr><td style="font-weight:700; color:#475569;">Turno Orario:</td><td>' + slotTimeStr + '</td></tr>';
                         }
                         summaryHtml += '  <tr><td style="font-weight:700; color:#475569;">Biglietti:</td><td>' + postData.qty_standard + ' Standard + ' + postData.qty_fai + ' Soci FAI</td></tr>' +
-                                          '  <tr><td style="font-weight:700; color:#475569;">Pagamento:</td><td>Saldo all\'ingresso (In Loco)</td></tr>';
+                                          '  <tr><td style="font-weight:700; color:#475569;">Pagamento:</td><td>' + payLabel + '</td></tr>';
                         
-                        if (res.status === 'confirmed') {
-                            if (res.total_confirmed) {
+                        if (res.status === 'confirmed' || res.status === 'pending_approval') {
+                            if (res.status === 'pending_approval') {
+                                summaryHtml += '  <tr><td style="font-weight:700; color:#854d0e;">Contributo:</td><td style="font-weight:800; color:#854d0e; font-size:15px;">€' + res.amount_due.toFixed(2) + ' <span style="font-size:11px; font-weight:normal; color:#854d0e;">(in attesa di convalida)</span></td></tr>';
+                                summaryHtml += '</table>';
+                            } else if (res.total_confirmed) {
                                 summaryHtml += '  <tr><td style="font-weight:700; color:#004b23;">Contributo:</td><td style="font-weight:800; color:#004b23; font-size:15px;">€' + res.amount_due.toFixed(2) + ' <span style="font-size:11px; font-weight:normal; color:#166534;">(Tessere FAI verificate)</span></td></tr>';
+                                summaryHtml += '</table>';
                             } else {
                                 summaryHtml += '  <tr><td style="font-weight:700; color:#854d0e;">Contributo:</td><td style="font-weight:800; color:#854d0e; font-size:15px;">€' + res.amount_due.toFixed(2) + '*</td></tr>';
                                 summaryHtml += '</table>';

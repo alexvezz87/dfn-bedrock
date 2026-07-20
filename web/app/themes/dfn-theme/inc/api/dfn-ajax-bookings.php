@@ -252,7 +252,18 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
 
                 // 2. Crea il record master di prenotazione
                 $qr_token = wp_hash($order_id . '|' . $event->id . '|' . time());
-                $booking_status = ('manual' === $event->approval_workflow) ? 'pending_approval' : 'confirmed';
+                $booking_status = 'confirmed';
+                if ($order->get_meta('_dfn_has_unverified_fai_cards') === 'yes') {
+                    $booking_status = 'pending_approval';
+                } elseif ('manual' === $event->approval_workflow) {
+                    $booking_status = 'pending_approval';
+                } elseif ($order->get_payment_method() !== 'dfn_in_loco' && floatval($order->get_total()) > 0.00) {
+                    $booking_status = 'pending_payment';
+                }
+
+                $is_in_loco = ($order->get_payment_method() === 'dfn_in_loco');
+                $amount_due = $is_in_loco ? floatval($order->get_total()) : 0.00;
+                $amount_paid = (!$is_in_loco && $booking_status !== 'pending_payment' && $booking_status !== 'pending_approval') ? floatval($order->get_total()) : 0.00;
 
                 $wpdb->insert(
                     $wpdb->prefix . 'dfn_bookings',
@@ -268,8 +279,8 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                         'status'           => $booking_status,
                         'qr_token'         => $qr_token,
                         'payment_method'   => $order->get_payment_method(),
-                        'amount_due'       => ($order->get_payment_method() === 'dfn_in_loco') ? floatval($order->get_total()) : 0.00,
-                        'amount_paid'      => ($order->get_payment_method() !== 'dfn_in_loco') ? floatval($order->get_total()) : 0.00,
+                        'amount_due'       => $amount_due,
+                        'amount_paid'      => $amount_paid,
                         'notes'            => $order->get_customer_note(),
                     ],
                     [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s' ],
@@ -294,17 +305,21 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
 
                 $wpdb->query('COMMIT');
 
-                // Invio notifica centralizzata in base al workflow
+                // Invio notifica centralizzata in base al workflow o stato pagamento
                 if ('manual' === $event->approval_workflow) {
                     dfn_send_booking_pending_approval($booking_id);
                     $order->add_order_note(__('🎟️ Prenotazione FAI creata in stato: In Attesa di Approvazione Staff.', 'dfn-theme'));
+                } elseif ($booking_status === 'pending_payment') {
+                    $order->add_order_note(__('🎟️ Prenotazione FAI creata in stato: In Attesa di Pagamento Online.', 'dfn-theme'));
                 } else {
                     dfn_send_booking_confirmation($booking_id);
                     $order->add_order_note(__('🎟️ Prenotazione FAI allocata e confermata con successo!', 'dfn-theme'));
                 }
 
-                // Invia la notifica semplificata all'amministratore
-                dfn_send_admin_new_booking_notification($booking_id);
+                if ($booking_status !== 'pending_payment') {
+                    // Invia la notifica semplificata all'amministratore
+                    dfn_send_admin_new_booking_notification($booking_id);
+                }
 
             } elseif ($need_split) {
                 // Eseguiamo l'allocazione divisa (Split)
@@ -379,7 +394,18 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
 
                     // Eseguiamo gli inserimenti
                     $qr_token = wp_hash($order_id . '|' . $event->id . '|' . time());
-                    $booking_status = ('manual' === $event->approval_workflow) ? 'pending_approval' : 'confirmed';
+                    $booking_status = 'confirmed';
+                    if ($order->get_meta('_dfn_has_unverified_fai_cards') === 'yes') {
+                        $booking_status = 'pending_approval';
+                    } elseif ('manual' === $event->approval_workflow) {
+                        $booking_status = 'pending_approval';
+                    } elseif ($order->get_payment_method() !== 'dfn_in_loco' && floatval($order->get_total()) > 0.00) {
+                        $booking_status = 'pending_payment';
+                    }
+
+                    $is_in_loco = ($order->get_payment_method() === 'dfn_in_loco');
+                    $amount_due = $is_in_loco ? floatval($order->get_total()) : 0.00;
+                    $amount_paid = (!$is_in_loco && $booking_status !== 'pending_payment' && $booking_status !== 'pending_approval') ? floatval($order->get_total()) : 0.00;
 
                     $wpdb->insert(
                         $wpdb->prefix . 'dfn_bookings',
@@ -395,8 +421,8 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                             'status'           => $booking_status,
                             'qr_token'         => $qr_token,
                             'payment_method'   => $order->get_payment_method(),
-                            'amount_due'       => ($order->get_payment_method() === 'dfn_in_loco') ? floatval($order->get_total()) : 0.00,
-                            'amount_paid'      => ($order->get_payment_method() !== 'dfn_in_loco') ? floatval($order->get_total()) : 0.00,
+                            'amount_due'       => $amount_due,
+                            'amount_paid'      => $amount_paid,
                             'notes'            => $order->get_customer_note(),
                         ],
                         [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s' ],
@@ -448,13 +474,17 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                     );
                     $order->add_order_note($split_note);
 
-                    // Invio notifica centralizzata in base al workflow
+                    // Invio notifica centralizzata in base al workflow o stato pagamento
                     if ('manual' === $event->approval_workflow) {
                         dfn_send_booking_pending_approval($booking_id);
+                    } elseif ($booking_status === 'pending_payment') {
+                        // Non inviare email di conferma con QR code finché non è pagato
                     } else {
                         dfn_send_booking_confirmation($booking_id);
                     }
-                    dfn_send_admin_new_booking_notification($booking_id);
+                    if ($booking_status !== 'pending_payment') {
+                        dfn_send_admin_new_booking_notification($booking_id);
+                    }
 
                 } else {
                     // OVERBOOKING: Spazio non disponibile! Annulla transazione
@@ -496,7 +526,18 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
             if ((intval($booked_global) + $total_qty) <= intval($event->total_capacity)) {
 
                 $qr_token = wp_hash($order_id . '|' . $event->id . '|' . time());
-                $booking_status = ('manual' === $event->approval_workflow) ? 'pending_approval' : 'confirmed';
+                $booking_status = 'confirmed';
+                if ($order->get_meta('_dfn_has_unverified_fai_cards') === 'yes') {
+                    $booking_status = 'pending_approval';
+                } elseif ('manual' === $event->approval_workflow) {
+                    $booking_status = 'pending_approval';
+                } elseif ($order->get_payment_method() !== 'dfn_in_loco' && floatval($order->get_total()) > 0.00) {
+                    $booking_status = 'pending_payment';
+                }
+
+                $is_in_loco = ($order->get_payment_method() === 'dfn_in_loco');
+                $amount_due = $is_in_loco ? floatval($order->get_total()) : 0.00;
+                $amount_paid = (!$is_in_loco && $booking_status !== 'pending_payment' && $booking_status !== 'pending_approval') ? floatval($order->get_total()) : 0.00;
 
                 $wpdb->insert(
                     $wpdb->prefix . 'dfn_bookings',
@@ -512,8 +553,8 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                         'status'           => $booking_status,
                         'qr_token'         => $qr_token,
                         'payment_method'   => $order->get_payment_method(),
-                        'amount_due'       => ($order->get_payment_method() === 'dfn_in_loco') ? floatval($order->get_total()) : 0.00,
-                        'amount_paid'      => ($order->get_payment_method() !== 'dfn_in_loco') ? floatval($order->get_total()) : 0.00,
+                        'amount_due'       => $amount_due,
+                        'amount_paid'      => $amount_paid,
                         'notes'            => $order->get_customer_note(),
                         'created_at'       => $booking_date . ' ' . date('H:i:s'),
                     ],
@@ -525,12 +566,16 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
 
                 if ('manual' === $event->approval_workflow) {
                     dfn_send_booking_pending_approval($booking_id);
+                } elseif ($booking_status === 'pending_payment') {
+                    // Non inviare email di conferma con QR code finché non è pagato
                 } else {
                     dfn_send_booking_confirmation($booking_id);
                 }
 
-                // Invia la notifica semplificata all'amministratore
-                dfn_send_admin_new_booking_notification($booking_id);
+                if ($booking_status !== 'pending_payment') {
+                    // Invia la notifica semplificata all'amministratore
+                    dfn_send_admin_new_booking_notification($booking_id);
+                }
 
             } else {
                 $wpdb->query('ROLLBACK');
@@ -556,6 +601,14 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
         }
     }
 
+    // Pulisci i dati di sessione usati per il prefill del checkout
+    if (WC()->session) {
+        WC()->session->set('dfn_checkout_first_name', null);
+        WC()->session->set('dfn_checkout_last_name', null);
+        WC()->session->set('dfn_checkout_email', null);
+        WC()->session->set('dfn_checkout_phone', null);
+        WC()->session->set('dfn_checkout_fai_cards', null);
+    }
 }
 
 add_action('wp_ajax_dfn_create_direct_booking', 'dfn_ajax_create_direct_booking');
@@ -801,6 +854,42 @@ function dfn_ajax_create_direct_booking(): void
         }
     }
 
+    // Se l'evento richiede il pagamento online e TUTTE le tessere FAI sono verificate (o non ci sono tessere FAI),
+    // andiamo al classico checkout di WooCommerce pre-popolando i dati in sessione.
+    if ($event->payment_mode === 'online' && $all_verified) {
+        if (WC()->cart instanceof \WC_Cart) {
+            WC()->cart->empty_cart();
+        }
+
+        $cart_item_data = [
+            'dfn_booking_date'    => $date,
+            'dfn_booking_slot_id' => $slot_id,
+            'dfn_qty_standard'    => $qty_standard,
+            'dfn_qty_fai'         => $qty_fai,
+        ];
+
+        // Aggiungi il prodotto al carrello con i dati della prenotazione
+        WC()->cart->add_to_cart($product_id, $total_qty, 0, [], $cart_item_data);
+
+        // Salva i dati di contatto e le tessere nella sessione di WooCommerce
+        if (WC()->session) {
+            WC()->session->set('dfn_checkout_first_name', $first_name);
+            WC()->session->set('dfn_checkout_last_name', $last_name);
+            WC()->session->set('dfn_checkout_email', $email);
+            WC()->session->set('dfn_checkout_phone', $phone);
+            if (! empty($fai_cards)) {
+                WC()->session->set('dfn_checkout_fai_cards', $fai_cards);
+            }
+        }
+
+        wp_send_json_success([
+            'status'       => 'pending_payment',
+            'redirect_url' => wc_get_checkout_url(),
+            'message'      => esc_html__('Attendi, verrai reindirizzato al checkout...', 'dfn-theme'),
+        ]);
+        exit;
+    }
+
     // 2. Creazione programmatica dell'ordine WooCommerce
     try {
         $order = wc_create_order();
@@ -817,7 +906,13 @@ function dfn_ajax_create_direct_booking(): void
         $order->set_billing_email($email);
         $order->set_billing_phone($phone);
         $order->set_customer_note($notes);
-        $order->set_payment_method('dfn_in_loco');
+
+        if ($event->payment_mode === 'online') {
+            // For online payments, we don't set payment method to dfn_in_loco
+            // Leave payment method empty/not set so user can select any gateway on WooCommerce pay page
+        } else {
+            $order->set_payment_method('dfn_in_loco');
+        }
 
         // Applica sconto/adeguamento Soci FAI se presente
         $price_standard = floatval($event->price_standard);
@@ -850,7 +945,12 @@ function dfn_ajax_create_direct_booking(): void
         }
 
         // Salva metadati generali ordine
-        $order->update_meta_data('_dfn_payment_in_loco', 'yes');
+        if ($event->payment_mode !== 'online') {
+            $order->update_meta_data('_dfn_payment_in_loco', 'yes');
+        }
+        if ($event->payment_mode === 'online' && ! $all_verified) {
+            $order->update_meta_data('_dfn_has_unverified_fai_cards', 'yes');
+        }
         if (! empty($fai_cards)) {
             $order->update_meta_data('_dfn_fai_cards', $fai_cards);
         }
@@ -897,11 +997,18 @@ function dfn_ajax_create_direct_booking(): void
         ];
 
         if ($booking) {
-            $response_data['status'] = 'confirmed';
-            $response_data['message'] = sprintf(
-                esc_html__('La tua prenotazione è confermata per il giorno %s.', 'dfn-theme'),
-                date_i18n('d F Y', strtotime($date)),
-            );
+            $response_data['status'] = $booking->status;
+            if ($booking->status === 'pending_payment') {
+                $response_data['redirect_url'] = $order->get_checkout_payment_url();
+                $response_data['message'] = esc_html__('Attendi, verrai reindirizzato alla pagina di pagamento...', 'dfn-theme');
+            } elseif ($booking->status === 'pending_approval') {
+                $response_data['message'] = esc_html__('La tua richiesta di prenotazione contiene tessere FAI da verificare e richiede l\'approvazione dello staff. I posti sono stati riservati: non appena le tessere saranno verificate riceverai un\'email con il link per effettuare il pagamento online e confermare definitivamente i tuoi biglietti.', 'dfn-theme');
+            } else {
+                $response_data['message'] = sprintf(
+                    esc_html__('La tua prenotazione è confermata per il giorno %s.', 'dfn-theme'),
+                    date_i18n('d F Y', strtotime($date)),
+                );
+            }
         } else {
             $response_data['status'] = 'waitlist';
             $response_data['message'] = esc_html__('Posti esauriti. Sei stato inserito con priorità in Lista d\'Attesa! Riceverai una notifica se si libererà un turno.', 'dfn-theme');
@@ -982,4 +1089,222 @@ function dfn_ajax_get_user_fai_cards(): void
     }
 
     wp_send_json_success([ 'cards' => $formatted_cards ]);
+}
+
+/**
+ * Hook per confermare e attivare la prenotazione al ricevimento del pagamento online.
+ */
+add_action('woocommerce_payment_complete', 'dfn_confirm_booking_on_payment', 10, 1);
+add_action('woocommerce_order_status_processing', 'dfn_confirm_booking_on_payment', 10, 1);
+add_action('woocommerce_order_status_completed', 'dfn_confirm_booking_on_payment', 10, 1);
+function dfn_confirm_booking_on_payment(int $order_id): void
+{
+    if (! $order_id) {
+        return;
+    }
+    
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_bookings';
+    
+    // Cerca se esiste una prenotazione associata a questo ordine con stato 'pending_payment' o 'pending_approval'
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table} WHERE order_id = %d AND status IN ('pending_payment', 'pending_approval')",
+        $order_id,
+    ));
+    
+    if ($booking) {
+        $event = dfn_db_get_event($booking->event_id);
+        if ($event) {
+            $new_status = 'confirmed';
+            
+            // Aggiorna lo stato della prenotazione e imposta il metodo e importo pagato
+            $order = wc_get_order($order_id);
+            $pay_method = $order ? $order->get_payment_method() : 'online';
+            $total_paid = $order ? floatval($order->get_total()) : 0.00;
+
+            $wpdb->update(
+                $table,
+                [ 
+                    'status'         => $new_status,
+                    'payment_method' => $pay_method,
+                    'amount_paid'    => $total_paid,
+                    'amount_due'     => 0.00,
+                ],
+                [ 'id' => $booking->id ],
+                [ '%s', '%s', '%f', '%f' ],
+                [ '%d' ],
+            );
+            
+            // Invia le notifiche via email
+            dfn_send_booking_confirmation($booking->id);
+            dfn_send_admin_new_booking_notification($booking->id);
+            
+            // Aggiunge una nota riepilogativa all'ordine
+            if ($order) {
+                $order->add_order_note(sprintf(__('🎟️ Pagamento online ricevuto. Prenotazione FAI confermata (Stato: %s).', 'dfn-theme'), $new_status));
+            }
+        }
+    }
+}
+
+/**
+ * Cerca e sblocca prenotazioni in pending_approval associate a una tessera FAI che è appena stata verificata.
+ */
+function dfn_check_and_process_pending_bookings_for_fai_card(string $card_number): void
+{
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $table_members = $wpdb->prefix . 'dfn_fai_members';
+    
+    // Recupera tutte le prenotazioni pendenti
+    $bookings = $wpdb->get_results(
+        "SELECT * FROM {$table_bookings} WHERE status = 'pending_approval'"
+    );
+    
+    if (empty($bookings)) {
+        return;
+    }
+    
+    foreach ($bookings as $booking) {
+        $order = wc_get_order($booking->order_id);
+        if (! $order) {
+            continue;
+        }
+        
+        $fai_cards = $order->get_meta('_dfn_fai_cards');
+        if (empty($fai_cards) || ! is_array($fai_cards)) {
+            continue;
+        }
+        
+        // Verifica se questa prenotazione utilizza la tessera approvata
+        $uses_card = false;
+        foreach ($fai_cards as $card) {
+            if (isset($card['tessera']) && $card['tessera'] === $card_number) {
+                $uses_card = true;
+                break;
+            }
+        }
+        
+        if (! $uses_card) {
+            continue;
+        }
+        
+        // Controlla se TUTTE le tessere della prenotazione sono ora verificate nel DB
+        $all_verified = true;
+        foreach ($fai_cards as $card) {
+            if (empty($card['tessera'])) {
+                continue;
+            }
+            $verified = $wpdb->get_var($wpdb->prepare(
+                "SELECT verified FROM {$table_members} WHERE card_number = %s LIMIT 1",
+                $card['tessera']
+            ));
+            if (intval($verified) !== 1) {
+                $all_verified = false;
+                break;
+            }
+        }
+        
+        if ($all_verified) {
+            // Tutte le tessere sono verificate! Possiamo sbloccare la prenotazione.
+            $event = dfn_db_get_event($booking->event_id);
+            if ($event) {
+                if ($event->payment_mode === 'online') {
+                    // Imposta lo stato a pending_payment
+                    $wpdb->update(
+                        $table_bookings,
+                        [ 'status' => 'pending_payment' ],
+                        [ 'id' => $booking->id ],
+                        [ '%s' ],
+                        [ '%d' ]
+                    );
+                    
+                    // Rimuove il flag di non verificate dall'ordine
+                    $order->update_meta_data('_dfn_has_unverified_fai_cards', 'no');
+                    $order->save();
+                    
+                    // Imposta lo stato dell'ordine a pending e invia la mail con il link di pagamento
+                    $order->update_status('pending', __('Tessere FAI convalidate dallo staff. In attesa di pagamento online.', 'dfn-theme'));
+                    
+                    $email_invoice = WC()->mailer()->get_emails()['WC_Email_Customer_Invoice'] ?? null;
+                    if ($email_invoice) {
+                        $email_invoice->trigger($order->get_id());
+                    }
+                    $order->add_order_note(__('📧 Inviata mail con link di pagamento online (Tessere convalidate).', 'dfn-theme'));
+                } else {
+                    // Se il pagamento è in loco, conferma direttamente la prenotazione
+                    $wpdb->update(
+                        $table_bookings,
+                        [ 'status' => 'confirmed' ],
+                        [ 'id' => $booking->id ],
+                        [ '%s' ],
+                        [ '%d' ]
+                    );
+                    
+                    $order->update_status('completed', __('Tessere FAI convalidate dallo staff. Prenotazione confermata.', 'dfn-theme'));
+                    
+                    if (function_exists('dfn_send_booking_confirmation')) {
+                        dfn_send_booking_confirmation($booking->id);
+                    }
+                    if (function_exists('dfn_send_admin_new_booking_notification')) {
+                        dfn_send_admin_new_booking_notification($booking->id);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Annulla prenotazioni in pending_approval associate a una tessera FAI che è stata rifiutata dallo staff.
+ */
+function dfn_cancel_pending_bookings_for_rejected_fai_card(string $card_number, string $reason = ''): void
+{
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    
+    // Recupera tutte le prenotazioni pendenti
+    $bookings = $wpdb->get_results(
+        "SELECT * FROM {$table_bookings} WHERE status = 'pending_approval'"
+    );
+    
+    if (empty($bookings)) {
+        return;
+    }
+    
+    foreach ($bookings as $booking) {
+        $order = wc_get_order($booking->order_id);
+        if (! $order) {
+            continue;
+        }
+        
+        $fai_cards = $order->get_meta('_dfn_fai_cards');
+        if (empty($fai_cards) || ! is_array($fai_cards)) {
+            continue;
+        }
+        
+        // Verifica se questa prenotazione utilizza la tessera rifiutata
+        $uses_card = false;
+        foreach ($fai_cards as $card) {
+            if (isset($card['tessera']) && $card['tessera'] === $card_number) {
+                $uses_card = true;
+                break;
+            }
+        }
+        
+        if (! $uses_card) {
+            continue;
+        }
+        
+        // La prenotazione usa la tessera rifiutata, quindi la annulliamo rilasciando la capienza
+        $note = sprintf(
+            __('Prenotazione rifiutata dallo staff per tessera FAI %s non valida. Motivo: %s', 'dfn-theme'),
+            $card_number,
+            $reason
+        );
+        
+        if (function_exists('dfn_cancel_booking_by_id')) {
+            dfn_cancel_booking_by_id($booking->id, $note);
+        }
+    }
 }

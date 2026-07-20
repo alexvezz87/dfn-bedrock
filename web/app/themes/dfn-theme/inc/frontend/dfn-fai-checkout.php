@@ -45,10 +45,30 @@ function dfn_checkout_display_fai_fields($checkout): void
     echo '<h3 class="dfn-fai-validation-title">🍊 ' . esc_html__('Verifica Tessere Socio FAI', 'dfn-theme') . '</h3>';
     echo '<p style="font-size:12px; color:#64748b; margin-top:0; margin-bottom:15px;">' . esc_html__('Inserisci il nome, cognome e numero tessera per ognuno dei posti a contributo Soci FAI selezionati.', 'dfn-theme') . '</p>';
 
+    $session_cards = (WC()->session) ? WC()->session->get('dfn_checkout_fai_cards') : [];
+
     for ($i = 1; $i <= $total_fai_qty; $i++) {
-        $nome_val    = isset($_POST['dfn_fai_card_nome_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_nome_' . $i]) : '';
-        $cognome_val = isset($_POST['dfn_fai_card_cognome_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_cognome_' . $i]) : '';
-        $card_val    = isset($_POST['dfn_fai_card_number_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_number_' . $i]) : '';
+        $nome_val    = '';
+        $cognome_val = '';
+        $card_val    = '';
+
+        if (isset($_POST['dfn_fai_card_nome_' . $i])) {
+            $nome_val = sanitize_text_field($_POST['dfn_fai_card_nome_' . $i]);
+        } elseif (isset($session_cards[$i - 1]['nome'])) {
+            $nome_val = $session_cards[$i - 1]['nome'];
+        }
+
+        if (isset($_POST['dfn_fai_card_cognome_' . $i])) {
+            $cognome_val = sanitize_text_field($_POST['dfn_fai_card_cognome_' . $i]);
+        } elseif (isset($session_cards[$i - 1]['cognome'])) {
+            $cognome_val = $session_cards[$i - 1]['cognome'];
+        }
+
+        if (isset($_POST['dfn_fai_card_number_' . $i])) {
+            $card_val = sanitize_text_field($_POST['dfn_fai_card_number_' . $i]);
+        } elseif (isset($session_cards[$i - 1]['tessera'])) {
+            $card_val = $session_cards[$i - 1]['tessera'];
+        }
 
         echo '<div class="dfn-fai-card-input-row" style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #e2e8f0;">';
         echo '<h4 style="font-size:12px; font-weight:700; color:#004b23; margin:0 0 10px 0;">' . sprintf(esc_html__('Partecipante FAI #%d', 'dfn-theme'), $i) . '</h4>';
@@ -177,7 +197,9 @@ function dfn_checkout_save_fai_fields($order, $data): void
         return;
     }
 
-    $fai_cards_saved = [];
+    global $wpdb;
+    $table_members = $wpdb->prefix . 'dfn_fai_members';
+    $has_unverified = false;
 
     for ($i = 1; $i <= $total_fai_qty; $i++) {
         $nome    = isset($_POST['dfn_fai_card_nome_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_nome_' . $i]) : '';
@@ -190,10 +212,22 @@ function dfn_checkout_save_fai_fields($order, $data): void
                 'cognome' => $cognome,
                 'tessera' => $card,
             ];
+
+            // Cerca se la tessera è già stata verificata nel DB
+            $member = $wpdb->get_row($wpdb->prepare(
+                "SELECT verified FROM {$table_members} WHERE card_number = %s LIMIT 1",
+                $card
+            ));
+            if (! $member || intval($member->verified) !== 1) {
+                $has_unverified = true;
+            }
         }
     }
 
     if (! empty($fai_cards_saved)) {
         $order->update_meta_data('_dfn_fai_cards', $fai_cards_saved);
+    }
+    if ($has_unverified) {
+        $order->update_meta_data('_dfn_has_unverified_fai_cards', 'yes');
     }
 }

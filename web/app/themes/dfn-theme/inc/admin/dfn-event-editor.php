@@ -70,6 +70,9 @@ function dfn_render_event_editor()
             if ($price_fai > $price_standard) {
                 $message = __('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme');
                 $message_type = 'error';
+            } elseif (! empty($_POST['event_date_end']) && strtotime($event_date_end) < strtotime($event_date_start)) {
+                $message = __('Errore: La data di fine non può essere antecedente alla data di inizio.', 'dfn-theme');
+                $message_type = 'error';
             } else {
                 $product_id = 0;
                 if ($product_id_raw === 'new') {
@@ -610,19 +613,33 @@ function dfn_event_editor_auto_cancel_js()
                 helpText.textContent = helpTexts[mode];
             }
         });
-        // Validation: price_fai cannot be higher than price_standard
+        // Validation: price_fai cannot be higher than price_standard, and date_end cannot be before date_start
         var priceStandard = document.getElementById('price_standard');
         var priceFai = document.getElementById('price_fai');
+        var dateStart = document.getElementById('event_date_start');
+        var dateEnd = document.getElementById('event_date_end');
         var form = document.querySelector('.dfn-editor-form');
 
-        if (form && priceStandard && priceFai) {
+        if (form) {
             form.addEventListener('submit', function(e) {
-                var stdVal = parseFloat(priceStandard.value) || 0;
-                var faiVal = parseFloat(priceFai.value) || 0;
-                if (faiVal > stdVal) {
-                    e.preventDefault();
-                    alert('<?php echo esc_js(__('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme')); ?>');
-                    priceFai.focus();
+                if (priceStandard && priceFai) {
+                    var stdVal = parseFloat(priceStandard.value) || 0;
+                    var faiVal = parseFloat(priceFai.value) || 0;
+                    if (faiVal > stdVal) {
+                        e.preventDefault();
+                        alert('<?php echo esc_js(__('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme')); ?>');
+                        priceFai.focus();
+                        return;
+                    }
+                }
+
+                if (dateStart && dateEnd && dateStart.value && dateEnd.value) {
+                    if (dateEnd.value < dateStart.value) {
+                        e.preventDefault();
+                        alert('<?php echo esc_js(__('Errore: La data di fine non può essere antecedente alla data di inizio.', 'dfn-theme')); ?>');
+                        dateEnd.focus();
+                        return;
+                    }
                 }
             });
         }

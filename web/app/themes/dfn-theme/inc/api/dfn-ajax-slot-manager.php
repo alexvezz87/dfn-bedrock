@@ -104,51 +104,8 @@ function dfn_ajax_admin_get_slots(): void
 
         $bookings_list = [];
         foreach ($bookings_raw as $b) {
-            $fai_cards = [];
-            $order_total = 0.00;
-            $payment_status = 'ancora da pagare';
-            $first_name = '';
-            $last_name = '';
-            if ($b->order_id) {
-                $order = wc_get_order($b->order_id);
-                if ($order) {
-                    $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
-                    $order_total = floatval($order->get_total());
-                    $status = $order->get_status();
-                    if (in_array($status, ['completed', 'processing'], true)) {
-                        $payment_status = 'pagato';
-                    } else {
-                        $payment_status = 'ancora da pagare';
-                    }
-                    $first_name = $order->get_billing_first_name();
-                    $last_name  = $order->get_billing_last_name();
-                }
-            }
-            if (empty($first_name) && empty($last_name)) {
-                $parts = explode(' ', $b->customer_name, 2);
-                $first_name = $parts[0];
-                $last_name  = isset($parts[1]) ? $parts[1] : '';
-            }
-            $bookings_list[] = [
-                'id'               => intval($b->id),
-                'order_id'         => intval($b->order_id),
-                'customer_name'    => esc_html($b->customer_name),
-                'customer_first_name'=> esc_html($first_name),
-                'customer_last_name' => esc_html($last_name),
-                'customer_email'   => esc_html($b->customer_email),
-                'customer_phone'   => esc_html($b->customer_phone),
-                'total_persons'    => intval($b->total_persons),
-                'persons_standard' => intval($b->persons_standard),
-                'persons_fai'      => intval($b->persons_fai),
-                'slot_persons'     => intval($b->total_persons),
-                'status'           => esc_html($b->status),
-                'qr_token'         => esc_html($b->qr_token),
-                'notes'            => esc_html($b->notes),
-                'created_at'       => esc_html($b->created_at),
-                'fai_cards'        => $fai_cards,
-                'order_total'      => $order_total,
-                'payment_status'   => $payment_status,
-            ];
+            $order = $b->order_id ? wc_get_order($b->order_id) : null;
+            $bookings_list[] = dfn_enrich_booking_data($b, $order);
         }
 
         $total_booked = array_sum(array_column($bookings_list, 'total_persons'));
@@ -191,51 +148,8 @@ function dfn_ajax_admin_get_slots(): void
 
         $bookings_list = [];
         foreach ($bookings as $b) {
-            $fai_cards = [];
-            $order_total = 0.00;
-            $payment_status = 'ancora da pagare';
-            $first_name = '';
-            $last_name = '';
-            if ($b->order_id) {
-                $order = wc_get_order($b->order_id);
-                if ($order) {
-                    $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
-                    $order_total = floatval($order->get_total());
-                    $status = $order->get_status();
-                    if (in_array($status, ['completed', 'processing'], true)) {
-                        $payment_status = 'pagato';
-                    } else {
-                        $payment_status = 'ancora da pagare';
-                    }
-                    $first_name = $order->get_billing_first_name();
-                    $last_name  = $order->get_billing_last_name();
-                }
-            }
-            if (empty($first_name) && empty($last_name)) {
-                $parts = explode(' ', $b->customer_name, 2);
-                $first_name = $parts[0];
-                $last_name  = isset($parts[1]) ? $parts[1] : '';
-            }
-            $bookings_list[] = [
-                'id'               => intval($b->id),
-                'order_id'         => intval($b->order_id),
-                'customer_name'    => esc_html($b->customer_name),
-                'customer_first_name'=> esc_html($first_name),
-                'customer_last_name' => esc_html($last_name),
-                'customer_email'   => esc_html($b->customer_email),
-                'customer_phone'   => esc_html($b->customer_phone),
-                'total_persons'    => intval($b->total_persons),
-                'persons_standard' => intval($b->persons_standard),
-                'persons_fai'      => intval($b->persons_fai),
-                'slot_persons'     => intval($b->slot_persons),
-                'status'           => esc_html($b->status),
-                'qr_token'         => esc_html($b->qr_token),
-                'notes'            => esc_html($b->notes),
-                'created_at'       => esc_html($b->created_at),
-                'fai_cards'        => $fai_cards,
-                'order_total'      => $order_total,
-                'payment_status'   => $payment_status,
-            ];
+            $order = $b->order_id ? wc_get_order($b->order_id) : null;
+            $bookings_list[] = dfn_enrich_booking_data($b, $order);
         }
 
         $slots_data[] = [
@@ -1579,4 +1493,121 @@ function dfn_ajax_admin_save_fai_cards(): void
         'message'   => esc_html__('Tessere salvate e sincronizzate con successo.', 'dfn-theme'),
         'fai_cards' => $fai_cards
     ]);
+}
+
+/**
+ * Helper per arricchire i dati di prenotazione per il tabellone di gestione.
+ */
+function dfn_enrich_booking_data($b, $order) {
+    $fai_cards = [];
+    $order_total = 0.00;
+    $payment_status = 'ancora da pagare';
+    $first_name = '';
+    $last_name = '';
+    $qualifica_html = '<span style="color:#aaa; font-size:12px;">Standard</span>';
+    $checkin_fatti = 0;
+    $operatori_html = '-';
+    $history_logs = [];
+    $reminder_sent = false;
+    $feedback_sent = false;
+    $html_bottoni_popup = '';
+    $html_history_popup = '<p style="color:#666; font-style:italic;">Nessuna interazione registrata.</p>';
+
+    if ($order) {
+        $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
+        $order_total = floatval($order->get_total());
+        $status = $order->get_status();
+        if (in_array($status, ['completed', 'processing'], true)) {
+            $payment_status = 'pagato';
+        } else {
+            $payment_status = 'ancora da pagare';
+        }
+        $first_name = $order->get_billing_first_name();
+        $last_name  = $order->get_billing_last_name();
+
+        if (function_exists('cv_get_order_qualifica_label')) {
+            $qualifica_html = cv_get_order_qualifica_label($order);
+        }
+
+        $reminder_sent = $order->get_meta('_cv_reminder_sent') === 'yes';
+        $feedback_sent = $order->get_meta('_cv_feedback_sent') === 'yes';
+
+        // Calcola check-in e bottoni cassa
+        $qty_prodotto = intval($b->total_persons);
+        $operatori_coinvolti = [];
+        $user_cache = [];
+        $html_bottoni_popup = '<div class="cv-popup-data-container" style="display:none;">';
+        for ($i = 1; $i <= $qty_prodotto; $i++) {
+            if ($order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
+                $checkin_fatti++;
+                $op_id = $order->get_meta('_cv_ticket_validato_' . $i . '_operatore');
+                if ($op_id) {
+                    if (! isset($user_cache[ $op_id ])) {
+                        $user_info = get_userdata($op_id);
+                        $user_cache[ $op_id ] = $user_info ? $user_info->display_name : 'Sconosciuto';
+                    }
+                    $nome_op = $user_cache[ $op_id ];
+                    isset($operatori_coinvolti[$nome_op]) ? $operatori_coinvolti[$nome_op]++ : $operatori_coinvolti[$nome_op] = 1;
+                }
+                $html_bottoni_popup .= '<div style="margin-bottom:8px; padding:10px; background:#eaf7ea; color:#166534; border: 1px solid #c3e6c3; border-radius: 4px; display:flex; justify-content:space-between; align-items:center;"><span>✅ Biglietto ' . $i . ' validato</span><button class="button cv-undo-checkin-btn" data-order="' . esc_attr($order->get_id()) . '" data-ticket="' . esc_attr($i) . '" style="color:#d63638; border-color:#d63638; padding:0 8px; min-height:26px; line-height:24px;">Annulla</button></div>';
+            } else {
+                $html_bottoni_popup .= '<button class="button cv-manual-checkin-btn" data-order="' . esc_attr($order->get_id()) . '" data-ticket="' . esc_attr($i) . '" style="margin-bottom:8px; display:block; width:100%; border-color:#00a32a; color:#00a32a; height: 40px; cursor:pointer;">✔️ Valida Biglietto ' . $i . '</button>';
+            }
+        }
+        $html_bottoni_popup .= '</div>';
+
+        if (! empty($operatori_coinvolti)) {
+            $operatori_html = '';
+            foreach ($operatori_coinvolti as $nome => $qta) {
+                $operatori_html .= '<span style="display:block; margin-bottom:4px; font-size:12px;">👤 ' . esc_html($nome) . ' <small style="color:#777;">(x' . $qta . ')</small></span>';
+            }
+        }
+
+        // Calcola log storico
+        $history_meta = $order->get_meta('_cv_ticket_history');
+        if (! empty($history_meta) && is_array($history_meta)) {
+            usort($history_meta, function ($a, $b) {
+                return strtotime($b['time']) - strtotime($a['time']);
+            });
+            $html_history_popup = '<div class="cv-history-data-container" style="display:none;">';
+            foreach ($history_meta as $log) {
+                $html_history_popup .= '<div class="cv-history-item" style="border-bottom:1px solid #f1f5f9; padding:6px 0;"><span style="color:#777; margin-right:10px;">🕒 ' . date_i18n('d/m/Y - H:i:s', strtotime($log['time'])) . '</span> <strong>' . esc_html($log['action']) . '</strong></div>';
+            }
+            $html_history_popup .= '</div>';
+        }
+    }
+
+    if (empty($first_name) && empty($last_name)) {
+        $parts = explode(' ', $b->customer_name, 2);
+        $first_name = $parts[0];
+        $last_name  = isset($parts[1]) ? $parts[1] : '';
+    }
+
+    return [
+        'id'               => intval($b->id),
+        'order_id'         => intval($b->order_id),
+        'customer_name'    => esc_html($b->customer_name),
+        'customer_first_name'=> esc_html($first_name),
+        'customer_last_name' => esc_html($last_name),
+        'customer_email'   => esc_html($b->customer_email),
+        'customer_phone'   => esc_html($b->customer_phone),
+        'total_persons'    => intval($b->total_persons),
+        'persons_standard' => intval($b->persons_standard),
+        'persons_fai'      => intval($b->persons_fai),
+        'slot_persons'     => intval($b->total_persons),
+        'status'           => esc_html($b->status),
+        'qr_token'         => esc_html($b->qr_token),
+        'notes'            => esc_html($b->notes),
+        'created_at'       => esc_html($b->created_at),
+        'fai_cards'        => $fai_cards,
+        'order_total'      => $order_total,
+        'payment_status'   => $payment_status,
+        'qualifica_html'   => $qualifica_html,
+        'checkin_fatti'    => $checkin_fatti,
+        'operatori_html'   => $operatori_html,
+        'html_bottoni_popup'=> $html_bottoni_popup,
+        'html_history_popup'=> $html_history_popup,
+        'reminder_sent'    => $reminder_sent,
+        'feedback_sent'    => $feedback_sent,
+    ];
 }

@@ -20,6 +20,7 @@ web/.htaccess
 
 # Database backups
 *.sql
+/backups/
 
 # Logs
 *.log

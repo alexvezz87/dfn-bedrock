@@ -395,5 +395,24 @@ function dfn_render_slot_manager()
             </div>
         </div>
     </div>
+
+    <!-- POPUPS CASSA CHECK-IN E LOGS LEGACY -->
+    <div id="cv-cassa-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:999999; align-items:center; justify-content:center;">
+        <div style="background:#fff; padding:25px; border-radius:10px; width:90%; max-width:450px; box-shadow:0 10px 30px rgba(0,0,0,0.4); max-height:85vh; display:flex; flex-direction:column;">
+            <h2 style="margin-top:0; font-size:22px; border-bottom: 2px solid #eee; padding-bottom: 10px;"><?php esc_html_e('Cassa Check-in', 'dfn-theme'); ?></h2>
+            <p style="font-size:16px;"><?php esc_html_e('Cliente:', 'dfn-theme'); ?> <strong id="cv-modal-cliente-name" style="color:#2271b1;"></strong></p>
+            <div id="cv-modal-buttons-area" style="flex-grow:1; overflow-y:auto; margin: 15px 0; padding-right: 5px;"></div>
+            <button type="button" class="button cv-close-modal-btn" style="text-align:center; width:100%; padding: 10px; height: auto; font-size: 16px;"><?php esc_html_e('Chiudi Finestra', 'dfn-theme'); ?></button>
+        </div>
+    </div>
+
+    <div id="cv-history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:999999; align-items:center; justify-content:center;">
+        <div style="background:#fff; padding:25px; border-radius:10px; width:90%; max-width:500px; box-shadow:0 10px 30px rgba(0,0,0,0.4); max-height:85vh; display:flex; flex-direction:column;">
+            <h2 style="margin-top:0; font-size:22px; border-bottom: 2px solid #eee; padding-bottom: 10px;"><?php esc_html_e('📜 Log Operazioni Cliente', 'dfn-theme'); ?></h2>
+            <p style="font-size:16px;"><?php esc_html_e('Ordine Cliente:', 'dfn-theme'); ?> <strong id="cv-history-cliente-name" style="color:#2271b1;"></strong></p>
+            <div id="cv-history-content-area" style="flex-grow:1; overflow-y:auto; margin: 10px 0; padding:10px; background:#f9f9f9; border:1px solid #ddd; border-radius:5px;"></div>
+            <button type="button" class="button cv-close-modal-btn" style="text-align:center; width:100%; padding: 10px; height: auto; font-size: 16px; margin-top:10px;"><?php esc_html_e('Chiudi Log', 'dfn-theme'); ?></button>
+        </div>
+    </div>
     <?php
 }

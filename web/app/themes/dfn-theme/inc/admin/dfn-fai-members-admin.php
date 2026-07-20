@@ -93,6 +93,16 @@ function dfn_render_fai_members_page(): void
                 dfn_send_fai_card_approved_email($m->email, $m->first_name, $m->last_name, $m->card_number);
             }
 
+            // Sblocca le prenotazioni pendenti associate a questa tessera
+            if ($m) {
+                if (! function_exists('dfn_check_and_process_pending_bookings_for_fai_card')) {
+                    require_once get_template_directory() . '/inc/api/dfn-ajax-bookings.php';
+                }
+                if (function_exists('dfn_check_and_process_pending_bookings_for_fai_card')) {
+                    dfn_check_and_process_pending_bookings_for_fai_card($m->card_number);
+                }
+            }
+
             $message = esc_html__('Socio FAI approvato e notificato con successo.', 'dfn-theme');
         } else {
             $message = esc_html__('Errore di sicurezza: verifica fallita.', 'dfn-theme');
@@ -116,6 +126,14 @@ function dfn_render_fai_members_page(): void
 
                 // Rimuovi la tessera non valida dal database
                 $wpdb->delete($table, [ 'id' => $member_id ], [ '%d' ]);
+
+                // Annulla le prenotazioni pendenti associate a questa tessera rifiutata
+                if (! function_exists('dfn_cancel_pending_bookings_for_rejected_fai_card')) {
+                    require_once get_template_directory() . '/inc/api/dfn-ajax-bookings.php';
+                }
+                if (function_exists('dfn_cancel_pending_bookings_for_rejected_fai_card')) {
+                    dfn_cancel_pending_bookings_for_rejected_fai_card($m->card_number, $reason);
+                }
 
                 $message = esc_html__('Tessera FAI rifiutata e notifica inviata all\'utente.', 'dfn-theme');
             } else {

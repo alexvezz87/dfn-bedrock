@@ -35,10 +35,20 @@ function dfn_process_scan_ajax_handler(): void
         wp_send_json_error([ 'message' => esc_html__('Token QR non fornito.', 'dfn-theme') ]);
     }
 
-    // Estrae l'eventuale slot_id accodato (es: TOKEN-SLOTID)
-    $parts = explode('-', $qr_token_raw);
-    $qr_token = $parts[0];
-    $target_slot_id = isset($parts[1]) ? intval($parts[1]) : 0;
+    // Estrae l'eventuale slot_id o ticket_index accodati
+    $qr_token = $qr_token_raw;
+    $target_slot_id = 0;
+    $ticket_index = 0;
+
+    if (strpos($qr_token_raw, '-ticket-') !== false) {
+        $parts = explode('-ticket-', $qr_token_raw);
+        $qr_token = $parts[0];
+        $ticket_index = intval($parts[1]);
+    } elseif (strpos($qr_token_raw, '-') !== false) {
+        $parts = explode('-', $qr_token_raw);
+        $qr_token = $parts[0];
+        $target_slot_id = intval($parts[1]);
+    }
 
     global $wpdb;
     $table_bookings = $wpdb->prefix . 'dfn_bookings';
@@ -56,6 +66,39 @@ function dfn_process_scan_ajax_handler(): void
     $order = wc_get_order($booking->order_id);
     if (! $order) {
         wp_send_json_error([ 'message' => esc_html__('Ordine WooCommerce correlato non trovato.', 'dfn-theme') ]);
+    }
+
+    // Se l'ordine richiede il pagamento in loco ed è ancora in sospeso, forziamo l'uso del QR code di gruppo
+    $is_paid = $order->has_status([ 'processing', 'completed' ]) || floatval($order->get_total()) === 0.00;
+    if (! $is_paid) {
+        if ($ticket_index > 0) {
+            wp_send_json_error([ 'message' => esc_html__('Questa prenotazione deve essere pagata al banchetto. Mostra il QR Code di gruppo.', 'dfn-theme') ]);
+        }
+    }
+
+    // Gestione convalidazione del singolo biglietto (se indicato ticket_index)
+    if ($ticket_index > 0) {
+        $is_ticket_checked_in = $order->get_meta('_cv_ticket_validato_' . $ticket_index) === 'yes';
+        if ($is_ticket_checked_in) {
+            $validated_by = 'Staff';
+            $op_id = $order->get_meta('_cv_ticket_validato_' . $ticket_index . '_operatore');
+            if ($op_id) {
+                $user_info = get_userdata($op_id);
+                if ($user_info) {
+                    $validated_by = $user_info->display_name;
+                }
+            }
+            $orario = $order->get_meta('_cv_ticket_validato_' . $ticket_index . '_orario');
+            $orario_formatted = $orario ? date_i18n('d/m/Y - H:i:s', strtotime($orario)) : '';
+
+            wp_send_json_success([
+                'status'         => 'checked_in',
+                'customer_name'  => sprintf(esc_html__('%s (Biglietto %d di %d)', 'dfn-theme'), $booking->customer_name, $ticket_index, $booking->total_persons),
+                'total_persons'  => 1,
+                'checked_in_at'  => $orario_formatted,
+                'checked_in_by'  => $validated_by,
+            ]);
+        }
     }
 
     // Se stiamo scansionando uno slot specifico
@@ -132,6 +175,45 @@ function dfn_process_scan_ajax_handler(): void
 
     // Se l'ordine è pagato online (processing / completed) o l'ingresso è gratuito (saldo zero)
     if ($order->has_status([ 'processing', 'completed' ]) || floatval($order->get_total()) === 0.00) {
+        if ($ticket_index > 0) {
+            $order->update_meta_data('_cv_ticket_validato_' . $ticket_index, 'yes');
+            $order->update_meta_data('_cv_ticket_validato_' . $ticket_index . '_orario', current_time('mysql'));
+            $order->update_meta_data('_cv_ticket_validato_' . $ticket_index . '_operatore', get_current_user_id());
+            $order->save();
+
+            // Controlla se tutti i singoli biglietti sono stati ora validati
+            $all_validated = true;
+            for ($t = 1; $t <= intval($booking->total_persons); $t++) {
+                if ($order->get_meta('_cv_ticket_validato_' . $t) !== 'yes') {
+                    $all_validated = false;
+                    break;
+                }
+            }
+
+            if ($all_validated) {
+                // Marca anche il record master della prenotazione come checked_in
+                $wpdb->update(
+                    $table_bookings,
+                    [
+                        'status'        => 'checked_in',
+                        'checked_in_at' => current_time('mysql'),
+                        'checked_in_by' => get_current_user_id(),
+                    ],
+                    [ 'id' => $booking->id ],
+                    [ '%s', '%s', '%d' ],
+                    [ '%d' ],
+                );
+            }
+
+            wp_send_json_success([
+                'status'         => 'success',
+                'customer_name'  => sprintf(esc_html__('%s (Biglietto %d di %d)', 'dfn-theme'), $booking->customer_name, $ticket_index, $booking->total_persons),
+                'total_persons'  => 1,
+                'event_title'    => $event_title,
+                'order_id'       => $booking->order_id,
+            ]);
+        }
+
         if ($target_slot_id > 0) {
             // Aggiorna lo slot specifico
             $wpdb->update(

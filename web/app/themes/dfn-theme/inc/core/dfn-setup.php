@@ -50,14 +50,18 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             'dfn-slot-selector-css',
             trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-slot-selector.css',
             [],
-            '2.0.0',
+            file_exists(get_stylesheet_directory() . '/assets/css/dfn-slot-selector.css') 
+                ? filemtime(get_stylesheet_directory() . '/assets/css/dfn-slot-selector.css') 
+                : '2.0.0',
         );
 
         wp_enqueue_script(
             'dfn-slot-selector-js',
             trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-slot-selector.js',
             [ 'jquery' ],
-            '2.0.0',
+            file_exists(get_stylesheet_directory() . '/assets/js/dfn-slot-selector.js') 
+                ? filemtime(get_stylesheet_directory() . '/assets/js/dfn-slot-selector.js') 
+                : '2.0.0',
             true,
         );
 

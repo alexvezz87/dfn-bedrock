@@ -188,3 +188,41 @@ function dfn_apply_fai_members_discount_to_cart($cart)
         );
     }
 }
+
+/**
+ * Pre-popola i campi di fatturazione del checkout di WooCommerce utilizzando i dati salvati
+ * nella sessione di WooCommerce (es. provenienti dal widget di prenotazione).
+ */
+function dfn_prefill_checkout_billing_fields($value, $input)
+{
+    if (WC()->session) {
+        switch ($input) {
+            case 'billing_first_name':
+                $session_val = WC()->session->get('dfn_checkout_first_name');
+                if ($session_val) {
+                    return $session_val;
+                }
+                break;
+            case 'billing_last_name':
+                $session_val = WC()->session->get('dfn_checkout_last_name');
+                if ($session_val) {
+                    return $session_val;
+                }
+                break;
+            case 'billing_email':
+                $session_val = WC()->session->get('dfn_checkout_email');
+                if ($session_val) {
+                    return $session_val;
+                }
+                break;
+            case 'billing_phone':
+                $session_val = WC()->session->get('dfn_checkout_phone');
+                if ($session_val) {
+                    return $session_val;
+                }
+                break;
+        }
+    }
+    return $value;
+}
+add_filter('woocommerce_checkout_get_value', 'dfn_prefill_checkout_billing_fields', 10, 2);
