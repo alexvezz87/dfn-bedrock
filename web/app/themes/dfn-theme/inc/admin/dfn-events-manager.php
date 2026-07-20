@@ -72,11 +72,11 @@ function dfn_admin_register_menus()
         'dfn_render_slot_manager',
     );
 
-    // Sottomenu "Check-in Banchetto" (Nascosto dal menu ma accessibile via URL - si apre per evento specifico)
+    // Sottomenu "Check-in Banchetto" (Ora visibile nel menu principale per navigazione)
     add_submenu_page(
-        null,
+        'dfn-events',
         __('Check-in Banchetto', 'dfn-theme'),
-        __('Check-in Banchetto', 'dfn-theme'),
+        __('🎟️ Check-in', 'dfn-theme'),
         'dfn_manage_events',
         'dfn-checkin-manager',
         'dfn_render_checkin_manager',

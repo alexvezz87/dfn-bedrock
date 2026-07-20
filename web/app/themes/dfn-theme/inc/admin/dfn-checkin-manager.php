@@ -24,13 +24,178 @@ function dfn_render_checkin_manager()
 
     $event_id = isset($_GET['event_id']) ? intval($_GET['event_id']) : 0;
     if ($event_id <= 0) {
+        global $wpdb;
+        $table_events = $wpdb->prefix . 'dfn_events';
+        $all_events = $wpdb->get_results("SELECT * FROM {$table_events} ORDER BY event_date_start DESC");
+        
+        $active_events = [];
+        $archived_events = [];
+        
+        foreach ($all_events as $e) {
+            if ('archived' === $e->status) {
+                $archived_events[] = $e;
+            } else {
+                $active_events[] = $e;
+            }
+        }
         ?>
-        <div class="wrap">
-            <h1><?php esc_html_e('Check-in Banchetto', 'dfn-theme'); ?></h1>
-            <div class="notice notice-error">
-                <p><?php esc_html_e('ID Evento non specificato o non valido.', 'dfn-theme'); ?></p>
+        <div class="wrap dfn-admin-wrap">
+            <header class="dfn-admin-header">
+                <div class="dfn-logo-area">
+                    <span class="dashicons dashicons-tickets-alt"></span>
+                    <h1><?php esc_html_e('Check-in Banchetto — Selezione Evento', 'dfn-theme'); ?></h1>
+                </div>
+            </header>
+
+            <div class="dfn-card dfn-main-card">
+                <div class="dfn-card-header">
+                    <h2><?php esc_html_e('Eventi Attivi', 'dfn-theme'); ?></h2>
+                    <span class="dfn-count-badge"><?php echo count($active_events); ?> <?php esc_html_e('Attivi', 'dfn-theme'); ?></span>
+                </div>
+
+                <table class="wp-list-table widefat fixed striped table-view-list dfn-events-table">
+                    <thead>
+                        <tr>
+                            <th class="column-title"><?php esc_html_e('Nome Evento', 'dfn-theme'); ?></th>
+                            <th><?php esc_html_e('Data & Luogo', 'dfn-theme'); ?></th>
+                            <th><?php esc_html_e('Tipologia', 'dfn-theme'); ?></th>
+                            <th><?php esc_html_e('Prenotazioni', 'dfn-theme'); ?></th>
+                            <th class="column-actions" style="text-align:right; padding-right:20px;"><?php esc_html_e('Azione', 'dfn-theme'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($active_events)) : ?>
+                            <tr>
+                                <td colspan="5" class="dfn-empty-row">
+                                    <div class="dfn-empty-state">
+                                        <span class="dashicons dashicons-calendar-alt"></span>
+                                        <p><?php esc_html_e('Nessun evento attivo disponibile.', 'dfn-theme'); ?></p>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php else : ?>
+                            <?php foreach ($active_events as $e) :
+                                $product_name = get_the_title($e->product_id) ?: __('Prodotto non trovato (ID: ' . $e->product_id . ')', 'dfn-theme');
+                                $formatted_date = date_i18n('d M Y', strtotime($e->event_date_start));
+                                if ($e->event_date_end && $e->event_date_end !== $e->event_date_start) {
+                                    $formatted_date .= ' &rarr; ' . date_i18n('d M Y', strtotime($e->event_date_end));
+                                }
+
+                                if ('free_flow' === $e->access_type) {
+                                    $booked = $wpdb->get_var($wpdb->prepare(
+                                        "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+                                        $e->id
+                                    )) ?: 0;
+                                    $capacity_display = $e->total_capacity > 0 ? "{$booked} / {$e->total_capacity}" : (string)$booked;
+                                } else {
+                                    $booked = $wpdb->get_var($wpdb->prepare(
+                                        "SELECT SUM(booked_count) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
+                                        $e->id
+                                    )) ?: 0;
+                                    $slots_total = $wpdb->get_var($wpdb->prepare(
+                                        "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
+                                        $e->id
+                                    )) ?: 0;
+                                    $max_cap = $e->slot_capacity * $slots_total;
+                                    $capacity_display = "{$booked} / {$max_cap}";
+                                }
+                                ?>
+                                <tr>
+                                    <td class="column-title">
+                                        <strong><a class="row-title" href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $e->id)); ?>"><?php echo esc_html($product_name); ?></a></strong>
+                                    </td>
+                                    <td>
+                                        <div><strong><?php echo esc_html($formatted_date); ?></strong></div>
+                                        <span class="dfn-small-sub"><span class="dashicons dashicons-location-alt"></span> <?php echo esc_html($e->location); ?></span>
+                                    </td>
+                                    <td>
+                                        <div><strong><?php echo ('time_slots' === $e->access_type) ? '⏰ Fasce Orarie' : '🚪 Flusso Libero'; ?></strong></div>
+                                    </td>
+                                    <td>
+                                        <div><strong><?php echo esc_html($capacity_display); ?></strong></div>
+                                    </td>
+                                    <td class="column-actions" style="text-align:right; padding-right:20px;">
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $e->id)); ?>" class="button button-primary" style="background:#004b23; border-color:#003b1c; color:#fff;">
+                                            <span class="dashicons dashicons-tickets-alt" style="margin-top:4px;"></span> <?php esc_html_e('Apri Check-in', 'dfn-theme'); ?>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
-            <p><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-events')); ?>" class="button button-primary"><?php esc_html_e('Torna alla gestione eventi', 'dfn-theme'); ?></a></p>
+
+            <?php if (! empty($archived_events)) : ?>
+                <div style="margin-top: 30px;"></div>
+                <div class="dfn-card dfn-main-card">
+                    <div class="dfn-card-header">
+                        <h2><?php esc_html_e('Eventi Archiviati', 'dfn-theme'); ?></h2>
+                        <span class="dfn-count-badge"><?php echo count($archived_events); ?> <?php esc_html_e('Archiviati', 'dfn-theme'); ?></span>
+                    </div>
+
+                    <table class="wp-list-table widefat fixed striped table-view-list dfn-events-table">
+                        <thead>
+                            <tr>
+                                <th class="column-title"><?php esc_html_e('Nome Evento', 'dfn-theme'); ?></th>
+                                <th><?php esc_html_e('Data & Luogo', 'dfn-theme'); ?></th>
+                                <th><?php esc_html_e('Tipologia', 'dfn-theme'); ?></th>
+                                <th><?php esc_html_e('Prenotazioni', 'dfn-theme'); ?></th>
+                                <th class="column-actions" style="text-align:right; padding-right:20px;"><?php esc_html_e('Azione', 'dfn-theme'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($archived_events as $e) :
+                                $product_name = get_the_title($e->product_id) ?: __('Prodotto non trovato (ID: ' . $e->product_id . ')', 'dfn-theme');
+                                $formatted_date = date_i18n('d M Y', strtotime($e->event_date_start));
+                                if ($e->event_date_end && $e->event_date_end !== $e->event_date_start) {
+                                    $formatted_date .= ' &rarr; ' . date_i18n('d M Y', strtotime($e->event_date_end));
+                                }
+
+                                if ('free_flow' === $e->access_type) {
+                                    $booked = $wpdb->get_var($wpdb->prepare(
+                                        "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+                                        $e->id
+                                    )) ?: 0;
+                                    $capacity_display = $e->total_capacity > 0 ? "{$booked} / {$e->total_capacity}" : (string)$booked;
+                                } else {
+                                    $booked = $wpdb->get_var($wpdb->prepare(
+                                        "SELECT SUM(booked_count) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
+                                        $e->id
+                                    )) ?: 0;
+                                    $slots_total = $wpdb->get_var($wpdb->prepare(
+                                        "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
+                                        $e->id
+                                    )) ?: 0;
+                                    $max_cap = $e->slot_capacity * $slots_total;
+                                    $capacity_display = "{$booked} / {$max_cap}";
+                                }
+                                ?>
+                                <tr>
+                                    <td class="column-title">
+                                        <strong><a class="row-title" href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $e->id)); ?>"><?php echo esc_html($product_name); ?></a></strong>
+                                    </td>
+                                    <td>
+                                        <div><strong><?php echo esc_html($formatted_date); ?></strong></div>
+                                        <span class="dfn-small-sub"><span class="dashicons dashicons-location-alt"></span> <?php echo esc_html($e->location); ?></span>
+                                    </td>
+                                    <td>
+                                        <div><strong><?php echo ('time_slots' === $e->access_type) ? '⏰ Fasce Orarie' : '🚪 Flusso Libero'; ?></strong></div>
+                                    </td>
+                                    <td>
+                                        <div><strong><?php echo esc_html($capacity_display); ?></strong></div>
+                                    </td>
+                                    <td class="column-actions" style="text-align:right; padding-right:20px;">
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $e->id)); ?>" class="button button-secondary">
+                                            <span class="dashicons dashicons-tickets-alt" style="margin-top:4px;"></span> <?php esc_html_e('Apri Check-in', 'dfn-theme'); ?>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
         </div>
         <?php
         return;
