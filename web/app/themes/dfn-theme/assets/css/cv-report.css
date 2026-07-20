@@ -38,3 +38,46 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/CascadeStyleSheet.css to ed
     .cv-table-grid { display: block !important; } 
     .cv-table-card { border: 2px solid #000 !important; page-break-inside: avoid !important; break-inside: avoid !important; margin-bottom: 25px !important; width: 100% !important; }
 }
+
+/* ==========================================================================
+   RIPRISTINO ALLINEAMENTO TABELLA RICH CHECK-IN
+   ========================================================================== */
+.dfn-bookings-rich-table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+}
+.dfn-bookings-rich-table tr.dfn-slot-booking-row {
+    display: table-row !important;
+    background: transparent !important;
+    border: none !important;
+}
+.dfn-bookings-rich-table tr.dfn-slot-booking-row:hover {
+    background: #f8fafc !important;
+}
+.dfn-bookings-rich-table td {
+    display: table-cell !important;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding: 12px 10px !important;
+    vertical-align: middle !important;
+}
+.dfn-bookings-rich-table th {
+    display: table-cell !important;
+    padding: 12px 10px !important;
+    text-align: left !important;
+}
+
+/* ==========================================================================
+   ALLARGAMENTO POPUP DI DETTAGLIO PRENOTAZIONI TURNO MULTIPLO
+   ========================================================================== */
+.dfn-sm-modal .dfn-modal-slot-bookings-content {
+    max-width: 95% !important;
+    width: 95vw !important;
+    max-height: 90vh !important;
+}
+.dfn-slot-bookings-body {
+    overflow-x: auto !important;
+}
+#dfn-slot-bookings-list {
+    display: block !important;
+}

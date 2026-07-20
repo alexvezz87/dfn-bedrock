@@ -72,6 +72,16 @@ function dfn_admin_register_menus()
         'dfn_render_slot_manager',
     );
 
+    // Sottomenu "Check-in Banchetto" (Nascosto dal menu ma accessibile via URL - si apre per evento specifico)
+    add_submenu_page(
+        null,
+        __('Check-in Banchetto', 'dfn-theme'),
+        __('Check-in Banchetto', 'dfn-theme'),
+        'dfn_manage_events',
+        'dfn-checkin-manager',
+        'dfn_render_checkin_manager',
+    );
+
     // Sottomenu "Inserimento Rapido" (visibile alla segretaria e agli admin)
     add_submenu_page(
         'dfn-events',
@@ -98,6 +108,7 @@ function dfn_enqueue_admin_assets($hook)
         strpos($hook, 'dfn-events') === false
         && strpos($hook, 'dfn-event-edit') === false
         && strpos($hook, 'dfn-slot-manager') === false
+        && strpos($hook, 'dfn-checkin-manager') === false
         && strpos($hook, 'dfn-settings') === false
         && strpos($hook, 'dfn-quick-booking') === false
     ) {
@@ -121,16 +132,37 @@ function dfn_enqueue_admin_assets($hook)
 
     // Se siamo nello Slot Manager carichiamo il suo controller JS
     if (strpos($hook, 'dfn-slot-manager') !== false) {
+        wp_enqueue_style('cv-report-css', get_stylesheet_directory_uri() . '/assets/css/cv-report.css', [], '1.0');
         wp_enqueue_script(
             'dfn-slot-manager-js',
             get_stylesheet_directory_uri() . '/assets/js/dfn-slot-manager.js',
             [ 'jquery' ],
-            '2.0.0',
+            filemtime(get_stylesheet_directory() . '/assets/js/dfn-slot-manager.js'),
             true,
         );
         wp_localize_script('dfn-slot-manager-js', 'dfnAdminVars', [
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce'   => wp_create_nonce('dfn_admin_events_nonce'),
+            'ajaxurl'       => admin_url('admin-ajax.php'),
+            'nonce'         => wp_create_nonce('dfn_admin_events_nonce'),
+            'nonceManual'   => wp_create_nonce('cv_manual_checkin_nonce'),
+            'nonceReminder' => wp_create_nonce('cv_reminder_nonce'),
+            'nonceFeedback' => wp_create_nonce('cv_feedback_nonce'),
+        ]);
+    } elseif (strpos($hook, 'dfn-checkin-manager') !== false) {
+        // Check-in Banchetto: carica CSS e JS dedicati
+        wp_enqueue_style('cv-report-css', get_stylesheet_directory_uri() . '/assets/css/cv-report.css', [], '1.0');
+        wp_enqueue_script(
+            'dfn-checkin-manager-js',
+            get_stylesheet_directory_uri() . '/assets/js/dfn-checkin-manager.js',
+            [ 'jquery' ],
+            filemtime(get_stylesheet_directory() . '/assets/js/dfn-checkin-manager.js'),
+            true,
+        );
+        wp_localize_script('dfn-checkin-manager-js', 'dfnCheckinVars', [
+            'ajaxurl'       => admin_url('admin-ajax.php'),
+            'nonce'         => wp_create_nonce('dfn_admin_events_nonce'),
+            'nonceManual'   => wp_create_nonce('cv_manual_checkin_nonce'),
+            'nonceReminder' => wp_create_nonce('cv_reminder_nonce'),
+            'nonceFeedback' => wp_create_nonce('cv_feedback_nonce'),
         ]);
     } elseif (strpos($hook, 'dfn-quick-booking') !== false) {
         // CSS Quick Booking
@@ -405,6 +437,9 @@ function dfn_render_events_manager()
                                             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-slot-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-turni" title="<?php esc_attr_e('Gestione Visuale dei Turni e delle Prenotazioni', 'dfn-theme'); ?>">
                                                 <span class="dashicons dashicons-admin-generic"></span> <?php esc_html_e('Turni', 'dfn-theme'); ?>
                                             </a>
+                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn" style="background:#004b23; border-color:#003b1c; color:#fff;" title="<?php esc_attr_e('Tabellone Check-in per il banchetto', 'dfn-theme'); ?>">
+                                                <span class="dashicons dashicons-tickets-alt"></span> <?php esc_html_e('Check-in', 'dfn-theme'); ?>
+                                            </a>
                                             <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=recalculate_slots&event_id=' . $event->id), 'dfn_recalc_slots_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-recalc" title="<?php esc_attr_e('Ricalcola e allinea i conteggi delle prenotazioni', 'dfn-theme'); ?>">
                                                 <span class="dashicons dashicons-calculator"></span> <?php esc_html_e('Ricalcola', 'dfn-theme'); ?>
                                             </a>
@@ -414,6 +449,9 @@ function dfn_render_events_manager()
                                         <?php else : ?>
                                             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-slot-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-turni" title="<?php esc_attr_e('Visualizza e gestisci le prenotazioni per questo evento', 'dfn-theme'); ?>">
                                                 <span class="dashicons dashicons-list-view"></span> <?php esc_html_e('Prenotazioni', 'dfn-theme'); ?>
+                                            </a>
+                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn" style="background:#004b23; border-color:#003b1c; color:#fff;" title="<?php esc_attr_e('Tabellone Check-in per il banchetto', 'dfn-theme'); ?>">
+                                                <span class="dashicons dashicons-tickets-alt"></span> <?php esc_html_e('Check-in', 'dfn-theme'); ?>
                                             </a>
                                         <?php endif; ?>
 
@@ -437,3 +475,8 @@ function dfn_render_events_manager()
     </div>
     <?php
 }
+
+// ============================================================================
+// Include: Check-in Banchetto Manager
+// ============================================================================
+require_once get_stylesheet_directory() . '/inc/admin/dfn-checkin-manager.php';

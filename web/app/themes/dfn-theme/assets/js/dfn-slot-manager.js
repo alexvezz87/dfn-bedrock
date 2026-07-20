@@ -85,6 +85,117 @@
 
             var searchQuery = $('#dfn-sm-search').val().toLowerCase().trim();
 
+            // Se c'è un solo slot configurato, mostriamo la tabella di gestione prenotazioni direttamente in pagina
+            if (slots.length === 1) {
+                $grid.css('display', 'block');
+                var slot = slots[0];
+                var totalCapacity = slot.capacity + slot.bonus_capacity;
+                var booked = slot.booked_count;
+                var isFreeFlow = slot.is_free_flow || false;
+                var percent = totalCapacity > 0 ? Math.min(100, Math.round((booked / totalCapacity) * 100)) : 0;
+
+                var $container = $('<div class="dfn-single-slot-bookings-container" style="width:100%;"></div>');
+
+                // Filtro ricerca
+                var filteredBookings = slot.bookings;
+                if (searchQuery !== '') {
+                    filteredBookings = slot.bookings.filter(function(b) {
+                        var name  = b.customer_name  ? b.customer_name.toLowerCase()  : '';
+                        var email = b.customer_email ? b.customer_email.toLowerCase() : '';
+                        var phone = b.customer_phone ? b.customer_phone.toLowerCase() : '';
+                        return name.indexOf(searchQuery)  !== -1 ||
+                               email.indexOf(searchQuery) !== -1 ||
+                               phone.indexOf(searchQuery) !== -1;
+                    });
+                }
+
+                // ── Header: statistiche slot + azioni slot ──────────────────
+                var headerHtml =
+                    '<div class="dfn-sm-card" data-slot-id="' + slot.id + '" data-time-start="' + slot.time_start + '" data-time-end="' + slot.time_end + '" data-capacity="' + slot.capacity + '" data-bonus="' + slot.bonus_capacity + '" style="margin-bottom:20px; border-radius:6px;">' +
+                        '<div class="dfn-sm-card-header">' +
+                            '<div class="slot-time">' +
+                                (isFreeFlow
+                                    ? '<span class="dashicons dashicons-list-view"></span> <strong>Flusso Libero &mdash; ' + slot.time_start + ' &rarr; ' + slot.time_end + '</strong>'
+                                    : '<span class="dashicons dashicons-clock"></span> <strong>' + slot.time_start + ' - ' + slot.time_end + '</strong>'
+                                ) +
+                            '</div>' +
+                            (isFreeFlow ? '<div class="slot-actions"></div>' :
+                                '<div class="slot-actions">' +
+                                    '<button type="button" class="dfn-icon-btn dfn-btn-edit-capacity" title="Modifica Capacità"><span class="dashicons dashicons-edit"></span></button>' +
+                                    '<button type="button" class="dfn-icon-btn dfn-btn-lock-toggle" title="' + (slot.is_locked ? 'Sblocca Turno' : 'Blocca Turno') + '"><span class="dashicons ' + (slot.is_locked ? 'dashicons-lock' : 'dashicons-unlock') + '"></span></button>' +
+                                '</div>'
+                            ) +
+                        '</div>' +
+                        '<div class="dfn-sm-progress-area">' +
+                            '<div class="progress-labels">' +
+                                '<span>' + (slot.is_locked ? 'Bloccato' : percent + '% occupato') + '</span>' +
+                                '<span><strong>' + booked + '</strong> / ' + totalCapacity + ' posti &bull; ' + filteredBookings.length + ' prenotazioni</span>' +
+                            '</div>' +
+                            '<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:' + percent + '%;"></div></div>' +
+                            (slot.bonus_capacity > 0 ? '<small class="bonus-label">Capacità bonus attiva: +' + slot.bonus_capacity + '</small>' : '') +
+                        '</div>' +
+                    '</div>';
+
+                $container.append(headerHtml);
+
+                // ── Tabella Gestione Prenotazioni (senza colonne check-in) ──
+                var tableHtml =
+                    '<div style="overflow-x:auto;">' +
+                    '<table class="wp-list-table widefat fixed striped dfn-bookings-rich-table" style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1;">' +
+                    '<thead><tr style="background:#f1f5f9;">' +
+                        '<th style="padding:10px; font-weight:700; width:80px;">Ordine #</th>' +
+                        '<th style="padding:10px; font-weight:700;">Cliente</th>' +
+                        '<th style="padding:10px; font-weight:700; width:120px;">Qualifica</th>' +
+                        '<th style="padding:10px; font-weight:700; width:130px;">Telefono</th>' +
+                        '<th style="padding:10px; font-weight:700; width:90px; text-align:center;">Biglietti</th>' +
+                        '<th style="padding:10px; font-weight:700; width:130px; text-align:center;">Pagamento</th>' +
+                        '<th style="padding:10px; font-weight:700; width:140px; text-align:center;">Azioni</th>' +
+                    '</tr></thead>' +
+                    '<tbody>';
+
+                if (filteredBookings.length === 0) {
+                    tableHtml += '<tr><td colspan="7" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
+                } else {
+                    filteredBookings.forEach(function(b) {
+                        var orderEditUrl = dfnAdminVars.ajaxurl.replace('admin-ajax.php', 'post.php?post=' + b.order_id + '&action=edit');
+                        var orderLink    = b.order_id > 0 ? '<a href="' + orderEditUrl + '" target="_blank"><strong>#' + b.order_id + '</strong></a>' : '-';
+                        var telLink      = b.customer_phone ? '<a href="tel:' + b.customer_phone + '">' + b.customer_phone + '</a>' : '-';
+                        var payBadge     = b.payment_status === 'pagato'
+                            ? '<span style="background:#dcfce7; color:#166534; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9989; Pagato</span>'
+                            : '<span style="background:#fef2f2; color:#991b1b; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9203; Da pagare</span>';
+
+                        tableHtml +=
+                            '<tr class="dfn-slot-booking-row" data-booking-id="' + b.id + '" data-persons="' + b.slot_persons + '" data-name="' + b.customer_name + '" data-slot-id="' + slot.id + '">' +
+                                '<td style="padding:10px; vertical-align:middle;">' + orderLink + '</td>' +
+                                '<td style="padding:10px; vertical-align:middle;">' +
+                                    '<div style="font-weight:700;">' + b.customer_name + '</div>' +
+                                    '<div style="font-size:11px; color:#64748b;">' + (b.customer_email !== 'no-email@dfn.it' ? b.customer_email : '') + '</div>' +
+                                '</td>' +
+                                '<td style="padding:10px; vertical-align:middle;">' + (b.qualifica_html || '') + '</td>' +
+                                '<td style="padding:10px; vertical-align:middle;">' + telLink + '</td>' +
+                                '<td style="padding:10px; vertical-align:middle; text-align:center; font-weight:700;">' + b.slot_persons + '</td>' +
+                                '<td style="padding:10px; vertical-align:middle; text-align:center;">' + payBadge + '</td>' +
+                                '<td style="padding:10px; vertical-align:middle; text-align:center;">' +
+                                    '<div style="display:flex; gap:5px; justify-content:center;">' +
+                                        '<button class="dfn-btn dfn-btn-secondary slot-booking-info" title="Dettagli" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-visibility" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
+                                        '<button class="dfn-btn dfn-btn-secondary dfn-btn-move-booking" title="Sposta turno" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-randomize" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
+                                        '<button class="dfn-btn dfn-btn-danger dfn-btn-delete-booking" title="Annulla prenotazione" style="font-size:11px; padding:4px 8px; background:#d63638; border-color:#d63638; color:#fff;"><span class="dashicons dashicons-trash" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
+                                    '</div>' +
+                                '</td>' +
+                            '</tr>';
+                    });
+                }
+
+                tableHtml += '</tbody></table></div>';
+                $container.append(tableHtml);
+                $grid.append($container);
+
+                updateStats(slots);
+                return;
+            }
+
+
+            $grid.css('display', 'grid');
             slots.forEach(function(slot) {
                 var totalCapacity = slot.capacity + slot.bonus_capacity;
                 var booked = slot.booked_count;
@@ -300,52 +411,40 @@
         }
 
         /**
-         * Renderizza le righe prenotazione nel popup grande
+         * Renderizza le card prenotazione nel popup grande (stile gestione prenotazioni).
+         * Mostra le azioni di annullamento e spostamento turno.
          */
         function renderBookingsListInModal(bookings, slot) {
             var $list = $('#dfn-slot-bookings-list');
             $list.empty();
 
             if (!bookings || bookings.length === 0) {
-                $list.html(
-                    '<div class="dfn-slot-bookings-empty">' +
-                        '<span class="dashicons dashicons-groups"></span>' +
-                        '<p>Nessuna prenotazione per questo turno.</p>' +
-                    '</div>'
-                );
+                $list.html('<div class="dfn-slot-bookings-empty"><span class="dashicons dashicons-groups"></span><p>Nessuna prenotazione trovata.</p></div>');
                 return;
             }
 
-            bookings.forEach(function(b, idx) {
-                var faiHtml = b.persons_fai > 0
-                    ? '<span class="badge badge-fai"><span class="dashicons dashicons-awards"></span> FAI (' + b.persons_fai + ')</span>'
-                    : '';
-                var notesHtml = b.notes
-                    ? '<span class="badge badge-notes" title="' + b.notes + '"><span class="dashicons dashicons-testimonial"></span></span>'
-                    : '';
-                var isFreeFlow = slot.is_free_flow || false;
+            bookings.forEach(function(b) {
+                var orderEditUrl = dfnAdminVars.ajaxurl.replace('admin-ajax.php', 'post.php?post=' + b.order_id + '&action=edit');
+                var orderLink = b.order_id > 0 ? '<a href="' + orderEditUrl + '" target="_blank">#' + b.order_id + '</a>' : '-';
+                var paymentBadge = b.payment_status === 'pagato'
+                    ? '<span style="background:#dcfce7; color:#166534; font-size:10px; padding:2px 7px; border-radius:10px; font-weight:700;">✅ Pagato</span>'
+                    : '<span style="background:#fef2f2; color:#991b1b; font-size:10px; padding:2px 7px; border-radius:10px; font-weight:700;">⏳ Da pagare</span>';
 
-                $list.append(
+                var $row = $(
                     '<div class="dfn-slot-booking-row" data-booking-id="' + b.id + '" data-persons="' + b.slot_persons + '" data-name="' + b.customer_name + '" data-slot-id="' + slot.id + '">' +
-                        '<div class="slot-booking-index">' + (idx + 1) + '</div>' +
-                        '<div class="slot-booking-info">' +
-                            '<div class="slot-booking-name">' + b.customer_name + '</div>' +
-                            '<div class="slot-booking-contact">' +
-                                (b.customer_email !== 'no-email@dfn.it' ? '<span>' + b.customer_email + '</span>' : '') +
-                                (b.customer_phone ? '<span>' + b.customer_phone + '</span>' : '') +
-                            '</div>' +
+                        '<div class="slot-booking-index">' + (b.id) + '</div>' +
+                        '<div class="slot-booking-info" style="flex:1; min-width:0; cursor:pointer;">' +
+                            '<div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + b.customer_name + '</div>' +
+                            '<div style="font-size:11px; color:#64748b;">' + orderLink + ' &bull; ' + b.slot_persons + ' posti &bull; ' + paymentBadge + '</div>' +
+                            (b.customer_phone ? '<div style="font-size:11px; color:#64748b;"><a href="tel:' + b.customer_phone + '">' + b.customer_phone + '</a></div>' : '') +
                         '</div>' +
-                        '<div class="slot-booking-badges">' +
-                            '<span class="badge badge-qty">' + b.slot_persons + ' pers.</span>' +
-                            faiHtml + notesHtml +
-                            '<span class="badge badge-status-' + b.status + '">' + b.status + '</span>' +
-                        '</div>' +
-                        '<div class="slot-booking-actions">' +
-                            (!isFreeFlow ? '<button type="button" class="dfn-icon-btn dfn-btn-move-booking" title="Sposta di Turno"><span class="dashicons dashicons-move"></span></button>' : '') +
-                            '<button type="button" class="dfn-icon-btn dfn-btn-delete-booking text-danger" title="Cancella Prenotazione"><span class="dashicons dashicons-no-alt"></span></button>' +
+                        '<div class="slot-booking-actions" style="display:flex; gap:6px; flex-shrink:0;">' +
+                            '<button type="button" class="dfn-btn dfn-btn-secondary dfn-btn-move-booking" title="Sposta turno" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-randomize" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
+                            '<button type="button" class="dfn-btn dfn-btn-danger dfn-btn-delete-booking" title="Annulla prenotazione" style="font-size:11px; padding:4px 8px; background:#d63638; border-color:#d63638; color:#fff;"><span class="dashicons dashicons-trash" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
                         '</div>' +
                     '</div>'
                 );
+                $list.append($row);
             });
         }
 
@@ -1110,6 +1209,252 @@
             doc.open();
             doc.write(printHtml);
             doc.close();
+        });
+
+        // ========================================================================
+        // LEGACY CASSA CHECK-IN & MESSAGES & LOG HANDLERS
+        // ========================================================================
+        var needsReload = false;
+
+        $(document).on("click", ".cv-open-popup-btn", function(e) {
+            e.preventDefault(); 
+            needsReload = false;
+            $("#cv-modal-cliente-name").text($(this).data("cliente"));
+            $("#cv-modal-buttons-area").html($(this).siblings(".cv-popup-data-container").html());
+            $("#cv-cassa-modal").css("display", "flex");
+        });
+
+        $(document).on("click", ".cv-open-history-btn", function(e) {
+            e.preventDefault();
+            $("#cv-history-cliente-name").text($(this).data("cliente"));
+            $("#cv-history-content-area").html($(this).siblings(".cv-history-data-container").html());
+            $("#cv-history-modal").css("display", "flex");
+        });
+
+        function closeReportModals() {
+            $("#cv-cassa-modal, #cv-history-modal").hide();
+            if (needsReload) {
+                loadSlots(activeDate);
+            }
+            $("#cv-cassa-modal .cv-close-modal-btn").text("Chiudi Finestra"); 
+        }
+
+        $(document).on("click", ".cv-close-modal-btn", closeReportModals);
+        $("#cv-cassa-modal, #cv-history-modal").on("click", function(e) { if (e.target === this) closeReportModals(); });
+
+        $(document).on("click", ".cv-manual-checkin-btn", function(e) {
+            e.preventDefault(); 
+            var btn = $(this); 
+            var orderId = btn.data("order"); 
+            var ticketIdx = btn.data("ticket");
+            btn.prop("disabled", true).css("opacity", "0.5").text("⏳ Elaborazione...");
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: "cv_process_manual_checkin",
+                    security: dfnAdminVars.nonceManual,
+                    order_id: orderId,
+                    ticket: ticketIdx
+                },
+                success: function(response) {
+                    if(response.success) {
+                        needsReload = true;
+                        var successHtml = '<div style="margin-bottom:8px; padding:10px; background:#eaf7ea; color:#166534; border: 1px solid #c3e6c3; border-radius: 4px; display:flex; justify-content:space-between; align-items:center;"><span>✅ Biglietto ' + ticketIdx + ' validato</span><button class="button cv-undo-checkin-btn" data-order="' + orderId + '" data-ticket="' + ticketIdx + '" style="color:#d63638; border-color:#d63638; padding:0 8px; min-height:26px; line-height:24px;">Annulla</button></div>';
+                        btn.replaceWith(successHtml);
+                        $("#cv-cassa-modal .cv-close-modal-btn").text("🔄 Chiudi e Aggiorna Tabella");
+                    } else { 
+                        alert("Errore: " + response.data); 
+                        btn.prop("disabled", false).css("opacity", "1").text("✔️ Valida Biglietto " + ticketIdx); 
+                    }
+                },
+                error: function() {
+                    alert("Errore di rete durante la validazione.");
+                    btn.prop("disabled", false).css("opacity", "1").text("✔️ Valida Biglietto " + ticketIdx);
+                }
+            });
+        });
+
+        $(document).on("click", ".cv-undo-checkin-btn", function(e) {
+            e.preventDefault(); 
+            if(!confirm("Vuoi davvero annullare la validazione di questo biglietto? Tornerà ad essere valido per l'ingresso.")) return;
+            var btn = $(this); 
+            var orderId = btn.data("order"); 
+            var ticketIdx = btn.data("ticket"); 
+            var wrapper = btn.closest("div");
+            btn.prop("disabled", true).text("⏳...");
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: "cv_process_undo_checkin",
+                    security: dfnAdminVars.nonceManual,
+                    order_id: orderId,
+                    ticket: ticketIdx
+                },
+                success: function(response) {
+                    if(response.success) {
+                        needsReload = true;
+                        wrapper.replaceWith('<button class="button cv-manual-checkin-btn" data-order="' + orderId + '" data-ticket="' + ticketIdx + '" style="margin-bottom:8px; display:block; width:100%; border-color:#00a32a; color:#00a32a; height: 40px; cursor:pointer;">✔️ Valida Biglietto ' + ticketIdx + '</button>');
+                        $("#cv-cassa-modal .cv-close-modal-btn").text("🔄 Chiudi e Aggiorna Tabella");
+                    } else { 
+                        alert("Errore: " + response.data); 
+                        btn.prop("disabled", false).text("Annulla"); 
+                    }
+                },
+                error: function() {
+                    alert("Errore di rete.");
+                    btn.prop("disabled", false).text("Annulla");
+                }
+            });
+        });
+
+        $(document).on("click", ".cv-single-reminder-btn", function(e) {
+            e.preventDefault(); 
+            var btn = $(this); 
+            var orderId = btn.data("order");
+            btn.prop("disabled", true).text("⏳...");
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: "cv_send_single_reminder",
+                    security: dfnAdminVars.nonceReminder,
+                    order_id: orderId
+                },
+                success: function(response) {
+                    if (response.success) { 
+                        alert("✅ Promemoria inviato con successo!"); 
+                        btn.prop("disabled", false).text("📧 Reinvia Reminder"); 
+                    } else { 
+                        alert("❌ Errore: " + response.data); 
+                        btn.prop("disabled", false).text("📧 Invia Reminder"); 
+                    }
+                },
+                error: function() {
+                    alert("❌ Errore di rete.");
+                    btn.prop("disabled", false).text("📧 Invia Reminder");
+                }
+            });
+        });
+
+        $(document).on("click", ".cv-single-feedback-btn", function(e) {
+            e.preventDefault(); 
+            var btn = $(this); 
+            var orderId = btn.data("order");
+            btn.prop("disabled", true).text("⏳...");
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: "cv_send_single_feedback",
+                    security: dfnAdminVars.nonceFeedback,
+                    order_id: orderId
+                },
+                success: function(response) {
+                    if (response.success) { 
+                        alert("✅ Richiesta recensione inviata con successo!"); 
+                        btn.prop("disabled", false).text("⭐ Reinvia Recensione"); 
+                    } else { 
+                        alert("❌ Errore: " + response.data); 
+                        btn.prop("disabled", false).text("⭐ Chiedi Recensione"); 
+                    }
+                },
+                error: function() {
+                    alert("❌ Errore di rete.");
+                    btn.prop("disabled", false).text("⭐ Chiedi Recensione");
+                }
+            });
+        });
+
+        $(document).on("click", "#cv-send-reminders-btn", function(e) {
+            e.preventDefault();
+            if(!confirm("Sei sicuro di voler inviare l'email di promemoria a tutti gli acquirenti? L'invio avverrà in automatico a blocchi di 5 per garantire la massima sicurezza del server.")) return;
+            var btn = $(this); 
+            var originalText = btn.text(); 
+            btn.prop("disabled", true); 
+            var totalSent = 0;
+            
+            function inviaLotto() {
+                btn.text("⏳ Invio in corso (" + totalSent + " inviate)... non chiudere!");
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: "cv_send_event_reminders",
+                        security: dfnAdminVars.nonceReminder,
+                        event_id: eventId
+                    },
+                    success: function(response) {
+                        if(response.success) {
+                            totalSent += response.data.sent;
+                            if (response.data.has_more) { 
+                                inviaLotto(); 
+                            } else {
+                                if(totalSent > 0) alert("✅ Operazione completata! Inviate in totale " + totalSent + " email.");
+                                else alert("✅ Nessuna email inviata. Tutti l'hanno già ricevuta.");
+                                btn.prop("disabled", false).text(originalText);
+                                loadSlots(activeDate);
+                            }
+                        } else { 
+                            alert("❌ Errore: " + response.data); 
+                            btn.prop("disabled", false).text(originalText); 
+                        }
+                    },
+                    error: function() {
+                        alert("❌ Errore di rete.");
+                        btn.prop("disabled", false).text(originalText);
+                    }
+                });
+            }
+            inviaLotto();
+        });
+
+        $(document).on("click", "#cv-send-feedback-btn", function(e) {
+            e.preventDefault();
+            if(!confirm("⚠️ Vuoi davvero inviare la richiesta di recensione a tutti i partecipanti di questo evento che sono stati convalidati?\n\nL'email verrà inviata solo a chi ha effettuato correttamente il check-in.")) return;
+            var btn = $(this); 
+            var originalText = btn.text(); 
+            btn.prop("disabled", true); 
+            var totalSent = 0;
+            
+            function inviaLottoFeedback() {
+                btn.text("⏳ Invio in corso (" + totalSent + " inviate)...");
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: "cv_send_feedback_request",
+                        security: dfnAdminVars.nonceFeedback,
+                        event_id: eventId
+                    },
+                    success: function(response) {
+                        if(response.success) {
+                            totalSent += response.data.sent;
+                            if (response.data.has_more) { 
+                                inviaLottoFeedback(); 
+                            } else {
+                                if(totalSent > 0) alert("✅ Operazione completata! Inviate " + totalSent + " email di richiesta recensione.");
+                                else alert("✅ Nessuna email inviata. Nessuno soddisfa i criteri o l'hanno già ricevuta.");
+                                btn.prop("disabled", false).text(originalText);
+                                loadSlots(activeDate);
+                            }
+                        } else { 
+                            alert("❌ Errore: " + response.data); 
+                            btn.prop("disabled", false).text(originalText); 
+                        }
+                    },
+                    error: function() {
+                        alert("❌ Errore di rete.");
+                        btn.prop("disabled", false).text(originalText);
+                    }
+                });
+            }
+            inviaLottoFeedback();
         });
 
     });

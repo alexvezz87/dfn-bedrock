@@ -210,13 +210,14 @@ function dfn_render_settings_page(): void
     $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'generale';
 
     $tabs = [
-        'generale'   => '🏢 Generale',
-        'email'      => '📧 Email & Notifiche',
-        'testi_email'=> '📝 Testi E-mail',
-        'cron'       => '⏰ Automazioni & Cron',
-        'tessere'    => '🍊 Tessere Socio FAI',
-        'limiti'     => '📊 Limiti & Testi',
-        'avanzate'   => '🔧 Avanzate & Toggle',
+        'generale'   => '&#127970; Generale',
+        'email'      => '&#128231; Email &amp; Notifiche',
+        'testi_email'=> '&#128221; Testi E-mail',
+        'cron'       => '&#9200; Automazioni &amp; Cron',
+        'tessere'    => '&#127818; Tessere Socio FAI',
+        'limiti'     => '&#128202; Limiti &amp; Testi',
+        'avanzate'   => '&#128295; Avanzate &amp; Toggle',
+        'ruoli'      => '&#128100; Ruoli &amp; Azioni',
     ];
     ?>
     <div class="wrap dfn-settings-wrap">
@@ -825,7 +826,52 @@ function dfn_render_settings_page(): void
                             </tr>
                         </table>
 
+                    <?php elseif ($active_tab === 'ruoli') : ?>
+                        <!-- TAB RUOLI & AZIONI -->
+                        <h2 style="color:#004b23; border-bottom:1px solid #eee; padding-bottom:10px; margin-top:0;">&#128100; Ruoli &amp; Azioni</h2>
+                        <p class="description" style="margin-bottom:25px;">Configura i ruoli utente e le azioni che ciascun ruolo può eseguire all'interno del sistema FAI Prenotazioni.</p>
+
+                        <div style="background:#f0f9ff; border:1px solid #bfdbfe; border-radius:6px; padding:20px; margin-bottom:25px;">
+                            <strong style="color:#1e40af;">&#128274; Funzionalità in arrivo</strong>
+                            <p style="margin:8px 0 0; color:#1e3a8a;">Questa sezione permetterà di gestire <strong>dinamicamente</strong> i permessi per ruolo. Ad esempio:</p>
+                            <ul style="margin:10px 0 0 20px; color:#1e3a8a; line-height:1.8;">
+                                <li>Definire chi può accedere alla <strong>Gestione Prenotazioni</strong> (annullamento, spostamento turno)</li>
+                                <li>Definire chi può accedere al <strong>Check-in Banchetto</strong> (validazione biglietti, reminder)</li>
+                                <li>Assegnare ruoli personalizzati agli utenti WordPress direttamente da qui</li>
+                                <li>Gestire la visibilità delle singole azioni per utenti scanner, cassa, segreteria, ecc.</li>
+                            </ul>
+                        </div>
+
+                        <h3 style="color:#004b23;">Ruoli attuali registrati</h3>
+                        <table class="wp-list-table widefat fixed striped" style="max-width:700px;">
+                            <thead><tr>
+                                <th style="padding:10px; width:200px;">Ruolo</th>
+                                <th style="padding:10px;">Permessi attuali</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td style="padding:10px; font-weight:700;">dfn_admin</td>
+                                    <td style="padding:10px;">Accesso completo a tutte le funzioni: Gestione Prenotazioni, Check-in, Impostazioni, Scanner</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px; font-weight:700;">dfn_event_manager</td>
+                                    <td style="padding:10px;">Gestione Prenotazioni + Check-in Banchetto (identico a dfn_admin per ora)</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px; font-weight:700;">dfn_secretary</td>
+                                    <td style="padding:10px;">Inserimento Rapido prenotazioni + lista ordini WooCommerce</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px; font-weight:700;">dfn_scanner</td>
+                                    <td style="padding:10px;">Solo accesso allo Scanner Live (validazione QR in ingresso)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <p style="margin-top:20px; color:#64748b; font-size:12px;">&#128221; I permessi sopra elencati sono attualmente hardcoded nel tema. La gestione dinamica sarà disponibile in una versione futura.</p>
+
                     <?php endif; ?>
+
 
                     <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
                         <?php submit_button(__('Salva Impostazioni', 'dfn-theme'), 'primary', 'submit', false, [ 'style' => 'background: #004b23; border-color: #003318; box-shadow: none; text-shadow: none;' ]); ?>
