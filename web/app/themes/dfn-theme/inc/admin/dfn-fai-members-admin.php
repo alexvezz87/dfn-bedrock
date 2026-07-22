@@ -59,6 +59,59 @@ function dfn_render_fai_members_page(): void
     $message = '';
     $message_type = 'success';
 
+    // GESTIONE AZIONI DI MASSA (BULK ACTIONS)
+    if (isset($_POST['dfn_fai_bulk_action_submit']) && ! empty($_POST['member_ids']) && is_array($_POST['member_ids'])) {
+        if (isset($_POST['dfn_fai_bulk_nonce']) && wp_verify_nonce($_POST['dfn_fai_bulk_nonce'], 'dfn_fai_bulk_action')) {
+            $bulk_action = sanitize_text_field($_POST['bulk_action']);
+            $member_ids  = array_map('intval', $_POST['member_ids']);
+            $count       = count($member_ids);
+
+            if ('approve' === $bulk_action) {
+                foreach ($member_ids as $m_id) {
+                    $wpdb->update(
+                        $table,
+                        [
+                            'verified'    => 1,
+                            'verified_by' => get_current_user_id(),
+                            'verified_at' => current_time('mysql'),
+                        ],
+                        [ 'id' => $m_id ],
+                        [ '%d', '%d', '%s' ],
+                        [ '%d' ]
+                    );
+                    $m = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $m_id));
+                    if ($m && ! empty($m->email)) {
+                        dfn_send_fai_card_approved_email($m->email, $m->first_name, $m->last_name, $m->card_number);
+                    }
+                }
+                $message = sprintf(esc_html__('Selezionati %d soci FAI approvati con successo.', 'dfn-theme'), $count);
+            } elseif ('reject' === $bulk_action) {
+                $reason = isset($_POST['bulk_reject_reason']) ? sanitize_text_field($_POST['bulk_reject_reason']) : __('Tessera non valida', 'dfn-theme');
+                foreach ($member_ids as $m_id) {
+                    $m = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $m_id));
+                    if ($m) {
+                        if (! empty($m->email)) {
+                            dfn_send_fai_card_rejected_email($m->email, $m->first_name, $m->last_name, $m->card_number, $reason);
+                        }
+                        $wpdb->delete($table, [ 'id' => $m_id ], [ '%d' ]);
+                        if (! function_exists('dfn_cancel_pending_bookings_for_rejected_fai_card')) {
+                            require_once get_template_directory() . '/inc/api/dfn-ajax-bookings.php';
+                        }
+                        if (function_exists('dfn_cancel_pending_bookings_for_rejected_fai_card')) {
+                            dfn_cancel_pending_bookings_for_rejected_fai_card($m->card_number, $reason);
+                        }
+                    }
+                }
+                $message = sprintf(esc_html__('Selezionate %d tessere FAI rifiutate ed eliminate.', 'dfn-theme'), $count);
+            } elseif ('delete' === $bulk_action) {
+                foreach ($member_ids as $m_id) {
+                    $wpdb->delete($table, [ 'id' => $m_id ], [ '%d' ]);
+                }
+                $message = sprintf(esc_html__('Selezionati %d soci FAI eliminati con successo.', 'dfn-theme'), $count);
+            }
+        }
+    }
+
     if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['member_id'])) {
         $member_id = intval($_GET['member_id']);
         if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'dfn_del_fai_' . $member_id)) {
@@ -91,16 +144,6 @@ function dfn_render_fai_members_page(): void
             $m = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $member_id));
             if ($m && ! empty($m->email)) {
                 dfn_send_fai_card_approved_email($m->email, $m->first_name, $m->last_name, $m->card_number);
-            }
-
-            // Sblocca le prenotazioni pendenti associate a questa tessera
-            if ($m) {
-                if (! function_exists('dfn_check_and_process_pending_bookings_for_fai_card')) {
-                    require_once get_template_directory() . '/inc/api/dfn-ajax-bookings.php';
-                }
-                if (function_exists('dfn_check_and_process_pending_bookings_for_fai_card')) {
-                    dfn_check_and_process_pending_bookings_for_fai_card($m->card_number);
-                }
             }
 
             $message = esc_html__('Socio FAI approvato e notificato con successo.', 'dfn-theme');
@@ -437,7 +480,7 @@ function dfn_render_fai_members_page(): void
 
                         <div style="margin-bottom: 20px;">
                             <label style="display: block; font-weight: 700; margin-bottom: 5px; font-size: 13px;"><?php esc_html_e('Tipologia Tessera', 'dfn-theme'); ?></label>
-                            <select name="card_type" style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; height: 38px;">
+                            <select name="card_type" style="width: 100%; padding: 8px 30px 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; height: 38px; font-size: 13px; font-weight: 600; font-family: inherit; line-height: 1.4; max-width: 100%; box-sizing: border-box;">
                                 <?php
                                 $selected_type = $edit_member && ! empty($edit_member->card_type) ? $edit_member->card_type : 'INDIVIDUALE';
 
@@ -474,17 +517,30 @@ function dfn_render_fai_members_page(): void
                 <!-- 1. SEZIONE: TESSERE DA VERIFICARE -->
                 <?php if (! empty($unverified_members)) : ?>
                     <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid #f1f5f9; border-top: 4px solid #c69c3a;">
-                        <div style="border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 20px;">
-                            <h3 style="margin: 0; color: #c69c3a; font-weight: 800; font-size: 18px; display: flex; align-items: center; gap: 8px;">
-                                <span class="dashicons dashicons-warning" style="color:#c69c3a;"></span>
-                                <?php esc_html_e('Tessere da Verificare', 'dfn-theme'); ?>
-                            </h3>
-                        </div>
+                        <form method="POST" id="dfn-fai-unverified-bulk-form">
+                            <?php wp_nonce_field('dfn_fai_bulk_action', 'dfn_fai_bulk_nonce'); ?>
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 20px;">
+                                <h3 style="margin: 0; color: #c69c3a; font-weight: 800; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                                    <span class="dashicons dashicons-warning" style="color:#c69c3a;"></span>
+                                    <?php esc_html_e('Tessere da Verificare', 'dfn-theme'); ?>
+                                </h3>
 
-                        <table class="wp-list-table widefat fixed striped dfn-events-table">
-                            <thead>
-                                <tr>
-                                    <th><?php esc_html_e('Cognome & Nome', 'dfn-theme'); ?></th>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <select name="bulk_action" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                        <option value=""><?php esc_html_e('Azioni di massa', 'dfn-theme'); ?></option>
+                                        <option value="approve"><?php esc_html_e('Approva tessere selezionate', 'dfn-theme'); ?></option>
+                                        <option value="reject"><?php esc_html_e('Rifiuta tessere selezionate', 'dfn-theme'); ?></option>
+                                        <option value="delete"><?php esc_html_e('Elimina selezionati', 'dfn-theme'); ?></option>
+                                    </select>
+                                    <button type="submit" name="dfn_fai_bulk_action_submit" class="button button-secondary" style="font-weight: 600;" onclick="return confirm('Applicare l\'azione di massa alle tessere selezionate?');"><?php esc_html_e('Applica', 'dfn-theme'); ?></button>
+                                </div>
+                            </div>
+
+                            <table class="wp-list-table widefat fixed striped dfn-events-table">
+                                <thead>
+                                    <tr>
+                                        <td class="manage-column column-cb check-column" style="width: 32px;"><input type="checkbox" id="dfn-select-all-unverified"></td>
+                                        <th><?php esc_html_e('Cognome & Nome', 'dfn-theme'); ?></th>
                                     <th><?php esc_html_e('Email', 'dfn-theme'); ?></th>
                                     <th><?php esc_html_e('Numero Tessera', 'dfn-theme'); ?></th>
                                     <th><?php esc_html_e('Tipologia', 'dfn-theme'); ?></th>
@@ -500,6 +556,7 @@ function dfn_render_fai_members_page(): void
                                     $custom_badge_style = 'background: #fff3cd; color: #856404; border: 1px solid #ffeeba;';
                                     ?>
                                     <tr>
+                                        <th scope="row" class="check-column"><input type="checkbox" name="member_ids[]" value="<?php echo absint($m->id); ?>"></th>
                                         <td><strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong></td>
                                         <td><?php echo esc_html($m->email ?: ''); ?></td>
                                         <td><code><?php echo esc_html($m->card_number); ?></code></td>
@@ -521,15 +578,24 @@ function dfn_render_fai_members_page(): void
                                         <td>
                                             <span class="dfn-badge <?php echo esc_attr($status_class); ?>" style="<?php echo esc_attr($custom_badge_style); ?>"><?php echo esc_html($status_label); ?></span>
                                         </td>
-                                        <td>
-                                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=approve&member_id=' . $m->id), 'dfn_approve_fai_' . $m->id)); ?>" class="button button-small" style="background:#dcfce7; border-color:#bbf7d0; color:#166534; font-weight:bold;" title="<?php esc_attr_e('Applica sconto e approva', 'dfn-theme'); ?>">✅ Approva</a>
-                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=reject&member_id=' . $m->id)); ?>" class="button button-small" style="background:#fee2e2; border-color:#fecaca; color:#991b1b; font-weight:bold;" title="<?php esc_attr_e('Rifiuta e spiega motivo', 'dfn-theme'); ?>">❌ Rifiuta</a>
-                                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=delete&member_id=' . $m->id), 'dfn_del_fai_' . $m->id)); ?>" class="button button-small dfn-btn-delete" title="<?php esc_attr_e('Elimina socio permanentemente', 'dfn-theme'); ?>" onclick="return confirm('Sei sicuro di voler eliminare questo socio?');">🗑️</a>
+                                        <td style="white-space: nowrap;">
+                                            <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=approve&member_id=' . $m->id), 'dfn_approve_fai_' . $m->id)); ?>" style="color: #16a34a; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Applica sconto e approva', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-yes-alt" style="font-size: 20px; width: 20px; height: 20px;"></span>
+                                                </a>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=reject&member_id=' . $m->id)); ?>" style="color: #dc2626; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Rifiuta e spiega motivo', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-dismiss" style="font-size: 20px; width: 20px; height: 20px;"></span>
+                                                </a>
+                                                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=delete&member_id=' . $m->id), 'dfn_del_fai_' . $m->id)); ?>" style="color: #64748b; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Elimina socio permanentemente', 'dfn-theme'); ?>" onclick="return confirm('Sei sicuro di voler eliminare questo socio?');">
+                                                    <span class="dashicons dashicons-trash" style="font-size: 20px; width: 20px; height: 20px;"></span>
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+                        </form>
                     </div>
                 <?php endif; ?>
 
@@ -652,9 +718,15 @@ function dfn_render_fai_members_page(): void
                                         <td>
                                             <span class="dfn-badge <?php echo esc_attr($status_class); ?>" style="<?php echo esc_attr($custom_badge_style); ?>"><?php echo esc_html($status_label); ?></span>
                                         </td>
-                                        <td>
-                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=edit&member_id=' . $m->id)); ?>" class="button button-small" title="<?php esc_attr_e('Modifica dati socio', 'dfn-theme'); ?>">✏️</a>
-                                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=delete&member_id=' . $m->id), 'dfn_del_fai_' . $m->id)); ?>" class="button button-small dfn-btn-delete" title="<?php esc_attr_e('Elimina socio permanentemente', 'dfn-theme'); ?>" onclick="return confirm('Sei sicuro di voler eliminare questo socio?');">🗑️</a>
+                                        <td style="white-space: nowrap;">
+                                            <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=edit&member_id=' . $m->id)); ?>" style="color: #004b23; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Modifica dati socio', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-edit" style="font-size: 18px; width: 18px; height: 18px;"></span>
+                                                </a>
+                                                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=delete&member_id=' . $m->id), 'dfn_del_fai_' . $m->id)); ?>" style="color: #64748b; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Elimina socio permanentemente', 'dfn-theme'); ?>" onclick="return confirm('Sei sicuro di voler eliminare questo socio?');">
+                                                    <span class="dashicons dashicons-trash" style="font-size: 18px; width: 18px; height: 18px;"></span>
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -666,5 +738,13 @@ function dfn_render_fai_members_page(): void
             </div>
         </div>
     </div>
+    <script>
+    jQuery(document).ready(function($) {
+        $('#dfn-select-all-unverified').on('change', function() {
+            var checked = $(this).prop('checked');
+            $('#dfn-fai-unverified-bulk-form input[name="member_ids[]"]').prop('checked', checked);
+        });
+    });
+    </script>
     <?php
 }

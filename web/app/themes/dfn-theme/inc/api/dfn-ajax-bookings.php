@@ -306,19 +306,23 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                 $wpdb->query('COMMIT');
 
                 // Invio notifica centralizzata in base al workflow o stato pagamento
-                if ('manual' === $event->approval_workflow) {
+                if ($booking_status === 'pending_approval') {
+                    // Tessere FAI non verificate: invia solo mail di attesa all'utente e notifica admin dedicata
                     dfn_send_booking_pending_approval($booking_id);
+                    if (function_exists('dfn_send_admin_fai_booking_pending_notification')) {
+                        dfn_send_admin_fai_booking_pending_notification($booking_id);
+                    }
+                    $order->add_order_note(__('🎟️ Prenotazione FAI creata in stato: In Attesa di Verifica Tessere FAI.', 'dfn-theme'));
+                } elseif ('manual' === $event->approval_workflow) {
+                    dfn_send_booking_pending_approval($booking_id);
+                    dfn_send_admin_new_booking_notification($booking_id);
                     $order->add_order_note(__('🎟️ Prenotazione FAI creata in stato: In Attesa di Approvazione Staff.', 'dfn-theme'));
                 } elseif ($booking_status === 'pending_payment') {
                     $order->add_order_note(__('🎟️ Prenotazione FAI creata in stato: In Attesa di Pagamento Online.', 'dfn-theme'));
                 } else {
                     dfn_send_booking_confirmation($booking_id);
-                    $order->add_order_note(__('🎟️ Prenotazione FAI allocata e confermata con successo!', 'dfn-theme'));
-                }
-
-                if ($booking_status !== 'pending_payment') {
-                    // Invia la notifica semplificata all'amministratore
                     dfn_send_admin_new_booking_notification($booking_id);
+                    $order->add_order_note(__('🎟️ Prenotazione FAI allocata e confermata con successo!', 'dfn-theme'));
                 }
 
             } elseif ($need_split) {
@@ -475,14 +479,18 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                     $order->add_order_note($split_note);
 
                     // Invio notifica centralizzata in base al workflow o stato pagamento
-                    if ('manual' === $event->approval_workflow) {
+                    if ($booking_status === 'pending_approval') {
                         dfn_send_booking_pending_approval($booking_id);
+                        if (function_exists('dfn_send_admin_fai_booking_pending_notification')) {
+                            dfn_send_admin_fai_booking_pending_notification($booking_id);
+                        }
+                    } elseif ('manual' === $event->approval_workflow) {
+                        dfn_send_booking_pending_approval($booking_id);
+                        dfn_send_admin_new_booking_notification($booking_id);
                     } elseif ($booking_status === 'pending_payment') {
                         // Non inviare email di conferma con QR code finché non è pagato
                     } else {
                         dfn_send_booking_confirmation($booking_id);
-                    }
-                    if ($booking_status !== 'pending_payment') {
                         dfn_send_admin_new_booking_notification($booking_id);
                     }
 
@@ -564,16 +572,18 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                 $booking_id = $wpdb->insert_id;
                 $wpdb->query('COMMIT');
 
-                if ('manual' === $event->approval_workflow) {
+                if ($booking_status === 'pending_approval') {
                     dfn_send_booking_pending_approval($booking_id);
+                    if (function_exists('dfn_send_admin_fai_booking_pending_notification')) {
+                        dfn_send_admin_fai_booking_pending_notification($booking_id);
+                    }
+                } elseif ('manual' === $event->approval_workflow) {
+                    dfn_send_booking_pending_approval($booking_id);
+                    dfn_send_admin_new_booking_notification($booking_id);
                 } elseif ($booking_status === 'pending_payment') {
                     // Non inviare email di conferma con QR code finché non è pagato
                 } else {
                     dfn_send_booking_confirmation($booking_id);
-                }
-
-                if ($booking_status !== 'pending_payment') {
-                    // Invia la notifica semplificata all'amministratore
                     dfn_send_admin_new_booking_notification($booking_id);
                 }
 
@@ -1106,9 +1116,11 @@ function dfn_confirm_booking_on_payment(int $order_id): void
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_bookings';
     
-    // Cerca se esiste una prenotazione associata a questo ordine con stato 'pending_payment' o 'pending_approval'
+    // Cerca se esiste una prenotazione associata a questo ordine con stato 'pending_payment'.
+    // NOTA: le prenotazioni in 'pending_approval' (tessere FAI non verificate) non devono
+    // essere confermate automaticamente al pagamento: richiedono prima l'approvazione dello staff.
     $booking = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$table} WHERE order_id = %d AND status IN ('pending_payment', 'pending_approval')",
+        "SELECT * FROM {$table} WHERE order_id = %d AND status = 'pending_payment'",
         $order_id,
     ));
     
@@ -1306,5 +1318,510 @@ function dfn_cancel_pending_bookings_for_rejected_fai_card(string $card_number, 
         if (function_exists('dfn_cancel_booking_by_id')) {
             dfn_cancel_booking_by_id($booking->id, $note);
         }
+    }
+}
+
+// ============================================================================
+// GESTIONE MANUALE PRENOTAZIONI FAI IN ATTESA DI VERIFICA (ADMIN)
+// ============================================================================
+
+add_action('wp_ajax_dfn_approve_pending_booking', 'dfn_ajax_approve_pending_booking');
+/**
+ * AJAX handler (solo admin): approva una prenotazione in pending_approval.
+ * Porta il booking a pending_payment e invia la mail WooCommerce con link di pagamento.
+ */
+function dfn_ajax_approve_pending_booking(): void
+{
+    check_ajax_referer('dfn_admin_pending_nonce', 'nonce');
+
+    if (! current_user_can('dfn_manage_events')) {
+        wp_send_json_error(['message' => __('Permessi insufficienti.', 'dfn-theme')]);
+    }
+
+    $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    if (! $booking_id) {
+        wp_send_json_error(['message' => __('ID prenotazione non valido.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_bookings';
+
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table} WHERE id = %d AND status = 'pending_approval'",
+        $booking_id,
+    ));
+
+    if (! $booking) {
+        wp_send_json_error(['message' => __('Prenotazione non trovata o già processata.', 'dfn-theme')]);
+    }
+
+    $order = wc_get_order($booking->order_id);
+    if (! $order) {
+        wp_send_json_error(['message' => __('Ordine WooCommerce non trovato.', 'dfn-theme')]);
+    }
+
+    $event = dfn_db_get_event($booking->event_id);
+    if (! $event) {
+        wp_send_json_error(['message' => __('Evento non trovato.', 'dfn-theme')]);
+    }
+
+    // Verifica che non vi siano tessere FAI ancora da verificare per questo ordine
+    $fai_cards = $order->get_meta('_dfn_fai_cards');
+    if (! empty($fai_cards) && is_array($fai_cards)) {
+        $table_members = $wpdb->prefix . 'dfn_fai_members';
+        foreach ($fai_cards as $card) {
+            if (empty($card['tessera'])) {
+                continue;
+            }
+            $card_status = $card['status'] ?? null;
+            $is_verified_db = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT verified FROM {$table_members} WHERE card_number = %s LIMIT 1",
+                $card['tessera']
+            ));
+            if ($card_status !== 'approved' && $card_status !== 'rejected' && $is_verified_db !== 1) {
+                wp_send_json_error(['message' => sprintf(__('Impossibile approvare la prenotazione: la tessera n° %s è ancora da verificare.', 'dfn-theme'), esc_html($card['tessera']))]);
+            }
+        }
+    }
+
+    // Marca le tessere FAI come verificate SOLO se il flag auto_verify è attivo nelle impostazioni.
+    // Default: DISATTIVATO — l'admin verifica le tessere manualmente dalla sezione "Soci FAI".
+    $auto_verify_enabled = (function_exists('dfn_get_setting') && dfn_get_setting('enable_auto_verify_fai', 'no') === 'yes');
+
+    $fai_cards = $order->get_meta('_dfn_fai_cards');
+    if ($auto_verify_enabled && ! empty($fai_cards) && is_array($fai_cards)) {
+        $table_members = $wpdb->prefix . 'dfn_fai_members';
+        foreach ($fai_cards as $card) {
+            if (empty($card['tessera'])) {
+                continue;
+            }
+            $wpdb->update(
+                $table_members,
+                [
+                    'verified'    => 1,
+                    'verified_by' => get_current_user_id(),
+                    'verified_at' => current_time('mysql'),
+                ],
+                ['card_number' => $card['tessera']],
+                ['%d', '%d', '%s'],
+                ['%s'],
+            );
+        }
+    }
+
+    // Aggiorna il meta dell'ordine e porta il booking a pending_payment
+    $order->update_meta_data('_dfn_has_unverified_fai_cards', 'no');
+    $order->save();
+
+    $wpdb->update(
+        $table,
+        ['status' => 'pending_payment'],
+        ['id' => $booking_id],
+        ['%s'],
+        ['%d'],
+    );
+
+    // Se ci sono tessere rifiutate, aggiungi una nota visibile al cliente nell'email dell'ordine
+    $has_rejected_cards = false;
+    $rejected_card_numbers = [];
+    if (! empty($fai_cards) && is_array($fai_cards)) {
+        foreach ($fai_cards as $c) {
+            if (isset($c['status']) && $c['status'] === 'rejected') {
+                $has_rejected_cards = true;
+                $rejected_card_numbers[] = $c['tessera'];
+            }
+        }
+    }
+
+    if ($has_rejected_cards) {
+        $customer_note = sprintf(
+            __('Nota dallo Staff: Una o più tessere FAI (n° %s) non sono risultate valide. I relativi posti sono stati convertiti a tariffa Intera ed il totale dell\'ordine è stato aggiornato.', 'dfn-theme'),
+            implode(', ', $rejected_card_numbers)
+        );
+        $order->set_customer_note($customer_note);
+        $order->save();
+    }
+
+    // Porta l'ordine WC in stato "pending" (in attesa di pagamento) e invia l'invoice
+    $order->update_status('pending', __('Tessere FAI verificate dallo staff. Invio link di pagamento al cliente.', 'dfn-theme'));
+
+    $email_invoice = WC()->mailer()->get_emails()['WC_Email_Customer_Invoice'] ?? null;
+    if ($email_invoice) {
+        $email_invoice->trigger($order->get_id());
+    }
+
+    $order->add_order_note(sprintf(
+        __('✅ Prenotazione FAI approvata dall\'admin %s. Inviata mail con link di pagamento online.', 'dfn-theme'),
+        wp_get_current_user()->display_name
+    ));
+
+    wp_send_json_success([
+        'message'  => __('Prenotazione approvata. Mail di pagamento inviata al cliente.', 'dfn-theme'),
+        'new_status' => 'pending_payment',
+    ]);
+}
+
+add_action('wp_ajax_dfn_validate_single_fai_card', 'dfn_ajax_validate_single_fai_card');
+/**
+ * Convalida una singola tessera FAI per un ordine pendente.
+ */
+function dfn_ajax_validate_single_fai_card(): void
+{
+    check_ajax_referer('dfn_admin_pending_nonce', 'nonce');
+
+    if (! current_user_can('dfn_manage_events')) {
+        wp_send_json_error(['message' => __('Permessi insufficienti.', 'dfn-theme')]);
+    }
+
+    $booking_id  = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    $card_number = isset($_POST['card_number']) ? sanitize_text_field($_POST['card_number']) : '';
+
+    if (! $booking_id || empty($card_number)) {
+        wp_send_json_error(['message' => __('Dati non validi.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    if (! $booking) {
+        wp_send_json_error(['message' => __('Prenotazione non trovata.', 'dfn-theme')]);
+    }
+
+    $order = wc_get_order($booking->order_id);
+    if (! $order) {
+        wp_send_json_error(['message' => __('Ordine non trovato.', 'dfn-theme')]);
+    }
+
+    // Aggiorna lo stato della tessera nei meta dell'ordine
+    $fai_cards = $order->get_meta('_dfn_fai_cards');
+    if (is_array($fai_cards)) {
+        foreach ($fai_cards as &$c) {
+            if (isset($c['tessera']) && $c['tessera'] === $card_number) {
+                $c['status'] = 'approved';
+                break;
+            }
+        }
+        unset($c);
+        $order->update_meta_data('_dfn_fai_cards', $fai_cards);
+        $order->save();
+    }
+
+    // Segna la tessera come verificata anche nell'anagrafica globale
+    $wpdb->update(
+        $wpdb->prefix . 'dfn_fai_members',
+        [
+            'verified'    => 1,
+            'verified_by' => get_current_user_id(),
+            'verified_at' => current_time('mysql'),
+        ],
+        ['card_number' => $card_number],
+        ['%d', '%d', '%s'],
+        ['%s']
+    );
+
+    wp_send_json_success([
+        'message' => sprintf(__('Tessera FAI n° %s convalidata.', 'dfn-theme'), $card_number),
+    ]);
+}
+
+add_action('wp_ajax_dfn_reject_single_fai_card', 'dfn_ajax_reject_single_fai_card');
+/**
+ * Rifiuta una singola tessera FAI per un ordine pendente e converte 1 posto FAI a tariffa Intera.
+ */
+function dfn_ajax_reject_single_fai_card(): void
+{
+    check_ajax_referer('dfn_admin_pending_nonce', 'nonce');
+
+    if (! current_user_can('dfn_manage_events')) {
+        wp_send_json_error(['message' => __('Permessi insufficienti.', 'dfn-theme')]);
+    }
+
+    $booking_id  = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    $card_number = isset($_POST['card_number']) ? sanitize_text_field($_POST['card_number']) : '';
+
+    if (! $booking_id || empty($card_number)) {
+        wp_send_json_error(['message' => __('Dati non validi.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_bookings} WHERE id = %d", $booking_id));
+    if (! $booking) {
+        wp_send_json_error(['message' => __('Prenotazione non trovata.', 'dfn-theme')]);
+    }
+
+    $order = wc_get_order($booking->order_id);
+    if (! $order) {
+        wp_send_json_error(['message' => __('Ordine non trovato.', 'dfn-theme')]);
+    }
+
+    // Aggiorna lo stato della tessera nei meta dell'ordine
+    $fai_cards = $order->get_meta('_dfn_fai_cards');
+    if (is_array($fai_cards)) {
+        foreach ($fai_cards as &$c) {
+            if (isset($c['tessera']) && $c['tessera'] === $card_number) {
+                $c['status'] = 'rejected';
+                break;
+            }
+        }
+        unset($c);
+        $order->update_meta_data('_dfn_fai_cards', $fai_cards);
+    }
+
+    // Sposta 1 persona da persons_fai a persons_standard se persons_fai > 0
+    $persons_fai      = max(0, intval($booking->persons_fai) - 1);
+    $persons_standard = intval($booking->persons_standard) + 1;
+
+    $wpdb->update(
+        $table_bookings,
+        [
+            'persons_fai'      => $persons_fai,
+            'persons_standard' => $persons_standard,
+        ],
+        ['id' => $booking_id],
+        ['%d', '%d'],
+        ['%d']
+    );
+
+    // Trova ed aggiorna la riga Fee "Sconto Soci FAI" nell'ordine WooCommerce
+    $event = dfn_db_get_event($booking->event_id);
+    $price_standard = $event ? floatval($event->price_standard) : 10.0;
+    $price_fai      = $event ? floatval($event->price_fai) : 5.0;
+    $unit_discount  = $price_standard - $price_fai;
+    if ($unit_discount <= 0) {
+        $unit_discount = floatval(defined('DFN_FAI_SCONTO_UNITARIO') ? DFN_FAI_SCONTO_UNITARIO : 5);
+    }
+
+    $new_fee_total = - ($persons_fai * $unit_discount);
+
+    // Cerca la fee esistente
+    $fee_items = $order->get_items('fee');
+    $fai_fee_found = false;
+    foreach ($fee_items as $item_id => $item_fee) {
+        if (strpos($item_fee->get_name(), 'Sconto Soci FAI') !== false || strpos($item_fee->get_name(), 'Adeguamento Soci FAI') !== false) {
+            $fai_fee_found = true;
+            if ($persons_fai > 0) {
+                $new_fee_label = sprintf(__('Sconto Soci FAI (%d %s)', 'dfn-theme'), $persons_fai, _n('tessera', 'tessere', $persons_fai, 'dfn-theme'));
+                $item_fee->set_name($new_fee_label);
+                $item_fee->set_amount((string) $new_fee_total);
+                $item_fee->set_total((string) $new_fee_total);
+            } else {
+                // Se 0 tessere FAI valide, rimuoviamo del tutto la fee di sconto
+                $order->remove_item($item_id);
+            }
+            break;
+        }
+    }
+
+    if (! $fai_fee_found && $persons_fai > 0) {
+        $item_fee = new \WC_Order_Item_Fee();
+        $new_fee_label = sprintf(__('Sconto Soci FAI (%d %s)', 'dfn-theme'), $persons_fai, _n('tessera', 'tessere', $persons_fai, 'dfn-theme'));
+        $item_fee->set_name($new_fee_label);
+        $item_fee->set_amount((string) $new_fee_total);
+        $item_fee->set_total((string) $new_fee_total);
+        $order->add_item($item_fee);
+    }
+
+    $order->calculate_totals();
+
+    $new_total = floatval($order->get_total());
+    $order->add_order_note(sprintf(
+        __('⚠️ Tessera FAI %s rifiutata dall\'admin %s. Sconto aggiornato per %d tessere. Nuovo totale ordine: %s', 'dfn-theme'),
+        $card_number,
+        wp_get_current_user()->display_name,
+        $persons_fai,
+        wc_price($new_total)
+    ));
+    $order->save();
+
+    wp_send_json_success([
+        'message'          => sprintf(__('Tessera FAI n° %s rifiutata. Convertita a tariffa Intera (+%s). Nuovo totale: %s', 'dfn-theme'), $card_number, wc_price($unit_discount), wc_price($new_total)),
+        'new_total_html'   => wc_price($new_total),
+        'persons_fai'      => $persons_fai,
+        'persons_standard' => $persons_standard,
+    ]);
+}
+
+add_action('wp_ajax_dfn_reject_pending_booking', 'dfn_ajax_reject_pending_booking');
+/**
+ * AJAX handler (solo admin): rifiuta una prenotazione in pending_approval.
+ * Cancella il booking, libera la capienza e invia la mail di rifiuto con motivazione.
+ */
+function dfn_ajax_reject_pending_booking(): void
+{
+    check_ajax_referer('dfn_admin_pending_nonce', 'nonce');
+
+    if (! current_user_can('dfn_manage_events')) {
+        wp_send_json_error(['message' => __('Permessi insufficienti.', 'dfn-theme')]);
+    }
+
+    $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    $motivo     = isset($_POST['motivo']) ? sanitize_textarea_field($_POST['motivo']) : '';
+
+    if (! $booking_id) {
+        wp_send_json_error(['message' => __('ID prenotazione non valido.', 'dfn-theme')]);
+    }
+    if (empty($motivo)) {
+        wp_send_json_error(['message' => __('La motivazione del rifiuto è obbligatoria.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_bookings';
+
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table} WHERE id = %d AND status = 'pending_approval'",
+        $booking_id,
+    ));
+
+    if (! $booking) {
+        wp_send_json_error(['message' => __('Prenotazione non trovata o già processata.', 'dfn-theme')]);
+    }
+
+    // Salva la motivazione nel campo notes del booking prima di cancellare
+    $wpdb->update(
+        $table,
+        ['notes' => $motivo],
+        ['id' => $booking_id],
+        ['%s'],
+        ['%d'],
+    );
+
+    // Invia la mail di rifiuto con motivazione all'utente
+    if (function_exists('dfn_send_booking_approval_status')) {
+        dfn_send_booking_approval_status($booking_id, false);
+    }
+
+    // Cancella la prenotazione liberando la capienza
+    $note_staff = sprintf(
+        __('Prenotazione rifiutata dallo staff (%s). Motivo: %s', 'dfn-theme'),
+        wp_get_current_user()->display_name,
+        $motivo
+    );
+
+    // Recupera l'ordine per aggiungere la nota
+    $order = wc_get_order($booking->order_id);
+
+    // Libera le capienza degli slot associati
+    $booking_slots = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}dfn_booking_slots WHERE booking_id = %d",
+        $booking_id,
+    ));
+    foreach ($booking_slots as $bs) {
+        $slot = $wpdb->get_row($wpdb->prepare(
+            "SELECT booked_count FROM {$wpdb->prefix}dfn_event_slots WHERE id = %d",
+            $bs->slot_id,
+        ));
+        if ($slot) {
+            $new_count = max(0, intval($slot->booked_count) - intval($bs->persons));
+            $wpdb->update(
+                $wpdb->prefix . 'dfn_event_slots',
+                ['booked_count' => $new_count],
+                ['id' => $bs->slot_id],
+                ['%d'],
+                ['%d'],
+            );
+        }
+    }
+
+    // Cancella i record slot e il booking
+    $wpdb->delete($wpdb->prefix . 'dfn_booking_slots', ['booking_id' => $booking_id], ['%d']);
+    $wpdb->update(
+        $table,
+        ['status' => 'cancelled', 'notes' => $motivo],
+        ['id' => $booking_id],
+        ['%s', '%s'],
+        ['%d'],
+    );
+
+    if ($order) {
+        $order->update_status('cancelled', $note_staff);
+        $order->add_order_note(sprintf(
+            __('❌ Prenotazione FAI rifiutata dall\'admin %s. Motivo: %s', 'dfn-theme'),
+            wp_get_current_user()->display_name,
+            $motivo
+        ));
+    }
+
+    wp_send_json_success([
+        'message' => __('Prenotazione rifiutata. Mail di notifica inviata al cliente.', 'dfn-theme'),
+    ]);
+}
+
+// ============================================================================
+// BLOCCO PAGAMENTO PER ORDINI CON TESSERE FAI IN ATTESA DI VERIFICA
+// ============================================================================
+
+add_filter('woocommerce_valid_order_statuses_for_payment', 'dfn_block_payment_for_pending_approval', 10, 2);
+/**
+ * Impedisce all'utente di pagare un ordine il cui booking è in pending_approval.
+ * Le tessere FAI devono essere verificate dall'admin prima che il pagamento sia consentito.
+ *
+ * @param array    $statuses  Statuses validi per il pagamento.
+ * @param WC_Order $order     Ordine corrente.
+ * @return array
+ */
+function dfn_block_payment_for_pending_approval(array $statuses, $order): array
+{
+    if (! $order instanceof \WC_Order) {
+        return $statuses;
+    }
+
+    // Verifica se esiste un booking in pending_approval per questo ordine
+    global $wpdb;
+    $booking_status = $wpdb->get_var($wpdb->prepare(
+        "SELECT status FROM {$wpdb->prefix}dfn_bookings WHERE order_id = %d LIMIT 1",
+        $order->get_id(),
+    ));
+
+    if ($booking_status === 'pending_approval') {
+        // Rimuovi 'pending' dai valori pagabili — l'ordine non può essere pagato
+        return array_diff($statuses, ['pending', 'failed']);
+    }
+
+    return $statuses;
+}
+
+add_action('woocommerce_before_pay_action', 'dfn_intercept_payment_for_pending_approval');
+add_action('template_redirect', 'dfn_redirect_pending_approval_pay_page', 5);
+/**
+ * Reindirizza l'utente con un messaggio di errore se tenta di accedere
+ * alla pagina di pagamento WooCommerce per un ordine con tessere FAI non verificate.
+ */
+function dfn_redirect_pending_approval_pay_page(): void
+{
+    if (! is_wc_endpoint_url('order-pay')) {
+        return;
+    }
+
+    global $wp;
+    $order_id = absint($wp->query_vars['order-pay'] ?? 0);
+    if (! $order_id) {
+        return;
+    }
+
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        return;
+    }
+
+    // Controllo di sicurezza: solo il proprietario dell'ordine può pagarlo
+    if (get_current_user_id() !== $order->get_customer_id() && ! current_user_can('manage_woocommerce')) {
+        return;
+    }
+
+    global $wpdb;
+    $booking_status = $wpdb->get_var($wpdb->prepare(
+        "SELECT status FROM {$wpdb->prefix}dfn_bookings WHERE order_id = %d LIMIT 1",
+        $order_id,
+    ));
+
+    if ($booking_status === 'pending_approval') {
+        wc_add_notice(
+            __('La tua prenotazione è in attesa di verifica delle tessere FAI da parte dello staff. Non è possibile procedere al pagamento finché la verifica non è completata. Riceverai un\'email non appena le tessere saranno approvate e il pagamento sarà abilitato.', 'dfn-theme'),
+            'notice'
+        );
+
+        // Reindirizza alla pagina del mio account (lista ordini) invece della pagina di pagamento
+        wp_safe_redirect(wc_get_account_endpoint_url('orders'));
+        exit;
     }
 }

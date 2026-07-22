@@ -1611,3 +1611,56 @@ function dfn_enrich_booking_data($b, $order) {
         'feedback_sent'    => $feedback_sent,
     ];
 }
+
+add_action('wp_ajax_dfn_admin_update_payment_status', 'dfn_admin_update_payment_status');
+/**
+ * Cambia lo stato di pagamento di una prenotazione e sincronizza lo stato dell'ordine WooCommerce.
+ */
+function dfn_admin_update_payment_status(): void
+{
+    dfn_ajax_admin_verify_access();
+
+    $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    $new_status = isset($_POST['new_status']) ? sanitize_text_field($_POST['new_status']) : '';
+
+    if (! $booking_id || ! in_array($new_status, ['pending_payment', 'confirmed', 'cancelled'], true)) {
+        wp_send_json_error([ 'message' => __('Parametri non validi.', 'dfn-theme') ]);
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $booking_id));
+
+    if (! $booking) {
+        wp_send_json_error([ 'message' => __('Prenotazione non trovata.', 'dfn-theme') ]);
+    }
+
+    // Aggiorna lo stato della prenotazione
+    $wpdb->update(
+        $table,
+        ['status' => $new_status],
+        ['id' => $booking_id],
+        ['%s'],
+        ['%d']
+    );
+
+    // Sincronizza l'ordine WooCommerce correlato
+    if ($booking->order_id > 0) {
+        $order = wc_get_order($booking->order_id);
+        if ($order) {
+            $user_name = wp_get_current_user()->display_name;
+            if ($new_status === 'confirmed') {
+                $order->update_status('completed', sprintf(__('Stato pagamento impostato su PAGATO dall\'admin %s.', 'dfn-theme'), $user_name));
+            } elseif ($new_status === 'pending_payment') {
+                $order->update_status('pending', sprintf(__('Stato pagamento impostato su IN ATTESA DI PAGAMENTO dall\'admin %s.', 'dfn-theme'), $user_name));
+            } elseif ($new_status === 'cancelled') {
+                $order->update_status('cancelled', sprintf(__('Stato prenotazione/pagamento ANNULLATO dall\'admin %s.', 'dfn-theme'), $user_name));
+            }
+        }
+    }
+
+    wp_send_json_success([
+        'message'    => __('Stato del pagamento aggiornato con successo.', 'dfn-theme'),
+        'new_status' => $new_status,
+    ]);
+}

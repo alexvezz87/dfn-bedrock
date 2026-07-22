@@ -290,7 +290,7 @@ function dfn_render_slot_manager()
                 
                 <div class="dfn-form-group">
                     <label><?php esc_html_e('Orario del Turno', 'dfn-theme'); ?> *</label>
-                    <select name="slot_id" required>
+                    <select name="slot_id" required style="padding: 10px 36px 10px 16px !important; height: 44px !important; border-radius: 8px !important; font-size: 13px !important; font-weight: 500 !important; box-sizing: border-box !important;">
                         <!-- Popolato via JS con gli slot della giornata -->
                     </select>
                 </div>
@@ -387,11 +387,14 @@ function dfn_render_slot_manager()
                     <div id="dfn-details-fai-cards-list"></div>
                 </div>
             </div>
-            <div class="dfn-sm-modal-footer" style="padding: 16px 24px; background:#f8fafc;">
+            <div class="dfn-sm-modal-footer" style="padding: 16px 24px; background:#f8fafc; display:flex; justify-content:space-between; align-items:center;">
                 <a href="#" id="dfn-btn-view-order-wc" target="_blank" class="dfn-btn dfn-btn-secondary">
                     <span class="dashicons dashicons-external"></span> <?php esc_html_e('Vedi Ordine WooCommerce', 'dfn-theme'); ?>
                 </a>
-                <button type="button" class="dfn-btn dfn-btn-primary dfn-modal-close-btn" data-modal="dfn-modal-booking-details"><?php esc_html_e('Chiudi', 'dfn-theme'); ?></button>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="dfn-btn dfn-btn-secondary dfn-modal-close-btn" data-modal="dfn-modal-booking-details"><?php esc_html_e('Annulla', 'dfn-theme'); ?></button>
+                    <button type="button" id="dfn-btn-save-payment-status" class="dfn-btn dfn-btn-primary" style="display:none;"><?php esc_html_e('Salva Stato Pagamento', 'dfn-theme'); ?></button>
+                </div>
             </div>
         </div>
     </div>

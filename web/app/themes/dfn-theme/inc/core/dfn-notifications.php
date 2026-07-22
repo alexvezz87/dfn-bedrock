@@ -402,33 +402,42 @@ function dfn_send_booking_approval_status(int $booking_id, bool $approved = true
         // Se approvato, invia direttamente la conferma classica che include dettagli e QR
         return dfn_send_booking_confirmation($booking_id);
     } else {
-        $body_template = dfn_get_setting('email_declined_body');
+        // Se il booking rifiutato era in pending_approval (Tessere FAI non verificate), usiamo i nuovi template specifici
+        $is_fai_pending = ($booking->status === 'pending_approval');
+
+        $subj_setting = $is_fai_pending ? 'email_fai_booking_rejected_subject' : 'email_declined_subject';
+        $title_setting = $is_fai_pending ? 'email_fai_booking_rejected_title' : 'email_declined_title';
+        $body_setting = $is_fai_pending ? 'email_fai_booking_rejected_body' : 'email_declined_body';
+
+        $body_template = dfn_get_setting($body_setting);
         $has_motivo_placeholder = (strpos($body_template, '{motivo_rifiuto}') !== false);
 
-        $motivo_text = '';
+        $formatted_motivo = '';
         if (! empty($booking->notes)) {
-            $motivo_text = esc_html($booking->notes);
+            $formatted_motivo = '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#c69c3a')) . '; background-color: #f7fafc; padding: 18px 20px; margin: 25px 0; border-radius: 0 6px 6px 0;">';
+            $formatted_motivo .= '<div class="info-box-title" style="font-weight: bold; font-size: 15px; color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; margin-bottom: 8px;">Nota dallo Staff</div>';
+            $formatted_motivo .= '<p style="margin: 0; font-size: 14px; color: #2d3748; line-height: 1.5;">' . esc_html($booking->notes) . '</p>';
+            $formatted_motivo .= '</div>';
         }
 
         $replacements = [
-            'nome_cliente' => esc_html($booking->customer_name),
-            'nome_evento'  => esc_html($product_name),
-            'motivo_rifiuto' => $motivo_text,
+            'nome_cliente'   => esc_html($booking->customer_name),
+            'nome_evento'    => esc_html($product_name),
+            'motivo_rifiuto' => $formatted_motivo ? $formatted_motivo : esc_html($booking->notes),
         ];
 
         $content = dfn_replace_email_placeholders($body_template, $replacements);
 
-        if (!$has_motivo_placeholder && ! empty($booking->notes)) {
-            $content .= '<div class="info-box">';
-            $content .= '<div class="info-box-title">Nota dallo Staff</div>';
-            $content .= '<p style="margin:0; font-size:14px;">' . esc_html($booking->notes) . '</p>';
-            $content .= '</div>';
+        if (! $has_motivo_placeholder && ! empty($booking->notes)) {
+            $content .= $formatted_motivo;
         }
 
-        $content .= '<p>Se hai già effettuato transazioni online relative a questo ordine, verrà emesso un rimborso integrale nel più breve tempo possibile.</p>';
+        if (! $is_fai_pending) {
+            $content .= '<p>Se hai già effettuato transazioni online relative a questo ordine, verrà emesso un rimborso integrale nel più breve tempo possibile.</p>';
+        }
 
-        $subject = dfn_replace_email_placeholders(dfn_get_setting('email_declined_subject'), $replacements);
-        $title   = dfn_replace_email_placeholders(dfn_get_setting('email_declined_title'), $replacements);
+        $subject = dfn_replace_email_placeholders(dfn_get_setting($subj_setting), $replacements);
+        $title   = dfn_replace_email_placeholders(dfn_get_setting($title_setting), $replacements);
 
         return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
     }
@@ -927,6 +936,128 @@ function dfn_notify_admin_unverified_fai_card($card_number, $first_name, $last_n
     $content .= '<div class="text-center"><a href="' . esc_url($admin_url) . '" class="button">Gestisci Soci FAI</a></div>';
 
     return dfn_send_notification_email($to, $subject, 'Verifica Tessera FAI', $content);
+}
+
+/**
+ * Invia una notifica all'amministratore per una nuova prenotazione FAI in attesa di verifica tessere.
+ * Contiene riepilogo completo della prenotazione + elenco tessere da verificare +
+ * link CTA diretto alla sezione admin "Verifica Prenotazioni FAI".
+ *
+ * @param int $booking_id ID del booking.
+ * @return bool
+ */
+function dfn_send_admin_fai_booking_pending_notification(int $booking_id): bool
+{
+    global $wpdb;
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    if (! $booking) {
+        return false;
+    }
+
+    $event = dfn_db_get_event($booking->event_id);
+    if (! $event) {
+        return false;
+    }
+
+    $order = wc_get_order($booking->order_id);
+    if (! $order) {
+        return false;
+    }
+
+    // Recupera informazioni sullo slot
+    $slot_info = '';
+    $slots = $wpdb->get_results($wpdb->prepare(
+        "SELECT s.*, bs.persons FROM {$wpdb->prefix}dfn_event_slots s 
+         JOIN {$wpdb->prefix}dfn_booking_slots bs ON s.id = bs.slot_id 
+         WHERE bs.booking_id = %d",
+        $booking_id,
+    ));
+
+    if (! empty($slots)) {
+        if (count($slots) === 1) {
+            $slot = $slots[0];
+            $slot_info = date_i18n('d F Y', strtotime($slot->slot_date)) . ' - ore ' . date('H:i', strtotime($slot->slot_time_start));
+        } else {
+            $slot_info_parts = [];
+            foreach ($slots as $s) {
+                $slot_info_parts[] = 'ore ' . date('H:i', strtotime($s->slot_time_start)) . ' (' . absint($s->persons) . ' pers.)';
+            }
+            $slot_info = date_i18n('d F Y', strtotime($slots[0]->slot_date)) . ' — ' . implode(', ', $slot_info_parts);
+        }
+    } else {
+        $slot_info = date_i18n('d F Y', strtotime($event->event_date_start)) . ' (Ingresso Libero)';
+    }
+
+    $product_name = get_the_title($event->product_id);
+    $admin_email  = dfn_get_setting('email_verify_fai', get_option('admin_email'));
+    $subject      = '🔍 [FAI] Prenotazione da Verificare: ' . $booking->customer_name . ' — ' . $product_name;
+
+    // Box dati visitatore
+    $content = '<p>Gentile Staff della Delegazione FAI,</p>';
+    $content .= '<p>È stata ricevuta una nuova prenotazione che include <strong>tessere FAI da verificare</strong>. La prenotazione è al momento in stato <strong style="color:#c69c3a;">In Attesa di Verifica</strong>. I posti sono stati riservati temporaneamente.</p>';
+
+    $content .= '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; background-color: #f7fafc; padding: 20px; margin: 20px 0;">';
+    $content .= '<div class="info-box-title" style="color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; font-weight: bold; margin-bottom: 10px;">Dati del Visitatore</div>';
+    $content .= '<table style="width:100%; border-collapse:collapse;">';
+    $content .= '<tr><td style="font-weight:bold; color:#4a5568; width:150px; padding:4px 0;">Nome:</td><td>' . esc_html($booking->customer_name) . '</td></tr>';
+    $content .= '<tr><td style="font-weight:bold; color:#4a5568; padding:4px 0;">Email:</td><td>' . esc_html($booking->customer_email) . '</td></tr>';
+    if (! empty($booking->customer_phone)) {
+        $content .= '<tr><td style="font-weight:bold; color:#4a5568; padding:4px 0;">Telefono:</td><td>' . esc_html($booking->customer_phone) . '</td></tr>';
+    }
+    $content .= '</table>';
+    $content .= '</div>';
+
+    // Box dettagli prenotazione
+    $content .= '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#c69c3a')) . '; background-color: #fffdf0; padding: 20px; margin: 20px 0;">';
+    $content .= '<div class="info-box-title" style="color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; font-weight: bold; margin-bottom: 10px;">Dettagli Prenotazione</div>';
+    $content .= '<table style="width:100%; border-collapse:collapse;">';
+    $content .= '<tr><td style="font-weight:bold; color:#4a5568; width:150px; padding:4px 0;">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
+    $content .= '<tr><td style="font-weight:bold; color:#4a5568; padding:4px 0;">Data e Turno:</td><td>' . esc_html($slot_info) . '</td></tr>';
+    $content .= '<tr><td style="font-weight:bold; color:#4a5568; padding:4px 0;">Luogo:</td><td>' . esc_html($event->location) . '</td></tr>';
+    $content .= '<tr><td style="font-weight:bold; color:#4a5568; padding:4px 0;">Partecipanti:</td><td><strong>' . absint($booking->total_persons) . '</strong> totali (' . absint($booking->persons_standard) . ' Standard + ' . absint($booking->persons_fai) . ' Soci FAI)</td></tr>';
+    $content .= '<tr><td style="font-weight:bold; color:#4a5568; padding:4px 0;">Contributo:</td><td style="font-weight:bold; color:#004b23;">' . wc_price(floatval($order->get_total())) . '</td></tr>';
+    $content .= '</table>';
+    $content .= '</div>';
+
+    // Box tessere FAI da verificare
+    $fai_cards = $order->get_meta('_dfn_fai_cards');
+    if (! empty($fai_cards) && is_array($fai_cards)) {
+        $unverified = [];
+        $table_members = $wpdb->prefix . 'dfn_fai_members';
+        foreach ($fai_cards as $card) {
+            if (empty($card['tessera'])) {
+                continue;
+            }
+            $verified = $wpdb->get_var($wpdb->prepare(
+                "SELECT verified FROM {$table_members} WHERE card_number = %s LIMIT 1",
+                $card['tessera']
+            ));
+            if (intval($verified) !== 1) {
+                $unverified[] = $card;
+            }
+        }
+
+        if (! empty($unverified)) {
+            $content .= '<div class="info-box" style="border-left: 4px solid #e53e3e; background-color: #fff5f5; padding: 20px; margin: 20px 0;">';
+            $content .= '<div class="info-box-title" style="color: #e53e3e; font-weight: bold; margin-bottom: 10px;">⚠️ Tessere FAI da Verificare (' . count($unverified) . ')</div>';
+            $content .= '<table style="width:100%; border-collapse:collapse;">';
+            $content .= '<tr style="background:#fee; font-size:13px;"><th style="text-align:left; padding:4px 6px;">Titolare</th><th style="text-align:left; padding:4px 6px;">N° Tessera</th></tr>';
+            foreach ($unverified as $card) {
+                $titolare = trim(($card['nome'] ?? '') . ' ' . ($card['cognome'] ?? ''));
+                $content .= '<tr><td style="padding:4px 6px; font-size:14px;">' . esc_html($titolare) . '</td><td style="padding:4px 6px; font-size:14px; font-weight:bold;">' . esc_html($card['tessera']) . '</td></tr>';
+            }
+            $content .= '</table>';
+            $content .= '</div>';
+        }
+    }
+
+    // CTA link alla nuova sezione admin
+    $verify_url = admin_url('admin.php?page=dfn-fai-pending-bookings');
+    $content .= '<p>Clicca sul pulsante qui sotto per accedere direttamente alla sezione di verifica e approvare o rifiutare questa prenotazione:</p>';
+    $content .= '<div class="text-center" style="text-align:center; margin: 25px 0;"><a href="' . esc_url($verify_url) . '" class="button" style="background-color:' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; color:#fff; padding:14px 28px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:15px;">Verifica Prenotazione FAI</a></div>';
+    $content .= '<p style="font-size:13px; color:#718096; text-align:center;">Se non intervieni, la prenotazione resterà in attesa e i posti rimarranno riservati fino alla tua decisione.</p>';
+
+    return dfn_send_notification_email($admin_email, $subject, '🔍 Nuova Prenotazione FAI da Verificare', $content);
 }
 
 add_filter('woocommerce_send_email', 'dfn_prevent_dummy_email_notifications', 10, 6);

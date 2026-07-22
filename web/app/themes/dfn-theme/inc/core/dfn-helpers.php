@@ -98,6 +98,9 @@ function dfn_get_setting($key, $default = null)
         'email_fai_rejected_subject'  => 'Aggiornamento Verifica Tessera FAI',
         'email_fai_rejected_title'    => 'Verifica Tessera FAI Fallita',
         'email_fai_rejected_body'     => "Gentile <strong>{nome_cliente}</strong>,<br><br>Ti informiamo che abbiamo effettuato la verifica della tua <strong>Tessera Socio FAI n° {numero_tessera}</strong> inserita in fase di prenotazione.<br><br>Purtroppo, la tessera <strong>non è risultata valida</strong> per il seguente motivo:<br><br><strong>{motivo_rifiuto}</strong><br><br>Ti ricordiamo che, qualora non fosse possibile presentare una tessera FAI valida e attiva all'ingresso dell'evento, ti verrà richiesto di lasciare il contributo alla tariffa Standard (Intero).<br><br>Se si tratta di un errore di inserimento, puoi rispondere a questa email o contattare il nostro staff per fornirci i dati corretti.",
+        'email_fai_booking_rejected_subject'  => 'Richiesta di Prenotazione Rifiutata: {nome_evento}',
+        'email_fai_booking_rejected_title'    => 'Richiesta non Approvata',
+        'email_fai_booking_rejected_body'     => "Gentile <strong>{nome_cliente}</strong>,<br><br>Siamo spiacenti di informarti che la tua richiesta di prenotazione per l'evento <strong>{nome_evento}</strong> non è stata approvata dallo staff.<br><br>Ciò può essere dovuto al superamento della capacità massima dei turni disponibili o ad altre esigenze logistiche organizzative.",
     ];
 
     if (isset($settings[ $key ])) {

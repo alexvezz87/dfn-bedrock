@@ -495,13 +495,19 @@
             var $tbody = $modal.find('.dfn-details-table tbody');
             $tbody.empty();
 
+            var statusSelectHtml = '<select id="dfn-select-booking-payment-status" data-booking-id="' + booking.id + '" style="font-size:12px; padding:4px 8px; border:1px solid #cbd5e1; border-radius:4px; font-weight:600;">' +
+                '<option value="confirmed"' + (booking.status === 'confirmed' ? ' selected' : '') + '>✅ Pagato / Confermato</option>' +
+                '<option value="pending_payment"' + (booking.status === 'pending_payment' || booking.status === 'pending_approval' ? ' selected' : '') + '>⏳ In attesa di pagamento</option>' +
+                '<option value="cancelled"' + (booking.status === 'cancelled' ? ' selected' : '') + '>❌ Annullato</option>' +
+            '</select>';
+
             var rows = [
                 ['Nominativo:', '<strong>' + booking.customer_name + '</strong>'],
                 ['Email:', booking.customer_email !== 'no-email@dfn.it' ? booking.customer_email : '<em>Non fornita</em>'],
                 ['Telefono:', booking.customer_phone ? booking.customer_phone : '<em>Non fornito</em>'],
                 ['Posti Prenotati:', booking.slot_persons + ' totali (Standard: ' + booking.persons_standard + ' | FAI: ' + booking.persons_fai + ')'],
                 ['Turno:', slot.time_start + ' - ' + slot.time_end],
-                ['Stato:', '<span class="badge badge-status-' + booking.status + '">' + booking.status + '</span>'],
+                ['Stato Pagamento:', statusSelectHtml],
                 ['Data Registrazione:', booking.created_at],
                 ['Note Visitatore:', booking.notes ? booking.notes : '<em>Nessuna nota</em>']
             ];
@@ -513,6 +519,65 @@
                         '<td style="padding:10px 0; color:#1e293b;">' + row[1] + '</td>' +
                     '</tr>'
                 );
+            });
+
+            var initialStatus = booking.status;
+            var $saveBtn = $('#dfn-btn-save-payment-status');
+            $saveBtn.hide().prop('disabled', false).text('Salva Stato Pagamento');
+
+            // Listener cambio select: mostra il pulsante "Salva Stato Pagamento" se lo stato è diverso da quello iniziale
+            $('#dfn-select-booking-payment-status').off('change').on('change', function() {
+                var newStatus = $(this).val();
+                if (newStatus !== initialStatus) {
+                    $saveBtn.fadeIn(200);
+                } else {
+                    $saveBtn.fadeOut(200);
+                }
+            });
+
+            // Listener click pulsante "Salva Stato Pagamento"
+            $saveBtn.off('click').on('click', function() {
+                var $select = $('#dfn-select-booking-payment-status');
+                var bId = $select.data('booking-id');
+                var newStatus = $select.val();
+
+                if (!confirm('Sei sicuro di voler cambiare lo stato di pagamento in "' + $select.find('option:selected').text().trim() + '"? Verrà aggiornato anche l\'ordine WooCommerce.')) {
+                    return;
+                }
+
+                $saveBtn.prop('disabled', true).text('Salvataggio...');
+
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'dfn_admin_update_payment_status',
+                        booking_id: bId,
+                        new_status: newStatus,
+                        nonce: nonce
+                    },
+                    success: function(res) {
+                        $saveBtn.prop('disabled', false).text('Salva Stato Pagamento');
+                        if (res.success) {
+                            booking.status = newStatus;
+                            initialStatus = newStatus;
+                            if (newStatus === 'confirmed') {
+                                booking.payment_status = 'pagato';
+                            } else {
+                                booking.payment_status = 'da_pagare';
+                            }
+                            $saveBtn.fadeOut(200);
+                            loadSlots(activeDate);
+                            alert(res.data.message || 'Stato aggiornato con successo.');
+                        } else {
+                            alert('Errore: ' + (res.data.message || 'impossibile aggiornare lo stato.'));
+                        }
+                    },
+                    error: function() {
+                        $saveBtn.prop('disabled', false).text('Salva Stato Pagamento');
+                        alert('Errore di rete durante il salvataggio.');
+                    }
+                });
             });
 
             function escHtml(str) {

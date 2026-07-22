@@ -978,7 +978,6 @@ select.dfn-input {
 .dfn-form-group input[type="text"],
 .dfn-form-group input[type="email"],
 .dfn-form-group input[type="number"],
-.dfn-form-group select,
 .dfn-form-group textarea {
     width: 100% !important;
     height: 40px;
@@ -991,6 +990,22 @@ select.dfn-input {
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
     box-sizing: border-box !important;
+}
+
+.dfn-form-group select {
+    width: 100% !important;
+    height: 44px !important;
+    padding: 10px 36px 10px 16px !important;
+    border: 1px solid var(--dfn-border) !important;
+    border-radius: var(--dfn-radius) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--dfn-text-main) !important;
+    background-color: #ffffff !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+    box-sizing: border-box !important;
+    line-height: 1.4 !important;
 }
 
 .dfn-form-group textarea {

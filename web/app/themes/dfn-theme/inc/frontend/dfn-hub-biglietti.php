@@ -24,7 +24,10 @@ add_action('template_redirect', 'dfn_handle_visitor_modification');
  */
 function dfn_render_group_ticket_hub(): void
 {
-    if (! isset($_GET['dfn_hub']) || ! isset($_GET['order_id']) || ! isset($_GET['token'])) {
+    $has_dfn_hub = isset($_GET['dfn_hub']);
+    $has_cv_hub  = isset($_GET['cv_hub']);
+
+    if ((! $has_dfn_hub && ! $has_cv_hub) || ! isset($_GET['order_id']) || ! isset($_GET['token'])) {
         return;
     }
 
@@ -36,9 +39,11 @@ function dfn_render_group_ticket_hub(): void
         wp_die(esc_html__('Ordine non trovato.', 'dfn-theme'), esc_html__('Errore', 'dfn-theme'), 404);
     }
 
-    // Verifica token di sicurezza transazionale
-    $expected_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
-    if (! hash_equals($expected_token, $token)) {
+    // Verifica token di sicurezza transazionale (supporta sia _dfn_hub che _hub legacy)
+    $expected_token_dfn = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+    $expected_token_cv  = hash_hmac('sha256', $order->get_order_key() . '_hub', wp_salt('nonce'));
+
+    if (! hash_equals($expected_token_dfn, $token) && ! hash_equals($expected_token_cv, $token)) {
         wp_die(esc_html__('Link non valido o scaduto.', 'dfn-theme'), esc_html__('Errore di sicurezza', 'dfn-theme'), 403);
     }
 
@@ -70,8 +75,8 @@ function dfn_render_group_ticket_hub(): void
     }
 
     // Dati dell'evento
-    $event_title = get_the_title($booking->event_id) ?: esc_html__('Evento FAI', 'dfn-theme');
     $event       = dfn_db_get_event($booking->event_id);
+    $event_title = ($event && ! empty($event->product_id)) ? get_the_title($event->product_id) : (get_the_title($booking->event_id) ?: esc_html__('Evento FAI', 'dfn-theme'));
     $location    = $event ? $event->location : esc_html__('Bene FAI', 'dfn-theme');
     $date_start  = $event ? date_i18n('d M Y', strtotime($event->event_date_start)) : '';
 
@@ -149,9 +154,6 @@ function dfn_render_group_ticket_hub(): void
                     <div class="dfn-hub-info-detail">📍 <strong><?php esc_html_e('Luogo:', 'dfn-theme'); ?></strong> <?php echo esc_html($location); ?></div>
                     <div class="dfn-hub-info-detail">📅 <strong><?php esc_html_e('Data:', 'dfn-theme'); ?></strong> <?php echo esc_html($date_start); ?></div>
                     <div class="dfn-hub-info-detail">👥 <strong><?php esc_html_e('Intestato a:', 'dfn-theme'); ?></strong> <?php echo esc_html($booking->customer_name); ?></div>
-                    <div class="dfn-hub-info-detail" style="margin-top: 10px; border-top: 1px dashed var(--dfn-gray-medium); padding-top: 10px; font-size: 13px;">
-                        👥 Breakdown Totale: <?php printf(esc_html__('%d Standard + %d Soci FAI', 'dfn-theme'), intval($booking->persons_standard), intval($booking->persons_fai)); ?>
-                    </div>
                 </div>
 
                 <div style="margin-top: 30px;">
@@ -283,13 +285,13 @@ function dfn_render_group_ticket_hub(): void
                     <button onclick="window.print();" class="dfn-hub-btn dfn-hub-btn-print">
                         🖨️ <?php esc_html_e('Stampa Ricevuta Prenotazione', 'dfn-theme'); ?>
                     </button>
-                </div>
-            </div>
-            
-            <div class="dfn-no-print" style="margin-top: 20px;">
-                <a href="<?php echo esc_url(wc_get_page_permalink('myaccount')); ?>" style="color: var(--dfn-text-muted); text-decoration: none; font-weight: 600; font-size: 14px;">
-                    ← <?php esc_html_e('Torna alle tue Prenotazioni', 'dfn-theme'); ?>
-                </a>
+                <?php if (is_user_logged_in()) : ?>
+                    <div class="dfn-no-print" style="margin-top: 25px; text-align: center; padding-top: 15px; border-top: 1px solid var(--dfn-border);">
+                        <a href="<?php echo esc_url(wc_get_page_permalink('myaccount')); ?>" style="color: var(--dfn-text-muted); text-decoration: none; font-weight: 600; font-size: 13px;">
+                            &larr; <?php esc_html_e('Torna alle tue Prenotazioni', 'dfn-theme'); ?>
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
         <?php wp_footer(); ?>

@@ -92,6 +92,29 @@ function dfn_admin_register_menus()
         'dfn_render_quick_booking',
     );
 
+    // Sottomenu "Verifica Prenotazioni FAI" — con badge count dinamico
+    $pending_count = 0;
+    if (function_exists('dfn_db_get_bookings_pending_approval_count')) {
+        $pending_count = dfn_db_get_bookings_pending_approval_count();
+    } else {
+        global $wpdb;
+        $pending_count = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_bookings WHERE status = 'pending_approval'"
+        );
+    }
+    $pending_label = __('Verifica prenotazioni', 'dfn-theme');
+    if ($pending_count > 0) {
+        $pending_label .= ' <span id="dfn-pending-menu-badge" style="display:inline-block; background:#e53e3e; color:#fff; border-radius:10px; font-size:11px; font-weight:bold; padding:1px 7px; margin-left:4px; vertical-align:middle;">' . $pending_count . '</span>';
+    }
+    add_submenu_page(
+        'dfn-events',
+        __('Verifica Prenotazioni FAI', 'dfn-theme'),
+        $pending_label,
+        'dfn_manage_events',
+        'dfn-fai-pending-bookings',
+        'dfn_render_fai_pending_bookings',
+    );
+
     // Enqueue degli asset specifici per l'admin
     add_action('admin_enqueue_scripts', 'dfn_enqueue_admin_assets');
 }
@@ -111,6 +134,7 @@ function dfn_enqueue_admin_assets($hook)
         && strpos($hook, 'dfn-checkin-manager') === false
         && strpos($hook, 'dfn-settings') === false
         && strpos($hook, 'dfn-quick-booking') === false
+        && strpos($hook, 'dfn-fai-pending-bookings') === false
     ) {
         return;
     }
@@ -184,6 +208,31 @@ function dfn_enqueue_admin_assets($hook)
             'ajaxurl' => admin_url('admin-ajax.php'),
             'nonce'   => wp_create_nonce('dfn_quick_booking_nonce'),
             'admin_nonce' => wp_create_nonce('dfn_admin_events_nonce'),
+        ]);
+    } elseif (strpos($hook, 'dfn-fai-pending-bookings') !== false) {
+        // Verifica Prenotazioni FAI: carica CSS del manager + JS dedicato
+        wp_enqueue_style('dfn-events-manager-css');
+        wp_enqueue_script(
+            'dfn-fai-pending-bookings-js',
+            get_stylesheet_directory_uri() . '/assets/js/dfn-fai-pending-bookings.js',
+            ['jquery'],
+            filemtime(get_stylesheet_directory() . '/assets/js/dfn-fai-pending-bookings.js'),
+            true,
+        );
+        wp_localize_script('dfn-fai-pending-bookings-js', 'dfnPendingVars', [
+            'ajaxurl'              => admin_url('admin-ajax.php'),
+            'nonce'                => wp_create_nonce('dfn_admin_pending_nonce'),
+            'confirm_approve'      => __('Sei sicuro di voler approvare la prenotazione di {nome}? Verrà inviata al cliente la mail con il link di pagamento.', 'dfn-theme'),
+            'processing'           => __('In corso…', 'dfn-theme'),
+            'approve_label'        => __('Approva', 'dfn-theme'),
+            'approved_label'       => __('Approvata ✓', 'dfn-theme'),
+            'reject_for'           => __('Stai rifiutando la prenotazione di {nome}. Inserisci la motivazione che sarà comunicata al cliente.', 'dfn-theme'),
+            'reject_confirm_label' => __('Conferma Rifiuto', 'dfn-theme'),
+            'rejected_label'       => __('Rifiutata ✗', 'dfn-theme'),
+            'da_verificare'        => __('da verificare', 'dfn-theme'),
+            'generic_error'        => __('Si è verificato un errore. Riprova o contatta l\'assistenza.', 'dfn-theme'),
+            'all_done'             => __('Nessuna prenotazione in attesa!', 'dfn-theme'),
+            'all_done_sub'         => __('Tutte le prenotazioni FAI sono state verificate.', 'dfn-theme'),
         ]);
     } else {
         // Altrimenti carichiamo il JS dell'Events Manager standard

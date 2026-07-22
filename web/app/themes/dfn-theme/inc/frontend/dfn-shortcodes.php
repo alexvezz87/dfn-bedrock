@@ -59,11 +59,26 @@ function dfn_render_evento_shortcode($atts): string
         return '<p class="dfn-error-msg">' . esc_html__('Questo evento è privato ed accessibile solo ad uso interno.', 'dfn-theme') . '</p>';
     }
 
-    $stock       = $product->get_stock_quantity();
-    $is_in_stock = $product->is_in_stock();
+    global $wpdb;
+    $table_slots = $wpdb->prefix . 'dfn_event_slots';
+    $total_slots_available = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT SUM(GREATEST(0, (capacity + bonus_capacity) - booked_count)) 
+         FROM {$table_slots} 
+         WHERE event_id = %d AND is_locked = 0",
+        $event->id
+    ));
+
+    $wc_stock    = $product->get_stock_quantity();
+    $wc_in_stock = $product->is_in_stock();
+
+    // L'evento è in stock se sia WooCommerce che i turni DFN hanno posti disponibili (> 0)
+    $has_available_capacity = ($total_slots_available > 0);
+    $is_in_stock            = $wc_in_stock && $has_available_capacity && ($wc_stock === null || $wc_stock > 0);
+    $stock                  = ($wc_stock !== null) ? min($wc_stock, $total_slots_available) : $total_slots_available;
+
     $price_standard_html = wc_price(floatval($event->price_standard));
     $price_fai_html      = wc_price(floatval($event->price_fai));
-    $image       = $product->get_image('large');
+    $image               = $product->get_image('large');
 
     ob_start();
     ?>
@@ -158,6 +173,14 @@ function dfn_render_evento_shortcode($atts): string
                         <?php endif; ?>
                         &nbsp;|&nbsp; ⏰ <?php echo esc_html(date('H:i', strtotime($event->event_time_start))); ?>
                     </div>
+                    <?php if ($is_in_stock && ($stock === null || $stock > 0)) : ?>
+                        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
+                            <div class="dfn-availability-badge">
+                                <span class="dfn-pulsing-dot"></span>
+                                <span><?php esc_html_e('Posti disponibili', 'dfn-theme'); ?></span>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -169,12 +192,16 @@ function dfn_render_evento_shortcode($atts): string
     $is_event_past = ($event_end_date < $today);
     ?>
                 <?php if ($is_event_past) : ?>
-                    <div style="text-align:center; background:#fee2e2; color:#991b1b; padding:16px; border-radius:8px; font-weight:700; font-size:16px; border:1px solid #fecaca;">
-                        ❌ <?php esc_html_e('QUESTO EVENTO È GIÀ CONCLUSO. NON È PIÙ POSSIBILE EFFETTUARE PRENOTAZIONI.', 'dfn-theme'); ?>
+                    <div class="dfn-sold-out-card" style="border-top-color: #64748b; border-color: #cbd5e1;">
+                        <div class="dfn-sold-out-icon">⌛</div>
+                        <h3 class="dfn-sold-out-title" style="color: #334155;"><?php esc_html_e('Evento Concluso', 'dfn-theme'); ?></h3>
+                        <p class="dfn-sold-out-text"><?php esc_html_e('Questo evento si è già svolto. Le prenotazioni sono chiuse.', 'dfn-theme'); ?></p>
                     </div>
                 <?php elseif (! $is_in_stock || ($stock !== null && $stock <= 0)) : ?>
-                    <div style="text-align:center; background:#fee2e2; color:#991b1b; padding:16px; border-radius:8px; font-weight:700; font-size:16px; border:1px solid #fecaca;">
-                        ❌ <?php esc_html_e('POSTI COMPLETAMENTE ESAURITI PER QUESTO EVENTO', 'dfn-theme'); ?>
+                    <div class="dfn-sold-out-card">
+                        <div class="dfn-sold-out-icon">🎟️</div>
+                        <h3 class="dfn-sold-out-title"><?php esc_html_e('Posti Esauriti', 'dfn-theme'); ?></h3>
+                        <p class="dfn-sold-out-text"><?php esc_html_e('Ci dispiace, la disponibilità per questo evento è completa.', 'dfn-theme'); ?></p>
                     </div>
                 <?php else : ?>
                     <form class="dfn-booking-form" style="position: relative;">

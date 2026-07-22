@@ -130,11 +130,16 @@ function dfn_settings_save_fields(): void
         'email_fai_rejected_title'    => 'sanitize_text_field',
         'email_fai_rejected_body'     => 'sanitize_textarea_field',
 
+        'email_fai_booking_rejected_subject'  => 'sanitize_text_field',
+        'email_fai_booking_rejected_title'    => 'sanitize_text_field',
+        'email_fai_booking_rejected_body'     => 'sanitize_textarea_field',
+
         // Tab Avanzate & Toggle
         'enable_admin_notification'   => 'sanitize_text_field', // 'yes' o 'no'
         'enable_reminder_24h'         => 'sanitize_text_field', // 'yes' o 'no'
         'enable_auto_waitlist'        => 'sanitize_text_field', // 'yes' o 'no'
         'enable_auto_complete_paid'   => 'sanitize_text_field', // 'yes' o 'no'
+        'enable_auto_verify_fai'      => 'sanitize_text_field', // 'yes' o 'no' — default 'no'
     ];
 
     $new_settings = [];
@@ -476,293 +481,250 @@ function dfn_render_settings_page(): void
                     <?php elseif ($active_tab === 'testi_email') : ?>
                         <!-- TAB TESTI EMAIL -->
                         <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">📝 Personalizzazione Testi E-mail</h2>
-                        <p class="description" style="margin-bottom: 25px;">Modifica i soggetti, i titoli e i testi delle e-mail inviate automaticamente dal sistema. Puoi usare i segnaposto indicati tra parentesi graffe {} per inserire dati dinamici.</p>
+                        <p class="description" style="margin-bottom: 25px;">Modifica i soggetti, i titoli e i testi delle e-mail inviate automaticamente dal sistema. Puoi usare i segnaposto indicati tra parentesi graffe {} per inserire dati dinamici. Clicca su un'e-mail per espandere e modificare i suoi campi.</p>
 
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>1. Conferma Prenotazione (Immediata)</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="confirm" data-email-name="Conferma Prenotazione" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_confirm_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_confirm_subject]" type="text" id="email_confirm_subject" value="<?php echo esc_attr(dfn_get_setting('email_confirm_subject')); ?>" class="large-text" />
-                                    <p class="description">Segnaposto: <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_confirm_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_confirm_title]" type="text" id="email_confirm_title" value="<?php echo esc_attr(dfn_get_setting('email_confirm_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_confirm_intro">Testo Introduzione</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_confirm_intro]" id="email_confirm_intro" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_confirm_intro')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code>, <code>{url_modifica}</code>, <code>{url_annullamento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_confirm_notes">Note Importanti / Regole Accesso</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_confirm_notes]" id="email_confirm_notes" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_confirm_notes')); ?></textarea>
-                                </td>
-                            </tr>
-                        </table>
+                        <style>
+                        .dfn-accordion-item {
+                            border: 1px solid #e2e8f0;
+                            border-radius: 6px;
+                            margin-bottom: 8px;
+                            overflow: hidden;
+                        }
+                        .dfn-accordion-header {
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            padding: 14px 20px;
+                            background: #f8fafc;
+                            cursor: pointer;
+                            user-select: none;
+                            transition: background 0.15s;
+                            gap: 12px;
+                        }
+                        .dfn-accordion-header:hover {
+                            background: #f0f4f8;
+                        }
+                        .dfn-accordion-header-left {
+                            display: flex;
+                            align-items: center;
+                            gap: 12px;
+                            flex: 1;
+                        }
+                        .dfn-accordion-title {
+                            font-weight: 600;
+                            font-size: 14px;
+                            color: #004b23;
+                            margin: 0;
+                        }
+                        .dfn-accordion-arrow {
+                            font-size: 12px;
+                            color: #64748b;
+                            transition: transform 0.2s;
+                            flex-shrink: 0;
+                            width: 18px;
+                            text-align: center;
+                        }
+                        .dfn-accordion-item.is-open .dfn-accordion-arrow {
+                            transform: rotate(180deg);
+                        }
+                        .dfn-accordion-body {
+                            display: none;
+                            padding: 20px 24px;
+                            background: #fff;
+                            border-top: 1px solid #e2e8f0;
+                        }
+                        .dfn-accordion-item.is-open .dfn-accordion-body {
+                            display: block;
+                        }
+                        .dfn-accordion-body .form-table {
+                            margin: 0;
+                        }
+                        .dfn-accordion-body .form-table th {
+                            width: 200px;
+                            padding: 10px 10px 10px 0;
+                        }
+                        .dfn-accordion-body .form-table td {
+                            padding: 10px 0;
+                        }
+                        </style>
 
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>1b. Modifica Prenotazione (Autonoma)</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="modify" data-email-name="Modifica Prenotazione" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_modify_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_modify_subject]" type="text" id="email_modify_subject" value="<?php echo esc_attr(dfn_get_setting('email_modify_subject')); ?>" class="large-text" />
-                                    <p class="description">Segnaposto: <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_modify_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_modify_title]" type="text" id="email_modify_title" value="<?php echo esc_attr(dfn_get_setting('email_modify_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_modify_intro">Testo Introduzione</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_modify_intro]" id="email_modify_intro" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_modify_intro')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code>, <code>{url_modifica}</code>, <code>{url_annullamento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_modify_notes">Note Importanti / Regole Accesso</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_modify_notes]" id="email_modify_notes" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_modify_notes')); ?></textarea>
-                                </td>
-                            </tr>
-                        </table>
+                        <?php
+                        $emails = [
+                            [
+                                'num'       => '1',
+                                'label'     => 'Conferma Prenotazione (Immediata)',
+                                'type'      => 'confirm',
+                                'name'      => 'Conferma Prenotazione',
+                                'fields'    => [
+                                    ['id' => 'email_confirm_subject', 'label' => 'Oggetto E-mail',               'type' => 'text',     'ph' => '{nome_evento}'],
+                                    ['id' => 'email_confirm_title',   'label' => 'Titolo Banner Visivo',          'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_confirm_intro',   'label' => 'Testo Introduzione',            'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {url_modifica}, {url_annullamento}'],
+                                    ['id' => 'email_confirm_notes',   'label' => 'Note Importanti / Regole Accesso', 'type' => 'textarea', 'ph' => ''],
+                                ],
+                            ],
+                            [
+                                'num'       => '1b',
+                                'label'     => 'Modifica Prenotazione (Autonoma)',
+                                'type'      => 'modify',
+                                'name'      => 'Modifica Prenotazione',
+                                'fields'    => [
+                                    ['id' => 'email_modify_subject', 'label' => 'Oggetto E-mail',               'type' => 'text',     'ph' => '{nome_evento}'],
+                                    ['id' => 'email_modify_title',   'label' => 'Titolo Banner Visivo',          'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_modify_intro',   'label' => 'Testo Introduzione',            'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {url_modifica}, {url_annullamento}'],
+                                    ['id' => 'email_modify_notes',   'label' => 'Note Importanti / Regole Accesso', 'type' => 'textarea', 'ph' => ''],
+                                ],
+                            ],
+                            [
+                                'num'       => '2',
+                                'label'     => 'Richiesta in Fase di Verifica (Approvazione Manuale)',
+                                'type'      => 'pending',
+                                'name'      => 'Richiesta in Verifica',
+                                'fields'    => [
+                                    ['id' => 'email_pending_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
+                                    ['id' => 'email_pending_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_pending_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}'],
+                                ],
+                            ],
+                            [
+                                'num'       => '3',
+                                'label'     => 'Richiesta non Approvata (Rifiutata dallo Staff)',
+                                'type'      => 'declined',
+                                'name'      => 'Richiesta Rifiutata',
+                                'fields'    => [
+                                    ['id' => 'email_declined_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
+                                    ['id' => 'email_declined_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_declined_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {motivo_rifiuto}'],
+                                ],
+                            ],
+                            [
+                                'num'       => '3b',
+                                'label'     => 'Rifiuto Prenotazione FAI (Tessere Non Valide)',
+                                'type'      => 'fai_booking_rejected',
+                                'name'      => 'Rifiuto Prenotazione FAI',
+                                'new'       => true,
+                                'fields'    => [
+                                    ['id' => 'email_fai_booking_rejected_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
+                                    ['id' => 'email_fai_booking_rejected_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_fai_booking_rejected_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {motivo_rifiuto}'],
+                                ],
+                            ],
+                            [
+                                'num'       => '4',
+                                'label'     => 'Prenotazione Annullata (dal Visitatore)',
+                                'type'      => 'cancelled',
+                                'name'      => 'Annullamento Utente',
+                                'fields'    => [
+                                    ['id' => 'email_cancelled_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
+                                    ['id' => 'email_cancelled_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_cancelled_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}'],
+                                ],
+                            ],
+                            [
+                                'num'       => '5',
+                                'label'     => 'Prenotazione Annullata dallo Staff',
+                                'type'      => 'admin_cancelled',
+                                'name'      => 'Annullamento Staff',
+                                'fields'    => [
+                                    ['id' => 'email_admin_cancelled_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
+                                    ['id' => 'email_admin_cancelled_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_admin_cancelled_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}'],
+                                ],
+                            ],
+                            [
+                                'num'       => '6',
+                                'label'     => 'Promemoria Visita (24 Ore Prima)',
+                                'type'      => 'reminder',
+                                'name'      => 'Promemoria 24h',
+                                'fields'    => [
+                                    ['id' => 'email_reminder_subject', 'label' => 'Oggetto E-mail',                    'type' => 'text',     'ph' => '{nome_evento}'],
+                                    ['id' => 'email_reminder_title',   'label' => 'Titolo Banner Visivo',               'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_reminder_intro',   'label' => 'Testo Introduzione',                 'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {url_modifica}, {url_annullamento}'],
+                                    ['id' => 'email_reminder_notes',   'label' => 'Note Importanti / Istruzioni Accesso', 'type' => 'textarea', 'ph' => ''],
+                                ],
+                            ],
+                            [
+                                'num'       => '7',
+                                'label'     => "Posto Disponibile in Lista d'Attesa",
+                                'type'      => 'waitlist',
+                                'name'      => 'Notifica Waitlist',
+                                'fields'    => [
+                                    ['id' => 'email_waitlist_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
+                                    ['id' => 'email_waitlist_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_waitlist_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {ore_waitlist}'],
+                                ],
+                            ],
+                            [
+                                'num'       => '8',
+                                'label'     => 'Tessera FAI Approvata (Verifica Superata)',
+                                'type'      => 'fai_approved',
+                                'name'      => 'Tessera FAI Approvata',
+                                'fields'    => [
+                                    ['id' => 'email_fai_approved_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_fai_approved_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_fai_approved_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {numero_tessera}'],
+                                ],
+                            ],
+                            [
+                                'num'       => '9',
+                                'label'     => 'Tessera FAI Rifiutata (Non Valida)',
+                                'type'      => 'fai_rejected',
+                                'name'      => 'Tessera FAI Rifiutata',
+                                'fields'    => [
+                                    ['id' => 'email_fai_rejected_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_fai_rejected_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
+                                    ['id' => 'email_fai_rejected_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {numero_tessera}, {motivo_rifiuto}'],
+                                ],
+                            ],
+                        ];
+                        ?>
 
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>2. Richiesta in Fase di Verifica (Approvazione Manuale)</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="pending" data-email-name="Richiesta in Verifica" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_pending_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_pending_subject]" type="text" id="email_pending_subject" value="<?php echo esc_attr(dfn_get_setting('email_pending_subject')); ?>" class="large-text" />
-                                    <p class="description">Segnaposto: <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_pending_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_pending_title]" type="text" id="email_pending_title" value="<?php echo esc_attr(dfn_get_setting('email_pending_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_pending_body">Corpo E-mail</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_pending_body]" id="email_pending_body" rows="6" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_pending_body')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                        </table>
+                        <?php foreach ($emails as $email) : ?>
+                        <div class="dfn-accordion-item">
+                            <div class="dfn-accordion-header">
+                                <div class="dfn-accordion-header-left">
+                                    <span class="dfn-accordion-title">
+                                        <?php echo esc_html($email['num'] . '. ' . $email['label']); ?>
+                                        <?php if (! empty($email['new'])) : ?>
+                                            <span style="background:#dcfce7; color:#166534; font-size:10px; font-weight:700; padding:2px 7px; border-radius:9999px; vertical-align:middle; margin-left:8px;">NUOVO</span>
+                                        <?php endif; ?>
+                                    </span>
+                                    <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="<?php echo esc_attr($email['type']); ?>" data-email-name="<?php echo esc_attr($email['name']); ?>" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; flex-shrink: 0;" onclick="event.stopPropagation();">✉️ Invia di prova</button>
+                                </div>
+                                <span class="dfn-accordion-arrow">▼</span>
+                            </div>
+                            <div class="dfn-accordion-body">
+                                <table class="form-table" role="presentation">
+                                    <?php foreach ($email['fields'] as $field) : ?>
+                                    <tr>
+                                        <th scope="row"><label for="<?php echo esc_attr($field['id']); ?>"><?php echo esc_html($field['label']); ?></label></th>
+                                        <td>
+                                            <?php if ($field['type'] === 'textarea') : ?>
+                                                <textarea name="dfn_settings[<?php echo esc_attr($field['id']); ?>]" id="<?php echo esc_attr($field['id']); ?>" rows="5" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting($field['id'])); ?></textarea>
+                                            <?php else : ?>
+                                                <input name="dfn_settings[<?php echo esc_attr($field['id']); ?>]" type="text" id="<?php echo esc_attr($field['id']); ?>" value="<?php echo esc_attr(dfn_get_setting($field['id'])); ?>" class="<?php echo (strpos($field['id'], 'title') !== false) ? 'regular-text' : 'large-text'; ?>" />
+                                            <?php endif; ?>
+                                            <?php if (! empty($field['ph'])) : ?>
+                                                <p class="description">Segnaposto: <?php echo implode(', ', array_map(fn($p) => '<code>' . esc_html(trim($p)) . '</code>', explode(',', $field['ph']))); ?></p>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </table>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
 
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>3. Richiesta non Approvata (Rifiutata dallo Staff)</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="declined" data-email-name="Richiesta Rifiutata" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_declined_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_declined_subject]" type="text" id="email_declined_subject" value="<?php echo esc_attr(dfn_get_setting('email_declined_subject')); ?>" class="large-text" />
-                                    <p class="description">Segnaposto: <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_declined_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_declined_title]" type="text" id="email_declined_title" value="<?php echo esc_attr(dfn_get_setting('email_declined_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_declined_body">Corpo E-mail</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_declined_body]" id="email_declined_body" rows="6" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_declined_body')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code>, <code>{motivo_rifiuto}</code></p>
-                                </td>
-                            </tr>
-                        </table>
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            document.querySelectorAll('.dfn-accordion-header').forEach(function(header) {
+                                header.addEventListener('click', function() {
+                                    var item = this.closest('.dfn-accordion-item');
+                                    item.classList.toggle('is-open');
+                                });
+                            });
+                        });
+                        </script>
 
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>4. Prenotazione Annullata (dal Visitatore)</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="cancelled" data-email-name="Annullamento Utente" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_cancelled_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_cancelled_subject]" type="text" id="email_cancelled_subject" value="<?php echo esc_attr(dfn_get_setting('email_cancelled_subject')); ?>" class="large-text" />
-                                    <p class="description">Segnaposto: <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_cancelled_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_cancelled_title]" type="text" id="email_cancelled_title" value="<?php echo esc_attr(dfn_get_setting('email_cancelled_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_cancelled_body">Corpo E-mail</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_cancelled_body]" id="email_cancelled_body" rows="6" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_cancelled_body')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>5. Prenotazione Annullata dallo Staff</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="admin_cancelled" data-email-name="Annullamento Staff" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_admin_cancelled_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_admin_cancelled_subject]" type="text" id="email_admin_cancelled_subject" value="<?php echo esc_attr(dfn_get_setting('email_admin_cancelled_subject')); ?>" class="large-text" />
-                                    <p class="description">Segnaposto: <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_admin_cancelled_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_admin_cancelled_title]" type="text" id="email_admin_cancelled_title" value="<?php echo esc_attr(dfn_get_setting('email_admin_cancelled_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_admin_cancelled_body">Corpo E-mail</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_admin_cancelled_body]" id="email_admin_cancelled_body" rows="6" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_admin_cancelled_body')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>6. Promemoria Visita (24 Ore Prima)</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="reminder" data-email-name="Promemoria 24h" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_reminder_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_reminder_subject]" type="text" id="email_reminder_subject" value="<?php echo esc_attr(dfn_get_setting('email_reminder_subject')); ?>" class="large-text" />
-                                    <p class="description">Segnaposto: <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_reminder_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_reminder_title]" type="text" id="email_reminder_title" value="<?php echo esc_attr(dfn_get_setting('email_reminder_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_reminder_intro">Testo Introduzione</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_reminder_intro]" id="email_reminder_intro" rows="4" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_reminder_intro')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code>, <code>{url_modifica}</code>, <code>{url_annullamento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_reminder_notes">Note Importanti / Istruzioni Accesso</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_reminder_notes]" id="email_reminder_notes" rows="6" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_reminder_notes')); ?></textarea>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>7. Posto Disponibile in Lista d'Attesa</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="waitlist" data-email-name="Notifica Waitlist" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_waitlist_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_waitlist_subject]" type="text" id="email_waitlist_subject" value="<?php echo esc_attr(dfn_get_setting('email_waitlist_subject')); ?>" class="large-text" />
-                                    <p class="description">Segnaposto: <code>{nome_evento}</code></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_waitlist_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_waitlist_title]" type="text" id="email_waitlist_title" value="<?php echo esc_attr(dfn_get_setting('email_waitlist_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_waitlist_body">Corpo E-mail</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_waitlist_body]" id="email_waitlist_body" rows="6" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_waitlist_body')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{nome_evento}</code>, <code>{ore_waitlist}</code></p>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>8. Tessera FAI Approvata (Verifica Superata)</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="fai_approved" data-email-name="Tessera FAI Approvata" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_fai_approved_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_fai_approved_subject]" type="text" id="email_fai_approved_subject" value="<?php echo esc_attr(dfn_get_setting('email_fai_approved_subject')); ?>" class="large-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_fai_approved_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_fai_approved_title]" type="text" id="email_fai_approved_title" value="<?php echo esc_attr(dfn_get_setting('email_fai_approved_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_fai_approved_body">Corpo E-mail</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_fai_approved_body]" id="email_fai_approved_body" rows="6" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_fai_approved_body')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{numero_tessera}</code></p>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <h3 style="color:#004b23; margin-top:30px; display: flex; align-items: center; gap: 15px;">
-                            <span>9. Tessera FAI Rifiutata (Non Valida)</span>
-                            <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="fai_rejected" data-email-name="Tessera FAI Rifiutata" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; margin-left: 10px;">✉️ Invia mail di prova</button>
-                        </h3>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="email_fai_rejected_subject">Oggetto E-mail</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_fai_rejected_subject]" type="text" id="email_fai_rejected_subject" value="<?php echo esc_attr(dfn_get_setting('email_fai_rejected_subject')); ?>" class="large-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_fai_rejected_title">Titolo Banner Visivo</label></th>
-                                <td>
-                                    <input name="dfn_settings[email_fai_rejected_title]" type="text" id="email_fai_rejected_title" value="<?php echo esc_attr(dfn_get_setting('email_fai_rejected_title')); ?>" class="regular-text" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="email_fai_rejected_body">Corpo E-mail</label></th>
-                                <td>
-                                    <textarea name="dfn_settings[email_fai_rejected_body]" id="email_fai_rejected_body" rows="6" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting('email_fai_rejected_body')); ?></textarea>
-                                    <p class="description">Segnaposto: <code>{nome_cliente}</code>, <code>{numero_tessera}</code>, <code>{motivo_rifiuto}</code></p>
-                                </td>
-                            </tr>
-                        </table>
 
                     <?php elseif ($active_tab === 'avanzate') : ?>
                         <!-- TAB AVANZATE & TOGGLE -->
@@ -808,6 +770,16 @@ function dfn_render_settings_page(): void
                                         Sì, imposta come "Completato" ogni ordine pagato con carta/gateway online.
                                     </label>
                                     <p class="description"><strong>Comportamento:</strong> Evita che gli ordini saldati tramite Stripe, PayPal o altri gateway digitali rimangano in stato "Elaborazione", forzando la chiusura immediata e l'invio delle conferme di prenotazione.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Verifica automatica tessere FAI all'approvazione</th>
+                                <td>
+                                    <label for="enable_auto_verify_fai">
+                                        <input name="dfn_settings[enable_auto_verify_fai]" type="checkbox" id="enable_auto_verify_fai" value="yes" <?php checked(dfn_get_setting('enable_auto_verify_fai', 'no'), 'yes'); ?> />
+                                        Sì, marca automaticamente le tessere FAI come verificate quando approvo una prenotazione dalla sezione "Verifica Prenotazioni FAI".
+                                    </label>
+                                    <p class="description"><strong>Comportamento:</strong> Se attivato, cliccando <em>Approva</em> su una prenotazione pendente, tutte le tessere FAI associate vengono marcate come <code>verified = 1</code> nel database, evitando la ri-verifica manuale alle prenotazioni future degli stessi soci. <br><strong style="color:#e53e3e;">⚠️ Attualmente DISATTIVATO (default consigliato)</strong>: le tessere si verificano manualmente dalla sezione Soci FAI.</p>
                                 </td>
                             </tr>
                             <tr>
@@ -1228,6 +1200,30 @@ function dfn_ajax_send_test_email(): void
 
             $subject = dfn_replace_email_placeholders(dfn_get_setting('email_fai_rejected_subject'), $replacements);
             $title   = dfn_replace_email_placeholders(dfn_get_setting('email_fai_rejected_title'), $replacements);
+            break;
+
+        case 'fai_booking_rejected':
+            $motivo_text = 'Superamento della capacità massima del turno selezionato o tessere FAI non valide.';
+            $formatted_motivo = '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#c69c3a')) . '; background-color: #f7fafc; padding: 18px 20px; margin: 25px 0; border-radius: 0 6px 6px 0;">';
+            $formatted_motivo .= '<div class="info-box-title" style="font-weight: bold; font-size: 15px; color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; margin-bottom: 8px;">Nota dallo Staff</div>';
+            $formatted_motivo .= '<p style="margin: 0; font-size: 14px; color: #2d3748; line-height: 1.5;">' . esc_html($motivo_text) . '</p>';
+            $formatted_motivo .= '</div>';
+
+            $replacements = [
+                'nome_cliente'   => esc_html($customer_name),
+                'nome_evento'    => esc_html($product_name),
+                'motivo_rifiuto' => $formatted_motivo,
+            ];
+            $body_template = dfn_get_setting('email_fai_booking_rejected_body');
+            $has_motivo_placeholder = (strpos($body_template, '{motivo_rifiuto}') !== false);
+            $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+            if (! $has_motivo_placeholder) {
+                $content .= $formatted_motivo;
+            }
+
+            $subject = dfn_replace_email_placeholders(dfn_get_setting('email_fai_booking_rejected_subject'), $replacements);
+            $title   = dfn_replace_email_placeholders(dfn_get_setting('email_fai_booking_rejected_title'), $replacements);
             break;
 
         default:
