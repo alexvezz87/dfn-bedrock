@@ -43,7 +43,7 @@ function dfn_checkout_display_fai_fields($checkout): void
 
     echo '<div class="dfn-fai-validation-container">';
     echo '<h3 class="dfn-fai-validation-title">🍊 ' . esc_html__('Verifica Tessere Socio FAI', 'dfn-theme') . '</h3>';
-    echo '<p style="font-size:12px; color:#64748b; margin-top:0; margin-bottom:15px;">' . esc_html__('Inserisci il nome, cognome e numero tessera per ognuno dei posti a contributo Soci FAI selezionati.', 'dfn-theme') . '</p>';
+    echo '<p style="font-size:12px; color:#64748b; margin-top:0; margin-bottom:15px;">' . esc_html__('Dati delle tessere FAI inseriti e confermati durante la prenotazione dell\'evento.', 'dfn-theme') . '</p>';
 
     $session_cards = (WC()->session) ? WC()->session->get('dfn_checkout_fai_cards') : [];
 
@@ -76,17 +76,17 @@ function dfn_checkout_display_fai_fields($checkout): void
 
         echo '<div class="dfn-fai-field-group">';
         echo '<label for="dfn_fai_card_nome_' . $i . '">' . esc_html__('Nome', 'dfn-theme') . ' *</label>';
-        echo '<input type="text" name="dfn_fai_card_nome_' . $i . '" id="dfn_fai_card_nome_' . $i . '" value="' . esc_attr($nome_val) . '" placeholder="Nome">';
+        echo '<input type="text" name="dfn_fai_card_nome_' . $i . '" id="dfn_fai_card_nome_' . $i . '" value="' . esc_attr($nome_val) . '" placeholder="Nome" readonly style="background-color: #f8fafc; cursor: not-allowed; border-color: #cbd5e1; color: #334155; font-weight: 600;">';
         echo '</div>';
 
         echo '<div class="dfn-fai-field-group">';
         echo '<label for="dfn_fai_card_cognome_' . $i . '">' . esc_html__('Cognome', 'dfn-theme') . ' *</label>';
-        echo '<input type="text" name="dfn_fai_card_cognome_' . $i . '" id="dfn_fai_card_cognome_' . $i . '" value="' . esc_attr($cognome_val) . '" placeholder="Cognome">';
+        echo '<input type="text" name="dfn_fai_card_cognome_' . $i . '" id="dfn_fai_card_cognome_' . $i . '" value="' . esc_attr($cognome_val) . '" placeholder="Cognome" readonly style="background-color: #f8fafc; cursor: not-allowed; border-color: #cbd5e1; color: #334155; font-weight: 600;">';
         echo '</div>';
 
         echo '<div class="dfn-fai-field-group">';
         echo '<label for="dfn_fai_card_number_' . $i . '">' . esc_html__('N° Tessera FAI', 'dfn-theme') . ' *</label>';
-        echo '<input type="text" name="dfn_fai_card_number_' . $i . '" id="dfn_fai_card_number_' . $i . '" value="' . esc_attr($card_val) . '" placeholder="Es. 123456">';
+        echo '<input type="text" name="dfn_fai_card_number_' . $i . '" id="dfn_fai_card_number_' . $i . '" value="' . esc_attr($card_val) . '" placeholder="Es. 123456" readonly style="background-color: #f8fafc; cursor: not-allowed; border-color: #cbd5e1; color: #334155; font-weight: 600;">';
         echo '</div>';
 
         echo '</div>';
