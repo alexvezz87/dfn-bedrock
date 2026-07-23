@@ -160,11 +160,13 @@ function dfn_checkout_validate_fai_fields(): void
             continue;
         }
 
-        // Se la tessera esiste ma è scaduta
-        $expiry_date = strtotime($member->card_expiry);
-        $today = strtotime(date('Y-m-d'));
-        if ($expiry_date < $today) {
-            wc_add_notice(sprintf(__('La Tessera FAI n° %s (Partecipante #%d) risulta scaduta il %s.', 'dfn-theme'), $card, $i, date_i18n('d/m/Y', $expiry_date)), 'error');
+        // Se la tessera ha una data di scadenza definita ed è effettivamente scaduta
+        if (! empty($member->card_expiry) && '0000-00-00' !== $member->card_expiry) {
+            $expiry_date = strtotime($member->card_expiry);
+            $today       = strtotime(date('Y-m-d'));
+            if ($expiry_date > 0 && $expiry_date < $today) {
+                wc_add_notice(sprintf(__('La Tessera FAI n° %s (Partecipante #%d) risulta scaduta il %s.', 'dfn-theme'), $card, $i, date_i18n('d/m/Y', $expiry_date)), 'error');
+            }
         }
     }
 }
