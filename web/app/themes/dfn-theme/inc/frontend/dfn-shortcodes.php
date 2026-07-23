@@ -60,21 +60,29 @@ function dfn_render_evento_shortcode($atts): string
     }
 
     global $wpdb;
-    $table_slots = $wpdb->prefix . 'dfn_event_slots';
-    $total_slots_available = (int) $wpdb->get_var($wpdb->prepare(
-        "SELECT SUM(GREATEST(0, (capacity + bonus_capacity) - booked_count)) 
-         FROM {$table_slots} 
-         WHERE event_id = %d AND is_locked = 0",
-        $event->id
-    ));
+    if ('free_flow' === $event->access_type) {
+        $total_booked = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+            $event->id
+        ));
+        $total_available = max(0, intval($event->total_capacity) - $total_booked);
+    } else {
+        $table_slots = $wpdb->prefix . 'dfn_event_slots';
+        $total_available = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT SUM(GREATEST(0, (capacity + bonus_capacity) - booked_count)) 
+             FROM {$table_slots} 
+             WHERE event_id = %d AND is_locked = 0",
+            $event->id
+        ));
+    }
 
     $wc_stock    = $product->get_stock_quantity();
     $wc_in_stock = $product->is_in_stock();
 
-    // L'evento è in stock se sia WooCommerce che i turni DFN hanno posti disponibili (> 0)
-    $has_available_capacity = ($total_slots_available > 0);
-    $is_in_stock            = $wc_in_stock && $has_available_capacity && ($wc_stock === null || $wc_stock > 0);
-    $stock                  = ($wc_stock !== null) ? min($wc_stock, $total_slots_available) : $total_slots_available;
+    // L'evento è in stock se sia la capacità DFN che il magazzino sono disponibili (> 0)
+    $has_available_capacity = ($total_available > 0);
+    $is_in_stock            = $has_available_capacity && ($wc_stock === null || $wc_stock > 0 || $wc_in_stock);
+    $stock                  = ($wc_stock !== null) ? min($wc_stock, $total_available) : $total_available;
 
     $price_standard_html = wc_price(floatval($event->price_standard));
     $price_fai_html      = wc_price(floatval($event->price_fai));

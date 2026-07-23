@@ -189,6 +189,28 @@ function dfn_render_event_editor()
                     }
                 }
 
+                // Sincronizza la giacenza ed il magazzino sul prodotto WooCommerce associato
+                if ($product_id > 0) {
+                    if ('free_flow' === $access_type) {
+                        $total_booked = (int) $wpdb->get_var($wpdb->prepare(
+                            "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+                            $event_id
+                        ));
+                        $remaining_stock = max(0, $total_capacity - $total_booked);
+                    } else {
+                        $remaining_stock = (int) $wpdb->get_var($wpdb->prepare(
+                            "SELECT SUM(GREATEST(0, (capacity + bonus_capacity) - booked_count)) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d AND is_locked = 0",
+                            $event_id
+                        ));
+                        if ($remaining_stock === 0) {
+                            $remaining_stock = $total_capacity > 0 ? $total_capacity : ($slot_capacity * 10);
+                        }
+                    }
+                    update_post_meta($product_id, '_manage_stock', 'yes');
+                    update_post_meta($product_id, '_stock', $remaining_stock);
+                    update_post_meta($product_id, '_stock_status', ($remaining_stock > 0 ? 'instock' : 'outofstock'));
+                }
+
                 // Reindirizza al tabellone principale con messaggio di successo
                 wp_safe_redirect(admin_url('admin.php?page=dfn-events&action=saved&event_id=' . $event_id));
                 exit;

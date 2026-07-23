@@ -249,7 +249,7 @@ function dfn_enqueue_admin_assets($hook)
             'ajaxurl' => admin_url('admin-ajax.php'),
             'nonce'   => wp_create_nonce('dfn_admin_events_nonce'),
             'confirm_delete' => __('Sei sicuro di voler eliminare questo evento? Questa operazione eliminerà anche tutti gli slot e le prenotazioni correlate!', 'dfn-theme'),
-            'confirm_slots'  => __('Rigenerando gli slot eliminerai quelli attuali. Continuare?', 'dfn-theme'),
+            'confirm_slots'  => __('ATTENZIONE CRITICA: Il Reset degli slot eliminerà TUTTI i turni orari e TUTTE LE PRENOTAZIONI già inserite per questo evento! Questa operazione non è reversibile. Sei davvero sicuro di voler procedere?', 'dfn-theme'),
         ]);
     }
 }

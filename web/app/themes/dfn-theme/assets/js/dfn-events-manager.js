@@ -86,10 +86,10 @@
         });
 
         // Richiesta di conferma rigenerazione o generazione manuale degli slot orari
-        $(document).on('click', '.dfn-btn-icon', function(e) {
+        $(document).on('click', '.dfn-btn-reset, .dfn-btn-icon', function(e) {
             var confirmMsg = (typeof dfnAdminVars !== 'undefined' && dfnAdminVars.confirm_slots) 
                 ? dfnAdminVars.confirm_slots 
-                : 'Questo rigenererà tutti i turni orari per questo evento. Continuare?';
+                : 'ATTENZIONE CRITICA: Il Reset degli slot eliminerà TUTTI i turni orari e TUTTE LE PRENOTAZIONI già inserite per questo evento! Questa operazione non è reversibile. Sei davvero sicuro di voler procedere?';
                 
             if (!confirm(confirmMsg)) {
                 e.preventDefault();
