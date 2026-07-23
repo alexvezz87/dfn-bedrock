@@ -248,11 +248,21 @@ jQuery(document).ready(function($) {
                             var chipsHtml = '';
                             
                             cards.forEach(function(card) {
-                                var badgeHtml = card.scaduta ? ' <span class="dfn-chip-badge-expired">⚠️ Scaduta</span>' : '';
-                                chipsHtml += '<button type="button" class="dfn-fai-chip" ' +
+                                var isUsed = card.usata ? true : false;
+                                var badgeHtml = '';
+                                if (card.scaduta) {
+                                    badgeHtml += ' <span class="dfn-chip-badge-expired">⚠️ Scaduta</span>';
+                                }
+                                if (isUsed) {
+                                    badgeHtml += ' <span class="dfn-chip-badge-expired" style="background:#f1f5f9; color:#64748b; border-color:#cbd5e1;">🔒 Già usata per questo evento</span>';
+                                }
+                                
+                                var extraClass = isUsed ? ' dfn-fai-chip-used' : '';
+                                chipsHtml += '<button type="button" class="dfn-fai-chip' + extraClass + '" ' +
                                              'data-nome="' + card.nome + '" ' +
                                              'data-cognome="' + card.cognome + '" ' +
-                                             'data-tessera="' + card.tessera + '">' +
+                                             'data-tessera="' + card.tessera + '" ' +
+                                             (isUsed ? 'disabled title="Tessera già utilizzata per questo evento"' : '') + '>' +
                                              card.nome + ' ' + card.cognome + ' — ' + card.tessera + badgeHtml +
                                              '</button>';
                             });

@@ -1044,9 +1044,11 @@ function dfn_ajax_get_user_fai_cards(): void
     }
 
     global $wpdb;
-    $user_id = get_current_user_id();
+    $user_id       = get_current_user_id();
+    $current_user  = wp_get_current_user();
+    $user_email    = $current_user ? $current_user->user_email : '';
     $table_members = $wpdb->prefix . 'dfn_fai_members';
-    $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+    $event_id      = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
 
     // Recupera tutte le tessere FAI già utilizzate per prenotazioni attive per questo evento
     $used_cards = [];
@@ -1060,7 +1062,7 @@ function dfn_ajax_get_user_fai_cards(): void
                 $order_cards = get_post_meta($order_id, '_dfn_fai_cards', true);
                 if (is_array($order_cards)) {
                     foreach ($order_cards as $c) {
-                        if (isset($c['tessera'])) {
+                        if (! empty($c['tessera'])) {
                             $used_cards[] = sanitize_text_field($c['tessera']);
                         }
                     }
@@ -1069,21 +1071,20 @@ function dfn_ajax_get_user_fai_cards(): void
         }
     }
 
+    // Cerca le tessere FAI abbinate all'ID utente o all'indirizzo email dell'utente
     $cards = $wpdb->get_results($wpdb->prepare(
-        "SELECT first_name, last_name, card_number, card_expiry 
+        "SELECT first_name, last_name, card_number, card_expiry, verified 
          FROM {$table_members} 
-         WHERE user_id = %d AND verified = 1 
+         WHERE (user_id = %d OR (email IS NOT NULL AND email != '' AND LOWER(email) = LOWER(%s))) 
          ORDER BY id DESC",
         $user_id,
+        $user_email
     ));
 
     $formatted_cards = [];
     $today = date('Y-m-d');
     foreach ($cards as $card) {
-        // Esclude le tessere che hanno già usufruito dello sconto in questo evento
-        if (in_array($card->card_number, $used_cards, true)) {
-            continue;
-        }
+        $is_used = in_array($card->card_number, $used_cards, true);
 
         $expired = false;
         if (! empty($card->card_expiry) && $card->card_expiry < $today) {
@@ -1095,6 +1096,7 @@ function dfn_ajax_get_user_fai_cards(): void
             'cognome' => $card->last_name,
             'tessera' => $card->card_number,
             'scaduta' => $expired,
+            'usata'   => $is_used,
         ];
     }
 
