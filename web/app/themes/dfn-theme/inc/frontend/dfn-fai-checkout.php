@@ -42,7 +42,7 @@ function dfn_checkout_display_fai_fields($checkout): void
     }
 
     echo '<div class="dfn-fai-validation-container">';
-    echo '<h3 class="dfn-fai-validation-title">🍊 ' . esc_html__('Verifica Tessere Socio FAI', 'dfn-theme') . '</h3>';
+    echo '<h3 class="dfn-fai-validation-title">' . esc_html__('Verifica Tessere Socio FAI', 'dfn-theme') . '</h3>';
     echo '<p style="font-size:12px; color:#64748b; margin-top:0; margin-bottom:15px;">' . esc_html__('Dati delle tessere FAI inseriti e confermati durante la prenotazione dell\'evento.', 'dfn-theme') . '</p>';
 
     $session_cards = (WC()->session) ? WC()->session->get('dfn_checkout_fai_cards') : [];

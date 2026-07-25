@@ -66,6 +66,9 @@ function dfn_render_event_editor()
             $staff_config      = sanitize_textarea_field($_POST['staff_config']);
             $status            = sanitize_text_field($_POST['status']);
             $auto_cancel_hours = intval($_POST['auto_cancel_hours']);
+            $detail_layout     = in_array($_POST['detail_layout'] ?? '', ['auto', 'layout1', 'layout2'], true)
+                ? $_POST['detail_layout']
+                : 'auto';
 
             if ($price_fai > $price_standard) {
                 $message = __('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme');
@@ -165,12 +168,13 @@ function dfn_render_event_editor()
                     'price_standard'    => $price_standard,
                     'price_fai'         => $price_fai,
                     'staff_config'      => $staff_config,
+                    'detail_layout'     => $detail_layout,
                     'status'            => $status,
                 ];
 
                 $format = [
                     '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
-                    '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s',
+                    '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s', '%s',
                 ];
 
                 if ($event_id > 0) {
@@ -255,6 +259,7 @@ function dfn_render_event_editor()
     $staff            = $is_post && isset($_POST['staff_config']) ? sanitize_textarea_field($_POST['staff_config']) : ($event ? $event->staff_config : '');
     $stat             = $is_post && isset($_POST['status']) ? sanitize_text_field($_POST['status']) : ($event ? $event->status : 'draft');
     $auto_cancel      = $is_post && isset($_POST['auto_cancel_hours']) ? intval($_POST['auto_cancel_hours']) : ($event ? (int) $event->auto_cancel_hours : 24);
+    $layout_sel       = $is_post && isset($_POST['detail_layout']) ? sanitize_text_field($_POST['detail_layout']) : ($event && ! empty($event->detail_layout) ? $event->detail_layout : 'auto');
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header">
@@ -341,7 +346,7 @@ function dfn_render_event_editor()
                             </div>
 
                             <div class="dfn-form-group" style="margin-top: 15px;">
-                                <label for="description" class="dfn-label"><?php esc_html_e('Descrizione del bene', 'dfn-theme'); ?></label>
+                                <label for="description" class="dfn-label"><?php esc_html_e('Descrizione', 'dfn-theme'); ?></label>
                                 <textarea name="description" id="description" class="dfn-textarea" rows="4" placeholder="<?php esc_attr_e('Descrizione dettagliata dell\'edificio storico o del bene FAI...', 'dfn-theme'); ?>"><?php echo esc_textarea($desc); ?></textarea>
                             </div>
                         </div>
@@ -548,7 +553,90 @@ function dfn_render_event_editor()
                         </div>
                     </div>
 
+                    <!-- Blocco Layout Pagina Dettaglio -->
+                    <div class="dfn-card dfn-card-sidebar">
+                        <div class="dfn-card-header">
+                            <h2>📐 <?php esc_html_e('Layout Pagina Dettaglio', 'dfn-theme'); ?></h2>
+                        </div>
+                        <div class="dfn-card-body">
+                            <p class="description" style="margin-bottom: 14px;"><?php esc_html_e('Scegli come visualizzare l\'evento nella pagina di dettaglio pubblica. La modalità "Auto" usa il Layout 2 (locandina) se non c\'è galleria.', 'dfn-theme'); ?></p>
+
+                            <div class="dfn-layout-picker" style="display: flex; flex-direction: column; gap: 10px;">
+
+                                <!-- Auto -->
+                                <label class="dfn-layout-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 2px solid <?php echo $layout_sel === 'auto' ? '#004b23' : '#e2e8f0'; ?>; border-radius: 10px; cursor: pointer; background: <?php echo $layout_sel === 'auto' ? '#f0fdf4' : '#fff'; ?>; transition: all 0.2s;">
+                                    <input type="radio" name="detail_layout" value="auto" <?php checked($layout_sel, 'auto'); ?> style="accent-color: #004b23; width: 16px; height: 16px; flex-shrink: 0;">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                                        <!-- Mini preview: auto icon -->
+                                        <div style="display: flex; gap: 3px; flex-shrink: 0;">
+                                            <div style="width: 28px; height: 20px; background: #cbd5e1; border-radius: 3px; display: flex; flex-direction: column; gap: 2px; padding: 2px; box-sizing: border-box;">
+                                                <div style="height: 8px; background: #94a3b8; border-radius: 1px;"></div>
+                                                <div style="display: flex; gap: 2px; height: 7px;">
+                                                    <div style="flex: 1; background: #94a3b8; border-radius: 1px;"></div>
+                                                    <div style="flex: 1; background: #94a3b8; border-radius: 1px;"></div>
+                                                </div>
+                                            </div>
+                                            <span style="font-size: 14px; color: #64748b; align-self: center;">/</span>
+                                            <div style="width: 28px; height: 20px; background: #cbd5e1; border-radius: 3px; display: flex; gap: 2px; padding: 2px; box-sizing: border-box;">
+                                                <div style="width: 10px; background: #94a3b8; border-radius: 1px;"></div>
+                                                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                                                    <div style="height: 6px; background: #94a3b8; border-radius: 1px;"></div>
+                                                    <div style="height: 6px; background: #94a3b8; border-radius: 1px;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 700; font-size: 13px; color: #1e293b;"><?php esc_html_e('Automatico', 'dfn-theme'); ?></div>
+                                            <div style="font-size: 11px; color: #64748b;"><?php esc_html_e('Layout 2 se no galleria, Layout 1 se galleria', 'dfn-theme'); ?></div>
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <!-- Layout 1 -->
+                                <label class="dfn-layout-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 2px solid <?php echo $layout_sel === 'layout1' ? '#004b23' : '#e2e8f0'; ?>; border-radius: 10px; cursor: pointer; background: <?php echo $layout_sel === 'layout1' ? '#f0fdf4' : '#fff'; ?>; transition: all 0.2s;">
+                                    <input type="radio" name="detail_layout" value="layout1" <?php checked($layout_sel, 'layout1'); ?> style="accent-color: #004b23; width: 16px; height: 16px; flex-shrink: 0;">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                                        <!-- Mini preview: immagine sopra + due colonne -->
+                                        <div style="width: 36px; height: 26px; background: #cbd5e1; border-radius: 3px; display: flex; flex-direction: column; gap: 2px; padding: 2px; box-sizing: border-box; flex-shrink: 0;">
+                                            <div style="height: 10px; background: #94a3b8; border-radius: 1px;"></div>
+                                            <div style="display: flex; gap: 2px; height: 11px;">
+                                                <div style="flex: 1; background: #94a3b8; border-radius: 1px;"></div>
+                                                <div style="flex: 1; background: #94a3b8; border-radius: 1px;"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 700; font-size: 13px; color: #1e293b;"><?php esc_html_e('Layout 1 — Galleria', 'dfn-theme'); ?></div>
+                                            <div style="font-size: 11px; color: #64748b;"><?php esc_html_e('Slider/Galleria in cima + Info e Form in basso', 'dfn-theme'); ?></div>
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <!-- Layout 2 -->
+                                <label class="dfn-layout-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 2px solid <?php echo $layout_sel === 'layout2' ? '#004b23' : '#e2e8f0'; ?>; border-radius: 10px; cursor: pointer; background: <?php echo $layout_sel === 'layout2' ? '#f0fdf4' : '#fff'; ?>; transition: all 0.2s;">
+                                    <input type="radio" name="detail_layout" value="layout2" <?php checked($layout_sel, 'layout2'); ?> style="accent-color: #004b23; width: 16px; height: 16px; flex-shrink: 0;">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                                        <!-- Mini preview: locandina sinistra + contenuto destra -->
+                                        <div style="width: 36px; height: 26px; background: #cbd5e1; border-radius: 3px; display: flex; gap: 2px; padding: 2px; box-sizing: border-box; flex-shrink: 0;">
+                                            <div style="width: 12px; background: #94a3b8; border-radius: 1px;"></div>
+                                            <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                                                <div style="height: 5px; background: #94a3b8; border-radius: 1px;"></div>
+                                                <div style="height: 5px; background: #94a3b8; border-radius: 1px;"></div>
+                                                <div style="height: 8px; background: #c69c3a; border-radius: 1px;"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 700; font-size: 13px; color: #1e293b;"><?php esc_html_e('Layout 2 — Locandina', 'dfn-theme'); ?></div>
+                                            <div style="font-size: 11px; color: #64748b;"><?php esc_html_e('Locandina verticale a sinistra + Form a destra', 'dfn-theme'); ?></div>
+                                        </div>
+                                    </div>
+                                </label>
+
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Blocco Listino Prezzi -->
+
                     <div class="dfn-card dfn-card-sidebar">
                         <div class="dfn-card-header">
                             <h2>💰 <?php esc_html_e('Listino Contributi', 'dfn-theme'); ?></h2>
@@ -664,6 +752,74 @@ function dfn_event_editor_auto_cancel_js()
                     }
                 }
             });
+        }
+    })();
+    </script>
+
+    <script>
+    // -----------------------------------------------------------------------
+    // Layout Picker: evidenzia visivamente l'opzione selezionata + avviso galleria
+    // -----------------------------------------------------------------------
+    (function() {
+        var layoutOptions = document.querySelectorAll('.dfn-layout-option');
+        var galleryIds    = document.getElementById('dfn_event_gallery_ids');
+
+        // Avviso galleria (creato dinamicamente)
+        var galleryWarning = document.createElement('div');
+        galleryWarning.id = 'dfn-layout2-gallery-warning';
+        galleryWarning.style.cssText = 'display:none; margin-top:10px; padding:10px 14px; background:#fffbeb; border:1px solid #f59e0b; border-radius:8px; font-size:12px; color:#92400e; line-height:1.5;';
+        galleryWarning.innerHTML = '⚠️ <?php echo esc_js(__('Attenzione: hai scelto il Layout Locandina, ma questo evento ha immagini in galleria. La galleria non verrà visualizzata nella pagina di dettaglio. Le immagini restano comunque salvate.', 'dfn-theme')); ?>';
+
+        var layoutPicker = document.querySelector('.dfn-layout-picker');
+        if (layoutPicker) {
+            layoutPicker.parentNode.appendChild(galleryWarning);
+        }
+
+        function hasGalleryImages() {
+            if (!galleryIds) return false;
+            return galleryIds.value.replace(/,/g, '').trim().length > 0;
+        }
+
+        function updateLayoutUI(selectedValue) {
+            layoutOptions.forEach(function(label) {
+                var radio = label.querySelector('input[type="radio"]');
+                if (radio && radio.value === selectedValue) {
+                    label.style.borderColor = '#004b23';
+                    label.style.background  = '#f0fdf4';
+                } else {
+                    label.style.borderColor = '#e2e8f0';
+                    label.style.background  = '#ffffff';
+                }
+            });
+
+            // Mostra avviso solo se layout2 è selezionato E c'è galleria
+            if (selectedValue === 'layout2' && hasGalleryImages()) {
+                galleryWarning.style.display = 'block';
+            } else {
+                galleryWarning.style.display = 'none';
+            }
+        }
+
+        layoutOptions.forEach(function(label) {
+            var radio = label.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.addEventListener('change', function() {
+                    updateLayoutUI(this.value);
+                });
+                // Inizializza stato
+                if (radio.checked) {
+                    updateLayoutUI(radio.value);
+                }
+            }
+        });
+
+        // Aggiorna anche se la galleria cambia (immagini aggiunte/rimosse)
+        if (galleryIds) {
+            var observer = new MutationObserver(function() {
+                var checkedRadio = document.querySelector('.dfn-layout-option input[type="radio"]:checked');
+                if (checkedRadio) updateLayoutUI(checkedRadio.value);
+            });
+            observer.observe(galleryIds, { attributes: true, attributeFilter: ['value'] });
         }
     })();
     </script>
