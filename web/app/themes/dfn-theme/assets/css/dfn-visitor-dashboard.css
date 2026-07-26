@@ -1352,41 +1352,7 @@
 }
 
 .dfn-event-card {
-    transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-                filter 0.45s ease,
-                box-shadow 0.3s ease;
-    will-change: transform, opacity, filter;
-    transform-origin: center top;
-}
-
-.dfn-event-card.dfn-card-animating-out {
-    opacity: 0 !important;
-    transform: scale(0.88) translateY(-18px) !important;
-    filter: blur(8px) !important;
-    pointer-events: none !important;
-}
-
-.dfn-event-card.dfn-card-animating-in {
-    animation: dfnCardPopIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-@keyframes dfnCardPopIn {
-    0% {
-        opacity: 0;
-        transform: scale(0.84) translateY(32px);
-        filter: blur(10px);
-    }
-    65% {
-        opacity: 0.95;
-        transform: scale(1.03) translateY(-4px);
-        filter: blur(0);
-    }
-    100% {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-        filter: blur(0);
-    }
+    transition: box-shadow 0.3s ease;
 }
 
 

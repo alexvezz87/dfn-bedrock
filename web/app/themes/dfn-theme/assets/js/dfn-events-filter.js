@@ -1,5 +1,6 @@
 /**
- * DFN Events Frontend Live Search & Filtering with Staggered Pop Animations
+ * DFN Events Frontend Live Search & Filtering
+ * Fade-In / Fade-Out semplice con durata 1 secondo (1000ms).
  */
 (function($) {
     'use strict';
@@ -24,8 +25,7 @@
             var selectedMonth = $month.val() || '';
             var selectedCity  = ($city.val() || '').toLowerCase().trim();
 
-            var visibleIndex = 0;
-            var hiddenIndex  = 0;
+            var visibleCount = 0;
 
             $cards.each(function() {
                 var $card     = $(this);
@@ -39,47 +39,22 @@
                 var matchesCity   = !selectedCity || city === selectedCity;
 
                 if (matchesSearch && matchesMonth && matchesCity) {
-                    var inDelay = visibleIndex * 70; // Ritardo sfalsato 70ms ad onda
-                    visibleIndex++;
-
-                    $card.removeClass('dfn-card-animating-out');
-                    if ($card.is(':hidden') || !$card.hasClass('dfn-card-visible')) {
-                        $card.css('display', '');
-                        setTimeout(function() {
-                            $card.addClass('dfn-card-animating-in dfn-card-visible');
-                            setTimeout(function() {
-                                $card.removeClass('dfn-card-animating-in');
-                            }, 550);
-                        }, inDelay);
-                    }
+                    $card.stop(true, true).fadeIn(1000);
+                    visibleCount++;
                 } else {
-                    var outDelay = hiddenIndex * 40; // Ritardo di uscita ad onda
-                    hiddenIndex++;
-
-                    if ($card.hasClass('dfn-card-visible') || $card.is(':visible')) {
-                        setTimeout(function() {
-                            $card.removeClass('dfn-card-visible dfn-card-animating-in').addClass('dfn-card-animating-out');
-                            setTimeout(function() {
-                                if ($card.hasClass('dfn-card-animating-out')) {
-                                    $card.hide().removeClass('dfn-card-animating-out');
-                                }
-                            }, 450);
-                        }, outDelay);
-                    }
+                    $card.stop(true, true).fadeOut(1000);
                 }
             });
 
             var $noResults = $('#dfn-no-filter-results');
-            var maxWait = Math.max(visibleIndex, hiddenIndex) * 50 + 200;
-
-            if (visibleIndex === 0) {
+            if (visibleCount === 0) {
                 setTimeout(function() {
                     if (!$noResults.length) {
                         $cards.parent().append('<div id="dfn-no-filter-results" style="grid-column: 1 / -1; text-align:center; padding: 40px 20px; background:#f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; color: #64748b; font-size:14px; font-weight:500;">🔍 Nessun evento corrisponde ai criteri selezionati.<br><small style="color:#94a3b8;">Prova a cambiare mese, comune o parola chiave.</small></div>');
                     } else {
-                        $noResults.fadeIn(300);
+                        $noResults.fadeIn(500);
                     }
-                }, maxWait);
+                }, 500);
             } else {
                 if ($noResults.length) {
                     $noResults.hide();
