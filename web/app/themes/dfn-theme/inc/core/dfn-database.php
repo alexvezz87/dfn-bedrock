@@ -72,6 +72,7 @@ function dfn_db_install(): void
         event_time_start time NOT NULL,
         event_time_end time DEFAULT NULL,
         location varchar(500) NOT NULL,
+        city varchar(255) DEFAULT NULL,
         description text DEFAULT NULL,
         access_type varchar(20) NOT NULL DEFAULT 'time_slots',
         allocation_mode varchar(20) NOT NULL DEFAULT 'automatic',
@@ -233,6 +234,12 @@ function dfn_db_install(): void
         $wpdb->query("ALTER TABLE {$table_events} ADD COLUMN description text DEFAULT NULL AFTER location");
     }
 
+    // Forza la creazione della colonna city (Comune) se manca
+    $row_city = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'city'");
+    if (empty($row_city)) {
+        $wpdb->query("ALTER TABLE {$table_events} ADD COLUMN city varchar(255) DEFAULT NULL AFTER location");
+    }
+
     // Forza la nullabilità di card_expiry nella tabella fai_members (dbDelta a volte fallisce l'alter)
     $wpdb->query("ALTER TABLE {$table_fai} MODIFY COLUMN card_expiry date DEFAULT NULL");
 
@@ -387,6 +394,75 @@ function dfn_db_get_events(string $status = 'published'): array
     );
 
     return is_array($results) ? $results : [];
+}
+
+/**
+ * Recupera la lista dei Comuni unici degli eventi pubblicati.
+ *
+ * @param string $status Stato eventi (default 'published').
+ * @return array Lista di comuni.
+ */
+function dfn_db_get_event_cities(string $status = 'published'): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_events';
+
+    // Assicurati che la colonna city esista prima di fare la query
+    $col_check = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'city'");
+    if (empty($col_check)) {
+        $wpdb->query("ALTER TABLE {$table} ADD COLUMN city varchar(255) DEFAULT NULL AFTER location");
+        return [];
+    }
+
+    $results = $wpdb->get_col(
+        $wpdb->prepare(
+            "SELECT DISTINCT city FROM {$table} WHERE status = %s AND city IS NOT NULL AND city != '' ORDER BY city ASC",
+            $status
+        )
+    );
+
+    return is_array($results) ? array_filter($results) : [];
+}
+
+/**
+ * Recupera i mesi e gli anni disponibili per gli eventi pubblicati.
+ *
+ * @param string $status Stato eventi (default 'published').
+ * @return array Lista di array con 'value' (YYYY-MM) e 'label' (es. "Agosto 2026").
+ */
+function dfn_db_get_event_months(string $status = 'published'): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_events';
+
+    $dates = $wpdb->get_col(
+        $wpdb->prepare(
+            "SELECT DISTINCT event_date_start FROM {$table} WHERE status = %s AND event_date_start IS NOT NULL AND event_date_start != '0000-00-00' ORDER BY event_date_start ASC",
+            $status
+        )
+    );
+
+    $months = [];
+    if (is_array($dates)) {
+        $seen = [];
+        foreach ($dates as $date_str) {
+            if (empty($date_str)) {
+                continue;
+            }
+            $ym = date('Y-m', strtotime($date_str));
+            if (isset($seen[$ym])) {
+                continue;
+            }
+            $seen[$ym] = true;
+            $timestamp = strtotime($ym . '-01');
+            $months[]  = [
+                'value' => $ym,
+                'label' => date_i18n('F Y', $timestamp),
+            ];
+        }
+    }
+
+    return $months;
 }
 
 /**

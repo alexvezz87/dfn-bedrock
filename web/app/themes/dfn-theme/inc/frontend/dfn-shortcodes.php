@@ -734,21 +734,22 @@ function dfn_output_single_product_booking_widget(): void
         echo dfn_render_evento_shortcode([ 'id' => $product_id ]);
     }
 }
-
 /**
  * Rende una griglia/lista di eventi pubblici.
  *
  * @param array $atts Attributi dello shortcode.
  * @return string HTML generato.
  */
-function dfn_render_lista_eventi_shortcode($atts): string
+function dfn_render_lista_eventi_shortcode(array $atts = []): string
 {
     $atts = shortcode_atts([
-        'status' => 'published',
-        'limit'  => -1,
+        'status'  => 'published',
+        'limit'   => -1,
+        'filters' => 'yes',
     ], $atts, 'dfn_lista_eventi');
 
-    $events = dfn_db_get_events(sanitize_text_field($atts['status']));
+    $status = sanitize_text_field($atts['status']);
+    $events = dfn_db_get_events($status);
     if (empty($events)) {
         return '<p class="dfn-no-events-msg" style="text-align:center; padding: 30px; background:#f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #64748b;">'
                . esc_html__('Al momento non ci sono eventi pubblici in programma. Torna presto a trovarci!', 'dfn-theme')
@@ -760,8 +761,47 @@ function dfn_render_lista_eventi_shortcode($atts): string
         $events = array_slice($events, 0, $limit);
     }
 
+    // Enqueue JS filtri
+    $theme_version = defined('DFN_DB_VERSION') ? DFN_DB_VERSION : '1.0.0';
+    wp_enqueue_script('dfn-events-filter', get_stylesheet_directory_uri() . '/assets/js/dfn-events-filter.js', [ 'jquery' ], $theme_version, true);
+
+    $show_filters     = 'yes' === $atts['filters'];
+    $available_cities = function_exists('dfn_db_get_event_cities') ? dfn_db_get_event_cities($status) : [];
+    $available_months = function_exists('dfn_db_get_event_months') ? dfn_db_get_event_months($status) : [];
+
     ob_start();
     ?>
+    <?php if ($show_filters) : ?>
+        <div class="dfn-events-filter-bar" style="margin-bottom: 24px; background: #ffffff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+            <div class="dfn-filter-item search" style="flex: 1 1 240px;">
+                <input type="text" id="dfn-filter-search" class="dfn-filter-input" placeholder="<?php esc_attr_e('🔍 Cerca evento, luogo o parola chiave...', 'dfn-theme'); ?>" style="width: 100%; height: 42px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; font-size: 13px; box-sizing: border-box;">
+            </div>
+            <div class="dfn-filter-item month" style="flex: 0 1 180px;">
+                <select id="dfn-filter-month" class="dfn-filter-select" style="width: 100%; height: 42px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; font-size: 13px; background: #ffffff; box-sizing: border-box;">
+                    <option value=""><?php esc_html_e('📅 Tutti i mesi', 'dfn-theme'); ?></option>
+                    <?php foreach ($available_months as $m) : ?>
+                        <option value="<?php echo esc_attr($m['value']); ?>"><?php echo esc_html($m['label']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <?php if (! empty($available_cities)) : ?>
+                <div class="dfn-filter-item city" style="flex: 0 1 180px;">
+                    <select id="dfn-filter-city" class="dfn-filter-select" style="width: 100%; height: 42px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; font-size: 13px; background: #ffffff; box-sizing: border-box;">
+                        <option value=""><?php esc_html_e('📍 Tutti i comuni', 'dfn-theme'); ?></option>
+                        <?php foreach ($available_cities as $c) : ?>
+                            <option value="<?php echo esc_attr($c); ?>"><?php echo esc_html($c); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
+            <div class="dfn-filter-item reset" style="flex: 0 0 auto;">
+                <button type="button" id="dfn-filter-reset" class="dfn-filter-reset-btn" style="height: 42px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; color: #475569; padding: 0 14px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    🔄 <?php esc_html_e('Resetta', 'dfn-theme'); ?>
+                </button>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="dfn-events-grid">
         <?php foreach ($events as $event) :
             $product_id = intval($event->product_id);
@@ -771,15 +811,22 @@ function dfn_render_lista_eventi_shortcode($atts): string
             }
 
             $permalink   = get_permalink($product_id);
-            $image       = $product->get_image('large');
             $is_in_stock = $product->is_in_stock();
             $stock       = $product->get_stock_quantity();
             $sold_out    = (! $is_in_stock || ($stock !== null && $stock <= 0));
 
             $price_standard = floatval($event->price_standard);
             $price_fai      = floatval($event->price_fai);
+            $year_month     = date('Y-m', strtotime($event->event_date_start));
+            $city_name      = ! empty($event->city) ? $event->city : '';
+            $location_text  = ! empty($city_name) ? $city_name . ' — ' . $event->location : $event->location;
             ?>
-            <div class="dfn-event-card">
+            <div class="dfn-event-card"
+                 data-title="<?php echo esc_attr($product->get_name()); ?>"
+                 data-location="<?php echo esc_attr($event->location); ?>"
+                 data-city="<?php echo esc_attr($city_name); ?>"
+                 data-yearmonth="<?php echo esc_attr($year_month); ?>"
+                 data-date="<?php echo esc_attr($event->event_date_start); ?>">
                 <div class="dfn-event-card-image-wrapper">
                     <a href="<?php echo esc_url($permalink); ?>" class="dfn-event-card-image-link" style="display:block; text-decoration:none;">
                         <?php
@@ -806,7 +853,7 @@ function dfn_render_lista_eventi_shortcode($atts): string
                     </a>
 
                     <div class="dfn-event-card-meta">
-                        <span>📍 <strong><?php echo esc_html($event->location); ?></strong></span>
+                        <span>📍 <strong><?php echo esc_html($location_text); ?></strong></span>
                         <span>⏰ <?php echo esc_html(date('H:i', strtotime($event->event_time_start))); ?></span>
                     </div>
 

@@ -50,6 +50,7 @@ function dfn_render_event_editor()
             $event_time_start  = sanitize_text_field($_POST['event_time_start']);
             $event_time_end    = ! empty($_POST['event_time_end']) ? sanitize_text_field($_POST['event_time_end']) : null;
             $location          = sanitize_textarea_field($_POST['location']);
+            $city              = isset($_POST['city']) ? sanitize_text_field($_POST['city']) : '';
             $description       = wp_kses_post($_POST['description']);
             $access_type       = sanitize_text_field($_POST['access_type']); // free_flow o time_slots
             $allocation_mode   = sanitize_text_field($_POST['allocation_mode']); // automatic o self_selection
@@ -157,6 +158,7 @@ function dfn_render_event_editor()
                     'event_time_start'  => $event_time_start,
                     'event_time_end'    => $event_time_end,
                     'location'          => $location,
+                    'city'              => $city,
                     'description'       => $description,
                     'access_type'       => $access_type,
                     'allocation_mode'   => $allocation_mode,
@@ -179,7 +181,7 @@ function dfn_render_event_editor()
                 ];
 
                 $format = [
-                    '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
+                    '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
                     '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%s', '%s',
                 ];
 
@@ -249,6 +251,7 @@ function dfn_render_event_editor()
     $time_start       = $is_post && isset($_POST['event_time_start']) ? sanitize_text_field($_POST['event_time_start']) : ($event ? $event->event_time_start : '');
     $time_end         = $is_post && isset($_POST['event_time_end']) ? sanitize_text_field($_POST['event_time_end']) : ($event ? $event->event_time_end : '');
     $loc              = $is_post && isset($_POST['location']) ? sanitize_textarea_field($_POST['location']) : ($event ? $event->location : '');
+    $city_val         = $is_post && isset($_POST['city']) ? sanitize_text_field($_POST['city']) : ($event && ! empty($event->city) ? $event->city : '');
     $desc             = $is_post && isset($_POST['description']) ? wp_kses_post($_POST['description']) : ($event ? $event->description : '');
     $acc_type         = $is_post && isset($_POST['access_type']) ? sanitize_text_field($_POST['access_type']) : ($event ? $event->access_type : 'time_slots');
     $alloc_mode       = $is_post && isset($_POST['allocation_mode']) ? sanitize_text_field($_POST['allocation_mode']) : ($event ? $event->allocation_mode : 'automatic');
@@ -356,11 +359,16 @@ function dfn_render_event_editor()
                                 <p class="description" style="margin-top: 6px; font-size: 12px; color: #64748b;">
                                     <?php esc_html_e('Se compilata, le prenotazioni rimarranno bloccate e un countdown indicherà agli utenti il momento esatto di apertura.', 'dfn-theme'); ?>
                                 </p>
-                            </div>
-
-                            <div class="dfn-form-group">
-                                <label for="location" class="dfn-label"><?php esc_html_e('Luogo dell\'Evento / Luogo di Ritrovo', 'dfn-theme'); ?> <span class="required">*</span></label>
-                                <textarea name="location" id="location" required class="dfn-textarea" rows="2" placeholder="<?php esc_attr_e('Es: Castello Visconteo-Sforzesco di Novara - cortile interno', 'dfn-theme'); ?>"><?php echo esc_textarea($loc); ?></textarea>
+                                <div class="dfn-form-grid-2">
+                                    <div class="dfn-form-group">
+                                        <label for="location" class="dfn-label"><?php esc_html_e('Luogo dell\'Evento / Luogo di Ritrovo', 'dfn-theme'); ?> <span class="required">*</span></label>
+                                        <textarea name="location" id="location" required class="dfn-textarea" rows="2" placeholder="<?php esc_attr_e('Es: Castello Visconteo-Sforzesco - cortile interno', 'dfn-theme'); ?>"><?php echo esc_textarea($loc); ?></textarea>
+                                    </div>
+                                    <div class="dfn-form-group">
+                                        <label for="city" class="dfn-label"><?php esc_html_e('Comune / Città', 'dfn-theme'); ?></label>
+                                        <input type="text" name="city" id="city" value="<?php echo esc_attr($city_val); ?>" placeholder="<?php esc_attr_e('Es: Novara, Arona, Galliate...', 'dfn-theme'); ?>" class="dfn-input" style="height:52px;">
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="dfn-form-group" style="margin-top: 15px;">

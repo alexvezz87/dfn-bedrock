@@ -435,7 +435,7 @@ function dfn_render_events_manager()
                                 </td>
                                 <td>
                                     <div><strong><?php echo esc_html($formatted_date); ?></strong></div>
-                                    <span class="dfn-small-sub"><span class="dashicons dashicons-location-alt"></span> <?php echo esc_html($event->location); ?></span>
+                                    <span class="dfn-small-sub"><span class="dashicons dashicons-location-alt"></span> <?php echo esc_html(! empty($event->city) ? $event->city . ' — ' . $event->location : $event->location); ?></span>
                                 </td>
                                 <td>
                                     <div><?php echo date('H:i', strtotime($event->event_time_start)); ?> - <?php echo $event->event_time_end ? date('H:i', strtotime($event->event_time_end)) : 'FINE'; ?></div>

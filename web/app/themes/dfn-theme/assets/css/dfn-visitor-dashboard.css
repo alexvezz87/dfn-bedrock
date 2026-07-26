@@ -1322,5 +1322,72 @@
     }
 }
 
+/* ==========================================================================
+   DFN EVENTS GRID & FILTER ANIMATIONS
+   ========================================================================== */
+.dfn-events-filter-bar {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dfn-events-filter-bar .dfn-filter-input,
+.dfn-events-filter-bar .dfn-filter-select,
+.dfn-events-filter-bar .dfn-filter-reset-btn {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dfn-events-filter-bar .dfn-filter-input:focus,
+.dfn-events-filter-bar .dfn-filter-select:focus {
+    outline: none;
+    border-color: #004b23 !important;
+    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.15);
+}
+
+.dfn-events-filter-bar .dfn-filter-reset-btn:hover {
+    background: #e2e8f0 !important;
+    transform: translateY(-1px);
+}
+
+.dfn-events-grid {
+    transition: all 0.3s ease;
+}
+
+.dfn-event-card {
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.3s ease,
+                filter 0.3s ease;
+    will-change: transform, opacity, filter;
+    transform-origin: center top;
+}
+
+.dfn-event-card.dfn-card-animating-out {
+    opacity: 0 !important;
+    transform: scale(0.92) translateY(16px) !important;
+    filter: blur(4px) !important;
+    pointer-events: none !important;
+}
+
+.dfn-event-card.dfn-card-animating-in {
+    animation: dfnCardPop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes dfnCardPop {
+    0% {
+        opacity: 0;
+        transform: scale(0.88) translateY(24px);
+        filter: blur(6px);
+    }
+    70% {
+        opacity: 0.9;
+        transform: scale(1.02) translateY(-2px);
+        filter: blur(0);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+    }
+}
+
 
 
