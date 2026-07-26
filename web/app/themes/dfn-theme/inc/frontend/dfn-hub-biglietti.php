@@ -154,13 +154,21 @@ function dfn_render_group_ticket_hub(): void
                     <div class="dfn-hub-info-detail">📍 <strong><?php esc_html_e('Luogo:', 'dfn-theme'); ?></strong> <?php echo esc_html($location); ?></div>
                     <div class="dfn-hub-info-detail">📅 <strong><?php esc_html_e('Data:', 'dfn-theme'); ?></strong> <?php echo esc_html($date_start); ?></div>
                     <div class="dfn-hub-info-detail">👥 <strong><?php esc_html_e('Intestato a:', 'dfn-theme'); ?></strong> <?php echo esc_html($booking->customer_name); ?></div>
+                    <?php if ($event && isset($event->payment_mode) && $event->payment_mode === 'gratuito') : ?>
+                        <div class="dfn-hub-info-detail" style="margin-top: 10px;">
+                            <span style="background: #eaf7ea; color: #004b23; border: 1px solid #bbf7d0; padding: 6px 14px; border-radius: 20px; font-weight: 800; font-size: 13px; display: inline-block;">
+                                🎁 <?php esc_html_e('Partecipazione Gratuita', 'dfn-theme'); ?>
+                            </span>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div style="margin-top: 30px;">
                     <?php
-                    $is_paid = $order->has_status([ 'processing', 'completed' ]) || floatval($order->get_total()) === 0.00;
+                    $is_free_event = ($event && isset($event->payment_mode) && $event->payment_mode === 'gratuito');
+                    $is_paid       = $order->has_status([ 'processing', 'completed' ]) || floatval($order->get_total()) === 0.00 || $is_free_event;
 
-                    if ($is_paid && intval($booking->total_persons) > 1) :
+                    if ($is_paid && (intval($booking->total_persons) > 1 || $is_free_event)) :
                         // Generazione singoli QR code (1 per biglietto/persona)
                         $tickets = [];
                         $ticket_num = 1;

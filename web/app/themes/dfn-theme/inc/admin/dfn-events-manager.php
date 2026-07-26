@@ -423,6 +423,9 @@ function dfn_render_events_manager()
                             if ('hybrid' === $event->payment_mode) {
                                 $payment_mode_label = '🔄 Ibrida';
                             }
+                            if ('gratuito' === $event->payment_mode) {
+                                $payment_mode_label = '🎁 Gratuito';
+                            }
                             ?>
                             <tr>
                                 <td class="column-title">

@@ -857,16 +857,22 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
                         <span>⏰ <?php echo esc_html(date('H:i', strtotime($event->event_time_start))); ?></span>
                     </div>
 
-                    <div class="dfn-event-card-price-row">
-                        <div class="dfn-event-card-price-item">
-                            <span>Intero</span>
-                            <div class="dfn-event-card-price-val"><?php echo wp_kses_post(wc_price($price_standard)); ?></div>
+                    <?php if ($event->payment_mode === 'gratuito' || ($price_standard == 0.0 && $price_fai == 0.0)) : ?>
+                        <div class="dfn-event-card-price-row free" style="background:#eaf7ea; border-radius:6px; padding:8px 12px; text-align:center; margin-bottom:12px;">
+                            <span style="color:#004b23; font-weight:800; font-size:13px;">🎁 Ingresso Gratuito</span>
                         </div>
-                        <div class="dfn-event-card-price-item fai">
-                            <span>Socio FAI</span>
-                            <div class="dfn-event-card-price-val"><?php echo wp_kses_post(wc_price($price_fai)); ?></div>
+                    <?php else : ?>
+                        <div class="dfn-event-card-price-row">
+                            <div class="dfn-event-card-price-item">
+                                <span>Intero</span>
+                                <div class="dfn-event-card-price-val"><?php echo wp_kses_post(wc_price($price_standard)); ?></div>
+                            </div>
+                            <div class="dfn-event-card-price-item fai">
+                                <span>Socio FAI</span>
+                                <div class="dfn-event-card-price-val"><?php echo wp_kses_post(wc_price($price_fai)); ?></div>
+                            </div>
                         </div>
-                    </div>
+                    <?php endif; ?>
 
                     <?php if ($sold_out) : ?>
                         <a href="<?php echo esc_url($permalink); ?>" class="dfn-event-card-btn sold-out">

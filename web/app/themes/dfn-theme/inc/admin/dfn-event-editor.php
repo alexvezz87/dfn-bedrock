@@ -499,6 +499,7 @@ function dfn_render_event_editor()
                                     <option value="online" <?php selected($pay_mode, 'online'); ?>><?php esc_html_e('Solo Pagamento Online', 'dfn-theme'); ?></option>
                                     <option value="in_loco" <?php selected($pay_mode, 'in_loco'); ?>><?php esc_html_e('Solo Saldo in Loco', 'dfn-theme'); ?></option>
                                     <option value="hybrid" <?php selected($pay_mode, 'hybrid'); ?>><?php esc_html_e('Ibrida (Scelta utente)', 'dfn-theme'); ?></option>
+                                    <option value="gratuito" <?php selected($pay_mode, 'gratuito'); ?>><?php esc_html_e('🎁 Gratuito (Senza pagamento)', 'dfn-theme'); ?></option>
                                 </select>
                             </div>
 
@@ -745,13 +746,15 @@ function dfn_event_editor_auto_cancel_js()
         var suggestions = {
             'online': 24,
             'in_loco': 0,
-            'hybrid': 24
+            'hybrid': 24,
+            'gratuito': 0
         };
 
         var helpTexts = {
             'online': '<?php echo esc_js(__('Consigliato: 24 ore per pagamenti online.', 'dfn-theme')); ?>',
             'in_loco': '<?php echo esc_js(__('Consigliato: 0 (disabilitato) — il pagamento avviene il giorno dell\'evento.', 'dfn-theme')); ?>',
-            'hybrid': '<?php echo esc_js(__('Consigliato: 24 ore. Gli ordini in loco sono esclusi automaticamente.', 'dfn-theme')); ?>'
+            'hybrid': '<?php echo esc_js(__('Consigliato: 24 ore. Gli ordini in loco sono esclusi automaticamente.', 'dfn-theme')); ?>',
+            'gratuito': '<?php echo esc_js(__('Consigliato: 0 (disabilitato) — evento a partecipazione gratuita.', 'dfn-theme')); ?>'
         };
 
         // Traccia se l'utente ha modificato manualmente il campo

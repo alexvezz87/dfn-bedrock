@@ -983,8 +983,12 @@ function dfn_ajax_create_direct_booking(): void
             }
         }
 
-        // Passa lo stato a pending
-        $order->update_status('pending', __('Prenotazione diretta via widget.', 'dfn-theme'));
+        // Imposta lo stato dell'ordine (completed se gratuito, pending negli altri casi)
+        if ($event->payment_mode === 'gratuito') {
+            $order->update_status('completed', __('Prenotazione Gratuita registrata.', 'dfn-theme'));
+        } else {
+            $order->update_status('pending', __('Prenotazione diretta via widget.', 'dfn-theme'));
+        }
         wc_reduce_stock_levels($order->get_id());
 
         // 3. Esegui allocazione
