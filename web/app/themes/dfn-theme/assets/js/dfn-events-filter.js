@@ -24,7 +24,8 @@
             var selectedMonth = $month.val() || '';
             var selectedCity  = ($city.val() || '').toLowerCase().trim();
 
-            var visibleCount = 0;
+            var visibleIndex = 0;
+            var hiddenIndex  = 0;
 
             $cards.each(function() {
                 var $card     = $(this);
@@ -38,36 +39,47 @@
                 var matchesCity   = !selectedCity || city === selectedCity;
 
                 if (matchesSearch && matchesMonth && matchesCity) {
-                    if ($card.is(':hidden') || $card.hasClass('dfn-card-animating-out')) {
-                        $card.stop(true, true).removeClass('dfn-card-animating-out').css('display', '');
-                        var delay = visibleCount * 40;
+                    var inDelay = visibleIndex * 70; // Ritardo sfalsato 70ms ad onda
+                    visibleIndex++;
+
+                    $card.removeClass('dfn-card-animating-out');
+                    if ($card.is(':hidden') || !$card.hasClass('dfn-card-visible')) {
+                        $card.css('display', '');
                         setTimeout(function() {
-                            $card.addClass('dfn-card-animating-in');
+                            $card.addClass('dfn-card-animating-in dfn-card-visible');
                             setTimeout(function() {
                                 $card.removeClass('dfn-card-animating-in');
-                            }, 450);
-                        }, delay);
+                            }, 550);
+                        }, inDelay);
                     }
-                    visibleCount++;
                 } else {
-                    if ($card.is(':visible') && !$card.hasClass('dfn-card-animating-out')) {
-                        $card.addClass('dfn-card-animating-out');
+                    var outDelay = hiddenIndex * 40; // Ritardo di uscita ad onda
+                    hiddenIndex++;
+
+                    if ($card.hasClass('dfn-card-visible') || $card.is(':visible')) {
                         setTimeout(function() {
-                            $card.hide().removeClass('dfn-card-animating-out');
-                        }, 280);
+                            $card.removeClass('dfn-card-visible dfn-card-animating-in').addClass('dfn-card-animating-out');
+                            setTimeout(function() {
+                                if ($card.hasClass('dfn-card-animating-out')) {
+                                    $card.hide().removeClass('dfn-card-animating-out');
+                                }
+                            }, 450);
+                        }, outDelay);
                     }
                 }
             });
 
             var $noResults = $('#dfn-no-filter-results');
-            if (visibleCount === 0) {
+            var maxWait = Math.max(visibleIndex, hiddenIndex) * 50 + 200;
+
+            if (visibleIndex === 0) {
                 setTimeout(function() {
                     if (!$noResults.length) {
                         $cards.parent().append('<div id="dfn-no-filter-results" style="grid-column: 1 / -1; text-align:center; padding: 40px 20px; background:#f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; color: #64748b; font-size:14px; font-weight:500;">🔍 Nessun evento corrisponde ai criteri selezionati.<br><small style="color:#94a3b8;">Prova a cambiare mese, comune o parola chiave.</small></div>');
                     } else {
-                        $noResults.fadeIn(200);
+                        $noResults.fadeIn(300);
                     }
-                }, 200);
+                }, maxWait);
             } else {
                 if ($noResults.length) {
                     $noResults.hide();
@@ -78,7 +90,7 @@
         var debounceTimer;
         function debounceFilter() {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(applyFilters, 100);
+            debounceTimer = setTimeout(applyFilters, 150);
         }
 
         $search.on('input keyup search', debounceFilter);
