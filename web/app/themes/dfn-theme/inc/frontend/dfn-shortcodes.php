@@ -86,6 +86,7 @@ function dfn_render_evento_shortcode($atts): string
 
     $price_standard_html = wc_price(floatval($event->price_standard));
     $price_fai_html      = wc_price(floatval($event->price_fai));
+    $is_free_event       = ($event->payment_mode === 'gratuito' || (floatval($event->price_standard) == 0.0 && floatval($event->price_fai) == 0.0));
     $image               = $product->get_image('large');
 
     // --- Galleria immagini ---
@@ -247,35 +248,53 @@ function dfn_render_evento_shortcode($atts): string
 
                         <!-- STEP 1: Scelta Biglietti & Orario -->
                         <div class="dfn-wizard-step dfn-step-1 active">
-                            <!-- Tariffe Contributo -->
-                            <div class="dfn-booking-section">
-                                <span class="dfn-widget-label"><?php esc_html_e('Tariffe Contributo', 'dfn-theme'); ?></span>
-                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                                    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                        <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
-                                        <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
-                                    </div>
-                                    <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                        <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
-                                        <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
+                            <!-- Tariffe / Partecipazione Evento -->
+                            <?php if ($is_free_event) : ?>
+                                <div class="dfn-booking-section">
+                                    <span class="dfn-widget-label"><?php esc_html_e('Partecipazione Evento', 'dfn-theme'); ?></span>
+                                    <div style="background:#eaf7ea; border:1px solid #bbf7d0; border-radius:8px; padding:14px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                        <div style="font-size:16px; font-weight:800; color:#004b23;">🎁 <?php esc_html_e('Ingresso Gratuito', 'dfn-theme'); ?></div>
+                                        <div style="font-size:12px; color:#166534; margin-top:2px;"><?php esc_html_e('La partecipazione a questo evento è completamente gratuita e non richiede pagamenti.', 'dfn-theme'); ?></div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- Seleziona Partecipanti -->
-                            <div class="dfn-booking-section">
-                                <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
-                                <div class="dfn-qty-grid">
+                                <div class="dfn-booking-section">
+                                    <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
                                     <div class="dfn-qty-box">
-                                        <label for="quantity"><?php esc_html_e('Ingresso Standard', 'dfn-theme'); ?></label>
-                                        <input type="number" name="quantity" id="quantity" min="0" value="1">
-                                    </div>
-                                    <div class="dfn-qty-box">
-                                        <label for="dfn_qty_fai"><?php esc_html_e('Ingresso Soci FAI', 'dfn-theme'); ?></label>
-                                        <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                        <label for="quantity"><?php esc_html_e('Numero Partecipanti', 'dfn-theme'); ?></label>
+                                        <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                        <input type="hidden" name="dfn_qty_fai" id="dfn_qty_fai" value="0">
                                     </div>
                                 </div>
-                            </div>
+                            <?php else : ?>
+                                <div class="dfn-booking-section">
+                                    <span class="dfn-widget-label"><?php esc_html_e('Tariffe Contributo', 'dfn-theme'); ?></span>
+                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                            <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
+                                            <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
+                                        </div>
+                                        <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                            <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
+                                            <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="dfn-booking-section">
+                                    <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
+                                    <div class="dfn-qty-grid">
+                                        <div class="dfn-qty-box">
+                                            <label for="quantity"><?php esc_html_e('Ingresso Standard', 'dfn-theme'); ?></label>
+                                            <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                        </div>
+                                        <div class="dfn-qty-box">
+                                            <label for="dfn_qty_fai"><?php esc_html_e('Ingresso Soci FAI', 'dfn-theme'); ?></label>
+                                            <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
 
                             <!-- Calendario / Data della prenotazione -->
                             <?php
@@ -519,35 +538,53 @@ function dfn_render_evento_shortcode($atts): string
 
                         <!-- STEP 1: Scelta Biglietti & Orario -->
                         <div class="dfn-wizard-step dfn-step-1 active">
-                            <!-- Tariffe Contributo -->
-                            <div class="dfn-booking-section">
-                                <span class="dfn-widget-label"><?php esc_html_e('Tariffe Contributo', 'dfn-theme'); ?></span>
-                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                                    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                        <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
-                                        <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
-                                    </div>
-                                    <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                        <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
-                                        <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
+                            <!-- Tariffe / Partecipazione Evento -->
+                            <?php if ($is_free_event) : ?>
+                                <div class="dfn-booking-section">
+                                    <span class="dfn-widget-label"><?php esc_html_e('Partecipazione Evento', 'dfn-theme'); ?></span>
+                                    <div style="background:#eaf7ea; border:1px solid #bbf7d0; border-radius:8px; padding:14px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                        <div style="font-size:16px; font-weight:800; color:#004b23;">🎁 <?php esc_html_e('Ingresso Gratuito', 'dfn-theme'); ?></div>
+                                        <div style="font-size:12px; color:#166534; margin-top:2px;"><?php esc_html_e('La partecipazione a questo evento è completamente gratuita e non richiede pagamenti.', 'dfn-theme'); ?></div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- Seleziona Partecipanti -->
-                            <div class="dfn-booking-section">
-                                <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
-                                <div class="dfn-qty-grid">
+                                <div class="dfn-booking-section">
+                                    <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
                                     <div class="dfn-qty-box">
-                                        <label for="quantity"><?php esc_html_e('Ingresso Standard', 'dfn-theme'); ?></label>
-                                        <input type="number" name="quantity" id="quantity" min="0" value="1">
-                                    </div>
-                                    <div class="dfn-qty-box">
-                                        <label for="dfn_qty_fai"><?php esc_html_e('Ingresso Soci FAI', 'dfn-theme'); ?></label>
-                                        <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                        <label for="quantity"><?php esc_html_e('Numero Partecipanti', 'dfn-theme'); ?></label>
+                                        <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                        <input type="hidden" name="dfn_qty_fai" id="dfn_qty_fai" value="0">
                                     </div>
                                 </div>
-                            </div>
+                            <?php else : ?>
+                                <div class="dfn-booking-section">
+                                    <span class="dfn-widget-label"><?php esc_html_e('Tariffe Contributo', 'dfn-theme'); ?></span>
+                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                            <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
+                                            <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
+                                        </div>
+                                        <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                            <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
+                                            <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="dfn-booking-section">
+                                    <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
+                                    <div class="dfn-qty-grid">
+                                        <div class="dfn-qty-box">
+                                            <label for="quantity"><?php esc_html_e('Ingresso Standard', 'dfn-theme'); ?></label>
+                                            <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                        </div>
+                                        <div class="dfn-qty-box">
+                                            <label for="dfn_qty_fai"><?php esc_html_e('Ingresso Soci FAI', 'dfn-theme'); ?></label>
+                                            <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
 
                             <!-- Calendario / Data della prenotazione -->
                             <?php
