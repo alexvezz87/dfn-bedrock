@@ -1,6 +1,6 @@
 /**
  * DFN Events Frontend Live Search & Filtering
- * Fade-In / Fade-Out semplice con durata 1 secondo (1000ms).
+ * Smooth FLIP Grid Layout Reflow & 1-Second Fade In/Out
  */
 (function($) {
     'use strict';
@@ -25,9 +25,23 @@
             var selectedMonth = $month.val() || '';
             var selectedCity  = ($city.val() || '').toLowerCase().trim();
 
+            // 1. FIRST: Salva le posizioni iniziali delle schedine visibili
+            var firstPositions = [];
+            $cards.each(function() {
+                var el = this;
+                var $el = $(el);
+                var isVisible = $el.is(':visible') && $el.css('opacity') !== '0';
+                firstPositions.push({
+                    el: el,
+                    rect: isVisible ? el.getBoundingClientRect() : null,
+                    visible: isVisible
+                });
+            });
+
             var visibleCount = 0;
 
-            $cards.each(function() {
+            // 2. FILTER & LAYOUT CHANGE: Determina quali carte devono essere visibili
+            $cards.each(function(idx) {
                 var $card     = $(this);
                 var title     = ($card.data('title') || '').toString().toLowerCase();
                 var location  = ($card.data('location') || '').toString().toLowerCase();
@@ -39,11 +53,45 @@
                 var matchesCity   = !selectedCity || city === selectedCity;
 
                 if (matchesSearch && matchesMonth && matchesCity) {
-                    $card.stop(true, true).fadeIn(1000);
                     visibleCount++;
+                    if ($card.is(':hidden')) {
+                        $card.css({ display: '', opacity: 0 });
+                    }
+                    $card.stop(true).animate({ opacity: 1 }, 1000);
                 } else {
-                    $card.stop(true, true).fadeOut(1000);
+                    $card.stop(true).animate({ opacity: 0 }, {
+                        duration: 1000,
+                        complete: function() {
+                            $(this).hide();
+                        }
+                    });
                 }
+            });
+
+            // 3. LAST & INVERT (FLIP): Anima lo scorrimento delle schede rimanenti verso i nuovi posti nella griglia
+            requestAnimationFrame(function() {
+                firstPositions.forEach(function(item) {
+                    var el = item.el;
+                    var $el = $(el);
+
+                    if (item.visible && $el.is(':visible')) {
+                        var lastRect = el.getBoundingClientRect();
+                        var deltaX = item.rect.left - lastRect.left;
+                        var deltaY = item.rect.top - lastRect.top;
+
+                        if (deltaX !== 0 || deltaY !== 0) {
+                            // Sposta istantaneamente l'elemento alla vecchia posizione
+                            el.style.transform = 'translate(' + deltaX + 'px, ' + deltaY + 'px)';
+                            el.style.transition = 'none';
+
+                            // Anima in modo fluido verso la nuova posizione (0,0) in 1 secondo
+                            requestAnimationFrame(function() {
+                                el.style.transition = 'transform 1000ms cubic-bezier(0.4, 0, 0.2, 1)';
+                                el.style.transform = '';
+                            });
+                        }
+                    }
+                });
             });
 
             var $noResults = $('#dfn-no-filter-results');
