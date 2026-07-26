@@ -130,9 +130,9 @@ function dfn_render_volunteer_dashboard(): void
             </div>
 
             <!-- Cassa Contanti -->
-            <div style="background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border-left: 5px solid #c69c3a;">
+            <div style="background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border-left: 5px solid #e74f30;">
                 <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 1px;"><?php esc_html_e('Cassa Contanti (💵)', 'dfn-theme'); ?></span>
-                <div style="font-size: 36px; font-weight: 800; color: #c69c3a; margin-top: 10px;"><?php echo wc_price($cash_collected); ?></div>
+                <div style="font-size: 36px; font-weight: 800; color: #e74f30; margin-top: 10px;"><?php echo wc_price($cash_collected); ?></div>
                 <div style="font-size: 13px; color: #94a3b8; margin-top: 5px;"><?php esc_html_e('Incasso fisico riscosso oggi', 'dfn-theme'); ?></div>
             </div>
 

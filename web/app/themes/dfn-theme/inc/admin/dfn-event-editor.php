@@ -50,7 +50,7 @@ function dfn_render_event_editor()
             $event_time_start  = sanitize_text_field($_POST['event_time_start']);
             $event_time_end    = ! empty($_POST['event_time_end']) ? sanitize_text_field($_POST['event_time_end']) : null;
             $location          = sanitize_textarea_field($_POST['location']);
-            $description       = sanitize_textarea_field($_POST['description']);
+            $description       = wp_kses_post($_POST['description']);
             $access_type       = sanitize_text_field($_POST['access_type']); // free_flow o time_slots
             $allocation_mode   = sanitize_text_field($_POST['allocation_mode']); // automatic o self_selection
             $approval_workflow = sanitize_text_field($_POST['approval_workflow']); // auto o manual
@@ -69,6 +69,10 @@ function dfn_render_event_editor()
             $detail_layout     = in_array($_POST['detail_layout'] ?? '', ['auto', 'layout1', 'layout2'], true)
                 ? $_POST['detail_layout']
                 : 'auto';
+            $booking_opening_date = ! empty($_POST['booking_opening_date']) ? sanitize_text_field($_POST['booking_opening_date']) : null;
+            $booking_status       = in_array($_POST['booking_status'] ?? '', ['open', 'closed', 'email'], true)
+                ? $_POST['booking_status']
+                : 'open';
 
             if ($price_fai > $price_standard) {
                 $message = __('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme');
@@ -167,14 +171,16 @@ function dfn_render_event_editor()
                     'total_capacity'    => $total_capacity,
                     'price_standard'    => $price_standard,
                     'price_fai'         => $price_fai,
-                    'staff_config'      => $staff_config,
-                    'detail_layout'     => $detail_layout,
-                    'status'            => $status,
+                    'staff_config'         => $staff_config,
+                    'detail_layout'        => $detail_layout,
+                    'booking_opening_date' => $booking_opening_date,
+                    'booking_status'       => $booking_status,
+                    'status'               => $status,
                 ];
 
                 $format = [
                     '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
-                    '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s', '%s',
+                    '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%s', '%s',
                 ];
 
                 if ($event_id > 0) {
@@ -243,7 +249,7 @@ function dfn_render_event_editor()
     $time_start       = $is_post && isset($_POST['event_time_start']) ? sanitize_text_field($_POST['event_time_start']) : ($event ? $event->event_time_start : '');
     $time_end         = $is_post && isset($_POST['event_time_end']) ? sanitize_text_field($_POST['event_time_end']) : ($event ? $event->event_time_end : '');
     $loc              = $is_post && isset($_POST['location']) ? sanitize_textarea_field($_POST['location']) : ($event ? $event->location : '');
-    $desc             = $is_post && isset($_POST['description']) ? sanitize_textarea_field($_POST['description']) : ($event ? $event->description : '');
+    $desc             = $is_post && isset($_POST['description']) ? wp_kses_post($_POST['description']) : ($event ? $event->description : '');
     $acc_type         = $is_post && isset($_POST['access_type']) ? sanitize_text_field($_POST['access_type']) : ($event ? $event->access_type : 'time_slots');
     $alloc_mode       = $is_post && isset($_POST['allocation_mode']) ? sanitize_text_field($_POST['allocation_mode']) : ($event ? $event->allocation_mode : 'automatic');
     $app_wf           = $is_post && isset($_POST['approval_workflow']) ? sanitize_text_field($_POST['approval_workflow']) : ($event ? $event->approval_workflow : 'auto');
@@ -260,6 +266,8 @@ function dfn_render_event_editor()
     $stat             = $is_post && isset($_POST['status']) ? sanitize_text_field($_POST['status']) : ($event ? $event->status : 'draft');
     $auto_cancel      = $is_post && isset($_POST['auto_cancel_hours']) ? intval($_POST['auto_cancel_hours']) : ($event ? (int) $event->auto_cancel_hours : 24);
     $layout_sel       = $is_post && isset($_POST['detail_layout']) ? sanitize_text_field($_POST['detail_layout']) : ($event && ! empty($event->detail_layout) ? $event->detail_layout : 'auto');
+    $booking_opening  = $is_post && isset($_POST['booking_opening_date']) ? sanitize_text_field($_POST['booking_opening_date']) : ($event && ! empty($event->booking_opening_date) ? date('Y-m-d\TH:i', strtotime($event->booking_opening_date)) : '');
+    $booking_stat     = $is_post && isset($_POST['booking_status']) ? sanitize_text_field($_POST['booking_status']) : ($event && ! empty($event->booking_status) ? $event->booking_status : 'open');
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header">
@@ -340,14 +348,35 @@ function dfn_render_event_editor()
                                 </div>
                             </div>
 
+                            <div class="dfn-form-group" style="margin-bottom: 15px; background: #fffdf5; border: 1px solid #c69c3a; border-radius: 8px; padding: 12px 16px;">
+                                <label for="booking_opening_date" class="dfn-label" style="color: #004b23; font-weight: 700;">
+                                    ⏱️ <?php esc_html_e('Data e Ora Apertura Prenotazioni (Opzionale)', 'dfn-theme'); ?>
+                                </label>
+                                <input type="datetime-local" name="booking_opening_date" id="booking_opening_date" value="<?php echo esc_attr($booking_opening); ?>" class="dfn-input" style="max-width: 320px; background: #ffffff;">
+                                <p class="description" style="margin-top: 6px; font-size: 12px; color: #64748b;">
+                                    <?php esc_html_e('Se compilata, le prenotazioni rimarranno bloccate e un countdown indicherà agli utenti il momento esatto di apertura.', 'dfn-theme'); ?>
+                                </p>
+                            </div>
+
                             <div class="dfn-form-group">
                                 <label for="location" class="dfn-label"><?php esc_html_e('Luogo dell\'Evento / Luogo di Ritrovo', 'dfn-theme'); ?> <span class="required">*</span></label>
                                 <textarea name="location" id="location" required class="dfn-textarea" rows="2" placeholder="<?php esc_attr_e('Es: Castello Visconteo-Sforzesco di Novara - cortile interno', 'dfn-theme'); ?>"><?php echo esc_textarea($loc); ?></textarea>
                             </div>
 
                             <div class="dfn-form-group" style="margin-top: 15px;">
-                                <label for="description" class="dfn-label"><?php esc_html_e('Descrizione', 'dfn-theme'); ?></label>
-                                <textarea name="description" id="description" class="dfn-textarea" rows="4" placeholder="<?php esc_attr_e('Descrizione dettagliata dell\'edificio storico o del bene FAI...', 'dfn-theme'); ?>"><?php echo esc_textarea($desc); ?></textarea>
+                                <label for="description" class="dfn-label" style="margin-bottom: 8px; display: block;"><?php esc_html_e('Descrizione', 'dfn-theme'); ?></label>
+                                <?php
+                                wp_editor($desc, 'description', [
+                                    'textarea_name' => 'description',
+                                    'textarea_rows' => 8,
+                                    'media_buttons' => false,
+                                    'teeny'         => false,
+                                    'quicktags'     => true,
+                                    'tinymce'       => [
+                                        'toolbar1' => 'formatselect,bold,italic,underline,strikethrough,alignleft,aligncenter,alignright,alignjustify,bullist,numlist,link,unlink,forecolor,undo,redo',
+                                    ],
+                                ]);
+                                ?>
                             </div>
                         </div>
                     </div>
@@ -448,11 +477,20 @@ function dfn_render_event_editor()
                             </div>
 
                             <div class="dfn-form-group">
+                                <label for="booking_status" class="dfn-label"><?php esc_html_e('Stato Modalità Prenotazione', 'dfn-theme'); ?></label>
+                                <select name="booking_status" id="booking_status" class="dfn-input">
+                                    <option value="open" <?php selected($booking_stat, 'open'); ?>><?php esc_html_e('Prenotazioni Aperte (Form Online)', 'dfn-theme'); ?></option>
+                                    <option value="closed" <?php selected($booking_stat, 'closed'); ?>><?php esc_html_e('Prenotazioni Chiuse (Sold Out)', 'dfn-theme'); ?></option>
+                                    <option value="email" <?php selected($booking_stat, 'email'); ?>><?php esc_html_e('Prenotazione via Email', 'dfn-theme'); ?></option>
+                                </select>
+                            </div>
+
+                            <div class="dfn-form-group">
                                 <label for="payment_mode" class="dfn-label"><?php esc_html_e('Modalità di Pagamento', 'dfn-theme'); ?></label>
                                 <select name="payment_mode" id="payment_mode" class="dfn-input">
-                                    <option value="online" <?php selected($pay_mode, 'online'); ?>><?php esc_html_e('💳 Solo Pagamento Online', 'dfn-theme'); ?></option>
-                                    <option value="in_loco" <?php selected($pay_mode, 'in_loco'); ?>><?php esc_html_e('💵 Solo Saldo in Loco', 'dfn-theme'); ?></option>
-                                    <option value="hybrid" <?php selected($pay_mode, 'hybrid'); ?>><?php esc_html_e('🔄 Ibrida (Scelta utente)', 'dfn-theme'); ?></option>
+                                    <option value="online" <?php selected($pay_mode, 'online'); ?>><?php esc_html_e('Solo Pagamento Online', 'dfn-theme'); ?></option>
+                                    <option value="in_loco" <?php selected($pay_mode, 'in_loco'); ?>><?php esc_html_e('Solo Saldo in Loco', 'dfn-theme'); ?></option>
+                                    <option value="hybrid" <?php selected($pay_mode, 'hybrid'); ?>><?php esc_html_e('Ibrida (Scelta utente)', 'dfn-theme'); ?></option>
                                 </select>
                             </div>
 
@@ -621,7 +659,7 @@ function dfn_render_event_editor()
                                             <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
                                                 <div style="height: 5px; background: #94a3b8; border-radius: 1px;"></div>
                                                 <div style="height: 5px; background: #94a3b8; border-radius: 1px;"></div>
-                                                <div style="height: 8px; background: #c69c3a; border-radius: 1px;"></div>
+                                                <div style="height: 8px; background: #e74f30; border-radius: 1px;"></div>
                                             </div>
                                         </div>
                                         <div>

@@ -74,7 +74,7 @@ function dfn_get_email_html_template($title, $content_html)
 {
     $bg_color      = dfn_get_setting('email_bg_color', '#f4f6f8');
     $primary_color = dfn_get_setting('email_primary_color', '#004b23');
-    $accent_color  = dfn_get_setting('email_accent_color', '#c69c3a');
+    $accent_color  = dfn_get_setting('email_accent_color', '#e74f30');
     $text_color    = dfn_get_setting('email_text_color', '#2d3748');
     $white         = '#ffffff';
 
@@ -350,7 +350,7 @@ function dfn_send_booking_pending_approval(int $booking_id)
     $details_table .= '<div class="info-box-title">Dettagli della Richiesta</div>';
     $details_table .= '<table>';
     $details_table .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
-    $details_table .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#c69c3a;">In Attesa di Approvazione Staff</td></tr>';
+    $details_table .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#e74f30;">In Attesa di Approvazione Staff</td></tr>';
     $details_table .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali</td></tr>';
     $details_table .= '</table>';
     $details_table .= '</div>';
@@ -414,7 +414,7 @@ function dfn_send_booking_approval_status(int $booking_id, bool $approved = true
 
         $formatted_motivo = '';
         if (! empty($booking->notes)) {
-            $formatted_motivo = '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#c69c3a')) . '; background-color: #f7fafc; padding: 18px 20px; margin: 25px 0; border-radius: 0 6px 6px 0;">';
+            $formatted_motivo = '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#e74f30')) . '; background-color: #f7fafc; padding: 18px 20px; margin: 25px 0; border-radius: 0 6px 6px 0;">';
             $formatted_motivo .= '<div class="info-box-title" style="font-weight: bold; font-size: 15px; color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; margin-bottom: 8px;">Nota dallo Staff</div>';
             $formatted_motivo .= '<p style="margin: 0; font-size: 14px; color: #2d3748; line-height: 1.5;">' . esc_html($booking->notes) . '</p>';
             $formatted_motivo .= '</div>';
@@ -920,7 +920,7 @@ function dfn_notify_admin_unverified_fai_card($card_number, $first_name, $last_n
 
     $content = '<p>Gentile Amministratore,</p>';
     $content .= '<p>È stata inserita nel sistema una nuova tessera FAI che richiede la <strong>verifica manuale</strong> dello stato di iscrizione.</p>';
-    $content .= '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#c69c3a')) . '; background-color: #f7fafc;">';
+    $content .= '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#e74f30')) . '; background-color: #f7fafc;">';
     $content .= '<div class="info-box-title" style="color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . ';">Dettagli Tessera</div>';
     $content .= '<table>';
     $content .= '<tr><td class="label">Numero Tessera:</td><td><strong>' . esc_html($card_number) . '</strong></td></tr>';
@@ -994,7 +994,7 @@ function dfn_send_admin_fai_booking_pending_notification(int $booking_id): bool
 
     // Box dati visitatore
     $content = '<p>Gentile Staff della Delegazione FAI,</p>';
-    $content .= '<p>È stata ricevuta una nuova prenotazione che include <strong>tessere FAI da verificare</strong>. La prenotazione è al momento in stato <strong style="color:#c69c3a;">In Attesa di Verifica</strong>. I posti sono stati riservati temporaneamente.</p>';
+    $content .= '<p>È stata ricevuta una nuova prenotazione che include <strong>tessere FAI da verificare</strong>. La prenotazione è al momento in stato <strong style="color:#e74f30;">In Attesa di Verifica</strong>. I posti sono stati riservati temporaneamente.</p>';
 
     $content .= '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; background-color: #f7fafc; padding: 20px; margin: 20px 0;">';
     $content .= '<div class="info-box-title" style="color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; font-weight: bold; margin-bottom: 10px;">Dati del Visitatore</div>';
@@ -1008,7 +1008,7 @@ function dfn_send_admin_fai_booking_pending_notification(int $booking_id): bool
     $content .= '</div>';
 
     // Box dettagli prenotazione
-    $content .= '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#c69c3a')) . '; background-color: #fffdf0; padding: 20px; margin: 20px 0;">';
+    $content .= '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#e74f30')) . '; background-color: #fffdf0; padding: 20px; margin: 20px 0;">';
     $content .= '<div class="info-box-title" style="color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; font-weight: bold; margin-bottom: 10px;">Dettagli Prenotazione</div>';
     $content .= '<table style="width:100%; border-collapse:collapse;">';
     $content .= '<tr><td style="font-weight:bold; color:#4a5568; width:150px; padding:4px 0;">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';

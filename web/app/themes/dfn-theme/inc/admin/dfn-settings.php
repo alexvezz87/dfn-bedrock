@@ -53,6 +53,7 @@ function dfn_settings_save_fields(): void
     $fields_to_sanitize = [
         // Tab Generale
         'delegation_name'             => 'sanitize_text_field',
+        'delegation_email'            => 'sanitize_email',
         'delegation_footer'           => 'sanitize_text_field',
         'email_staff_signature'       => 'sanitize_text_field',
 
@@ -274,6 +275,13 @@ function dfn_render_settings_page(): void
                                 <td>
                                     <input name="dfn_settings[delegation_footer]" type="text" id="delegation_footer" value="<?php echo esc_attr(dfn_get_setting('delegation_footer')); ?>" class="large-text" />
                                     <p class="description"><strong>Comportamento:</strong> Nome formale completo (es. "FAI - Delegazione di Novara") stampato nel footer/piè di pagina di tutte le e-mail e nelle informative ufficiali.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="delegation_email">Email Delegazione per Prenotazioni</label></th>
+                                <td>
+                                    <input name="dfn_settings[delegation_email]" type="email" id="delegation_email" value="<?php echo esc_attr(dfn_get_setting('delegation_email')); ?>" class="regular-text" />
+                                    <p class="description"><strong>Comportamento:</strong> L'indirizzo e-mail di contatto ufficiale della delegazione. Viene utilizzato per gli eventi impostati con lo stato prenotazione "Via Email" ed inserito come link <code>mailto:</code> per consentire agli utenti di inviare le richieste di prenotazione.</p>
                                 </td>
                             </tr>
                             <tr>
@@ -1008,7 +1016,7 @@ function dfn_ajax_send_test_email(): void
             $details_table_pending .= '<div class="info-box-title" style="color:' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; font-weight:bold; margin-bottom:5px;">Dettagli della Richiesta</div>';
             $details_table_pending .= '<table style="width:100%; border-collapse:collapse;">';
             $details_table_pending .= '<tr><td style="padding:5px 0; color:#718096; width:120px;">Evento:</td><td style="padding:5px 0; font-weight:bold;">' . esc_html($product_name) . '</td></tr>';
-            $details_table_pending .= '<tr><td style="padding:5px 0; color:#718096;">Stato:</td><td style="padding:5px 0; font-weight:bold; color:#c69c3a;">In Attesa di Approvazione Staff</td></tr>';
+            $details_table_pending .= '<tr><td style="padding:5px 0; color:#718096;">Stato:</td><td style="padding:5px 0; font-weight:bold; color:#e74f30;">In Attesa di Approvazione Staff</td></tr>';
             $details_table_pending .= '<tr><td style="padding:5px 0; color:#718096;">Partecipanti:</td><td style="padding:5px 0;">2 totali</td></tr>';
             $details_table_pending .= '</table>';
             $details_table_pending .= '</div>';
@@ -1204,7 +1212,7 @@ function dfn_ajax_send_test_email(): void
 
         case 'fai_booking_rejected':
             $motivo_text = 'Superamento della capacità massima del turno selezionato o tessere FAI non valide.';
-            $formatted_motivo = '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#c69c3a')) . '; background-color: #f7fafc; padding: 18px 20px; margin: 25px 0; border-radius: 0 6px 6px 0;">';
+            $formatted_motivo = '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_accent_color', '#e74f30')) . '; background-color: #f7fafc; padding: 18px 20px; margin: 25px 0; border-radius: 0 6px 6px 0;">';
             $formatted_motivo .= '<div class="info-box-title" style="font-weight: bold; font-size: 15px; color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; margin-bottom: 8px;">Nota dallo Staff</div>';
             $formatted_motivo .= '<p style="margin: 0; font-size: 14px; color: #2d3748; line-height: 1.5;">' . esc_html($motivo_text) . '</p>';
             $formatted_motivo .= '</div>';

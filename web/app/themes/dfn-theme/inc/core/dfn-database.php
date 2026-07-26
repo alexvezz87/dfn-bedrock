@@ -20,7 +20,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.0.8');
+define('DFN_DB_VERSION', '2.1.0');
 
 /**
  * ========================================================================
@@ -88,6 +88,8 @@ function dfn_db_install(): void
         price_fai decimal(10,2) DEFAULT 0.00,
         staff_config text DEFAULT NULL,
         detail_layout varchar(10) NOT NULL DEFAULT 'auto',
+        booking_opening_date datetime DEFAULT NULL,
+        booking_status varchar(20) NOT NULL DEFAULT 'open',
         status varchar(20) DEFAULT 'draft',
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

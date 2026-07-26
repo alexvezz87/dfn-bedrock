@@ -14,7 +14,7 @@
 :root {
     --dfn-green-dark: #004b23;
     --dfn-green-light: #38b000;
-    --dfn-ocre: #c69c3a;
+    --dfn-ocre: #e74f30;
     --dfn-ocre-light: #dfb24f;
     --dfn-dark: #111b15;
     --dfn-white: #ffffff;
@@ -1273,5 +1273,54 @@
         font-size: 11px !important;
     }
 }
+
+.dfn-add-fai-card-form {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-end !important;
+    gap: 10px !important;
+    width: 100% !important;
+}
+
+.dfn-btn-add-card-submit {
+    width: auto;
+    height: 40px;
+    padding: 0 22px;
+    background: #e74f30;
+    color: #ffffff !important;
+    border: 2px solid #e74f30;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 12px;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 6px rgba(231, 79, 48, 0.2);
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.dfn-btn-add-card-submit:hover {
+    background: #ffffff;
+    color: #e74f30 !important;
+    border-color: #e74f30;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(231, 79, 48, 0.25);
+}
+
+@media (max-width: 768px) {
+    .dfn-add-fai-card-form {
+        grid-template-columns: 1fr !important;
+    }
+    .dfn-btn-add-card-submit {
+        width: 100%;
+    }
+}
+
 
 

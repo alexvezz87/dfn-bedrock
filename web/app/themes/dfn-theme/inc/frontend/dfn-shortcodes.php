@@ -155,7 +155,7 @@ function dfn_render_evento_shortcode($atts): string
                 <?php if (! empty($event->description)) : ?>
                     <div class="dfn-booking-section dfn-booking-description-section" style="background:#ffffff; padding:20px 24px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0; border-left: 4px solid #004b23; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
                         <div style="font-size:13px; color:#64748b; font-weight:600; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">🏰 <?php esc_html_e('Descrizione', 'dfn-theme'); ?></div>
-                        <div style="font-size:14px; line-height:1.6; color:#334155;"><?php echo wpautop(esc_html($event->description)); ?></div>
+                        <div style="font-size:14px; line-height:1.6; color:#334155;"><?php echo wp_kses_post(wpautop($event->description)); ?></div>
                     </div>
                 <?php endif; ?>
 
@@ -169,7 +169,13 @@ function dfn_render_evento_shortcode($atts): string
                         <?php endif; ?>
                         &nbsp;|&nbsp; ⏰ <?php echo esc_html(date('H:i', strtotime($event->event_time_start))); ?>
                     </div>
-                    <?php if ($is_in_stock && ($stock === null || $stock > 0)) : ?>
+                    <?php
+                    $booking_status_val = ! empty($event->booking_status) ? $event->booking_status : 'open';
+                    $now_ts_check       = current_time('timestamp');
+                    $opening_ts_check   = ! empty($event->booking_opening_date) ? strtotime($event->booking_opening_date) : 0;
+                    $is_opening_future_check = ($opening_ts_check > $now_ts_check);
+
+                    if ($booking_status_val === 'open' && ! $is_opening_future_check && $is_in_stock && ($stock === null || $stock > 0)) : ?>
                         <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
                             <div class="dfn-availability-badge">
                                 <span class="dfn-pulsing-dot"></span>
@@ -179,17 +185,52 @@ function dfn_render_evento_shortcode($atts): string
                     <?php endif; ?>
                 </div>
 
-                <!-- Form di Prenotazione (Layout 2) -->
+                <!-- Form di Prenotazione / Countdown / Email / Chiuse (Layout 2) -->
                 <?php
-                $today_l2        = date('Y-m-d');
-                $event_end_l2    = ! empty($event->event_date_end) ? $event->event_date_end : $event->event_date_start;
-                $is_past_l2      = ($event_end_l2 < $today_l2);
+                $now_ts_l2            = current_time('timestamp');
+                $opening_ts_l2        = ! empty($event->booking_opening_date) ? strtotime($event->booking_opening_date) : 0;
+                $is_opening_future_l2 = ($opening_ts_l2 > $now_ts_l2);
+
+                $today_l2           = date('Y-m-d');
+                $event_end_l2       = ! empty($event->event_date_end) ? $event->event_date_end : $event->event_date_start;
+                $is_past_l2         = ($event_end_l2 < $today_l2);
+                $booking_status_l2  = ! empty($event->booking_status) ? $event->booking_status : 'open';
+                $delegation_email_l2 = dfn_get_setting('delegation_email', 'novara@delegazione.fondoambiente.it');
+                $mail_subject_l2    = sprintf(__('Richiesta prenotazione: %s - %s', 'dfn-theme'), $product->get_name(), date_i18n('d M Y', strtotime($event->event_date_start)));
+                $mailto_link_l2     = 'mailto:' . esc_attr($delegation_email_l2) . '?subject=' . rawurlencode($mail_subject_l2);
                 ?>
-                <?php if ($is_past_l2) : ?>
-                    <div class="dfn-sold-out-card" style="border-top-color: #64748b; border-color: #cbd5e1;">
-                        <div class="dfn-sold-out-icon">⌛</div>
-                        <h3 class="dfn-sold-out-title" style="color: #334155;"><?php esc_html_e('Evento Concluso', 'dfn-theme'); ?></h3>
-                        <p class="dfn-sold-out-text"><?php esc_html_e('Questo evento si è già svolto. Le prenotazioni sono chiuse.', 'dfn-theme'); ?></p>
+                <?php if ($is_opening_future_l2) : ?>
+                    <div class="dfn-opening-countdown-card" data-opening-ts="<?php echo esc_attr((string) $opening_ts_l2); ?>">
+                        <div class="dfn-countdown-header">
+                            <span class="dfn-countdown-icon">⏱️</span>
+                            <h3 class="dfn-countdown-title"><?php esc_html_e('Le prenotazioni apriranno a breve', 'dfn-theme'); ?></h3>
+                            <p class="dfn-countdown-sub">
+                                <strong><?php echo esc_html(date_i18n('d F Y \a\l\l\e H:i', $opening_ts_l2)); ?></strong>
+                            </p>
+                        </div>
+                        <div class="dfn-countdown-grid">
+                            <div class="dfn-countdown-box"><span class="dfn-countdown-num dfn-cd-days">00</span><span class="dfn-countdown-label"><?php esc_html_e('Giorni', 'dfn-theme'); ?></span></div>
+                            <div class="dfn-countdown-box"><span class="dfn-countdown-num dfn-cd-hours">00</span><span class="dfn-countdown-label"><?php esc_html_e('Ore', 'dfn-theme'); ?></span></div>
+                            <div class="dfn-countdown-box"><span class="dfn-countdown-num dfn-cd-mins">00</span><span class="dfn-countdown-label"><?php esc_html_e('Minuti', 'dfn-theme'); ?></span></div>
+                            <div class="dfn-countdown-box"><span class="dfn-countdown-num dfn-cd-secs">00</span><span class="dfn-countdown-label"><?php esc_html_e('Secondi', 'dfn-theme'); ?></span></div>
+                        </div>
+                    </div>
+                <?php elseif ($booking_status_l2 === 'closed' || $is_past_l2) : ?>
+                    <div class="dfn-sold-out-card">
+                        <div class="dfn-sold-out-icon">🎟️</div>
+                        <h3 class="dfn-sold-out-title"><?php esc_html_e('Prenotazioni Chiuse / Posti Esauriti', 'dfn-theme'); ?></h3>
+                        <p class="dfn-sold-out-text"><?php esc_html_e('Le prenotazioni per questo evento sono al momento chiuse o al completo.', 'dfn-theme'); ?></p>
+                    </div>
+                <?php elseif ($booking_status_l2 === 'email') : ?>
+                    <div class="dfn-email-booking-card">
+                        <div class="dfn-email-card-icon">✉️</div>
+                        <h3 class="dfn-email-card-title"><?php esc_html_e('Prenotazione via Email', 'dfn-theme'); ?></h3>
+                        <p class="dfn-email-card-text">
+                            <?php esc_html_e('Le prenotazioni online per questo evento avvengono inviando un e-mail diretta alla delegazione:', 'dfn-theme'); ?>
+                        </p>
+                        <a href="<?php echo esc_url($mailto_link_l2); ?>" class="dfn-email-card-btn">
+                            📧 <?php echo esc_html($delegation_email_l2); ?>
+                        </a>
                     </div>
                 <?php elseif (! $is_in_stock || ($stock !== null && $stock <= 0)) : ?>
                     <div class="dfn-sold-out-card">
@@ -214,8 +255,8 @@ function dfn_render_evento_shortcode($atts): string
                                         <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
                                         <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
                                     </div>
-                                    <div style="background:#fffdf5; border:1px solid #c69c3a; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                        <div style="font-size:10px; font-weight:700; color:#c69c3a; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
+                                    <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                        <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
                                         <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
                                     </div>
                                 </div>
@@ -292,10 +333,10 @@ function dfn_render_evento_shortcode($atts): string
                                     <textarea name="dfn_notes" id="dfn_notes" style="width:100%; border:1px solid #cbd5e1; border-radius:6px; padding:8px 10px; box-sizing:border-box;" rows="2"></textarea>
                                 </div>
                             </div>
-                            <div class="dfn-booking-section dfn-fai-cards-fields-section" style="display:none; background:#fffdf5; padding:15px; border-radius:8px; border:1px solid #c69c3a; margin-bottom:20px;">
+                            <div class="dfn-booking-section dfn-fai-cards-fields-section" style="display:none; background:#fffdf5; padding:15px; border-radius:8px; border:1px solid #e74f30; margin-bottom:20px;">
                                 <span class="dfn-widget-label" style="color:#004b23; display:flex; align-items:center; gap:6px;"><?php esc_html_e('Dati Tessere Socio FAI', 'dfn-theme'); ?></span>
                                 <div class="dfn-fai-chips-container" style="display:none; margin-top:10px; margin-bottom:12px;">
-                                    <div class="dfn-fai-chips-title" style="font-size:11px; font-weight:700; color:#c69c3a; text-transform:uppercase; margin-bottom:6px;"><?php esc_html_e('Tessere FAI salvate (clicca per compilare):', 'dfn-theme'); ?></div>
+                                    <div class="dfn-fai-chips-title" style="font-size:11px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:6px;"><?php esc_html_e('Tessere FAI salvate (clicca per compilare):', 'dfn-theme'); ?></div>
                                     <div class="dfn-fai-chips-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
                                 </div>
                                 <div class="dfn-fai-cards-inputs-container" style="display:flex; flex-direction:column; gap:12px; margin-top:10px;"><!-- Popolato da JS --></div>
@@ -384,7 +425,7 @@ function dfn_render_evento_shortcode($atts): string
                 <?php if (! empty($event->description)) : ?>
                     <div class="dfn-booking-section dfn-booking-description-section" style="background:#ffffff; padding:20px 24px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0; border-left: 4px solid #004b23; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
                         <div style="font-size:13px; color:#64748b; font-weight:600; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">🏰 <?php esc_html_e('Descrizione', 'dfn-theme'); ?></div>
-                        <div style="font-size:14px; line-height:1.6; color:#334155;"><?php echo wpautop(esc_html($event->description)); ?></div>
+                        <div style="font-size:14px; line-height:1.6; color:#334155;"><?php echo wp_kses_post(wpautop($event->description)); ?></div>
                     </div>
                 <?php endif; ?>
 
@@ -398,7 +439,13 @@ function dfn_render_evento_shortcode($atts): string
                         <?php endif; ?>
                         &nbsp;|&nbsp; ⏰ <?php echo esc_html(date('H:i', strtotime($event->event_time_start))); ?>
                     </div>
-                    <?php if ($is_in_stock && ($stock === null || $stock > 0)) : ?>
+                    <?php
+                    $booking_status_val = ! empty($event->booking_status) ? $event->booking_status : 'open';
+                    $now_ts_check       = current_time('timestamp');
+                    $opening_ts_check   = ! empty($event->booking_opening_date) ? strtotime($event->booking_opening_date) : 0;
+                    $is_opening_future_check = ($opening_ts_check > $now_ts_check);
+
+                    if ($booking_status_val === 'open' && ! $is_opening_future_check && $is_in_stock && ($stock === null || $stock > 0)) : ?>
                         <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
                             <div class="dfn-availability-badge">
                                 <span class="dfn-pulsing-dot"></span>
@@ -409,18 +456,53 @@ function dfn_render_evento_shortcode($atts): string
                 </div>
             </div>
 
-            <!-- Right Column: Booking Form -->
+            <!-- Right Column: Booking Form or Countdown or Email (Layout 1) -->
             <div class="dfn-booking-column-action">
                 <?php
-                $today = date('Y-m-d');
-    $event_end_date = ! empty($event->event_date_end) ? $event->event_date_end : $event->event_date_start;
-    $is_event_past = ($event_end_date < $today);
-    ?>
-                <?php if ($is_event_past) : ?>
-                    <div class="dfn-sold-out-card" style="border-top-color: #64748b; border-color: #cbd5e1;">
-                        <div class="dfn-sold-out-icon">⌛</div>
-                        <h3 class="dfn-sold-out-title" style="color: #334155;"><?php esc_html_e('Evento Concluso', 'dfn-theme'); ?></h3>
-                        <p class="dfn-sold-out-text"><?php esc_html_e('Questo evento si è già svolto. Le prenotazioni sono chiuse.', 'dfn-theme'); ?></p>
+                $now_ts            = current_time('timestamp');
+                $opening_ts        = ! empty($event->booking_opening_date) ? strtotime($event->booking_opening_date) : 0;
+                $is_opening_future = ($opening_ts > $now_ts);
+
+                $today            = date('Y-m-d');
+                $event_end_date   = ! empty($event->event_date_end) ? $event->event_date_end : $event->event_date_start;
+                $is_event_past    = ($event_end_date < $today);
+                $booking_status_l1 = ! empty($event->booking_status) ? $event->booking_status : 'open';
+                $delegation_email_l1 = dfn_get_setting('delegation_email', 'novara@delegazione.fondoambiente.it');
+                $mail_subject_l1  = sprintf(__('Richiesta prenotazione: %s - %s', 'dfn-theme'), $product->get_name(), date_i18n('d M Y', strtotime($event->event_date_start)));
+                $mailto_link_l1   = 'mailto:' . esc_attr($delegation_email_l1) . '?subject=' . rawurlencode($mail_subject_l1);
+                ?>
+                <?php if ($is_opening_future) : ?>
+                    <div class="dfn-opening-countdown-card" data-opening-ts="<?php echo esc_attr((string) $opening_ts); ?>">
+                        <div class="dfn-countdown-header">
+                            <span class="dfn-countdown-icon">⏱️</span>
+                            <h3 class="dfn-countdown-title"><?php esc_html_e('Le prenotazioni apriranno a breve', 'dfn-theme'); ?></h3>
+                            <p class="dfn-countdown-sub">
+                                <strong><?php echo esc_html(date_i18n('d F Y \a\l\l\e H:i', $opening_ts)); ?></strong>
+                            </p>
+                        </div>
+                        <div class="dfn-countdown-grid">
+                            <div class="dfn-countdown-box"><span class="dfn-countdown-num dfn-cd-days">00</span><span class="dfn-countdown-label"><?php esc_html_e('Giorni', 'dfn-theme'); ?></span></div>
+                            <div class="dfn-countdown-box"><span class="dfn-countdown-num dfn-cd-hours">00</span><span class="dfn-countdown-label"><?php esc_html_e('Ore', 'dfn-theme'); ?></span></div>
+                            <div class="dfn-countdown-box"><span class="dfn-countdown-num dfn-cd-mins">00</span><span class="dfn-countdown-label"><?php esc_html_e('Minuti', 'dfn-theme'); ?></span></div>
+                            <div class="dfn-countdown-box"><span class="dfn-countdown-num dfn-cd-secs">00</span><span class="dfn-countdown-label"><?php esc_html_e('Secondi', 'dfn-theme'); ?></span></div>
+                        </div>
+                    </div>
+                <?php elseif ($booking_status_l1 === 'closed' || $is_event_past) : ?>
+                    <div class="dfn-sold-out-card">
+                        <div class="dfn-sold-out-icon">🎟️</div>
+                        <h3 class="dfn-sold-out-title"><?php esc_html_e('Prenotazioni Chiuse / Posti Esauriti', 'dfn-theme'); ?></h3>
+                        <p class="dfn-sold-out-text"><?php esc_html_e('Le prenotazioni per questo evento sono al momento chiuse o al completo.', 'dfn-theme'); ?></p>
+                    </div>
+                <?php elseif ($booking_status_l1 === 'email') : ?>
+                    <div class="dfn-email-booking-card">
+                        <div class="dfn-email-card-icon">✉️</div>
+                        <h3 class="dfn-email-card-title"><?php esc_html_e('Prenotazione via Email', 'dfn-theme'); ?></h3>
+                        <p class="dfn-email-card-text">
+                            <?php esc_html_e('Le prenotazioni online per questo evento avvengono inviando un e-mail diretta alla delegazione:', 'dfn-theme'); ?>
+                        </p>
+                        <a href="<?php echo esc_url($mailto_link_l1); ?>" class="dfn-email-card-btn">
+                            📧 <?php echo esc_html($delegation_email_l1); ?>
+                        </a>
                     </div>
                 <?php elseif (! $is_in_stock || ($stock !== null && $stock <= 0)) : ?>
                     <div class="dfn-sold-out-card">
@@ -445,8 +527,8 @@ function dfn_render_evento_shortcode($atts): string
                                         <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
                                         <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
                                     </div>
-                                    <div style="background:#fffdf5; border:1px solid #c69c3a; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                        <div style="font-size:10px; font-weight:700; color:#c69c3a; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
+                                    <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                        <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
                                         <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
                                     </div>
                                 </div>
@@ -533,10 +615,10 @@ function dfn_render_evento_shortcode($atts): string
                             </div>
 
                             <!-- Campi dinamici per le Tessere FAI -->
-                            <div class="dfn-booking-section dfn-fai-cards-fields-section" style="display:none; background:#fffdf5; padding:15px; border-radius:8px; border:1px solid #c69c3a; margin-bottom:20px;">
+                            <div class="dfn-booking-section dfn-fai-cards-fields-section" style="display:none; background:#fffdf5; padding:15px; border-radius:8px; border:1px solid #e74f30; margin-bottom:20px;">
                                 <span class="dfn-widget-label" style="color:#004b23; display:flex; align-items:center; gap:6px;"><?php esc_html_e('Dati Tessere Socio FAI', 'dfn-theme'); ?></span>
                                 <div class="dfn-fai-chips-container" style="display:none; margin-top:10px; margin-bottom:12px;">
-                                    <div class="dfn-fai-chips-title" style="font-size:11px; font-weight:700; color:#c69c3a; text-transform:uppercase; margin-bottom:6px;"><?php esc_html_e('Tessere FAI salvate (clicca per compilare):', 'dfn-theme'); ?></div>
+                                    <div class="dfn-fai-chips-title" style="font-size:11px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:6px;"><?php esc_html_e('Tessere FAI salvate (clicca per compilare):', 'dfn-theme'); ?></div>
                                     <div class="dfn-fai-chips-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
                                 </div>
                                 <div class="dfn-fai-cards-inputs-container" style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
@@ -581,6 +663,15 @@ function dfn_render_evento_shortcode($atts): string
     <?php endif; // end layout1 vs layout2 ?>
 
     </div><!-- /.dfn-booking-widget -->
+
+    <!-- Bottone Torna a Tutti gli Eventi (Home) in stile FAI -->
+    <div class="dfn-back-to-events-footer">
+        <a href="<?php echo esc_url(home_url('/')); ?>" class="dfn-btn-back-to-events">
+            <span class="dashicons dashicons-arrow-left-alt2"></span>
+            <?php esc_html_e('Torna a tutti gli eventi', 'dfn-theme'); ?>
+        </a>
+    </div>
+
     <?php
     return ob_get_clean();
 }

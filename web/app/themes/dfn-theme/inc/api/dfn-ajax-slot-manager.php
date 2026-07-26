@@ -942,13 +942,19 @@ function dfn_ajax_botteghino_create_booking(): void
         $email = 'no-email-' . time() . '@dfn.local';
     }
 
-    // Per le autorità non servono nome/cognome reali
+    // Per le autorità associa il nominativo se specificato nel form
     if ($payment_method === 'autorita') {
-        $first_name   = 'Riserva';
-        $last_name    = 'Autorità';
-        $email        = 'autorita_' . time() . '@fainovara.local';
-        $phone        = 'CERIMONIALE';
-        $auto_checkin = true;
+        $input_name = trim($first_name . ' ' . $last_name);
+        if (! empty($input_name)) {
+            $first_name = 'Riserva Autorità - ' . $input_name;
+            $last_name  = '';
+        } else {
+            $first_name = 'Riserva';
+            $last_name  = 'Autorità';
+        }
+        $email          = 'autorita_' . time() . '@fainovara.local';
+        $phone          = 'CERIMONIALE';
+        $auto_checkin   = false;
         $has_real_email = false;
     }
 
@@ -1184,19 +1190,14 @@ function dfn_ajax_botteghino_create_booking(): void
                 }
                 $order->add_order_note('✅ Check-in immediato eseguito dal Botteghino Live.');
             } elseif ($has_real_email) {
-                // Invio biglietti via email se non auto-checkin
-                /** @var \WC_Email_Customer_Completed_Order|null $email_completed */
-                $email_completed = WC()->mailer()->get_emails()['WC_Email_Customer_Completed_Order'] ?? null;
-                if ($email_completed) {
-                    $email_completed->trigger($order->get_id());
-                }
+                // Nota: L'email di completamento ordine (con biglietti/QR) viene già inviata automaticamente da WooCommerce al cambio stato 'completed'.
                 $order->add_order_note('📧 Inviata mail con i BIGLIETTI (Botteghino Live).');
             }
 
             $order->save();
 
             if ($payment_method === 'autorita') {
-                $messaggio_esito = __('🎁 Posti riservati per le Autorità con check-in immediato.', 'dfn-theme');
+                $messaggio_esito = __('🎁 Posti riservati per le Autorità. Il check-in verrà effettuato all\'arrivo all\'ingresso.', 'dfn-theme');
             } elseif ($auto_checkin) {
                 $messaggio_esito = __('✅ Incassato in contanti. Biglietti validati per l\'ingresso.', 'dfn-theme');
             } else {

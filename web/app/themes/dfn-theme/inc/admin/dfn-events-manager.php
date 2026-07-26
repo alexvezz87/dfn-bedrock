@@ -135,6 +135,7 @@ function dfn_enqueue_admin_assets($hook)
         && strpos($hook, 'dfn-settings') === false
         && strpos($hook, 'dfn-quick-booking') === false
         && strpos($hook, 'dfn-fai-pending-bookings') === false
+        && strpos($hook, 'dfn-fai-members') === false
     ) {
         return;
     }

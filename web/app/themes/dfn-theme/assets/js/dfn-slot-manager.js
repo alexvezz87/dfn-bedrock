@@ -1106,7 +1106,7 @@
             printHtml += 'body { font-family: "Inter", sans-serif; color: #1e293b; line-height: 1.3; margin: 0; padding: 0; background: #fff; font-size: 10px; }';
             printHtml += '.print-header { border-bottom: 2px solid #004b23; padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end; }';
             printHtml += '.print-header h1 { font-size: 16px; color: #004b23; margin: 0; font-weight: 700; }';
-            printHtml += '.print-header .date-badge { font-size: 11px; background: #c69c3a; color: #fff; padding: 2px 8px; border-radius: 12px; font-weight: 700; }';
+            printHtml += '.print-header .date-badge { font-size: 11px; background: #e74f30; color: #fff; padding: 2px 8px; border-radius: 12px; font-weight: 700; }';
             
             printHtml += '.stats-summary { display: flex; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 6px; margin-bottom: 12px; }';
             printHtml += '.stat-item { display: flex; align-items: center; gap: 4px; }';

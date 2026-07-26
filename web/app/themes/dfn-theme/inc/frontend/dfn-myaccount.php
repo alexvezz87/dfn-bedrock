@@ -191,24 +191,170 @@ function dfn_fai_cards_endpoint_content(): void
         return;
     }
 
+    $current_user = wp_get_current_user();
     global $wpdb;
     $table_fai = $wpdb->prefix . 'dfn_fai_members';
 
-    // Recupera solo le tessere verificate associate all'utente corrente
-    $cards = $wpdb->get_results(
+    $notice_message = '';
+    $notice_type    = 'success';
+
+    // Gestione invio form aggiunta tessera FAI
+    if (isset($_POST['dfn_add_fai_card_nonce']) && wp_verify_nonce($_POST['dfn_add_fai_card_nonce'], 'dfn_add_fai_card_action')) {
+        $first_name  = isset($_POST['dfn_fai_first_name']) ? sanitize_text_field($_POST['dfn_fai_first_name']) : '';
+        $last_name   = isset($_POST['dfn_fai_last_name']) ? sanitize_text_field($_POST['dfn_fai_last_name']) : '';
+        $card_number = isset($_POST['dfn_fai_card_number']) ? sanitize_text_field($_POST['dfn_fai_card_number']) : '';
+
+        if (empty($first_name) || empty($last_name) || empty($card_number)) {
+            $notice_message = __('Compila tutti i campi richiesti (Nome, Cognome e Numero Tessera).', 'dfn-theme');
+            $notice_type    = 'error';
+        } else {
+            // Verifica se la tessera è già stata registrata per questo utente o nel sistema
+            $existing = $wpdb->get_row(
+                $wpdb->prepare("SELECT * FROM {$table_fai} WHERE card_number = %s", $card_number)
+            );
+
+            if ($existing) {
+                if (intval($existing->user_id) === $current_user_id) {
+                    $notice_message = __('Questa tessera FAI è già stata registrata sul tuo account.', 'dfn-theme');
+                    $notice_type    = 'info';
+                } else {
+                    $notice_message = __('Questa tessera FAI risulta già presente nei nostri sistemi.', 'dfn-theme');
+                    $notice_type    = 'error';
+                }
+            } else {
+                // Inserimento nuova tessera in stato pending (verified = 0)
+                $inserted = $wpdb->insert(
+                    $table_fai,
+                    [
+                        'first_name'  => $first_name,
+                        'last_name'   => $last_name,
+                        'email'       => $current_user->user_email,
+                        'card_number' => $card_number,
+                        'card_type'   => 'INDIVIDUALE',
+                        'verified'    => 0,
+                        'user_id'     => $current_user_id,
+                        'created_at'  => current_time('mysql'),
+                    ],
+                    ['%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s']
+                );
+
+                if ($inserted) {
+                    $notice_message = __('Tessera FAI inviata con successo! È ora in attesa di verifica da parte della segreteria.', 'dfn-theme');
+                    $notice_type    = 'success';
+
+                    // Invia notifica email alla segreteria FAI
+                    if (function_exists('dfn_notify_admin_unverified_fai_card')) {
+                        dfn_notify_admin_unverified_fai_card($card_number, $first_name, $last_name, $current_user->user_email);
+                    }
+                } else {
+                    $notice_message = __('Si è verificato un errore durante il salvataggio. Riprova più tardi.', 'dfn-theme');
+                    $notice_type    = 'error';
+                }
+            }
+        }
+    }
+
+    // Recupera le tessere verificate (verified = 1)
+    $verified_cards = $wpdb->get_results(
         $wpdb->prepare(
-            "SELECT * FROM {$table_fai} WHERE user_id = %d AND verified = 1 ORDER BY card_expiry DESC, created_at DESC",
+            "SELECT * FROM {$table_fai} WHERE (user_id = %d OR (email IS NOT NULL AND email != '' AND LOWER(email) = LOWER(%s))) AND verified = 1 ORDER BY card_expiry DESC, created_at DESC",
             $current_user_id,
-        ),
+            $current_user->user_email
+        )
     );
+
+    // Recupera le tessere in attesa di verifica (verified = 0)
+    $pending_cards = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT * FROM {$table_fai} WHERE (user_id = %d OR (email IS NOT NULL AND email != '' AND LOWER(email) = LOWER(%s))) AND verified = 0 ORDER BY created_at DESC",
+            $current_user_id,
+            $current_user->user_email
+        )
+    );
+
+    $default_first_name = $current_user->first_name ?: '';
+    $default_last_name  = $current_user->last_name ?: '';
     ?>
     <div class="dfn-fai-dashboard-section">
         <h2 class="dfn-dashboard-title"><?php esc_html_e('Le Mie Tessere FAI', 'dfn-theme'); ?></h2>
-        <p class="dfn-dashboard-desc"><?php esc_html_e('In questa sezione puoi visualizzare le tue tessere FAI associate e verificate dalla segreteria. Saranno disponibili come suggerimenti rapidi durante la prenotazione.', 'dfn-theme'); ?></p>
-        
-        <?php if (! empty($cards)) : ?>
+        <p class="dfn-dashboard-desc"><?php esc_html_e('In questa sezione puoi gestire ed associare le tue tessere FAI. Le tessere verificate dalla segreteria saranno disponibili come suggerimenti rapidi durante la prenotazione degli eventi.', 'dfn-theme'); ?></p>
+
+        <?php if (! empty($notice_message)) : ?>
+            <div class="dfn-account-notice dfn-notice-<?php echo esc_attr($notice_type); ?>" style="padding: 14px 18px; border-radius: 8px; margin-bottom: 24px; font-weight: 600; font-size: 14px; <?php echo $notice_type === 'success' ? 'background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;' : ($notice_type === 'info' ? 'background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe;' : 'background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;'); ?>">
+                <?php echo esc_html($notice_message); ?>
+            </div>
+        <?php endif; ?>
+
+        <!-- Form Inserimento Nuova Tessera FAI (Riga Unica Compatta) -->
+        <div class="dfn-add-fai-card-wrapper" style="background: #ffffff; border: 1px solid #e2e8f0; border-top: 3px solid #e74f30; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.03);">
+            <div style="margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 6px;">
+                    <span>🪪</span> <?php esc_html_e('Aggiungi una Tessera FAI', 'dfn-theme'); ?>
+                </h3>
+            </div>
+
+            <form method="POST" class="dfn-add-fai-card-form" style="display: flex !important; flex-wrap: nowrap !important; align-items: flex-end !important; gap: 10px !important; width: 100% !important;">
+                <div style="display:none;"><?php wp_nonce_field('dfn_add_fai_card_action', 'dfn_add_fai_card_nonce'); ?></div>
+                
+                <div style="flex: 1 1 22%; min-width: 110px;">
+                    <label for="dfn_fai_first_name" style="display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;"><?php esc_html_e('Nome *', 'dfn-theme'); ?></label>
+                    <input type="text" name="dfn_fai_first_name" id="dfn_fai_first_name" required value="<?php echo esc_attr($default_first_name); ?>" placeholder="<?php esc_attr_e('Nome', 'dfn-theme'); ?>" style="width: 100%; height: 40px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; background: #ffffff;">
+                </div>
+
+                <div style="flex: 1 1 22%; min-width: 110px;">
+                    <label for="dfn_fai_last_name" style="display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;"><?php esc_html_e('Cognome *', 'dfn-theme'); ?></label>
+                    <input type="text" name="dfn_fai_last_name" id="dfn_fai_last_name" required value="<?php echo esc_attr($default_last_name); ?>" placeholder="<?php esc_attr_e('Cognome', 'dfn-theme'); ?>" style="width: 100%; height: 40px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; background: #ffffff;">
+                </div>
+
+                <div style="flex: 1 1 28%; min-width: 130px;">
+                    <label for="dfn_fai_card_number" style="display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;"><?php esc_html_e('N° Tessera FAI *', 'dfn-theme'); ?></label>
+                    <input type="text" name="dfn_fai_card_number" id="dfn_fai_card_number" required placeholder="<?php esc_attr_e('Es: 12345678', 'dfn-theme'); ?>" style="width: 100%; height: 40px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; background: #ffffff;">
+                </div>
+
+                <div style="flex: 0 0 auto;">
+                    <button type="submit" class="dfn-btn-add-card-submit" style="height: 40px; padding: 0 16px; white-space: nowrap; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">
+                        <?php esc_html_e('Invia Tessera', 'dfn-theme'); ?>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Sezione 1: Tessere in Attesa di Verifica -->
+        <?php if (! empty($pending_cards)) : ?>
+            <div style="margin-bottom: 30px;">
+                <h3 style="font-size: 16px; font-weight: 800; color: #e74f30; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    <span>⏳</span> <?php esc_html_e('Tessere in Attesa di Verifica', 'dfn-theme'); ?> (<?php echo count($pending_cards); ?>)
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                    <?php foreach ($pending_cards as $p_card) : ?>
+                        <div style="background: #fffdf5; border: 1px solid #e74f30; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 11px; font-weight: 800; color: #e74f30; text-transform: uppercase; letter-spacing: 0.5px;">Tessera FAI</span>
+                                    <span style="font-size: 11px; font-weight: 700; background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 12px;">⏳ In Attesa Staff</span>
+                                </div>
+                                <h4 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 800; color: #1e293b;"><?php echo esc_html(strtoupper($p_card->first_name . ' ' . $p_card->last_name)); ?></h4>
+                                <div style="font-size: 13px; color: #475569; font-weight: 600;">
+                                    N° Tessera: <strong style="color: #004b23;"><?php echo esc_html($p_card->card_number); ?></strong>
+                                </div>
+                            </div>
+                            <div style="font-size: 11px; color: #94a3b8; border-top: 1px dashed #fde68a; padding-top: 8px;">
+                                Inviata il <?php echo esc_html(date_i18n('d/m/Y H:i', strtotime($p_card->created_at))); ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- Sezione 2: Tessere Verificate -->
+        <h3 style="font-size: 16px; font-weight: 800; color: #004b23; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+            <span>✓</span> <?php esc_html_e('Tessere Verificate e Attive', 'dfn-theme'); ?>
+        </h3>
+
+        <?php if (! empty($verified_cards)) : ?>
             <div class="dfn-fai-cards-grid">
-                <?php foreach ($cards as $card) :
+                <?php foreach ($verified_cards as $card) :
                     // Formattazione numero tessera a gruppi di 4 cifre
                     $formatted_number = trim(chunk_split($card->card_number, 4, ' '));
 
@@ -283,8 +429,7 @@ function dfn_fai_cards_endpoint_content(): void
             <div class="dfn-fai-empty-state">
                 <div class="dfn-fai-empty-icon">🪪</div>
                 <h4><?php esc_html_e('Nessuna tessera FAI verificata', 'dfn-theme'); ?></h4>
-                <p><?php esc_html_e('Non risultano tessere FAI verificate associate a questo account.', 'dfn-theme'); ?></p>
-                <p class="dfn-fai-empty-sub"><?php esc_html_e('Le tue tessere verranno collegate automaticamente al tuo account ed approvate dalla segreteria in seguito al completamento di una prenotazione con ingressi scontati FAI.', 'dfn-theme'); ?></p>
+                <p><?php esc_html_e('Non risultano ancora tessere FAI verificate associate a questo account.', 'dfn-theme'); ?></p>
             </div>
         <?php endif; ?>
     </div>

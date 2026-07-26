@@ -142,7 +142,7 @@ function dfn_render_admin_report_page(): void
                     </div>
                     <div>
                         <span style="font-size: 12px; color: #64748b; font-weight: 600;"><?php esc_html_e('💵 Incassato Contanti in Loco', 'dfn-theme'); ?></span>
-                        <div style="font-size: 22px; font-weight: 800; color: #c69c3a; margin-top: 5px;"><?php echo wc_price($cash_income); ?></div>
+                        <div style="font-size: 22px; font-weight: 800; color: #e74f30; margin-top: 5px;"><?php echo wc_price($cash_income); ?></div>
                     </div>
                     <div>
                         <span style="font-size: 12px; color: #64748b; font-weight: 600;"><?php esc_html_e('💳 Incassato POS/Carte in Loco', 'dfn-theme'); ?></span>

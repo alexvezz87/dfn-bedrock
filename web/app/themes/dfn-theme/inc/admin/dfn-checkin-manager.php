@@ -303,7 +303,7 @@ function dfn_render_checkin_manager()
                     <button type="button" id="cv-send-reminders-btn" class="dfn-btn" style="background:#ff6600; border-color:#ff6600; color:#fff;">
                         <span class="dashicons dashicons-email"></span> <?php esc_html_e('Invia Reminder a Tutti', 'dfn-theme'); ?>
                     </button>
-                    <button type="button" id="cv-send-feedback-btn" class="dfn-btn" style="background:#c69c3a; border-color:#c69c3a; color:#fff;">
+                    <button type="button" id="cv-send-feedback-btn" class="dfn-btn" style="background:#e74f30; border-color:#e74f30; color:#fff;">
                         <span class="dashicons dashicons-star-filled"></span> <?php esc_html_e('Richiedi Recensioni', 'dfn-theme'); ?>
                     </button>
                 </div>

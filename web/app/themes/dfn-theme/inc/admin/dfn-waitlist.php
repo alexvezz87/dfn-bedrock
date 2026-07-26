@@ -343,7 +343,7 @@ function dfn_render_waitlist_page(): void
                                 <?php foreach ($coda as $index => $c_entry) :
                                     $pos = $index + 1;
                                     $tessere_badge = intval($c_entry->fai_cards) > 0
-                                        ? '<span style="background: #c69c3a; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 5px;">' . intval($c_entry->fai_cards) . ' FAI</span>'
+                                        ? '<span style="background: #e74f30; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 5px;">' . intval($c_entry->fai_cards) . ' FAI</span>'
                                         : '';
                                     ?>
                                     <tr>

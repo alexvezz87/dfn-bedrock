@@ -23,13 +23,14 @@ function dfn_get_setting($key, $default = null)
     // Elenco completo dei valori predefiniti (fallback)
     $defaults = [
         'delegation_name'             => 'FAI Novara',
+        'delegation_email'            => 'novara@delegazione.fondoambiente.it',
         'delegation_footer'           => 'FAI - Delegazione di Novara',
         'email_staff_signature'       => 'Lo Staff della Delegazione FAI Novara',
         'email_new_booking'           => get_option('admin_email'),
         'email_verify_fai'            => get_option('admin_email'),
         'email_cc_bcc'                => '',
         'email_primary_color'         => '#004b23',
-        'email_accent_color'          => '#c69c3a',
+        'email_accent_color'          => '#e74f30',
         'email_bg_color'              => '#f4f6f8',
         'email_text_color'            => '#2d3748',
         'email_disclaimer'            => "Questa è un'email automatica inviata dal sistema di prenotazione. Si prega di non rispondere direttamente a questo messaggio.",

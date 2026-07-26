@@ -72,7 +72,7 @@ body.dfn-express-checkout-active .woocommerce-billing-fields input.input-text:fo
 /* Stili addizionali per campi validazione tessere FAI */
 .dfn-fai-validation-container {
     background: #fffdf5;
-    border: 1px solid #c69c3a;
+    border: 1px solid #e74f30;
     border-radius: 8px;
     padding: 16px;
     margin-bottom: 20px;

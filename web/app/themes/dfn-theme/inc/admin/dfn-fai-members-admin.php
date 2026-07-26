@@ -197,6 +197,14 @@ function dfn_render_fai_members_page(): void
             $card_number = sanitize_text_field($_POST['card_number']);
             $card_expiry = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
             $card_type   = isset($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
+            $user_id     = ! empty($_POST['user_id']) ? intval($_POST['user_id']) : null;
+
+            if ($user_id > 0 && empty($email)) {
+                $u_data = get_userdata($user_id);
+                if ($u_data && ! empty($u_data->user_email)) {
+                    $email = $u_data->user_email;
+                }
+            }
 
             $types_string = dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA');
             $valid_types = array_map('trim', array_map('strtoupper', explode(',', $types_string)));
@@ -229,11 +237,12 @@ function dfn_render_fai_members_page(): void
                         'card_number' => $card_number,
                         'card_expiry' => $card_expiry,
                         'card_type'   => $card_type,
+                        'user_id'     => $user_id,
                         'verified'    => 1,
                         'verified_by' => get_current_user_id(),
                         'verified_at' => current_time('mysql'),
                     ];
-                    $formats = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s' ];
+                    $formats = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' ];
 
                     if ($id > 0) {
                         $wpdb->update($table, $data, [ 'id' => $id ], $formats, [ '%d' ]);
@@ -459,6 +468,25 @@ function dfn_render_fai_members_page(): void
                             <input type="text" name="last_name" required style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1;" value="<?php echo $edit_member ? esc_attr($edit_member->last_name) : ''; ?>">
                         </div>
                         <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-weight: 700; margin-bottom: 5px; font-size: 13px;"><?php esc_html_e('Associa ad Utente Registrato (Opzionale)', 'dfn-theme'); ?></label>
+                            <select name="user_id" id="dfn_fai_user_select" class="dfn-select2-user" style="width: 100%;">
+                                <option value=""><?php esc_html_e('-- Nessun utente associato --', 'dfn-theme'); ?></option>
+                                <?php
+                                $selected_user_id = $edit_member && ! empty($edit_member->user_id) ? intval($edit_member->user_id) : 0;
+                                if ($selected_user_id > 0) {
+                                    $u = get_userdata($selected_user_id);
+                                    if ($u) {
+                                        echo '<option value="' . esc_attr($u->ID) . '" selected>' . esc_html($u->display_name . ' (' . $u->user_email . ') #' . $u->ID) . '</option>';
+                                    }
+                                }
+                                ?>
+                            </select>
+                            <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0; line-height: 1.3;">
+                                <?php esc_html_e('Puoi associare la tessera ad un utente del sito (es. per tessere di coppia). Comparirà nella sua area riservata.', 'dfn-theme'); ?>
+                            </p>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
                             <label style="display: block; font-weight: 700; margin-bottom: 5px; font-size: 13px;"><?php esc_html_e('Email', 'dfn-theme'); ?></label>
                             <input type="email" name="email" style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1;" value="<?php echo $edit_member ? esc_attr($edit_member->email) : ''; ?>">
                         </div>
@@ -516,12 +544,12 @@ function dfn_render_fai_members_page(): void
                 
                 <!-- 1. SEZIONE: TESSERE DA VERIFICARE -->
                 <?php if (! empty($unverified_members)) : ?>
-                    <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid #f1f5f9; border-top: 4px solid #c69c3a;">
+                    <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid #f1f5f9; border-top: 4px solid #e74f30;">
                         <form method="POST" id="dfn-fai-unverified-bulk-form">
                             <?php wp_nonce_field('dfn_fai_bulk_action', 'dfn_fai_bulk_nonce'); ?>
                             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 20px;">
-                                <h3 style="margin: 0; color: #c69c3a; font-weight: 800; font-size: 18px; display: flex; align-items: center; gap: 8px;">
-                                    <span class="dashicons dashicons-warning" style="color:#c69c3a;"></span>
+                                <h3 style="margin: 0; color: #e74f30; font-weight: 800; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                                    <span class="dashicons dashicons-warning" style="color:#e74f30;"></span>
                                     <?php esc_html_e('Tessere da Verificare', 'dfn-theme'); ?>
                                 </h3>
 
@@ -557,7 +585,17 @@ function dfn_render_fai_members_page(): void
                                     ?>
                                     <tr>
                                         <th scope="row" class="check-column"><input type="checkbox" name="member_ids[]" value="<?php echo absint($m->id); ?>"></th>
-                                        <td><strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong></td>
+                                        <td>
+                                            <strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong>
+                                            <?php if (! empty($m->user_id)) :
+                                                $u_linked = get_userdata($m->user_id);
+                                                if ($u_linked) : ?>
+                                                    <div style="font-size: 11px; color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; margin-top: 3px; display: inline-block; font-weight: 600;" title="<?php esc_attr_e('Utente registrato collegato', 'dfn-theme'); ?>">
+                                                        👤 <?php echo esc_html($u_linked->display_name); ?>
+                                                    </div>
+                                                <?php endif;
+                                            endif; ?>
+                                        </td>
                                         <td><?php echo esc_html($m->email ?: ''); ?></td>
                                         <td><code><?php echo esc_html($m->card_number); ?></code></td>
                                         <td>
@@ -696,7 +734,17 @@ function dfn_render_fai_members_page(): void
                                     }
                                     ?>
                                     <tr>
-                                        <td><strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong></td>
+                                        <td>
+                                            <strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong>
+                                            <?php if (! empty($m->user_id)) :
+                                                $u_linked = get_userdata($m->user_id);
+                                                if ($u_linked) : ?>
+                                                    <div style="font-size: 11px; color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; margin-top: 3px; display: inline-block; font-weight: 600;" title="<?php esc_attr_e('Utente registrato collegato', 'dfn-theme'); ?>">
+                                                        👤 <?php echo esc_html($u_linked->display_name); ?>
+                                                    </div>
+                                                <?php endif;
+                                            endif; ?>
+                                        </td>
                                         <td><?php echo esc_html($m->email ?: ''); ?></td>
                                         <td><code><?php echo esc_html($m->card_number); ?></code></td>
                                         <td>
@@ -744,6 +792,43 @@ function dfn_render_fai_members_page(): void
             var checked = $(this).prop('checked');
             $('#dfn-fai-unverified-bulk-form input[name="member_ids[]"]').prop('checked', checked);
         });
+
+        if ($.fn.selectWoo || $.fn.select2) {
+            var $userSelect = $('#dfn_fai_user_select');
+            var selectFn = $.fn.selectWoo ? 'selectWoo' : 'select2';
+            $userSelect[selectFn]({
+                allowClear: true,
+                placeholder: '<?php esc_attr_e('-- Cerca o seleziona un utente --', 'dfn-theme'); ?>',
+                ajax: {
+                    url: ajaxurl,
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return { action: 'cv_search_customers', term: params.term, security: '<?php echo wp_create_nonce("cv_ricerca_clienti_nonce"); ?>' };
+                    },
+                    processResults: function (data) { return { results: data }; },
+                    cache: true
+                },
+                minimumInputLength: 2,
+                language: { inputTooShort: function () { return 'Scrivi almeno 2 lettere...'; } }
+            });
+
+            $userSelect.on('select2:select selectWoo:select', function (e) {
+                var data = e.params.data;
+                if (data && data.id) {
+                    var $emailInput = $('input[name="email"]');
+                    if (!$emailInput.val()) {
+                        $.post(ajaxurl, {
+                            action: 'cv_get_customer_data', security: '<?php echo wp_create_nonce("cv_ricerca_clienti_nonce"); ?>', customer_id: data.id
+                        }, function (response) {
+                            if (response.success && response.data && response.data.email) {
+                                $emailInput.val(response.data.email);
+                            }
+                        });
+                    }
+                }
+            });
+        }
     });
     </script>
     <?php

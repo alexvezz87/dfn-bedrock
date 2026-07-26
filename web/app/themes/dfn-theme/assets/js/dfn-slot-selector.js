@@ -472,10 +472,10 @@ jQuery(document).ready(function($) {
                             $step3.find('.dfn-success-icon').html('🎉').css('color', '#166534');
                             $step3.find('.dfn-success-title').html('Prenotazione Confermata!').css('color', '#004b23');
                         } else if (res.status === 'pending_approval') {
-                            $step3.find('.dfn-success-icon').html('⏳').css('color', '#c69c3a');
+                            $step3.find('.dfn-success-icon').html('⏳').css('color', '#e74f30');
                             $step3.find('.dfn-success-title').html('In Attesa di Verifica').css('color', '#854d0e');
                         } else {
-                            $step3.find('.dfn-success-icon').html('⏳').css('color', '#c69c3a');
+                            $step3.find('.dfn-success-icon').html('⏳').css('color', '#e74f30');
                             $step3.find('.dfn-success-title').html('In Lista d\'Attesa').css('color', '#854d0e');
                         }
 
@@ -590,5 +590,46 @@ jQuery(document).ready(function($) {
 
         validateStep1();
     });
+
+    // -----------------------------------------------------------------------
+    // Countdown Apertura Prenotazioni in tempo reale
+    // -----------------------------------------------------------------------
+    $('.dfn-opening-countdown-card').each(function() {
+        var $card = $(this);
+        var targetTs = parseInt($card.data('opening-ts')) * 1000; // in millisecondi
+
+        if (!targetTs || isNaN(targetTs)) return;
+
+        var $days  = $card.find('.dfn-cd-days');
+        var $hours = $card.find('.dfn-cd-hours');
+        var $mins  = $card.find('.dfn-cd-mins');
+        var $secs  = $card.find('.dfn-cd-secs');
+
+        function updateTimer() {
+            var now = new Date().getTime();
+            var diff = targetTs - now;
+
+            if (diff <= 0) {
+                // Tempo scaduto: ricarica la pagina per mostrare il form di prenotazione sbloccato
+                clearInterval(timerInterval);
+                window.location.reload();
+                return;
+            }
+
+            var days  = Math.floor(diff / (1000 * 60 * 60 * 24));
+            var hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            var mins  = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            var secs  = Math.floor((diff % (1000 * 60)) / 1000);
+
+            $days.text(days < 10 ? '0' + days : days);
+            $hours.text(hours < 10 ? '0' + hours : hours);
+            $mins.text(mins < 10 ? '0' + mins : mins);
+            $secs.text(secs < 10 ? '0' + secs : secs);
+        }
+
+        updateTimer();
+        var timerInterval = setInterval(updateTimer, 1000);
+    });
 });
+
 
