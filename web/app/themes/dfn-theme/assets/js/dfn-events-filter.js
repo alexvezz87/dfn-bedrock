@@ -82,7 +82,7 @@
                     });
 
                     $card.stop(true).animate({ opacity: 0 }, {
-                        duration: 1000,
+                        duration: 500,
                         complete: function() {
                             $card.hide().css({
                                 position: '',
@@ -116,7 +116,7 @@
                 if ($card.is(':hidden')) {
                     $card.css({ display: '', opacity: 0 });
                 }
-                $card.stop(true).animate({ opacity: 1 }, 1000);
+                $card.stop(true).animate({ opacity: 1 }, 500);
             });
 
             // 5. FLIP ANIMATION: Fai scivolare in modo fluido le schedine rimaste verso i loro nuovi posti
@@ -134,7 +134,7 @@
                             el.style.transition = 'none';
 
                             requestAnimationFrame(function() {
-                                el.style.transition = 'transform 1000ms cubic-bezier(0.4, 0, 0.2, 1)';
+                                el.style.transition = 'transform 500ms cubic-bezier(0.4, 0, 0.2, 1)';
                                 el.style.transform = '';
                             });
                         }
