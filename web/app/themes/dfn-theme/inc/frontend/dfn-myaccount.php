@@ -23,6 +23,16 @@ add_action('woocommerce_created_customer', 'dfn_associate_past_orders_to_new_cus
 add_filter('woocommerce_registration_auth_new_customer', '__return_false');
 add_filter('woocommerce_registration_redirect', 'dfn_registration_redirect_with_notice', 10, 1);
 
+// Intestazione grafica per la pagina login/registrazione utenti non loggati
+add_action('woocommerce_before_customer_login_form', 'dfn_render_login_page_header');
+function dfn_render_login_page_header(): void
+{
+    echo '<div class="dfn-auth-header">';
+    echo '<h1 class="dfn-auth-title">Area Riservata</h1>';
+    echo '<p class="dfn-auth-subtitle">Accedi o registrati alla piattaforma per gestire al meglio le tue prenotazioni agli eventi del FAI Novara</p>';
+    echo '</div>';
+}
+
 // Aggiunge la voce di menu rapida "Biglietto Gruppo" alla lista degli ordini cliente
 add_filter('woocommerce_my_account_my_orders_actions', 'dfn_add_group_tickets_action_button', 10, 2);
 
@@ -44,6 +54,14 @@ function dfn_enqueue_myaccount_assets(): void
             '2.1.0',
         );
 
+        // Tour guidato balloon
+        wp_enqueue_style(
+            'dfn-tour-css',
+            get_stylesheet_directory_uri() . '/assets/css/dfn-tour.css',
+            [],
+            '2.0.0',
+        );
+
         wp_enqueue_script(
             'dfn-myaccount-modals',
             get_stylesheet_directory_uri() . '/assets/js/dfn-myaccount-modals.js',
@@ -51,6 +69,116 @@ function dfn_enqueue_myaccount_assets(): void
             '2.1.0',
             true // in_footer = true: il JS viene caricato prima del </body>, quando il DOM è già completo
         );
+
+        wp_enqueue_script(
+            'dfn-tour',
+            get_stylesheet_directory_uri() . '/assets/js/dfn-tour.js',
+            [],
+            '2.0.0',
+            true,
+        );
+
+        // Dati degli step del tour passati in modo sicuro da PHP a JS
+        wp_localize_script('dfn-tour', 'dfnTourData', [
+            'tours' => [
+                // Tour 0 — Bacheca Principale & Tour del Menu Laterale
+                [
+                    'storageKey'    => 'dfn_tour_dashboard_done',
+                    'sectionAnchor' => '.dfn-dashboard-hub',
+                    'steps'         => [
+                        [
+                            'selector' => '.dfn-dashboard-hub',
+                            'title'    => '👋 La Tua Area Riservata FAI',
+                            'content'  => 'Benvenuto nella tua bacheca personale! Da qui puoi gestire tutte le tue esperienze, consultare i biglietti e accedere ai vantaggi dedicati ai sostenitori FAI.',
+                        ],
+                        [
+                            'selector' => '.woocommerce-MyAccount-navigation-link--dashboard a',
+                            'title'    => '📊 Sezione: Bacheca',
+                            'content'  => 'La <strong>Bacheca</strong> è la tua schermata principale. Qui trovi il riepilogo in tempo reale con il tuo prossimo appuntamento imminente, le statistiche di visita e le novità del FAI Novara.',
+                        ],
+                        [
+                            'selector' => '.woocommerce-MyAccount-navigation-link--orders a',
+                            'title'    => '🎟️ Sezione: Le Mie Prenotazioni',
+                            'content'  => 'In questa sezione puoi consultare tutte le tue prenotazioni passate e future. Da qui puoi <strong>scaricare i tuoi biglietti</strong> con QR Code, <strong>modificare il numero di partecipanti</strong> o <strong>annullare i posti</strong> in caso di imprevisti.',
+                        ],
+                        [
+                            'selector' => '.woocommerce-MyAccount-navigation-link--tessere-fai a',
+                            'title'    => '🪪 Sezione: Tessere FAI',
+                            'content'  => 'Gestisci e inserisci qui le tue <strong>Tessere Iscritto FAI</strong>. Una volta verificate dalla segreteria, sbloccherai le quote agevolate durante la prenotazione e potrai mostrare la tua tessera digitale con QR Code direttamente all\'ingresso degli eventi.',
+                        ],
+                        [
+                            'selector' => '.woocommerce-MyAccount-navigation-link--edit-account a',
+                            'title'    => '👤 Sezione: Dettagli Account',
+                            'content'  => 'In questa sezione puoi aggiornare i tuoi dati personali (nome, cognome, indirizzo email di contatto) e modificare la tua password di accesso in totale sicurezza.',
+                        ],
+                        [
+                            'selector' => '.woocommerce-MyAccount-navigation-link--customer-logout a',
+                            'title'    => '🚪 Sezione: Esci',
+                            'content'  => 'Clicca qui per disconnetterti in modo sicuro dal tuo account quando utilizzi dispositivi pubblici o condivisi.',
+                        ],
+                    ],
+                ],
+                // Tour 1 — Le Mie Prenotazioni
+                [
+                    'storageKey'    => 'dfn_tour_bookings_done',
+                    'sectionAnchor' => '#dfn-my-bookings-section',
+                    'steps'         => [
+                        [
+                            'selector' => '#dfn-my-bookings-section .dfn-dashboard-title',
+                            'title'    => '📅 Benvenuto nel tuo Botteghino!',
+                            'content'  => 'Questa è la tua bacheca personale delle prenotazioni FAI. Trovi tutte le tue prenotazioni suddivise tra <strong>Prossimi eventi</strong> e <strong>Visite passate</strong>.',
+                        ],
+                        [
+                            'selector' => '#dfn-my-bookings-section .dfn-bookings-group-upcoming',
+                            'title'    => '📆 Prossimi Eventi',
+                            'content'  => 'Qui trovi tutti gli eventi ai quali sei prenotato e che non si sono ancora svolti. Clicca su una card per espandere il dettaglio della tua prenotazione.',
+                        ],
+                        [
+                            'selector' => '#dfn-my-bookings-section .dfn-booking-accordion',
+                            'title'    => '📂 Apri i dettagli',
+                            'content'  => 'Ogni card è <strong>espandibile</strong>: clicca sulla riga per vedere orario del turno, numero di posti prenotati e modalità di pagamento.',
+                        ],
+                        [
+                            'selector' => '#dfn-my-bookings-section .dfn-booking-status-badge',
+                            'title'    => '🏷️ Badge di Stato',
+                            'content'  => 'Il badge colorato indica lo stato: <strong style="color:#15803d">Verde = Confermata</strong>, <strong style="color:#b45309">Giallo = In attesa pagamento</strong>, <strong style="color:#dc2626">Rosso = Annullata</strong>.',
+                        ],
+                        [
+                            'selector' => '#dfn-my-bookings-section .dfn-action-modify',
+                            'title'    => '✏️ Modifica Partecipanti',
+                            'content'  => 'Hai prenotato per troppe persone? Clicca <strong>Modifica</strong> per ridurre il numero di partecipanti Standard o Soci FAI. Non è possibile aumentarli: per aggiungere persone effettua una nuova prenotazione.',
+                        ],
+                        [
+                            'selector' => '#dfn-my-bookings-section .dfn-btn-cancel-booking',
+                            'title'    => '❌ Annullamento Prenotazione',
+                            'content'  => 'Non riesci più a partecipare? Clicca <strong>Annulla</strong> per liberare i tuoi posti in modo che possano essere prenotati da altri utenti. L\'operazione è definitiva.',
+                        ],
+                    ],
+                ],
+                // Tour 2 — Tessere FAI
+                [
+                    'storageKey'    => 'dfn_tour_fai_done',
+                    'sectionAnchor' => '#dfn-fai-section',
+                    'steps'         => [
+                        [
+                            'selector' => '#dfn-fai-section .dfn-dashboard-title',
+                            'title'    => '🪪 Le Mie Tessere FAI',
+                            'content'  => 'In questa sezione puoi registrare e consultare le tue <strong>Tessere FAI</strong>. Le tessere verificate ti permettono di prenotare eventi al contributo riservato ai Soci.',
+                        ],
+                        [
+                            'selector' => '#dfn-fai-section .dfn-add-fai-card-wrapper',
+                            'title'    => '➕ Aggiungi una Tessera',
+                            'content'  => 'Inserisci <strong>nome, cognome e numero di tessera</strong> e clicca "Invia Tessera". Lo staff FAI verificherà i dati: la tessera apparirà come attiva entro breve.',
+                        ],
+                        [
+                            'selector' => '#dfn-fai-section .dfn-fai-digital-card',
+                            'title'    => '💳 La tua Tessera Digitale',
+                            'content'  => 'Una volta verificata, la tessera appare in formato digitale con tutti i dettagli e il <strong>QR Code</strong>. Puoi mostrarla direttamente dallo schermo al banchetto di un evento.',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
 
         // Passa l'URL AJAX al file JS in modo sicuro (non inline nel template PHP)
         wp_localize_script('dfn-myaccount-modals', 'dfnMyaccountModals', [
@@ -275,7 +403,7 @@ function dfn_fai_cards_endpoint_content(): void
     $default_first_name = $current_user->first_name ?: '';
     $default_last_name  = $current_user->last_name ?: '';
     ?>
-    <div class="dfn-fai-dashboard-section">
+    <div class="dfn-fai-dashboard-section" id="dfn-fai-section">
         <h2 class="dfn-dashboard-title"><?php esc_html_e('Le Mie Tessere FAI', 'dfn-theme'); ?></h2>
         <p class="dfn-dashboard-desc"><?php esc_html_e('In questa sezione puoi gestire ed associare le tue tessere FAI. Le tessere verificate dalla segreteria saranno disponibili come suggerimenti rapidi durante la prenotazione degli eventi.', 'dfn-theme'); ?></p>
 
@@ -436,6 +564,13 @@ function dfn_fai_cards_endpoint_content(): void
     <?php
 }
 
+// Rimuove il testo introduttivo standard di WooCommerce ("Ciao Alex... Dalla bacheca del tuo account puoi...")
+remove_action('woocommerce_account_dashboard', 'woocommerce_account_welcome_events', 10);
+remove_action('woocommerce_account_dashboard', 'woocommerce_account_dashboard', 10);
+
+// Inserisce la nostra bacheca FAI personalizzata
+add_action('woocommerce_account_dashboard', 'dfn_custom_myaccount_dashboard_content', 5);
+
 // Sostituisce il rendering standard degli ordini WooCommerce con la nostra visualizzazione avanzata prenotazioni
 remove_action('woocommerce_account_orders_endpoint', 'woocommerce_account_orders');
 add_action('woocommerce_account_orders_endpoint', 'dfn_custom_myaccount_bookings_content');
@@ -522,7 +657,7 @@ function dfn_custom_myaccount_bookings_content(): void
     // Invertiamo l'ordine dei passati per mostrare i più recenti per primi
     $past_groups = array_reverse($past_groups, true);
     ?>
-    <div class="dfn-my-bookings-section">
+    <div class="dfn-my-bookings-section" id="dfn-my-bookings-section">
         <h2 class="dfn-dashboard-title"><?php esc_html_e('Le Mie Prenotazioni', 'dfn-theme'); ?></h2>
         <p class="dfn-dashboard-desc"><?php esc_html_e('Qui puoi consultare lo storico di tutte le tue prenotazioni suddiviso tra eventi in arrivo e visite già effettuate.', 'dfn-theme'); ?></p>
 
@@ -1091,3 +1226,254 @@ function dfn_ajax_visitor_submit_cancel(): void
         wp_send_json_error(__('Errore di sistema nell\'annullamento.', 'dfn-theme'));
     }
 }
+
+/**
+ * Renderizza la Bacheca (Dashboard) personalizzata dell'area riservata FAI.
+ */
+function dfn_custom_myaccount_dashboard_content(): void
+{
+    $current_user_id = get_current_user_id();
+    if (! $current_user_id) {
+        return;
+    }
+
+    $current_user = wp_get_current_user();
+    $display_name = $current_user->first_name ?: $current_user->display_name;
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $table_events   = $wpdb->prefix . 'dfn_events';
+    $table_fai      = $wpdb->prefix . 'dfn_fai_members';
+
+    // Email associate
+    $emails = [ $current_user->user_email ];
+    $billing_email = get_user_meta($current_user_id, 'billing_email', true);
+    if ($billing_email && ! in_array($billing_email, $emails, true)) {
+        $emails[] = $billing_email;
+    }
+
+    $customer_orders = wc_get_orders([
+        'customer' => $current_user_id,
+        'limit'    => -1,
+        'return'   => 'ids',
+    ]);
+
+    $email_placeholders = implode(',', array_fill(0, count($emails), '%s'));
+
+    if (! empty($customer_orders)) {
+        $ids_in = implode(',', array_map('intval', $customer_orders));
+        $sql = "SELECT b.*, e.event_date_start, e.event_time_start, e.location, e.product_id 
+                FROM {$table_bookings} b
+                JOIN {$table_events} e ON b.event_id = e.id
+                WHERE (b.customer_email IN ({$email_placeholders}) OR b.order_id IN ({$ids_in}))
+                ORDER BY e.event_date_start ASC, e.event_time_start ASC";
+        $prepare_args = $emails;
+        $query = $wpdb->prepare($sql, $prepare_args);
+    } else {
+        $sql = "SELECT b.*, e.event_date_start, e.event_time_start, e.location, e.product_id 
+                FROM {$table_bookings} b
+                JOIN {$table_events} e ON b.event_id = e.id
+                WHERE b.customer_email IN ({$email_placeholders})
+                ORDER BY e.event_date_start ASC, e.event_time_start ASC";
+        $query = $wpdb->prepare($sql, $emails);
+    }
+
+    $all_bookings = $wpdb->get_results($query);
+
+    // Filtra prossimi vs passati vs effettivamente svolti (checkin)
+    $current_time     = current_time('timestamp');
+    $upcoming_list    = [];
+    $visited_list     = [];
+    $confirmed_count  = 0;
+
+    if (is_array($all_bookings)) {
+        foreach ($all_bookings as $b) {
+            $order = wc_get_order($b->order_id);
+            $order_status = $order ? $order->get_status() : '';
+            $is_cancelled = ($b->status === 'cancelled' || in_array($order_status, ['cancelled', 'refunded', 'failed'], true));
+
+            if (! $is_cancelled) {
+                $confirmed_count++;
+                $event_datetime = strtotime($b->event_date_start . ' ' . $b->event_time_start);
+                
+                if ($event_datetime >= $current_time) {
+                    $upcoming_list[] = $b;
+                }
+                if (! empty($b->checked_in_at)) {
+                    $visited_list[] = $b;
+                }
+            }
+        }
+    }
+
+    // Tessere FAI verificate
+    $verified_cards_count = (int) $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$table_fai} WHERE (user_id = %d OR (email IS NOT NULL AND email != '' AND LOWER(email) = LOWER(%s))) AND verified = 1",
+            $current_user_id,
+            $current_user->user_email
+        )
+    );
+
+    // Prossimi eventi a calendario (pubblici in arrivo)
+    $upcoming_catalog_events = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT * FROM {$table_events} WHERE (status = 'published' OR status = 'publish' OR status IS NULL OR status = '') AND event_date_start >= %s ORDER BY event_date_start ASC LIMIT 3",
+            current_time('Y-m-d')
+        )
+    );
+
+    $next_booking = ! empty($upcoming_list) ? $upcoming_list[0] : null;
+    ?>
+    <div class="dfn-dashboard-hub" style="display: flex; flex-direction: column; gap: 24px; font-family: 'Outfit', sans-serif;">
+        
+        <!-- 1. Hero Saluto & Contatori -->
+        <div style="background: linear-gradient(135deg, #004b23 0%, #006b35 100%); color: #ffffff; border-radius: 16px; padding: 24px 28px; box-shadow: 0 10px 25px rgba(0,75,35,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div>
+                <h2 style="color: #ffffff; margin: 0 0 6px 0; font-size: 22px; font-weight: 800;">
+                    <?php printf(esc_html__('Benvenuto, %s! 👋', 'dfn-theme'), esc_html($display_name)); ?>
+                </h2>
+                <p style="margin: 0; color: rgba(255,255,255,0.85); font-size: 14px;">
+                    <?php esc_html_e('Riepilogo delle tue prenotazioni ed esperienze con FAI Novara', 'dfn-theme'); ?>
+                </p>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+                <div style="background: rgba(255,255,255,0.15); padding: 10px 18px; border-radius: 12px; backdrop-filter: blur(5px); text-align: center; min-width: 80px;">
+                    <span style="display: block; font-size: 20px; font-weight: 900; line-height: 1; margin-bottom: 4px;"><?php echo count($upcoming_list); ?></span>
+                    <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; font-weight: 700;"><?php esc_html_e('Prenotazioni', 'dfn-theme'); ?></span>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); padding: 10px 18px; border-radius: 12px; backdrop-filter: blur(5px); text-align: center; min-width: 80px;">
+                    <span style="display: block; font-size: 20px; font-weight: 900; line-height: 1; margin-bottom: 4px;"><?php echo count($visited_list); ?></span>
+                    <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; font-weight: 700;"><?php esc_html_e('Visitati', 'dfn-theme'); ?></span>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); padding: 10px 18px; border-radius: 12px; backdrop-filter: blur(5px); text-align: center; min-width: 80px;">
+                    <span style="display: block; font-size: 20px; font-weight: 900; line-height: 1; margin-bottom: 4px;"><?php echo $verified_cards_count; ?></span>
+                    <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; font-weight: 700;"><?php esc_html_e('Tessere FAI', 'dfn-theme'); ?></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Prossimo Appuntamento Spotlight Card -->
+        <?php if ($next_booking) :
+            $order = wc_get_order($next_booking->order_id);
+            $hub_token = $order ? hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce')) : '';
+            $hub_url   = $order ? home_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token) : '';
+            $product_id = $next_booking->product_id;
+            $event_title = $product_id ? get_the_title($product_id) : __('Evento FAI', 'dfn-theme');
+            $image_url = $product_id ? get_the_post_thumbnail_url($product_id, 'medium_large') : '';
+            $date_formatted = date_i18n('l d F Y', strtotime($next_booking->event_date_start));
+            $time_formatted = date('H:i', strtotime($next_booking->event_time_start));
+            ?>
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 22px 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                <div style="font-size: 11.5px; font-weight: 800; color: #e74f30; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                    <span>🌟</span> <?php esc_html_e('Il tuo prossimo appuntamento FAI', 'dfn-theme'); ?>
+                </div>
+                <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                    <?php if ($image_url) : ?>
+                        <div style="width: 130px; height: 90px; border-radius: 12px; overflow: hidden; flex-shrink: 0;">
+                            <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($event_title); ?>" style="width: 100%; height: 100%; object-fit: cover;" />
+                        </div>
+                    <?php endif; ?>
+                    <div style="flex: 1; min-width: 220px;">
+                        <h3 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 800; color: #1e293b;"><?php echo esc_html($event_title); ?></h3>
+                        <div style="display: flex; gap: 14px; font-size: 13px; color: #475569; font-weight: 600; flex-wrap: wrap; margin-bottom: 8px;">
+                            <span>🗓️ <?php echo esc_html(ucfirst($date_formatted)); ?></span>
+                            <span>⏰ Ore <?php echo esc_html($time_formatted); ?></span>
+                            <span>📍 <?php echo esc_html($next_booking->location); ?></span>
+                        </div>
+                        <div style="font-size: 12.5px; color: #64748b;">
+                            Prenotato per <strong><?php echo absint($next_booking->total_persons); ?> <?php echo $next_booking->total_persons === 1 ? 'persona' : 'persone'; ?></strong> (Ordine #<?php echo esc_html($next_booking->order_id); ?>)
+                        </div>
+                    </div>
+                    <?php if ($hub_url) : ?>
+                        <div>
+                            <a href="<?php echo esc_url($hub_url); ?>" class="button" style="background: #004b23; color: #ffffff; border-radius: 50px; font-weight: 800; padding: 10px 22px; font-size: 13px; border: none; display: inline-flex; align-items: center; gap: 6px;">
+                                🎟️ <?php esc_html_e('Mostra Biglietto', 'dfn-theme'); ?>
+                            </a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- 3. Griglia Paritaria Box Sottostanti (Spazio uniforme 50/50 full width) -->
+        <div style="display: flex; flex-wrap: wrap; gap: 24px; width: 100%; box-sizing: border-box;">
+            
+            <!-- Box A: Eventi in Programmazione -->
+            <div style="flex: 1 1 280px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="margin: 0; font-size: 15.5px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
+                            <span>🏛️</span> <?php esc_html_e('Prossimi Eventi FAI', 'dfn-theme'); ?>
+                        </h3>
+                        <a href="<?php echo esc_url(home_url()); ?>" style="font-size: 12px; font-weight: 700; color: #e74f30; text-decoration: none;"><?php esc_html_e('Vedi tutti →', 'dfn-theme'); ?></a>
+                    </div>
+                    
+                    <?php if (! empty($upcoming_catalog_events)) : ?>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <?php foreach ($upcoming_catalog_events as $cat_evt) :
+                                $title = get_the_title($cat_evt->product_id) ?: __('Evento FAI', 'dfn-theme');
+                                $permalink = get_permalink($cat_evt->product_id);
+                                $date_str = date_i18n('d M Y', strtotime($cat_evt->event_date_start));
+                                ?>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
+                                    <div style="flex: 1; padding-right: 8px;">
+                                        <h4 style="margin: 0 0 2px 0; font-size: 13px; font-weight: 700; color: #1e293b;"><?php echo esc_html($title); ?></h4>
+                                        <div style="font-size: 11px; color: #64748b;">📍 <?php echo esc_html($cat_evt->city ?: $cat_evt->location); ?> • 🗓️ <?php echo esc_html($date_str); ?></div>
+                                    </div>
+                                    <a href="<?php echo esc_url($permalink); ?>" class="button" style="background: #ffffff; color: #004b23; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 11px; font-weight: 700; padding: 4px 12px; white-space: nowrap;"><?php esc_html_e('Prenota', 'dfn-theme'); ?></a>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else : ?>
+                        <div style="text-align: center; padding: 24px 12px; color: #64748b;">
+                            <div style="font-size: 24px; margin-bottom: 6px;">📅</div>
+                            <p style="margin: 0; font-size: 13px;"><?php esc_html_e('Nessun nuovo evento in programma al momento.', 'dfn-theme'); ?></p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Box B: Luoghi Visitati (Check-in Effettuati) -->
+            <div style="flex: 1 1 280px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="margin: 0; font-size: 15.5px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
+                            <span>✅</span> <?php esc_html_e('I Tuoi Luoghi Visitati', 'dfn-theme'); ?>
+                        </h3>
+                    </div>
+
+                    <?php if (! empty($visited_list)) : ?>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <?php foreach (array_slice($visited_list, 0, 3) as $v_item) :
+                                $v_title = $v_item->product_id ? get_the_title($v_item->product_id) : __('Evento FAI', 'dfn-theme');
+                                $checkin_date = date_i18n('d/m/Y', strtotime($v_item->checked_in_at));
+                                ?>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0;">
+                                    <div style="flex: 1; padding-right: 8px;">
+                                        <h4 style="margin: 0 0 2px 0; font-size: 13px; font-weight: 700; color: #166534;"><?php echo esc_html($v_title); ?></h4>
+                                        <div style="font-size: 11px; color: #15803d;">📍 <?php echo esc_html($v_item->location); ?></div>
+                                    </div>
+                                    <span style="font-size: 10.5px; font-weight: 700; background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 12px; white-space: nowrap;">
+                                        ✓ <?php echo esc_html($checkin_date); ?>
+                                    </span>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else : ?>
+                        <div style="text-align: center; padding: 24px 12px; color: #64748b;">
+                            <div style="font-size: 24px; margin-bottom: 6px;">🎟️</div>
+                            <p style="margin: 0; font-size: 13px; line-height: 1.5;"><?php esc_html_e('Non risultano ancora visite effettuate. Quando parteciperai a un evento e lo staff scansionerà il tuo biglietto, apparirà qui!', 'dfn-theme'); ?></p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+        </div>
+
+
+    </div>
+    <?php
+}
+

@@ -97,15 +97,12 @@ function cv_render_login_biglietti_shortcode()
     return $style . $bottone;
 }
 
-// Inietta nel footer
-add_action('wp_footer', 'cv_inietta_bottone_fluttuante');
+// 3. INIEZIONE BOLLA FLUTTUANTE (Disabilitata: il pulsante è ora integrato nell'header del sito)
+// add_action('wp_footer', 'cv_inietta_bottone_fluttuante');
 function cv_inietta_bottone_fluttuante()
 {
-    if (is_checkout() || is_cart() || is_account_page()) {
-        return;
-    }
-    echo '<div class="cv-floating-widget">' . do_shortcode('[cv_login_biglietti]') . '</div>';
-    echo '<style>.cv-floating-widget { position: fixed; top: 30px; right: 30px; z-index: 99990; animation: cvPremiumSlideIn 0.8s cubic-bezier(0.23, 1, 0.32, 1) both; will-change: transform, opacity; } @keyframes cvPremiumSlideIn { 0% { opacity: 0; transform: translate(30px, 30px) rotate(5deg) scale(0.9); } 100% { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); } } @media (max-width: 768px) { .cv-floating-widget { top: 20px; right: 20px; } }</style>';
+    // Disabilitato in favore dell'header integrato
+    return;
 }
 
 /**

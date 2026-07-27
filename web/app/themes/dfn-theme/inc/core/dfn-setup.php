@@ -45,6 +45,26 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             [ 'hello-elementor', 'hello-elementor-theme-style' ],
         );
 
+        // Enqueue dell'Header DFN (CSS e JS)
+        wp_enqueue_style(
+            'dfn-header-css',
+            trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-header.css',
+            [],
+            file_exists(get_stylesheet_directory() . '/assets/css/dfn-header.css')
+                ? filemtime(get_stylesheet_directory() . '/assets/css/dfn-header.css')
+                : '2.0.0',
+        );
+
+        wp_enqueue_script(
+            'dfn-header-js',
+            trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-header.js',
+            [],
+            file_exists(get_stylesheet_directory() . '/assets/js/dfn-header.js')
+                ? filemtime(get_stylesheet_directory() . '/assets/js/dfn-header.js')
+                : '2.0.0',
+            true,
+        );
+
         // Enqueue del widget selettore turni (CSS e JS) per il frontend
         wp_enqueue_style(
             'dfn-slot-selector-css',
@@ -415,3 +435,21 @@ function dfn_redirect_volunteer_wp(string $redirect_to, string $request, $user):
     return $redirect_to;
 }
 add_filter('login_redirect', 'dfn_redirect_volunteer_wp', 99, 3);
+
+/**
+ * Registrazione funzionalità del tema (Custom Logo, Menu Location)
+ */
+function dfn_theme_supports(): void
+{
+    add_theme_support('custom-logo', [
+        'height'      => 60,
+        'width'       => 220,
+        'flex-height' => true,
+        'flex-width'  => true,
+    ]);
+    register_nav_menus([
+        'menu-1' => __('Header Menu', 'dfn-theme'),
+    ]);
+}
+add_action('after_setup_theme', 'dfn_theme_supports', 20);
+

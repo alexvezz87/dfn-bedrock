@@ -433,7 +433,7 @@ function dfn_send_booking_approval_status(int $booking_id, bool $approved = true
         }
 
         if (! $is_fai_pending) {
-            $content .= '<p>Se hai già effettuato transazioni online relative a questo ordine, verrà emesso un rimborso integrale nel più breve tempo possibile.</p>';
+            $content .= '<p>I posti precedentemente riservati sono stati liberati e resi nuovamente disponibili.</p>';
         }
 
         $subject = dfn_replace_email_placeholders(dfn_get_setting($subj_setting), $replacements);
@@ -543,7 +543,7 @@ function dfn_send_booking_admin_cancellation(int $booking_id): bool
     }
 
     if ($booking->payment_method !== 'dfn_in_loco' && (float) $booking->amount_paid > 0) {
-        $content .= '<p>Qualora tu abbia già versato il contributo online, ti sarà emesso un rimborso integrale nel più breve tempo possibile.</p>';
+        $content .= '<p>I posti precedentemente riservati sono stati liberati e resi nuovamente disponibili.</p>';
     }
 
     $content .= '<p>Speriamo di poterti accogliere in uno dei nostri prossimi eventi FAI.</p>';

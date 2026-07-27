@@ -1,0 +1,276 @@
+/**
+ * DFN Theme Header Styles
+ * Style ispirato all'header del FAI (Fondo per l'Ambiente Italiano)
+ */
+
+.dfn-site-header {
+    position: sticky;
+    top: 0;
+    z-index: 99990;
+    width: 100%;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e9ecef;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dfn-header-container {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 24px;
+    height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+/* 1. Logo */
+.dfn-header-logo {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.dfn-header-logo img,
+.dfn-header-logo .custom-logo {
+    max-height: 48px;
+    width: auto;
+    display: block;
+    object-fit: contain;
+}
+
+.dfn-header-logo .dfn-logo-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #004d35;
+}
+
+.dfn-header-logo .dfn-logo-text {
+    font-size: 22px;
+    font-weight: 800;
+    color: #004d35;
+    letter-spacing: -0.5px;
+    text-transform: uppercase;
+    font-family: inherit;
+}
+
+/* 2. Menu Navigazione Desktop */
+.dfn-header-nav {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+
+.dfn-header-menu {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 28px;
+}
+
+.dfn-header-menu li {
+    margin: 0;
+    padding: 0;
+    position: relative;
+}
+
+.dfn-header-menu li a {
+    font-size: 15px;
+    font-weight: 600;
+    color: #212529;
+    text-decoration: none;
+    padding: 8px 0;
+    transition: color 0.2s ease;
+    display: inline-block;
+    position: relative;
+    letter-spacing: 0.2px;
+}
+
+.dfn-header-menu li a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: #004d35;
+    transition: width 0.25s ease;
+}
+
+.dfn-header-menu li a:hover,
+.dfn-header-menu li.current-menu-item > a,
+.dfn-header-menu li.current_page_item > a {
+    color: #004d35;
+}
+
+.dfn-header-menu li a:hover::after,
+.dfn-header-menu li.current-menu-item > a::after,
+.dfn-header-menu li.current_page_item > a::after {
+    width: 100%;
+}
+
+/* 3. Area Utente / Login */
+.dfn-header-user-action {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Adattamento elegante del bottone login/registrazione dentro l'header */
+.dfn-header-user-action .cv-dynamic-login-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    height: 44px !important;
+    width: auto !important;
+    padding: 0 18px 0 14px !important;
+    border-radius: 50px !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+    text-decoration: none !important;
+    border: 1.5px solid #dcdcdc !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.25s ease !important;
+    cursor: pointer !important;
+    overflow: visible !important;
+    animation: none !important;
+}
+
+.dfn-header-user-action .cv-dynamic-login-btn:hover {
+    border-color: #004d35 !important;
+    color: #004d35 !important;
+    box-shadow: 0 4px 14px rgba(0, 77, 53, 0.12) !important;
+    transform: translateY(-1px);
+    width: auto !important;
+}
+
+.dfn-header-user-action .cv-dynamic-login-btn.logged-in:hover {
+    width: auto !important;
+}
+
+.dfn-header-user-action .cv-main-icon {
+    width: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0 !important;
+    color: currentColor !important;
+    margin: 0 !important;
+    transform: none !important;
+}
+
+.dfn-header-user-action .cv-btn-text {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    margin: 0 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: inherit !important;
+}
+
+/* 4. Responsive & Mobile Toggle */
+.dfn-mobile-toggle {
+    display: none;
+    background: transparent;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    color: #111111;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+}
+
+.dfn-mobile-toggle:hover {
+    background-color: #f1f3f5;
+}
+
+.dfn-mobile-toggle svg {
+    width: 26px;
+    height: 26px;
+    display: block;
+}
+
+.dfn-mobile-toggle .icon-close {
+    display: none;
+}
+
+.dfn-mobile-toggle.is-active .icon-menu {
+    display: none;
+}
+
+.dfn-mobile-toggle.is-active .icon-close {
+    display: block;
+}
+
+/* Mobile Layout (< 992px) */
+@media (max-width: 991px) {
+    .dfn-header-container {
+        height: 66px;
+        padding: 0 16px;
+    }
+
+    .dfn-mobile-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .dfn-header-nav {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: #ffffff;
+        border-bottom: 1px solid #e9ecef;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+        padding: 16px 24px;
+        flex-direction: column;
+        align-items: flex-start;
+        display: none;
+        width: 100%;
+    }
+
+    .dfn-header-nav.is-open {
+        display: flex;
+    }
+
+    .dfn-header-menu {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+        gap: 0;
+    }
+
+    .dfn-header-menu li {
+        width: 100%;
+        border-bottom: 1px solid #f1f3f5;
+    }
+
+    .dfn-header-menu li:last-child {
+        border-bottom: none;
+    }
+
+    .dfn-header-menu li a {
+        display: block;
+        padding: 12px 0;
+        width: 100%;
+        font-size: 16px;
+    }
+
+    .dfn-header-menu li a::after {
+        display: none;
+    }
+
+    .dfn-header-user-action {
+        margin-left: auto;
+    }
+
+    .dfn-header-user-action .cv-dynamic-login-btn {
+        height: 40px !important;
+        padding: 0 14px 0 12px !important;
+    }
+}

@@ -1,0 +1,352 @@
+/**
+ * DFN Tour — Guided Tutorial Balloon System
+ * Area Riservata FAI Prenotazioni
+ *
+ * @package DFN_Theme
+ * @since   2.0.0
+ */
+
+/* =========================================================
+   VARIABILI
+   ========================================================= */
+:root {
+    --dfn-tour-primary:    #004b23;
+    --dfn-tour-accent:     #e74f30;
+    --dfn-tour-bg:         #ffffff;
+    --dfn-tour-text:       #1e293b;
+    --dfn-tour-muted:      #64748b;
+    --dfn-tour-border:     #e2e8f0;
+    --dfn-tour-shadow:     0 20px 40px -8px rgba(0,0,0,0.25), 0 8px 16px -4px rgba(0,0,0,0.12);
+    --dfn-tour-radius:     14px;
+    --dfn-tour-z:          999900;
+}
+
+/* =========================================================
+   MASK — rettangoli oscuranti intorno all elemento target
+   ========================================================= */
+.dfn-tour-mask {
+    position: fixed;
+    background: rgba(10, 22, 40, 0.62);
+    z-index: var(--dfn-tour-z);
+    pointer-events: all;
+    transition: all 0.28s ease;
+}
+
+/* =========================================================
+   HIGHLIGHT — finestra trasparente cliccabile sull elemento
+   ========================================================= */
+.dfn-tour-highlight-hole {
+    position: fixed;
+    z-index: calc(var(--dfn-tour-z) + 1);
+    border-radius: 8px;
+    box-shadow: 0 0 0 3px #004b23, 0 0 0 5px rgba(0,75,35,0.3);
+    pointer-events: none;
+    transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* =========================================================
+   BALLOON
+   ========================================================= */
+.dfn-tour-balloon {
+    position: fixed;
+    z-index: calc(var(--dfn-tour-z) + 2);
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    background: #ffffff;
+    border-radius: var(--dfn-tour-radius);
+    box-shadow: var(--dfn-tour-shadow);
+    border: 1px solid rgba(0,0,0,0.06);
+    overflow: visible;
+    animation: dfnTourBalloonIn 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+
+@keyframes dfnTourBalloonIn {
+    from { opacity: 0; transform: scale(0.88) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Freccia */
+.dfn-tour-balloon::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: #004b23;
+    transform: rotate(45deg);
+}
+
+.dfn-tour-balloon[data-pos="top"]::before {
+    bottom: -7px;
+    left: 28px;
+    border-top: none;
+    border-left: none;
+}
+
+.dfn-tour-balloon[data-pos="bottom"]::before {
+    top: -7px;
+    left: 28px;
+    border-bottom: none;
+    border-right: none;
+}
+
+.dfn-tour-balloon[data-pos="left"]::before {
+    right: -7px;
+    top: 22px;
+    border-top: none;
+    border-right: none;
+}
+
+.dfn-tour-balloon[data-pos="right"]::before {
+    left: -7px;
+    top: 22px;
+    border-bottom: none;
+    border-left: none;
+}
+
+.dfn-tour-balloon[data-pos="center"]::before {
+    display: none;
+}
+
+/* Header */
+.dfn-tour-balloon-header {
+    padding: 14px 16px 12px;
+    background: linear-gradient(135deg, #004b23 0%, #006b35 100%);
+    border-radius: var(--dfn-tour-radius) var(--dfn-tour-radius) 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.dfn-tour-balloon-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0;
+    line-height: 1.3;
+    flex: 1;
+    font-family: 'Outfit', sans-serif;
+}
+
+.dfn-tour-skip-btn {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.85);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+    font-family: 'Outfit', sans-serif;
+    flex-shrink: 0;
+}
+
+.dfn-tour-skip-btn:hover {
+    background: rgba(255,255,255,0.28);
+    color: #fff;
+}
+
+/* Body */
+.dfn-tour-balloon-body {
+    padding: 14px 16px 8px;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: #1e293b;
+    font-family: 'Outfit', sans-serif;
+}
+
+.dfn-tour-balloon-body p { margin: 0; }
+.dfn-tour-balloon-body strong { color: #004b23; }
+
+/* Progress dots */
+.dfn-tour-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px 2px;
+}
+.dfn-tour-dot {
+    width: 8px !important;
+    height: 8px !important;
+    min-width: 8px !important;
+    min-height: 8px !important;
+    max-width: 8px !important;
+    max-height: 8px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 50% !important;
+    background: #cbd5e1 !important;
+    transition: all 0.22s ease !important;
+    cursor: pointer;
+    box-shadow: none !important;
+    outline: none !important;
+    appearance: none;
+    -webkit-appearance: none;
+    display: block !important;
+    flex: 0 0 8px !important;
+}
+
+.dfn-tour-dot.active {
+    background: #004b23 !important;
+    transform: scale(1.35) !important;
+}
+
+.dfn-tour-dot.done {
+    background: #86efac !important;
+}
+
+/* Footer */
+.dfn-tour-balloon-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px 14px;
+    gap: 8px;
+}
+
+.dfn-tour-step-counter {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    white-space: nowrap;
+    font-family: 'Outfit', sans-serif;
+}
+
+.dfn-tour-nav {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.dfn-tour-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.18s ease;
+    font-family: 'Outfit', sans-serif;
+    line-height: 1;
+}
+
+.dfn-tour-btn-prev {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.dfn-tour-btn-prev:hover:not(:disabled) {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.dfn-tour-btn-prev:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.dfn-tour-btn-next {
+    background: #004b23;
+    color: #ffffff;
+}
+
+.dfn-tour-btn-next:hover {
+    background: #003a1b;
+    transform: translateX(1px);
+}
+
+.dfn-tour-btn-finish {
+    background: #e74f30;
+    color: #ffffff;
+}
+
+.dfn-tour-btn-finish:hover {
+    background: #c43d20;
+}
+
+/* =========================================================
+   FAB — Bottone flottante
+   ========================================================= */
+.dfn-tour-fab {
+    position: fixed;
+    bottom: 28px;
+    right: 24px;
+    z-index: calc(var(--dfn-tour-z) - 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #004b23;
+    color: #ffffff;
+    border: none;
+    border-radius: 50px;
+    padding: 11px 18px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,75,35,0.4), 0 2px 6px rgba(0,0,0,0.15);
+    transition: all 0.22s ease;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.02em;
+}
+
+.dfn-tour-fab:hover {
+    background: #003a1b;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,75,35,0.45), 0 4px 8px rgba(0,0,0,0.18);
+}
+
+.dfn-tour-fab-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.22);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    flex-shrink: 0;
+}
+
+.dfn-tour-fab.dfn-tour-fab-pulse {
+    animation: dfnTourFabPulse 2.2s ease-in-out 0.8s 3;
+}
+
+@keyframes dfnTourFabPulse {
+    0%,100% { box-shadow: 0 4px 14px rgba(0,75,35,0.4), 0 2px 6px rgba(0,0,0,0.15); }
+    50%     { box-shadow: 0 4px 14px rgba(0,75,35,0.4), 0 0 0 10px rgba(0,75,35,0.12), 0 2px 6px rgba(0,0,0,0.15); }
+}
+
+body.dfn-tour-running .dfn-tour-fab {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.85);
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+@media (max-width: 600px) {
+    .dfn-tour-balloon {
+        width: calc(100vw - 24px);
+    }
+    .dfn-tour-balloon::before {
+        display: none;
+    }
+    .dfn-tour-fab {
+        bottom: 18px;
+        right: 14px;
+        padding: 9px 14px;
+        font-size: 12.5px;
+    }
+    .dfn-tour-balloon-footer {
+        flex-wrap: wrap;
+    }
+}

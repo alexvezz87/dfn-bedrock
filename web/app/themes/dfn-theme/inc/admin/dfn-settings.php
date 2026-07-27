@@ -1052,7 +1052,7 @@ function dfn_ajax_send_test_email(): void
                 $content .= '<p style="margin:0; font-size:14px;">' . esc_html($motivo_text) . '</p>';
                 $content .= '</div>';
             }
-            $content .= '<p>Se hai già effettuato transazioni online relative a questo ordine, verrà emesso un rimborso integrale nel più breve tempo possibile.</p>';
+            $content .= '<p>I posti precedentemente riservati sono stati liberati e resi nuovamente disponibili.</p>';
 
             $subject = dfn_replace_email_placeholders(dfn_get_setting('email_declined_subject'), $replacements);
             $title   = dfn_replace_email_placeholders(dfn_get_setting('email_declined_title'), $replacements);

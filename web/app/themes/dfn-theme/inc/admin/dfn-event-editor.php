@@ -14,6 +14,20 @@ if (! defined('ABSPATH')) {
 }
 
 /**
+ * Stampa l'icona trigger di un tooltip modal.
+ *
+ * @param string $tooltip_id  ID del modal da aprire (senza #).
+ * @param string $aria_label  Testo alternativo per accessibilità.
+ */
+function dfn_tooltip_icon( string $tooltip_id, string $aria_label = '' ): void {
+    $label = $aria_label ?: __( 'Informazioni su questo campo', 'dfn-theme' );
+    echo '<button type="button" class="dfn-tooltip-trigger" '
+        . 'data-tooltip="' . esc_attr( $tooltip_id ) . '" '
+        . 'aria-label="' . esc_attr( $label ) . '" '
+        . 'title="' . esc_attr( $label ) . '">?</button>';
+}
+
+/**
  * Renders the Event Editor screen.
  */
 function dfn_render_event_editor()
@@ -302,7 +316,7 @@ function dfn_render_event_editor()
                             <p class="description"><?php esc_html_e('Collega questa configurazione di turni e listino ad un Prodotto WooCommerce esistente. Il prodotto funge da carrello per il check-out.', 'dfn-theme'); ?></p>
                             
                             <div class="dfn-form-group">
-                                <label for="product_id" class="dfn-label"><?php esc_html_e('Prodotto WooCommerce Collegato', 'dfn-theme'); ?> <span class="required">*</span></label>
+                                <label for="product_id" class="dfn-label"><?php esc_html_e('Prodotto WooCommerce Collegato', 'dfn-theme'); ?> <span class="required">*</span><?php dfn_tooltip_icon('dfn-tip-product', 'Informazioni: Prodotto WooCommerce Collegato'); ?></label>
                                 <select name="product_id" id="product_id" class="dfn-select2" required style="width:100%;">
                                     <option value=""><?php esc_html_e('Seleziona un prodotto...', 'dfn-theme'); ?></option>
                                     <?php if ($event_id === 0) : ?>
@@ -353,7 +367,7 @@ function dfn_render_event_editor()
 
                             <div class="dfn-form-group" style="margin-bottom: 15px; background: #fffdf5; border: 1px solid #c69c3a; border-radius: 8px; padding: 12px 16px;">
                                 <label for="booking_opening_date" class="dfn-label" style="color: #004b23; font-weight: 700;">
-                                    ⏱️ <?php esc_html_e('Data e Ora Apertura Prenotazioni (Opzionale)', 'dfn-theme'); ?>
+                                    ⏱️ <?php esc_html_e('Data e Ora Apertura Prenotazioni (Opzionale)', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-opening-date', 'Informazioni: Data Apertura Prenotazioni'); ?>
                                 </label>
                                 <input type="datetime-local" name="booking_opening_date" id="booking_opening_date" value="<?php echo esc_attr($booking_opening); ?>" class="dfn-input" style="max-width: 320px; background: #ffffff;">
                                 <p class="description" style="margin-top: 6px; font-size: 12px; color: #64748b;">
@@ -397,7 +411,7 @@ function dfn_render_event_editor()
                         <div class="dfn-card-body">
                             <div class="dfn-form-grid-2">
                                 <div class="dfn-form-group">
-                                    <label for="access_type" class="dfn-label"><?php esc_html_e('Modalità di Accesso', 'dfn-theme'); ?></label>
+                                    <label for="access_type" class="dfn-label"><?php esc_html_e('Modalità di Accesso', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-access-type', 'Informazioni: Modalità di Accesso'); ?></label>
                                     <select name="access_type" id="access_type" class="dfn-input">
                                         <option value="time_slots" <?php selected($acc_type, 'time_slots'); ?>><?php esc_html_e('⏰ Fasce Orarie (Slot)', 'dfn-theme'); ?></option>
                                         <option value="free_flow" <?php selected($acc_type, 'free_flow'); ?>><?php esc_html_e('🚪 Flusso Libero (Senza fasce)', 'dfn-theme'); ?></option>
@@ -405,7 +419,7 @@ function dfn_render_event_editor()
                                 </div>
 
                                 <div class="dfn-form-group">
-                                    <label for="allocation_mode" class="dfn-label"><?php esc_html_e('Algoritmo di Allocazione (Sezione 2.0)', 'dfn-theme'); ?></label>
+                                    <label for="allocation_mode" class="dfn-label"><?php esc_html_e('Algoritmo di Allocazione (Sezione 2.0)', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-allocation', 'Informazioni: Algoritmo di Allocazione'); ?></label>
                                     <select name="allocation_mode" id="allocation_mode" class="dfn-input">
                                         <option value="automatic" <?php selected($alloc_mode, 'automatic'); ?>><?php esc_html_e('🤖 Assegnazione Automatica (Default)', 'dfn-theme'); ?></option>
                                         <option value="self_selection" <?php selected($alloc_mode, 'self_selection'); ?>><?php esc_html_e('👈 Selezione Turno Libera (Self-selection)', 'dfn-theme'); ?></option>
@@ -424,11 +438,11 @@ function dfn_render_event_editor()
                                         <input type="number" name="slot_duration" id="slot_duration" value="<?php echo esc_attr($duration); ?>" min="5" class="dfn-input">
                                     </div>
                                     <div class="dfn-form-group">
-                                        <label for="slot_capacity" class="dfn-label"><?php esc_html_e('Capacità standard turno', 'dfn-theme'); ?></label>
+                                        <label for="slot_capacity" class="dfn-label"><?php esc_html_e('Capacità standard turno', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-slot-capacity', 'Informazioni: Capacità standard turno'); ?></label>
                                         <input type="number" name="slot_capacity" id="slot_capacity" value="<?php echo esc_attr($capacity); ?>" min="1" class="dfn-input">
                                     </div>
                                     <div class="dfn-form-group">
-                                        <label for="slot_bonus" class="dfn-label"><?php esc_html_e('Capacità Bonus (Staff/Live)', 'dfn-theme'); ?></label>
+                                        <label for="slot_bonus" class="dfn-label"><?php esc_html_e('Capacità Bonus (Staff/Live)', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-slot-bonus', 'Informazioni: Capacità Bonus'); ?></label>
                                         <input type="number" name="slot_bonus" id="slot_bonus" value="<?php echo esc_attr($bonus); ?>" min="0" class="dfn-input">
                                     </div>
                                 </div>
@@ -477,7 +491,7 @@ function dfn_render_event_editor()
                             </div>
 
                             <div class="dfn-form-group">
-                                <label for="approval_workflow" class="dfn-label"><?php esc_html_e('Workflow Approvazione', 'dfn-theme'); ?></label>
+                                <label for="approval_workflow" class="dfn-label"><?php esc_html_e('Workflow Approvazione', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-approval', 'Informazioni: Workflow Approvazione'); ?></label>
                                 <select name="approval_workflow" id="approval_workflow" class="dfn-input">
                                     <option value="auto" <?php selected($app_wf, 'auto'); ?>><?php esc_html_e('Conferma Automatica', 'dfn-theme'); ?></option>
                                     <option value="manual" <?php selected($app_wf, 'manual'); ?>><?php esc_html_e('Manuale (Staff Review)', 'dfn-theme'); ?></option>
@@ -485,7 +499,7 @@ function dfn_render_event_editor()
                             </div>
 
                             <div class="dfn-form-group">
-                                <label for="booking_status" class="dfn-label"><?php esc_html_e('Stato Modalità Prenotazione', 'dfn-theme'); ?></label>
+                                <label for="booking_status" class="dfn-label"><?php esc_html_e('Stato Modalità Prenotazione', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-booking-status', 'Informazioni: Stato Modalità Prenotazione'); ?></label>
                                 <select name="booking_status" id="booking_status" class="dfn-input">
                                     <option value="open" <?php selected($booking_stat, 'open'); ?>><?php esc_html_e('Prenotazioni Aperte (Form Online)', 'dfn-theme'); ?></option>
                                     <option value="closed" <?php selected($booking_stat, 'closed'); ?>><?php esc_html_e('Prenotazioni Chiuse (Sold Out)', 'dfn-theme'); ?></option>
@@ -494,7 +508,7 @@ function dfn_render_event_editor()
                             </div>
 
                             <div class="dfn-form-group">
-                                <label for="payment_mode" class="dfn-label"><?php esc_html_e('Modalità di Pagamento', 'dfn-theme'); ?></label>
+                                <label for="payment_mode" class="dfn-label"><?php esc_html_e('Modalità di Pagamento', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-payment', 'Informazioni: Modalità di Pagamento'); ?></label>
                                 <select name="payment_mode" id="payment_mode" class="dfn-input">
                                     <option value="online" <?php selected($pay_mode, 'online'); ?>><?php esc_html_e('Solo Pagamento Online', 'dfn-theme'); ?></option>
                                     <option value="in_loco" <?php selected($pay_mode, 'in_loco'); ?>><?php esc_html_e('Solo Saldo in Loco', 'dfn-theme'); ?></option>
@@ -504,7 +518,7 @@ function dfn_render_event_editor()
                             </div>
 
                             <div class="dfn-form-group" id="dfn-auto-cancel-group">
-                                <label for="auto_cancel_hours" class="dfn-label"><?php esc_html_e('Annullamento Automatico (ore)', 'dfn-theme'); ?></label>
+                                <label for="auto_cancel_hours" class="dfn-label"><?php esc_html_e('Annullamento Automatico (ore)', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-auto-cancel', 'Informazioni: Annullamento Automatico'); ?></label>
                                 <input type="number" name="auto_cancel_hours" id="auto_cancel_hours" value="<?php echo esc_attr($auto_cancel); ?>" min="0" step="1" class="dfn-input">
                                 <p class="description" style="margin-top: 6px; font-size: 12px; color: #64748b;" id="dfn-auto-cancel-help">
                                     <?php esc_html_e('Dopo quante ore un ordine non pagato viene annullato automaticamente. Imposta 0 per disabilitare (consigliato per pagamento in loco).', 'dfn-theme'); ?>
@@ -603,7 +617,7 @@ function dfn_render_event_editor()
                     <!-- Blocco Layout Pagina Dettaglio -->
                     <div class="dfn-card dfn-card-sidebar">
                         <div class="dfn-card-header">
-                            <h2>📐 <?php esc_html_e('Layout Pagina Dettaglio', 'dfn-theme'); ?></h2>
+                            <h2>📐 <?php esc_html_e('Layout Pagina Dettaglio', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-layout', 'Informazioni: Layout Pagina Dettaglio'); ?></h2>
                         </div>
                         <div class="dfn-card-body">
                             <p class="description" style="margin-bottom: 14px;"><?php esc_html_e('Scegli come visualizzare l\'evento nella pagina di dettaglio pubblica. La modalità "Auto" usa il Layout 2 (locandina) se non c\'è galleria.', 'dfn-theme'); ?></p>
@@ -718,6 +732,199 @@ function dfn_render_event_editor()
                 </div>
             </div>
         </form>
+
+        <?php /* ====================================================
+         * TOOLTIP MODAL PANELS — FAI Prenotazioni 2.0
+         * Tutti i modal sono pre-renderizzati e mostrati/nascosti via JS
+         * ==================================================== */ ?>
+
+        <!-- Overlay scuro condiviso -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <!-- Modal: Prodotto WooCommerce Collegato -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-product" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-product-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-product-title">⚙️ <?php esc_html_e('Prodotto WooCommerce Collegato', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Ogni evento FAI deve essere collegato a un <strong>Prodotto WooCommerce</strong>. Il prodotto funge da «contenitore» per il carrello e il checkout: quando un utente prenota, il sistema aggiunge il biglietto al carrello di WooCommerce e processa il pagamento tramite i gateway configurati.</p>
+                <p><strong>Seleziona un prodotto esistente</strong> se hai già creato manualmente il prodotto su WooCommerce, oppure scegli <strong>«Crea automaticamente»</strong> per generarne uno nuovo al volo direttamente dal form.</p>
+                <div class="dfn-tip-box"><strong>Suggerimento:</strong> Il prodotto creato automaticamente sarà di tipo «Simple», virtuale, con prezzo e stock sincronizzati in base alla configurazione dell'evento.</div>
+            </div>
+
+        </div>
+
+        <!-- Modal: Modalità di Accesso -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-access-type" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-access-type-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-access-type-title">🎛️ <?php esc_html_e('Modalità di Accesso', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Definisce <strong>come gli utenti accedono all'evento</strong> e come vengono organizzate le prenotazioni.</p>
+                <ul>
+                    <li><strong>⏰ Fasce Orarie (Slot):</strong> l'evento è diviso in turni orari con capacità fissa per turno. Il sistema genera automaticamente gli slot in base a durata, orario primo/ultimo turno e numero di giorni. Ideale per visite guidate, laboratori e attività con flusso controllato.</li>
+                    <li><strong>🚪 Flusso Libero:</strong> non ci sono turni orari distinti. Gli utenti prenotano senza scegliere un orario specifico, fino al raggiungimento della capacità totale. Ideale per mostre aperte, eventi a ingresso libero o giornate con accesso continuo.</li>
+                </ul>
+                <div class="dfn-warn-box">⚠️ Cambiare modalità su un evento già attivo con prenotazioni potrebbe richiedere un reset degli slot. Procedi con attenzione.</div>
+            </div>
+
+        </div>
+
+        <!-- Modal: Algoritmo di Allocazione -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-allocation" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-allocation-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-allocation-title">🤖 <?php esc_html_e('Algoritmo di Allocazione', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Determina <strong>chi sceglie il turno orario</strong> durante il processo di prenotazione.</p>
+                <ul>
+                    <li><strong>🤖 Assegnazione Automatica (Default):</strong> il sistema assegna automaticamente il turno meno affollato compatibile con la richiesta dell'utente. L'utente non vede né sceglie l'orario: il turno viene ottimizzato dal backend per distribuire uniformemente i visitatori. Riduce il rischio di turni «vuoti» o «sovraffollati».</li>
+                    <li><strong>👈 Selezione Turno Libera (Self-selection):</strong> l'utente può scegliere autonomamente il proprio turno orario da un calendario visivo. Maggiore flessibilità per il visitatore, ma richiede attenzione alla distribuzione manuale del carico.</li>
+                </ul>
+                <div class="dfn-tip-box"><strong>Novità 2.0:</strong> La Self-selection mostra un selettore visivo degli slot con indicazione dei posti disponibili in tempo reale.</div>
+            </div>
+
+        </div>
+
+        <!-- Modal: Capacità standard turno -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-slot-capacity" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-slot-capacity-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-slot-capacity-title">🪑 <?php esc_html_e('Capacità Standard Turno', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Indica il <strong>numero massimo di persone accettate in ogni turno orario</strong> attraverso il form di prenotazione online.</p>
+                <p>Questo valore viene assegnato a ogni slot generato automaticamente. Il sistema controlla questo limite durante il checkout: se un turno ha già raggiunto la capacità massima, non è più selezionabile.</p>
+                <div class="dfn-tip-box"><strong>Nota:</strong> La capacità totale dell'evento è calcolata come: <em>Capacità Turno × Numero Slot × Giorni</em>. Puoi aumentare singolarmente la capacità di uno slot specifico dalla sezione Gestione Turni.</div>
+            </div>
+
+        </div>
+
+        <!-- Modal: Capacità Bonus -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-slot-bonus" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-slot-bonus-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-slot-bonus-title">➕ <?php esc_html_e('Capacità Bonus (Staff/Live)', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>I posti <strong>Bonus</strong> sono posti aggiuntivi riservati a inserimenti manuali da parte dello staff (banchetto, scanner, inserimento rapido). <strong>Non sono prenotabili online</strong> dagli utenti tramite il form pubblico.</p>
+                <p>Questo permette di mantenere una riserva di sicurezza per gestire situazioni come:</p>
+                <ul>
+                    <li>Visitatori che si presentano al banchetto senza prenotazione</li>
+                    <li>Gruppi o delegazioni FAI gestite manualmente</li>
+                    <li>Correzioni post-hoc di prenotazioni telefoniche</li>
+                </ul>
+                <div class="dfn-tip-box"><strong>Suggerimento:</strong> Imposta a <em>0</em> se vuoi che la capienza del turno sia esclusivamente quella online, senza margini di staff.</div>
+            </div>
+
+        </div>
+
+        <!-- Modal: Workflow Approvazione -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-approval" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-approval-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-approval-title">✅ <?php esc_html_e('Workflow Approvazione Prenotazioni', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Controlla <strong>cosa succede immediatamente dopo che un utente invia una prenotazione</strong>.</p>
+                <ul>
+                    <li><strong>Conferma Automatica:</strong> la prenotazione viene confermata istantaneamente non appena il pagamento è completato (o all'invio del form per gli eventi gratuiti/in loco). L'utente riceve subito la mail di conferma con il riepilogo.</li>
+                    <li><strong>Manuale (Staff Review):</strong> la prenotazione entra nello stato «In attesa di verifica». Un operatore dello staff deve approvarla o rifiutarla manualmente dalla sezione «Verifica Prenotazioni FAI». Solo dopo l'approvazione manuale l'utente riceve la mail di conferma con il link di pagamento.</li>
+                </ul>
+                <div class="dfn-tip-box"><strong>Quando usare Manuale:</strong> eventi con quota associativa FAI da verificare, gruppi su invito, o eventi con selezione dei partecipanti.</div>
+            </div>
+
+        </div>
+
+        <!-- Modal: Stato Modalità Prenotazione -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-booking-status" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-booking-status-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-booking-status-title">🔒 <?php esc_html_e('Stato Modalità Prenotazione', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Controlla <strong>cosa vedono gli utenti nella pagina pubblica dell'evento</strong> riguardo alla possibilità di prenotare.</p>
+                <ul>
+                    <li><strong>Prenotazioni Aperte:</strong> il form di prenotazione è visibile e funzionante. Gli utenti possono prenotare normalmente.</li>
+                    <li><strong>Prenotazioni Chiuse (Sold Out):</strong> il form è nascosto e al suo posto viene mostrato un banner «Sold Out» o «Prenotazioni esaurite». Utile quando l'evento è pieno ma non ancora archiviato.</li>
+                    <li><strong>Prenotazione via Email:</strong> il form online è disabilitato e viene mostrato un invito a prenotare via email. Utile per eventi su richiesta o con selezione personalizzata.</li>
+                </ul>
+                <div class="dfn-warn-box">⚠️ Questo campo controlla solo la visibilità del form pubblico, <em>non</em> lo stato interno dell'evento (bozza/pubblicato).</div>
+            </div>
+
+        </div>
+
+        <!-- Modal: Modalità di Pagamento -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-payment" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-payment-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-payment-title">💳 <?php esc_html_e('Modalità di Pagamento', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Determina <strong>come e quando l'utente paga</strong> la sua prenotazione.</p>
+                <ul>
+                    <li><strong>💳 Solo Pagamento Online:</strong> l'utente completa il pagamento direttamente tramite WooCommerce (carta di credito, PayPal, ecc.) durante il checkout. Il posto è confermato solo dopo il pagamento.</li>
+                    <li><strong>💵 Solo Saldo in Loco:</strong> il posto è riservato subito senza pagamento anticipato. Il saldo avviene al banchetto il giorno dell'evento. L'annullamento automatico è sconsigliato (imposta 0 ore).</li>
+                    <li><strong>🔄 Ibrida (Scelta utente):</strong> l'utente sceglie autonomamente se pagare online o in loco durante il form di prenotazione. Massima flessibilità.</li>
+                    <li><strong>🎁 Gratuito:</strong> nessun pagamento richiesto. La prenotazione viene confermata automaticamente senza passare dal checkout WooCommerce.</li>
+                </ul>
+            </div>
+
+        </div>
+
+        <!-- Modal: Annullamento Automatico -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-auto-cancel" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-auto-cancel-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-auto-cancel-title">⏳ <?php esc_html_e('Annullamento Automatico', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Se impostato a un valore maggiore di zero, il sistema annulla automaticamente le prenotazioni <strong>non pagate</strong> dopo il numero di ore indicato dalla creazione dell'ordine.</p>
+                <p>Questo meccanismo è gestito da un job schedulato (WP-Cron) e libera i posti bloccati da ordini abbandonati, rendendoli nuovamente disponibili per altri utenti.</p>
+                <ul>
+                    <li><strong>24 ore:</strong> valore consigliato per pagamenti online (da completare entro un giorno)</li>
+                    <li><strong>0 (disabilitato):</strong> consigliato per pagamento in loco o eventi gratuiti</li>
+                </ul>
+                <div class="dfn-tip-box"><strong>Nota tecnica:</strong> Il sistema controlla ogni ora gli ordini scaduti. La cancellazione aggiorna automaticamente la disponibilità degli slot WooCommerce.</div>
+            </div>
+
+        </div>
+
+        <!-- Modal: Data Apertura Prenotazioni -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-opening-date" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-opening-date-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-opening-date-title">⏱️ <?php esc_html_e('Data e Ora Apertura Prenotazioni', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Se compilata, questa data e ora <strong>blocca il form di prenotazione</strong> fino al momento indicato. Gli utenti che visitano la pagina pubblica dell'evento vedono un <strong>countdown live</strong> che indica quanto manca all'apertura delle prenotazioni.</p>
+                <p>Al raggiungimento dell'orario, il form si sblocca automaticamente senza necessità di intervento manuale.</p>
+                <div class="dfn-tip-box"><strong>Caso d'uso tipico:</strong> «Le prenotazioni apriranno sabato 15 marzo alle ore 10:00» — configura questa data e il sito gestirà tutto in automatico, creando attesa e urgenza tra i visitatori.</div>
+                <div class="dfn-warn-box">⚠️ Se il campo viene lasciato vuoto, le prenotazioni sono immediatamente disponibili (compatibilmente con lo stato Booking Status).</div>
+            </div>
+
+        </div>
+
+        <!-- Modal: Layout Pagina Dettaglio -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-layout" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-layout-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-layout-title">📐 <?php esc_html_e('Layout Pagina Dettaglio', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Controlla <strong>il template visivo</strong> della pagina pubblica di dettaglio dell'evento.</p>
+                <ul>
+                    <li><strong>Automatico:</strong> il sistema sceglie in autonomia il layout migliore. Se non ci sono immagini in galleria viene usato il Layout 2 (Locandina); se c'è galleria viene usato il Layout 1.</li>
+                    <li><strong>Layout 1 — Galleria:</strong> slider fotografico orizzontale in cima alla pagina, seguito da descrizione e form di prenotazione in una griglia a due colonne. Ottimale quando hai più foto di alta qualità dell'evento.</li>
+                    <li><strong>Layout 2 — Locandina:</strong> immagine verticale (locandina) a sinistra della pagina e form di prenotazione a destra. Ideale per eventi con una singola immagine locandina istituzionale.</li>
+                </ul>
+            </div>
+
+        </div>
+
     </div>
     <?php
 }
@@ -729,8 +936,11 @@ function dfn_render_event_editor()
 add_action('admin_footer', 'dfn_event_editor_auto_cancel_js');
 function dfn_event_editor_auto_cancel_js()
 {
-    // Esegui solo nella pagina dell'editor eventi
-    if (! isset($_GET['page']) || $_GET['page'] !== 'dfn-event-editor') {
+    // Esegui solo nella pagina dell'editor eventi (slug registrato: dfn-event-edit)
+    if (! isset($_GET['page']) || (
+        $_GET['page'] !== 'dfn-event-edit' &&
+        $_GET['page'] !== 'dfn-event-editor'
+    )) {
         return;
     }
     ?>
@@ -870,6 +1080,122 @@ function dfn_event_editor_auto_cancel_js()
             });
             observer.observe(galleryIds, { attributes: true, attributeFilter: ['value'] });
         }
+    })();
+    </script>
+
+    <script>
+    // -----------------------------------------------------------------------
+    // DFN Tooltip Modal System — FAI Prenotazioni 2.0
+    // Gestione apertura/chiusura modal informativi su click delle icone trigger
+    // -----------------------------------------------------------------------
+    (function() {
+        var overlay       = document.getElementById('dfn-tooltip-overlay');
+        var activeModal   = null;
+        var triggerEl     = null; // Elemento che ha aperto il modal (per ripristino focus)
+
+        if (!overlay) return; // Esci se non siamo nella pagina corretta
+
+        /**
+         * Apre il modal con l'ID specificato.
+         * @param {string} modalId
+         * @param {HTMLElement} trigger Elemento che ha scatenato l'apertura
+         */
+        function openModal(modalId, trigger) {
+            var modal = document.getElementById(modalId);
+            if (!modal) return;
+
+            // Chiudi eventuale modal già aperto
+            if (activeModal) closeModal(false);
+
+            activeModal = modal;
+            triggerEl   = trigger || null;
+
+            // Mostra overlay e modal con classe attiva
+            overlay.classList.add('dfn-tooltip-active');
+            modal.classList.add('dfn-tooltip-active');
+
+            // Blocca scroll del body
+            document.body.style.overflow = 'hidden';
+
+            // Focus al primo elemento interattivo nel modal
+            var focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (focusable) {
+                setTimeout(function() { focusable.focus(); }, 50);
+            }
+        }
+
+        /**
+         * Chiude il modal attivo.
+         * @param {boolean} restoreFocus Se true, ripristina il focus al trigger originale
+         */
+        function closeModal(restoreFocus) {
+            if (!activeModal) return;
+
+            overlay.classList.remove('dfn-tooltip-active');
+            activeModal.classList.remove('dfn-tooltip-active');
+            document.body.style.overflow = '';
+
+            if (restoreFocus !== false && triggerEl) {
+                triggerEl.focus();
+            }
+
+            activeModal = null;
+            triggerEl   = null;
+        }
+
+        // Click sulle icone trigger
+        document.addEventListener('click', function(e) {
+            var trigger = e.target.closest('.dfn-tooltip-trigger');
+            if (trigger) {
+                e.preventDefault();
+                var modalId = trigger.getAttribute('data-tooltip');
+                if (modalId) openModal(modalId, trigger);
+                return;
+            }
+
+            // Click sui bottoni di chiusura dentro i modal
+            var closeBtn = e.target.closest('.dfn-tooltip-modal-close');
+            if (closeBtn) {
+                e.preventDefault();
+                closeModal(true);
+                return;
+            }
+
+            // Click sull'overlay scuro
+            if (e.target === overlay) {
+                closeModal(true);
+            }
+        });
+
+        // Chiusura con tasto Esc
+        document.addEventListener('keydown', function(e) {
+            if ((e.key === 'Escape' || e.keyCode === 27) && activeModal) {
+                closeModal(true);
+            }
+        });
+
+        // Trap del focus all'interno del modal (accessibilità)
+        document.addEventListener('keydown', function(e) {
+            if (!activeModal || e.key !== 'Tab') return;
+
+            var focusableEls = activeModal.querySelectorAll(
+                'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            );
+            var firstEl = focusableEls[0];
+            var lastEl  = focusableEls[focusableEls.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === firstEl) {
+                    lastEl.focus();
+                    e.preventDefault();
+                }
+            } else {
+                if (document.activeElement === lastEl) {
+                    firstEl.focus();
+                    e.preventDefault();
+                }
+            }
+        });
     })();
     </script>
     <?php

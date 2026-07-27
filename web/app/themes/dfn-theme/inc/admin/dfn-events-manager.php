@@ -361,11 +361,11 @@ function dfn_render_events_manager()
                 <thead>
                     <tr>
                         <th class="column-title"><?php esc_html_e('Nome Prodotto WooCommerce / Evento', 'dfn-theme'); ?></th>
-                        <th><?php esc_html_e('Data & Luogo', 'dfn-theme'); ?></th>
-                        <th><?php esc_html_e('Orario & Canali', 'dfn-theme'); ?></th>
-                        <th><?php esc_html_e('Tipologia / Allocazione', 'dfn-theme'); ?></th>
-                        <th><?php esc_html_e('Capacità', 'dfn-theme'); ?></th>
-                        <th><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
+                        <th title="<?php esc_attr_e('Data di inizio (e fine) dell\'evento e luogo di ritrovo', 'dfn-theme'); ?>"><?php esc_html_e('Data & Luogo', 'dfn-theme'); ?></th>
+                        <th title="<?php esc_attr_e('Orario di apertura/chiusura e modalità di pagamento configurata', 'dfn-theme'); ?>"><?php esc_html_e('Orario & Canali', 'dfn-theme'); ?></th>
+                        <th title="<?php esc_attr_e('Fasce Orarie = turni con capacità fissa | Flusso Libero = accesso senza turni | Automatica = slot assegnato dal sistema | Self-selection = l\'utente sceglie il turno', 'dfn-theme'); ?>"><?php esc_html_e('Tipologia / Allocazione', 'dfn-theme'); ?></th>
+                        <th title="<?php esc_attr_e('Posti prenotati rispetto alla capacità totale configurata', 'dfn-theme'); ?>"><?php esc_html_e('Capacità', 'dfn-theme'); ?></th>
+                        <th title="<?php esc_attr_e('Bozza = non visibile | Pubblicato = attivo online | Archiviato = terminato', 'dfn-theme'); ?>"><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
                         <th class="column-actions"><?php esc_html_e('Azioni di Gestione', 'dfn-theme'); ?></th>
                     </tr>
                 </thead>
@@ -445,8 +445,8 @@ function dfn_render_events_manager()
                                     <span class="dfn-small-sub"><span class="dashicons dashicons-cart"></span> <?php echo esc_html($payment_mode_label); ?></span>
                                 </td>
                                 <td>
-                                    <div><strong><?php echo ('time_slots' === $event->access_type) ? '⏰ Fasce Orarie' : '🚪 Flusso Libero'; ?></strong></div>
-                                    <span class="dfn-small-sub"><?php echo esc_html($allocation_mode_label); ?></span>
+                                    <div><strong title="<?php echo ('time_slots' === $event->access_type) ? esc_attr__('Fasce Orarie: l\'evento è diviso in turni orari con capacità fissa per turno', 'dfn-theme') : esc_attr__('Flusso Libero: gli utenti prenotano senza scegliere un turno specifico', 'dfn-theme'); ?>"><?php echo ('time_slots' === $event->access_type) ? '⏰ Fasce Orarie' : '🚪 Flusso Libero'; ?></strong></div>
+                                    <span class="dfn-small-sub" title="<?php echo ('automatic' === $event->allocation_mode) ? esc_attr__('Automatica: il sistema assegna il turno meno affollato disponibile', 'dfn-theme') : esc_attr__('Self-selection: l\'utente sceglie autonomamente il proprio turno orario', 'dfn-theme'); ?>"><?php echo esc_html($allocation_mode_label); ?></span>
                                 </td>
                                 <td>
                                     <?php if ('time_slots' === $event->access_type) : ?>
