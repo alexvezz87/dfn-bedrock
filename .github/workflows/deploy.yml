@@ -38,13 +38,34 @@ jobs:
       run: |
         python3 -c "
         import ftplib, os, sys
-        server = os.environ['FTP_SERVER']
-        user = os.environ['FTP_USERNAME']
-        passwd = os.environ['FTP_PASSWORD']
-        print(f'Connecting to FTP server {server}...')
-        ftp = ftplib.FTP(server, timeout=120)
-        ftp.login(user, passwd)
-        ftp.set_pasv(True)
+        raw_server = os.environ.get('FTP_SERVER', '').strip()
+        server = raw_server.replace('ftp://', '').replace('ftps://', '').rstrip('/')
+        port = 21
+        if ':' in server:
+            server, port_str = server.split(':')
+            port = int(port_str)
+        user = os.environ.get('FTP_USERNAME', '').strip()
+        passwd = os.environ.get('FTP_PASSWORD', '').strip()
+
+        print(f'Connecting to FTP server \"{server}\" on port {port}...')
+        ftp = None
+        try:
+            print('Attempting FTPS (FTP over TLS)...')
+            ftps = ftplib.FTP_TLS(timeout=60)
+            ftps.connect(server, port)
+            ftps.login(user, passwd)
+            ftps.prot_p()
+            ftps.set_pasv(True)
+            ftp = ftps
+            print('Connected via FTPS successfully!')
+        except Exception as e:
+            print(f'FTPS failed ({e}), falling back to standard FTP...')
+            ftp = ftplib.FTP(timeout=60)
+            ftp.connect(server, port)
+            ftp.login(user, passwd)
+            ftp.set_pasv(True)
+            print('Connected via standard FTP successfully!')
+
         for fname in ['deploy.tar.gz', 'scompatta.php']:
             if os.path.exists(fname):
                 size = os.path.getsize(fname) / (1024*1024)
@@ -52,6 +73,7 @@ jobs:
                 with open(fname, 'rb') as f:
                     ftp.storbinary(f'STOR {fname}', f, blocksize=1024*1024)
                 print(f'Uploaded {fname} successfully!')
+
         ftp.quit()
         print('All files uploaded successfully!')
         "
