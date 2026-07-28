@@ -33,9 +33,9 @@ jobs:
 
     - name: 📂 Upload Files via curl FTP (Secure & Fast)
       run: |
-        # Usiamo --ftp-pasv per forzare la modalità passiva essenziale sui runner GitHub Actions
-        curl --ftp-pasv -T deploy.tar.gz ftp://${{ secrets.FTP_SERVER }}/ --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
-        curl --ftp-pasv -T scompatta.php ftp://${{ secrets.FTP_SERVER }}/ --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
+        # Configurazione curl FTP robusta: modalità passiva (--ftp-pasv), timeout esteso (--max-time 600), retry automatici e tolleranza SSL (-k)
+        curl -v --ftp-pasv --connect-timeout 60 --max-time 600 --retry 5 --retry-delay 5 -k -T deploy.tar.gz "ftp://${{ secrets.FTP_SERVER }}/" --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
+        curl -v --ftp-pasv --connect-timeout 30 --max-time 120 --retry 3 -k -T scompatta.php "ftp://${{ secrets.FTP_SERVER }}/" --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
 
     - name: 🚀 Trigger Remote Extraction and Self-Destruct
       run: |
