@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "69654f1474f90ffc3fb34dcabf5be061",
+    "content-hash": "b6ecf8e01694903a06782a59979e4b80",
     "packages": [
         {
             "name": "composer/installers",
@@ -1136,15 +1136,15 @@
         },
         {
             "name": "wp-plugin/elementor",
-            "version": "4.1.5",
+            "version": "4.2.1",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/elementor/",
-                "reference": "tags/4.1.5"
+                "reference": "tags/4.2.1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/elementor.4.1.5.zip"
+                "url": "https://downloads.wordpress.org/plugin/elementor.4.2.1.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1163,19 +1163,19 @@
                 "issues": "https://wordpress.org/support/plugin/elementor",
                 "source": "https://plugins.svn.wordpress.org/elementor"
             },
-            "time": "2026-07-14T14:36:07+00:00"
+            "time": "2026-07-28T13:40:58+00:00"
         },
         {
             "name": "wp-plugin/font-awesome",
-            "version": "5.1.5",
+            "version": "5.2.0",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/font-awesome/",
-                "reference": "tags/5.1.5"
+                "reference": "tags/5.2.0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/font-awesome.5.1.5.zip"
+                "url": "https://downloads.wordpress.org/plugin/font-awesome.5.2.0.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1194,19 +1194,19 @@
                 "issues": "https://wordpress.org/support/plugin/font-awesome",
                 "source": "https://plugins.svn.wordpress.org/font-awesome"
             },
-            "time": "2026-05-05T18:30:58+00:00"
+            "time": "2026-07-27T23:21:02+00:00"
         },
         {
             "name": "wp-plugin/google-site-kit",
-            "version": "1.183.0",
+            "version": "1.184.0",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/google-site-kit/",
-                "reference": "tags/1.183.0"
+                "reference": "tags/1.184.0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/google-site-kit.1.183.0.zip"
+                "url": "https://downloads.wordpress.org/plugin/google-site-kit.1.184.0.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1225,7 +1225,7 @@
                 "issues": "https://wordpress.org/support/plugin/google-site-kit",
                 "source": "https://plugins.svn.wordpress.org/google-site-kit"
             },
-            "time": "2026-07-13T20:16:25+00:00"
+            "time": "2026-07-27T19:11:07+00:00"
         },
         {
             "name": "wp-plugin/maintenance",
@@ -1291,15 +1291,15 @@
         },
         {
             "name": "wp-plugin/really-simple-ssl",
-            "version": "9.6.0",
+            "version": "9.7.0",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/really-simple-ssl/",
-                "reference": "tags/9.6.0"
+                "reference": "tags/9.7.0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/really-simple-ssl.9.6.0.zip"
+                "url": "https://downloads.wordpress.org/plugin/really-simple-ssl.9.7.0.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1318,7 +1318,7 @@
                 "issues": "https://wordpress.org/support/plugin/really-simple-ssl",
                 "source": "https://plugins.svn.wordpress.org/really-simple-ssl"
             },
-            "time": "2026-07-06T08:06:14+00:00"
+            "time": "2026-07-27T12:10:55+00:00"
         },
         {
             "name": "wp-plugin/redirection",
@@ -1472,7 +1472,7 @@
                 "issues": "https://wordpress.org/support/plugin/woocommerce",
                 "source": "https://plugins.svn.wordpress.org/woocommerce"
             },
-            "time": "2026-07-13T17:40:47+00:00"
+            "time": "2026-07-27T14:31:02+00:00"
         },
         {
             "name": "wp-plugin/woocommerce-gateway-stripe",
@@ -1507,15 +1507,15 @@
         },
         {
             "name": "wp-plugin/woolentor-addons",
-            "version": "3.4.5",
+            "version": "3.4.6",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/woolentor-addons/",
-                "reference": "tags/3.4.5"
+                "reference": "tags/3.4.6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/woolentor-addons.3.4.5.zip"
+                "url": "https://downloads.wordpress.org/plugin/woolentor-addons.3.4.6.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1534,19 +1534,19 @@
                 "issues": "https://wordpress.org/support/plugin/woolentor-addons",
                 "source": "https://plugins.svn.wordpress.org/woolentor-addons"
             },
-            "time": "2026-07-12T03:36:35+00:00"
+            "time": "2026-07-26T10:00:57+00:00"
         },
         {
             "name": "wp-plugin/wordpress-seo",
-            "version": "28.0",
+            "version": "28.1",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/wordpress-seo/",
-                "reference": "tags/28.0"
+                "reference": "tags/28.1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/wordpress-seo.28.0.zip"
+                "url": "https://downloads.wordpress.org/plugin/wordpress-seo.28.1.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1565,7 +1565,7 @@
                 "issues": "https://wordpress.org/support/plugin/wordpress-seo",
                 "source": "https://plugins.svn.wordpress.org/wordpress-seo"
             },
-            "time": "2026-07-16T15:41:21+00:00"
+            "time": "2026-07-28T12:20:49+00:00"
         },
         {
             "name": "wp-plugin/wp-crontrol",
@@ -5083,16 +5083,16 @@
         },
         {
             "name": "symfony/polyfill-intl-grapheme",
-            "version": "v1.38.1",
+            "version": "v1.41.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-intl-grapheme.git",
-                "reference": "e9247d281d694a5120554d9afaf54e070e88a603"
+                "reference": "bb899c1db0aa8127dc3afe8cda4a67eb24915f8d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-intl-grapheme/zipball/e9247d281d694a5120554d9afaf54e070e88a603",
-                "reference": "e9247d281d694a5120554d9afaf54e070e88a603",
+                "url": "https://api.github.com/repos/symfony/polyfill-intl-grapheme/zipball/bb899c1db0aa8127dc3afe8cda4a67eb24915f8d",
+                "reference": "bb899c1db0aa8127dc3afe8cda4a67eb24915f8d",
                 "shasum": ""
             },
             "require": {
@@ -5141,7 +5141,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-intl-grapheme/tree/v1.38.1"
+                "source": "https://github.com/symfony/polyfill-intl-grapheme/tree/v1.41.0"
             },
             "funding": [
                 {
@@ -5161,7 +5161,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-26T05:58:03+00:00"
+            "time": "2026-07-28T08:25:59+00:00"
         },
         {
             "name": "symfony/polyfill-intl-normalizer",
