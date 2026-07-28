@@ -30,10 +30,31 @@ jobs:
         # Creiamo un unico archivio compresso (.tar.gz) escludendo la cartella uploads
         tar --exclude="web/app/uploads" -czf deploy.tar.gz vendor web config
 
-    - name: 📂 Upload Single Archive via LFTP (Super Fast - 1 File Only)
+    - name: 📂 Upload Archive via Python FTP (Instant & Zero-Dependency)
+      env:
+        FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
       run: |
-        sudo apt-get install -y --no-install-recommends lftp
-        lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow yes; set ftp:ssl-force no; set ftp:passive-mode yes; set net:timeout 60; set net:max-retries 3; put deploy.tar.gz; put scompatta.php; quit" -u "${{ secrets.FTP_USERNAME }}","${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_SERVER }}"
+        python3 -c "
+        import ftplib, os, sys
+        server = os.environ['FTP_SERVER']
+        user = os.environ['FTP_USERNAME']
+        passwd = os.environ['FTP_PASSWORD']
+        print(f'Connecting to FTP server {server}...')
+        ftp = ftplib.FTP(server, timeout=120)
+        ftp.login(user, passwd)
+        ftp.set_pasv(True)
+        for fname in ['deploy.tar.gz', 'scompatta.php']:
+            if os.path.exists(fname):
+                size = os.path.getsize(fname) / (1024*1024)
+                print(f'Uploading {fname} ({size:.1f} MB)...')
+                with open(fname, 'rb') as f:
+                    ftp.storbinary(f'STOR {fname}', f, blocksize=1024*1024)
+                print(f'Uploaded {fname} successfully!')
+        ftp.quit()
+        print('All files uploaded successfully!')
+        "
 
     - name: 🚀 Trigger Remote Extraction
       run: |
