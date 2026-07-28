@@ -33,11 +33,10 @@ jobs:
 
     - name: 📂 Upload Files via LFTP (Secure & Fast)
       run: |
-        sudo apt-get update -qq && sudo apt-get install -y -qq lftp
-        lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow yes; set ftp:ssl-force no; set ftp:passive-mode yes; set net:timeout 60; set net:max-retries 5; put deploy.tar.gz; put scompatta.php; quit" -u "${{ secrets.FTP_USERNAME }}","${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_SERVER }}"
+        sudo apt-get install -y --no-install-recommends lftp
+        lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow yes; set ftp:ssl-force no; set ftp:passive-mode yes; set net:timeout 60; set net:max-retries 3; put deploy.tar.gz; put scompatta.php; quit" -u "${{ secrets.FTP_USERNAME }}","${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_SERVER }}"
 
     - name: 🚀 Trigger Remote Extraction and Self-Destruct
       run: |
-        # Eseguiamo una chiamata HTTP sicura allo script per scompattare ed autodistruggersi
-        # Usiamo -k per ignorare eventuali problemi di SSL temporanei e -L per seguire i reindirizzamenti
-        curl -k -L -sS https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS http://dfnprenotazioni.it/scompatta.php?t=202605300020
+        # Eseguiamo una chiamata HTTP sicura allo script per scompattare in background
+        curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 15 http://dfnprenotazioni.it/scompatta.php?t=202605300020 || true
