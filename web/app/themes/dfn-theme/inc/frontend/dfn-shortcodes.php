@@ -84,9 +84,10 @@ function dfn_render_evento_shortcode($atts): string
     $is_in_stock            = $has_available_capacity && ($wc_stock === null || $wc_stock > 0 || $wc_in_stock);
     $stock                  = ($wc_stock !== null) ? min($wc_stock, $total_available) : $total_available;
 
+    $has_fai_price       = ($event->price_fai !== null && $event->price_fai !== '' && floatval($event->price_fai) > 0);
     $price_standard_html = wc_price(floatval($event->price_standard));
-    $price_fai_html      = wc_price(floatval($event->price_fai));
-    $is_free_event       = ($event->payment_mode === 'gratuito' || (floatval($event->price_standard) == 0.0 && floatval($event->price_fai) == 0.0));
+    $price_fai_html      = $has_fai_price ? wc_price(floatval($event->price_fai)) : '';
+    $is_free_event       = ($event->payment_mode === 'gratuito' || (floatval($event->price_standard) == 0.0 && (!$has_fai_price || floatval($event->price_fai) == 0.0)));
     $image               = $product->get_image('large');
 
     // --- Galleria immagini ---
@@ -269,30 +270,45 @@ function dfn_render_evento_shortcode($atts): string
                             <?php else : ?>
                                 <div class="dfn-booking-section">
                                     <span class="dfn-widget-label"><?php esc_html_e('Tariffe Contributo', 'dfn-theme'); ?></span>
-                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                            <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
-                                            <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
+                                    <?php if ($has_fai_price) : ?>
+                                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                                <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
+                                                <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
+                                            </div>
+                                            <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                                <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
+                                                <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
+                                            </div>
                                         </div>
-                                        <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                            <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
-                                            <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
+                                    <?php else : ?>
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                            <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Intero', 'dfn-theme'); ?></div>
+                                            <div style="font-size:20px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
                                         </div>
-                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="dfn-booking-section">
                                     <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
-                                    <div class="dfn-qty-grid">
-                                        <div class="dfn-qty-box">
-                                            <label for="quantity"><?php esc_html_e('Ingresso Standard', 'dfn-theme'); ?></label>
-                                            <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                    <?php if ($has_fai_price) : ?>
+                                        <div class="dfn-qty-grid">
+                                            <div class="dfn-qty-box">
+                                                <label for="quantity"><?php esc_html_e('Ingresso Standard', 'dfn-theme'); ?></label>
+                                                <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                            </div>
+                                            <div class="dfn-qty-box">
+                                                <label for="dfn_qty_fai"><?php esc_html_e('Ingresso Soci FAI', 'dfn-theme'); ?></label>
+                                                <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                            </div>
                                         </div>
+                                    <?php else : ?>
                                         <div class="dfn-qty-box">
-                                            <label for="dfn_qty_fai"><?php esc_html_e('Ingresso Soci FAI', 'dfn-theme'); ?></label>
-                                            <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                            <label for="quantity"><?php esc_html_e('Numero di Biglietti', 'dfn-theme'); ?></label>
+                                            <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                            <input type="hidden" name="dfn_qty_fai" id="dfn_qty_fai" value="0">
                                         </div>
-                                    </div>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
 
@@ -361,7 +377,10 @@ function dfn_render_evento_shortcode($atts): string
                                 <div class="dfn-fai-cards-inputs-container" style="display:flex; flex-direction:column; gap:12px; margin-top:10px;"><!-- Popolato da JS --></div>
                             </div>
                             <div class="dfn-widget-feedback"></div>
-                            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:12px; margin-top:20px;">
+
+                            <?php echo wp_kses_post(dfn_get_privacy_checkbox_html('booking_widget_1', 'prenotazione')); ?>
+
+                            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:12px; margin-top:16px;">
                                 <button type="button" class="dfn-widget-btn-prev" style="height:48px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#475569; font-weight:700; cursor:pointer; font-size:13px; text-transform:uppercase; box-sizing:border-box;">
                                     <?php esc_html_e('Indietro', 'dfn-theme'); ?>
                                 </button>
@@ -559,30 +578,45 @@ function dfn_render_evento_shortcode($atts): string
                             <?php else : ?>
                                 <div class="dfn-booking-section">
                                     <span class="dfn-widget-label"><?php esc_html_e('Tariffe Contributo', 'dfn-theme'); ?></span>
-                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                            <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
-                                            <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
+                                    <?php if ($has_fai_price) : ?>
+                                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                                <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Standard', 'dfn-theme'); ?></div>
+                                                <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
+                                            </div>
+                                            <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                                <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
+                                                <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
+                                            </div>
                                         </div>
-                                        <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                            <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Soci FAI', 'dfn-theme'); ?></div>
-                                            <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
+                                    <?php else : ?>
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                            <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Intero', 'dfn-theme'); ?></div>
+                                            <div style="font-size:20px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
                                         </div>
-                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="dfn-booking-section">
                                     <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
-                                    <div class="dfn-qty-grid">
-                                        <div class="dfn-qty-box">
-                                            <label for="quantity"><?php esc_html_e('Ingresso Standard', 'dfn-theme'); ?></label>
-                                            <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                    <?php if ($has_fai_price) : ?>
+                                        <div class="dfn-qty-grid">
+                                            <div class="dfn-qty-box">
+                                                <label for="quantity"><?php esc_html_e('Ingresso Standard', 'dfn-theme'); ?></label>
+                                                <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                            </div>
+                                            <div class="dfn-qty-box">
+                                                <label for="dfn_qty_fai"><?php esc_html_e('Ingresso Soci FAI', 'dfn-theme'); ?></label>
+                                                <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                            </div>
                                         </div>
+                                    <?php else : ?>
                                         <div class="dfn-qty-box">
-                                            <label for="dfn_qty_fai"><?php esc_html_e('Ingresso Soci FAI', 'dfn-theme'); ?></label>
-                                            <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                            <label for="quantity"><?php esc_html_e('Numero di Biglietti', 'dfn-theme'); ?></label>
+                                            <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                            <input type="hidden" name="dfn_qty_fai" id="dfn_qty_fai" value="0">
                                         </div>
-                                    </div>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
 
@@ -665,7 +699,9 @@ function dfn_render_evento_shortcode($atts): string
 
                             <div class="dfn-widget-feedback"></div>
 
-                            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:12px; margin-top:20px;">
+                            <?php echo wp_kses_post(dfn_get_privacy_checkbox_html('booking_widget_2', 'prenotazione')); ?>
+
+                            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:12px; margin-top:16px;">
                                 <button type="button" class="dfn-widget-btn-prev" style="height:48px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#475569; font-weight:700; cursor:pointer; font-size:13px; text-transform:uppercase; box-sizing:border-box;">
                                     <?php esc_html_e('Indietro', 'dfn-theme'); ?>
                                 </button>
@@ -853,7 +889,8 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
             $sold_out    = (! $is_in_stock || ($stock !== null && $stock <= 0));
 
             $price_standard = floatval($event->price_standard);
-            $price_fai      = floatval($event->price_fai);
+            $has_fai_price  = ($event->price_fai !== null && $event->price_fai !== '' && floatval($event->price_fai) > 0);
+            $price_fai      = $has_fai_price ? floatval($event->price_fai) : null;
             $year_month     = date('Y-m', strtotime($event->event_date_start));
             $city_name      = ! empty($event->city) ? $event->city : '';
             $location_text  = ! empty($city_name) ? $city_name . ' — ' . $event->location : $event->location;
@@ -880,7 +917,7 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
                         <?php endif; ?>
                     </a>
                     <div class="dfn-event-card-date-badge">
-                        📅 <?php echo esc_html(date_i18n('d M Y', strtotime($event->event_date_start))); ?>
+                        📅 <?php echo esc_html(date_i18n('d M Y', strtotime($event->event_date_start))); ?> &nbsp;•&nbsp; ⏰ <?php echo esc_html(date('H:i', strtotime($event->event_time_start))); ?>
                     </div>
                 </div>
 
@@ -891,14 +928,13 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
 
                     <div class="dfn-event-card-meta">
                         <span>📍 <strong><?php echo esc_html($location_text); ?></strong></span>
-                        <span>⏰ <?php echo esc_html(date('H:i', strtotime($event->event_time_start))); ?></span>
                     </div>
 
-                    <?php if ($event->payment_mode === 'gratuito' || ($price_standard == 0.0 && $price_fai == 0.0)) : ?>
+                    <?php if ($event->payment_mode === 'gratuito' || ($price_standard == 0.0 && (!$has_fai_price || $price_fai == 0.0))) : ?>
                         <div class="dfn-event-card-price-row free" style="background:#eaf7ea; border-radius:6px; padding:8px 12px; text-align:center; margin-bottom:12px;">
                             <span style="color:#004b23; font-weight:800; font-size:13px;">🎁 Ingresso Gratuito</span>
                         </div>
-                    <?php else : ?>
+                    <?php elseif ($has_fai_price) : ?>
                         <div class="dfn-event-card-price-row">
                             <div class="dfn-event-card-price-item">
                                 <span>Intero</span>
@@ -908,6 +944,11 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
                                 <span>Socio FAI</span>
                                 <div class="dfn-event-card-price-val"><?php echo wp_kses_post(wc_price($price_fai)); ?></div>
                             </div>
+                        </div>
+                    <?php else : ?>
+                        <div class="dfn-event-card-price-row single-price" style="display:block; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center; margin-bottom:14px;">
+                            <span style="font-size:10px; font-weight:600; color:#64748b; text-transform:uppercase; display:block;">Intero</span>
+                            <div class="dfn-event-card-price-val" style="font-size:15px; font-weight:800; color:#1e293b; margin-top:2px;"><?php echo wp_kses_post(wc_price($price_standard)); ?></div>
                         </div>
                     <?php endif; ?>
 

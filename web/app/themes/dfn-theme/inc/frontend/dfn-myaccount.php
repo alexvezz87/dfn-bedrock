@@ -421,9 +421,9 @@ function dfn_fai_cards_endpoint_content(): void
                 </h3>
             </div>
 
-            <form method="POST" class="dfn-add-fai-card-form" style="display: flex !important; flex-wrap: nowrap !important; align-items: flex-end !important; gap: 10px !important; width: 100% !important;">
+            <form method="POST" class="dfn-add-fai-card-form" style="display: flex !important; flex-wrap: wrap !important; align-items: flex-end !important; gap: 10px !important; width: 100% !important;">
                 <div style="display:none;"><?php wp_nonce_field('dfn_add_fai_card_action', 'dfn_add_fai_card_nonce'); ?></div>
-                
+
                 <div style="flex: 1 1 22%; min-width: 110px;">
                     <label for="dfn_fai_first_name" style="display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;"><?php esc_html_e('Nome *', 'dfn-theme'); ?></label>
                     <input type="text" name="dfn_fai_first_name" id="dfn_fai_first_name" required value="<?php echo esc_attr($default_first_name); ?>" placeholder="<?php esc_attr_e('Nome', 'dfn-theme'); ?>" style="width: 100%; height: 40px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; background: #ffffff;">
@@ -444,8 +444,14 @@ function dfn_fai_cards_endpoint_content(): void
                         <?php esc_html_e('Invia Tessera', 'dfn-theme'); ?>
                     </button>
                 </div>
+
+                <!-- GDPR: Consenso privacy obbligatorio -->
+                <div style="flex-basis: 100%; width: 100%; margin-top: 4px;">
+                    <?php echo wp_kses_post(dfn_get_privacy_checkbox_html('fai_card', 'tessera')); ?>
+                </div>
             </form>
         </div>
+
 
         <!-- Sezione 1: Tessere in Attesa di Verifica -->
         <?php if (! empty($pending_cards)) : ?>

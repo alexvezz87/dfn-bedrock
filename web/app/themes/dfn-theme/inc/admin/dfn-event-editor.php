@@ -77,7 +77,7 @@ function dfn_render_event_editor()
             $last_slot_time    = ! empty($_POST['last_slot_time']) ? sanitize_text_field($_POST['last_slot_time']) : null;
             $total_capacity    = intval($_POST['total_capacity']);
             $price_standard    = floatval($_POST['price_standard']);
-            $price_fai         = floatval($_POST['price_fai']);
+            $price_fai         = (isset($_POST['price_fai']) && $_POST['price_fai'] !== '') ? floatval($_POST['price_fai']) : null;
             $staff_config      = sanitize_textarea_field($_POST['staff_config']);
             $status            = sanitize_text_field($_POST['status']);
             $auto_cancel_hours = intval($_POST['auto_cancel_hours']);
@@ -89,7 +89,7 @@ function dfn_render_event_editor()
                 ? $_POST['booking_status']
                 : 'open';
 
-            if ($price_fai > $price_standard) {
+            if ($price_fai !== null && $price_fai > $price_standard) {
                 $message = __('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme');
                 $message_type = 'error';
             } elseif (! empty($_POST['event_date_end']) && strtotime($event_date_end) < strtotime($event_date_start)) {
@@ -278,7 +278,7 @@ function dfn_render_event_editor()
     $last_slot        = $is_post && isset($_POST['last_slot_time']) ? sanitize_text_field($_POST['last_slot_time']) : ($event ? $event->last_slot_time : '18:00:00');
     $tot_cap          = $is_post && isset($_POST['total_capacity']) ? intval($_POST['total_capacity']) : ($event ? $event->total_capacity : 100);
     $price_std        = $is_post && isset($_POST['price_standard']) ? floatval($_POST['price_standard']) : ($event ? $event->price_standard : 10.00);
-    $price_fai_member = $is_post && isset($_POST['price_fai']) ? floatval($_POST['price_fai']) : ($event ? $event->price_fai : 5.00);
+    $price_fai_member = $is_post ? (isset($_POST['price_fai']) && $_POST['price_fai'] !== '' ? floatval($_POST['price_fai']) : '') : ($event && $event->price_fai !== null && $event->price_fai !== '' ? floatval($event->price_fai) : '');
     $staff            = $is_post && isset($_POST['staff_config']) ? sanitize_textarea_field($_POST['staff_config']) : ($event ? $event->staff_config : '');
     $stat             = $is_post && isset($_POST['status']) ? sanitize_text_field($_POST['status']) : ($event ? $event->status : 'draft');
     $auto_cancel      = $is_post && isset($_POST['auto_cancel_hours']) ? intval($_POST['auto_cancel_hours']) : ($event ? (int) $event->auto_cancel_hours : 24);
@@ -711,8 +711,8 @@ function dfn_render_event_editor()
                             </div>
 
                             <div class="dfn-form-group">
-                                <label for="price_fai" class="dfn-label"><?php esc_html_e('Socio FAI / Scontato (€)', 'dfn-theme'); ?> <span class="required">*</span></label>
-                                <input type="number" name="price_fai" id="price_fai" value="<?php echo esc_attr($price_fai_member); ?>" step="0.50" min="0" required class="dfn-input">
+                                <label for="price_fai" class="dfn-label"><?php esc_html_e('Socio FAI / Scontato (€)', 'dfn-theme'); ?> <span style="font-weight:normal; color:#64748b;">(opzionale)</span></label>
+                                <input type="number" name="price_fai" id="price_fai" value="<?php echo esc_attr($price_fai_member); ?>" step="0.50" min="0" class="dfn-input" placeholder="Es. 8.00">
                             </div>
                         </div>
                     </div>
@@ -991,7 +991,7 @@ function dfn_event_editor_auto_cancel_js()
 
         if (form) {
             form.addEventListener('submit', function(e) {
-                if (priceStandard && priceFai) {
+                if (priceStandard && priceFai && priceFai.value !== '') {
                     var stdVal = parseFloat(priceStandard.value) || 0;
                     var faiVal = parseFloat(priceFai.value) || 0;
                     if (faiVal > stdVal) {

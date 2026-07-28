@@ -30,6 +30,7 @@ require_once get_stylesheet_directory() . '/inc/woocommerce/dfn-gateway-in-loco.
 // Frontend
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-checkout.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-fai-checkout.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-gdpr.php'; // GDPR: Privacy & Cookie Consent
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-shortcodes.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-myaccount.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';

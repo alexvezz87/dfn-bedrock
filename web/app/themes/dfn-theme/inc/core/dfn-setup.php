@@ -64,7 +64,15 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
                 : '2.0.0',
             true,
         );
-
+        // Enqueue del Footer DFN (CSS)
+        wp_enqueue_style(
+            'dfn-footer-css',
+            trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-footer.css',
+            [],
+            file_exists(get_stylesheet_directory() . '/assets/css/dfn-footer.css')
+                ? filemtime(get_stylesheet_directory() . '/assets/css/dfn-footer.css')
+                : '2.0.0',
+        );
         // Enqueue del widget selettore turni (CSS e JS) per il frontend
         wp_enqueue_style(
             'dfn-slot-selector-css',
@@ -448,7 +456,8 @@ function dfn_theme_supports(): void
         'flex-width'  => true,
     ]);
     register_nav_menus([
-        'menu-1' => __('Header Menu', 'dfn-theme'),
+        'menu-1'      => __('Header Menu', 'dfn-theme'),
+        'footer-menu' => __('Footer Menu', 'dfn-theme'),
     ]);
 }
 add_action('after_setup_theme', 'dfn_theme_supports', 20);

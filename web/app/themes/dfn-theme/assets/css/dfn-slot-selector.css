@@ -350,20 +350,24 @@
 }
 
 /* Badge data sovrapposto all'immagine */
+/* Badge data e ora sovrapposto all'immagine */
 .dfn-event-card-date-badge {
     position: absolute;
-    bottom: 10px;
-    left: 10px;
-    background: rgba(0, 75, 35, 0.88);
-    color: #ffffff;
-    font-size: 11px;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #004b23;
+    font-size: 12px;
     font-weight: 700;
-    padding: 4px 10px;
+    padding: 5px 12px;
     border-radius: 20px;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     letter-spacing: 0.3px;
-    box-shadow: 0 2px 8px rgba(0, 75, 35, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .dfn-event-card-content {
@@ -393,9 +397,8 @@
     margin-bottom: 14px;
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
 }
 
 .dfn-event-card-price-row {
