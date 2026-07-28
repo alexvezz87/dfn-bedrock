@@ -25,17 +25,16 @@ jobs:
       run: |
         composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-reqs
 
-    - name: 🚀 Incremental Deploy via FTP (Fast & Direct)
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        protocol: ftp
-        security: loose
-        timeout: 120000
-        exclude: |
-          **/.git**
-          **/.git*/**
-          **/web/app/uploads/**
-          **/tests/**
+    - name: 📦 Create Compressed TAR Archive
+      run: |
+        # Creiamo un unico archivio compresso (.tar.gz) escludendo la cartella uploads
+        tar --exclude="web/app/uploads" -czf deploy.tar.gz vendor web config
+
+    - name: 📂 Upload Single Archive via LFTP (Super Fast - 1 File Only)
+      run: |
+        sudo apt-get install -y --no-install-recommends lftp
+        lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow yes; set ftp:ssl-force no; set ftp:passive-mode yes; set net:timeout 60; set net:max-retries 3; put deploy.tar.gz; put scompatta.php; quit" -u "${{ secrets.FTP_USERNAME }}","${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_SERVER }}"
+
+    - name: 🚀 Trigger Remote Extraction
+      run: |
+        curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 15 http://dfnprenotazioni.it/scompatta.php?t=202605300020 || true
