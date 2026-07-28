@@ -378,7 +378,7 @@ function dfn_render_evento_shortcode($atts): string
                             </div>
                             <div class="dfn-widget-feedback"></div>
 
-                            <?php echo wp_kses_post(dfn_get_privacy_checkbox_html('booking_widget_1', 'prenotazione')); ?>
+                            <?php echo dfn_get_privacy_checkbox_html('booking_widget_1', 'prenotazione'); ?>
 
                             <div style="display:grid; grid-template-columns: 1fr 2fr; gap:12px; margin-top:16px;">
                                 <button type="button" class="dfn-widget-btn-prev" style="height:48px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#475569; font-weight:700; cursor:pointer; font-size:13px; text-transform:uppercase; box-sizing:border-box;">
@@ -699,7 +699,7 @@ function dfn_render_evento_shortcode($atts): string
 
                             <div class="dfn-widget-feedback"></div>
 
-                            <?php echo wp_kses_post(dfn_get_privacy_checkbox_html('booking_widget_2', 'prenotazione')); ?>
+                            <?php echo dfn_get_privacy_checkbox_html('booking_widget_2', 'prenotazione'); ?>
 
                             <div style="display:grid; grid-template-columns: 1fr 2fr; gap:12px; margin-top:16px;">
                                 <button type="button" class="dfn-widget-btn-prev" style="height:48px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#475569; font-weight:700; cursor:pointer; font-size:13px; text-transform:uppercase; box-sizing:border-box;">

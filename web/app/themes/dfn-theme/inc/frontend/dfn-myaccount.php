@@ -447,7 +447,7 @@ function dfn_fai_cards_endpoint_content(): void
 
                 <!-- GDPR: Consenso privacy obbligatorio -->
                 <div style="flex-basis: 100%; width: 100%; margin-top: 4px;">
-                    <?php echo wp_kses_post(dfn_get_privacy_checkbox_html('fai_card', 'tessera')); ?>
+                    <?php echo dfn_get_privacy_checkbox_html('fai_card', 'tessera'); ?>
                 </div>
             </form>
         </div>

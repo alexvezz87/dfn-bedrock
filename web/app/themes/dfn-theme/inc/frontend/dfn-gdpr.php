@@ -156,7 +156,7 @@ function dfn_wc_checkout_privacy_checkbox(): void
         return;
     }
 
-    echo wp_kses_post(dfn_get_privacy_checkbox_html('wc_checkout', 'prenotazione'));
+    echo dfn_get_privacy_checkbox_html('wc_checkout', 'prenotazione');
 }
 add_action('woocommerce_checkout_before_order_review', 'dfn_wc_checkout_privacy_checkbox', 5);
 
