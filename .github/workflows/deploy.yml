@@ -30,65 +30,10 @@ jobs:
         # Creiamo un archivio compresso escludendo uploads e WordPress Core (web/wp) per ridurre il pacchetto da 25MB a 5MB
         tar --exclude="web/app/uploads" --exclude="web/wp" -czf deploy.tar.gz vendor web config
 
-    - name: 📂 Upload Archive via Python FTP (Fast & Real-Time Progress)
-      env:
-        FTP_SERVER: ${{ secrets.FTP_SERVER }}
-        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    - name: 📂 Upload Archive via curl FTP (Fast IPv4 & Passive)
       run: |
-        python3 -c "
-        import ftplib, os, sys
-
-        raw_server = os.environ.get('FTP_SERVER', '').strip()
-        server = raw_server.replace('ftp://', '').replace('ftps://', '').rstrip('/')
-        port = 21
-        if ':' in server:
-            server, port_str = server.split(':')
-            port = int(port_str)
-        user = os.environ.get('FTP_USERNAME', '').strip()
-        passwd = os.environ.get('FTP_PASSWORD', '').strip()
-
-        print(f'Connecting to FTP server \"{server}\" on port {port}...', flush=True)
-        ftp = None
-        try:
-            ftps = ftplib.FTP_TLS(timeout=60)
-            ftps.connect(server, port)
-            ftps.login(user, passwd)
-            ftps.prot_p()
-            ftps.set_pasv(True)
-            ftp = ftps
-            print('Connected via FTPS successfully!', flush=True)
-        except Exception as e:
-            print(f'FTPS fallback ({e}), connecting via standard FTP...', flush=True)
-            ftp = ftplib.FTP(timeout=60)
-            ftp.connect(server, port)
-            ftp.login(user, passwd)
-            ftp.set_pasv(True)
-            print('Connected via standard FTP successfully!', flush=True)
-
-        for fname in ['deploy.tar.gz', 'scompatta.php']:
-            if os.path.exists(fname):
-                total_bytes = os.path.getsize(fname)
-                size_mb = total_bytes / (1024 * 1024)
-                print(f'Starting upload for {fname} ({size_mb:.1f} MB)...', flush=True)
-                
-                uploaded = 0
-                last_pct = -10
-                def callback(chunk):
-                    nonlocal uploaded, last_pct
-                    uploaded += len(chunk)
-                    pct = int((uploaded / total_bytes) * 100)
-                    if pct >= last_pct + 10 or pct == 100:
-                        print(f' -> {fname}: {pct}% ({uploaded / (1024*1024):.1f} / {size_mb:.1f} MB)', flush=True)
-                        last_pct = pct
-
-                with open(fname, 'rb') as f:
-                    ftp.storbinary(f'STOR {fname}', f, blocksize=256*1024, callback=callback)
-                print(f'Uploaded {fname} 100% complete!', flush=True)
-
-        ftp.quit()
-        print('All files uploaded successfully!', flush=True)
-        "
+        curl -4 --ftp-pasv --connect-timeout 20 --max-time 300 -sS -T deploy.tar.gz "ftp://${{ secrets.FTP_SERVER }}/" --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
+        curl -4 --ftp-pasv --connect-timeout 20 --max-time 30 -sS -T scompatta.php "ftp://${{ secrets.FTP_SERVER }}/" --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
 
     - name: 🚀 Trigger Remote Extraction
       run: |
