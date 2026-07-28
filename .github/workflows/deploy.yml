@@ -18,11 +18,12 @@ jobs:
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.3' # Allineato alla versione PHP locale/remota
+        php-version: '8.3'
+        extensions: gd, zip, mysqli, mbstring, xml, curl
 
     - name: 📦 Install Composer Dependencies
       run: |
-        composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader
+        composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-reqs
 
     - name: 📦 Create Compressed TAR Archive
       run: |
@@ -32,10 +33,9 @@ jobs:
 
     - name: 📂 Upload Files via curl FTP (Secure & Fast)
       run: |
-        # Usiamo curl per caricare in modo sicuro SOLO i due file necessari.
-        # Questo garantisce che nessun altro file sul server remoto (come gli upload esistenti) venga cancellato!
-        curl -T deploy.tar.gz ftp://${{ secrets.FTP_SERVER }}/ --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
-        curl -T scompatta.php ftp://${{ secrets.FTP_SERVER }}/ --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
+        # Usiamo --ftp-pasv per forzare la modalità passiva essenziale sui runner GitHub Actions
+        curl --ftp-pasv -T deploy.tar.gz ftp://${{ secrets.FTP_SERVER }}/ --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
+        curl --ftp-pasv -T scompatta.php ftp://${{ secrets.FTP_SERVER }}/ --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
 
     - name: 🚀 Trigger Remote Extraction and Self-Destruct
       run: |
