@@ -56,13 +56,23 @@
     80%       { transform: translateX(3px); }
 }
 
-.dfn-privacy-consent-checkbox {
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    margin-top: 2px;
-    accent-color: var(--gdpr-green);
-    cursor: pointer;
+.dfn-privacy-consent-checkbox,
+.dfn-privacy-checkbox {
+    flex-shrink: 0 !important;
+    display: inline-block !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    margin-top: 2px !important;
+    accent-color: var(--gdpr-green) !important;
+    cursor: pointer !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: relative !important;
+    z-index: 10 !important;
+    appearance: checkbox !important;
+    -webkit-appearance: checkbox !important;
 }
 
 .dfn-privacy-consent-label {

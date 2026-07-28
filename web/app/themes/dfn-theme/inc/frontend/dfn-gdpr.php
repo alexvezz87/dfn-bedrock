@@ -117,7 +117,7 @@ function dfn_get_privacy_checkbox_html(string $form_id = 'form', string $context
     $html .= '<input type="checkbox" ';
     $html .= 'id="' . $checkbox_id . '" ';
     $html .= 'name="dfn_privacy_consent" ';
-    $html .= 'class="dfn-privacy-checkbox" ';
+    $html .= 'class="dfn-privacy-consent-checkbox dfn-privacy-checkbox" ';
     $html .= 'value="1" ';
     $html .= 'required ';
     $html .= 'aria-required="true" ';
