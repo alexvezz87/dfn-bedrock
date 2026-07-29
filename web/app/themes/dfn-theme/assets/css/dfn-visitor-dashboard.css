@@ -1641,6 +1641,117 @@
     }
 }
 
+/* ==========================================================================
+   STILE DEDICATO: DETTAGLI ACCOUNT (woocommerce-EditAccountForm)
+   ========================================================================== */
+.woocommerce-EditAccountForm.edit-account {
+    background: #ffffff !important;
+    padding: 32px !important;
+    border-radius: 16px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03) !important;
+}
+
+.woocommerce-EditAccountForm.edit-account p.form-row {
+    margin-bottom: 22px !important;
+}
+
+.woocommerce-EditAccountForm.edit-account label {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    margin-bottom: 8px !important;
+    display: block !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+.woocommerce-EditAccountForm.edit-account label .required {
+    color: #ef4444 !important;
+}
+
+.woocommerce-EditAccountForm.edit-account input.input-text,
+.woocommerce-EditAccountForm.edit-account input[type="text"],
+.woocommerce-EditAccountForm.edit-account input[type="email"],
+.woocommerce-EditAccountForm.edit-account input[type="password"] {
+    width: 100% !important;
+    height: 48px !important;
+    padding: 0 16px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    background-color: #f8fafc !important;
+    font-size: 15px !important;
+    color: #0f172a !important;
+    box-sizing: border-box !important;
+    transition: all 0.2s ease !important;
+}
+
+.woocommerce-EditAccountForm.edit-account input.input-text:focus,
+.woocommerce-EditAccountForm.edit-account input[type="text"]:focus,
+.woocommerce-EditAccountForm.edit-account input[type="email"]:focus,
+.woocommerce-EditAccountForm.edit-account input[type="password"]:focus {
+    border-color: #004b23 !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.1) !important;
+    outline: none !important;
+}
+
+.woocommerce-EditAccountForm.edit-account span.woocommerce-input-wrapper {
+    width: 100% !important;
+    display: block !important;
+}
+
+.woocommerce-EditAccountForm.edit-account em {
+    font-size: 13px !important;
+    color: #64748b !important;
+    font-style: normal !important;
+    display: block !important;
+    margin-top: 6px !important;
+}
+
+/* Modifica Password Fieldset */
+.woocommerce-EditAccountForm.edit-account fieldset {
+    border: 1px solid #e2e8f0 !important;
+    background-color: #f8fafc !important;
+    border-radius: 12px !important;
+    padding: 24px !important;
+    margin: 30px 0 24px 0 !important;
+}
+
+.woocommerce-EditAccountForm.edit-account fieldset legend {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #004b23 !important;
+    background: #ffffff !important;
+    padding: 6px 14px !important;
+    border-radius: 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+/* Submit Button */
+.woocommerce-EditAccountForm.edit-account button.woocommerce-Button.button[name="save_account_details"] {
+    background-color: #004b23 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    padding: 14px 32px !important;
+    border-radius: 10px !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 4px 12px rgba(0, 75, 35, 0.2) !important;
+    margin-top: 10px !important;
+}
+
+.woocommerce-EditAccountForm.edit-account button.woocommerce-Button.button[name="save_account_details"]:hover {
+    background-color: #00381a !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 16px rgba(0, 75, 35, 0.3) !important;
+}
+
 
 
 

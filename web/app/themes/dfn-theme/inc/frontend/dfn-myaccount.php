@@ -51,7 +51,7 @@ function dfn_enqueue_myaccount_assets(): void
             'dfn-visitor-dashboard-css',
             get_stylesheet_directory_uri() . '/assets/css/dfn-visitor-dashboard.css',
             [],
-            '2.1.0',
+            '2.1.1',
         );
 
         // Tour guidato balloon

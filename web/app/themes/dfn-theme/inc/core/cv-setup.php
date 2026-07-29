@@ -216,13 +216,7 @@ function cv_rimuovi_voci_menu_account($items)
     $nuovo_menu = [];
 
     foreach ($items as $key => $value) {
-
-        if ('customer-logout' === $key) {
-            $nuovo_menu['cart'] = 'Carrello';
-        }
-
         $nuovo_menu[$key] = $value;
-
     }
 
     return $nuovo_menu;
