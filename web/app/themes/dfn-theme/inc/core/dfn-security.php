@@ -18,6 +18,32 @@ define('DFN_RECAPTCHA_SITE_KEY', '6LdW82stAAAAAETgJ0XpPZFq_miN199Byozf2ukN');
 define('DFN_RECAPTCHA_SECRET_KEY', '6LdW82stAAAAAGY-EMZNPHByZEECI0639k4uYvpn');
 
 /**
+ * Assicura che la tabella per le registrazioni pendenti esista nel DB.
+ */
+function dfn_ensure_pending_registrations_table(): void
+{
+    global $wpdb;
+    $table_pending = $wpdb->prefix . 'dfn_pending_registrations';
+
+    if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table_pending)) !== $table_pending) {
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $charset_collate = $wpdb->get_charset_collate();
+        $sql_pending = "CREATE TABLE {$table_pending} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            email varchar(255) NOT NULL,
+            token varchar(64) NOT NULL,
+            password_hash varchar(255) DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            expires_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY idx_token (token),
+            KEY idx_email (email)
+        ) {$charset_collate};";
+        dbDelta($sql_pending);
+    }
+}
+
+/**
  * Verifica un token Google reCAPTCHA v3 tramite API HTTPS.
  *
  * @param string $token Token ricevuto dal cliente.
@@ -202,6 +228,8 @@ function dfn_handle_registration_double_opt_in($errors, $username, $password, $e
         return new WP_Error('email_exists', __('⚠️ Questo indirizzo e-mail risulta già registrato.', 'dfn-theme'));
     }
 
+    dfn_ensure_pending_registrations_table();
+
     global $wpdb;
     $table_pending = $wpdb->prefix . 'dfn_pending_registrations';
 
@@ -271,6 +299,8 @@ function dfn_process_email_confirmation(): void
 {
     if (isset($_GET['dfn_action']) && $_GET['dfn_action'] === 'confirm_reg' && ! empty($_GET['token'])) {
         $token = sanitize_text_field($_GET['token']);
+
+        dfn_ensure_pending_registrations_table();
 
         global $wpdb;
         $table_pending = $wpdb->prefix . 'dfn_pending_registrations';

@@ -20,7 +20,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.1.0');
+define('DFN_DB_VERSION', '2.1.5');
 
 /**
  * ========================================================================
