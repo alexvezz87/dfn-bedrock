@@ -257,6 +257,14 @@ function dfn_collega_bottone_carrello(string $url, string $endpoint): string
 add_filter('woocommerce_get_endpoint_url', 'dfn_collega_bottone_carrello', 10, 2);
 
 /**
+ * Disattiva le email automatiche di ricevuta WooCommerce per i clienti,
+ * poichè la conferma di prenotazione (con il link all'Hub Biglietti dfn_hub)
+ * viene inviata in modo personalizzato da FAI Prenotazioni (dfn_send_booking_confirmation).
+ */
+add_filter('woocommerce_email_recipient_customer_completed_order', '__return_empty_string', 10, 2);
+add_filter('woocommerce_email_recipient_customer_processing_order', '__return_empty_string', 10, 2);
+
+/**
  * ========================================================================
  * 4. RUOLI E PERMESSI (SISTEMA 2.0)
  *

@@ -300,8 +300,29 @@ function dfn_render_group_ticket_hub(): void
                         </a>
                     </div>
                 <?php endif; ?>
-            </div>
-        </div>
+        <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var ajaxurl = "<?php echo admin_url('admin-ajax.php'); ?>";
+            function sendTrack(actionDesc) {
+                var formData = new FormData();
+                formData.append("action", "dfn_track_ticket_action");
+                formData.append("order_id", "<?php echo $order_id; ?>");
+                formData.append("token", "<?php echo esc_js($token); ?>");
+                formData.append("action_type", actionDesc);
+                fetch(ajaxurl, { method: "POST", body: formData, keepalive: true }).catch(function(){});
+            }
+            if (!sessionStorage.getItem("dfn_hub_viewed_<?php echo $order_id; ?>")) {
+                sendTrack("Apertura Hub Biglietti");
+                sessionStorage.setItem("dfn_hub_viewed_<?php echo $order_id; ?>", "yes");
+            }
+            var trackBtns = document.querySelectorAll(".dfn-hub-btn-wa, .dfn-hub-btn-save, .dfn-hub-btn-print");
+            trackBtns.forEach(function(btn) {
+                btn.addEventListener("click", function() {
+                    sendTrack("Interazione: " + this.innerText.trim());
+                });
+            });
+        });
+        </script>
         <?php wp_footer(); ?>
     </body>
     </html>

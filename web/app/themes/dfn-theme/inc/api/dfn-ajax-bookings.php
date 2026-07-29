@@ -1831,3 +1831,55 @@ function dfn_redirect_pending_approval_pay_page(): void
         exit;
     }
 }
+
+/**
+ * AJAX tracking endpoint per registrare le interazioni sull'Hub Biglietti (es. Apertura Hub, Stampa QR, ecc.)
+ */
+add_action('wp_ajax_dfn_track_ticket_action', 'dfn_track_ticket_action');
+add_action('wp_ajax_nopriv_dfn_track_ticket_action', 'dfn_track_ticket_action');
+add_action('wp_ajax_cv_track_ticket_action', 'dfn_track_ticket_action');
+add_action('wp_ajax_nopriv_cv_track_ticket_action', 'dfn_track_ticket_action');
+
+function dfn_track_ticket_action(): void
+{
+    $order_id    = isset($_POST['order_id']) ? absint($_POST['order_id']) : 0;
+    $token       = isset($_POST['token']) ? sanitize_text_field($_POST['token']) : '';
+    $action_desc = isset($_POST['action_type']) ? sanitize_text_field($_POST['action_type']) : '';
+
+    if (! $order_id || ! $token || ! $action_desc) {
+        wp_send_json_error('Parametri mancanti.');
+    }
+
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        wp_send_json_error('Ordine non trovato.');
+    }
+
+    // Verifica token (supporta sia _dfn_hub che legacy _hub)
+    $expected_dfn = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+    $expected_cv  = hash_hmac('sha256', $order->get_order_key() . '_hub', wp_salt('nonce'));
+
+    if (! hash_equals($expected_dfn, $token) && ! hash_equals($expected_cv, $token)) {
+        wp_send_json_error('Token non valido.');
+    }
+
+    // Registra l'azione nello storico meta dell'ordine (_cv_ticket_history)
+    $history = $order->get_meta('_cv_ticket_history');
+    if (! is_array($history)) {
+        $history = [];
+    }
+
+    $history[] = [
+        'time'   => current_time('mysql'),
+        'action' => $action_desc,
+    ];
+
+    if (count($history) > 50) {
+        $history = array_slice($history, -50);
+    }
+
+    $order->update_meta_data('_cv_ticket_history', $history);
+    $order->save();
+
+    wp_send_json_success();
+}
