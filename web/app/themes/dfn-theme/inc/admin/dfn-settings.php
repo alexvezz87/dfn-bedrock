@@ -60,6 +60,8 @@ function dfn_settings_save_fields(): void
         // Tab Email & Notifiche
         'email_new_booking'           => 'sanitize_email_list',
         'email_verify_fai'            => 'sanitize_email_list',
+        'email_cc'                    => 'sanitize_email_list',
+        'email_bcc'                   => 'sanitize_email_list',
         'email_cc_bcc'                => 'sanitize_text_field',
         'email_primary_color'         => 'sanitize_hex_color',
         'email_accent_color'          => 'sanitize_hex_color',
@@ -314,10 +316,17 @@ function dfn_render_settings_page(): void
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row"><label for="email_cc_bcc">CC / BCC Copia Conoscenza</label></th>
+                                <th scope="row"><label for="email_cc">Email in Copia Visibile (Cc)</label></th>
                                 <td>
-                                    <input name="dfn_settings[email_cc_bcc]" type="text" id="email_cc_bcc" value="<?php echo esc_attr(dfn_get_setting('email_cc_bcc')); ?>" class="regular-text" />
-                                    <p class="description"><strong>Comportamento:</strong> Indirizzi e-mail aggiuntivi (separati da virgola) a cui inviare una copia nascosta (Bcc) o normale (Cc) per tenere traccia di tutte le notifiche importanti inviate dal sistema.</p>
+                                    <input name="dfn_settings[email_cc]" type="text" id="email_cc" value="<?php echo esc_attr(dfn_get_setting('email_cc')); ?>" class="regular-text" />
+                                    <p class="description"><strong>Cc (Carbon Copy):</strong> Indirizzi e-mail (separati da virgola) a cui inviare una copia <strong>visibile</strong> di tutte le notifiche di sistema. Gli indirizzi inseriti qui saranno chiaramente visibili a tutti i destinatari nell'intestazione dell'e-mail.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="email_bcc">Email in Copia Nascosta (Bcc)</label></th>
+                                <td>
+                                    <input name="dfn_settings[email_bcc]" type="text" id="email_bcc" value="<?php echo esc_attr(dfn_get_setting('email_bcc')); ?>" class="regular-text" />
+                                    <p class="description"><strong>Bcc (Blind Carbon Copy):</strong> Indirizzi e-mail (separati da virgola) a cui inviare una copia <strong>riservata e nascosta</strong> di tutte le notifiche. Il cliente o destinatario principale <strong>non vedrà</strong> questi indirizzi nell'intestazione del messaggio.</p>
                                 </td>
                             </tr>
                             <tr>

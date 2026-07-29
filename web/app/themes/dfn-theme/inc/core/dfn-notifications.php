@@ -27,10 +27,25 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
 {
     $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
 
-    $cc_bcc_raw = dfn_get_setting('email_cc_bcc', '');
-    if (! empty($cc_bcc_raw)) {
-        $emails = array_map('sanitize_email', array_map('trim', explode(',', $cc_bcc_raw)));
-        foreach ($emails as $email) {
+    // Gestione Cc (Copia Visibile)
+    $cc_raw = dfn_get_setting('email_cc', '');
+    if (! empty($cc_raw)) {
+        $emails_cc = array_map('sanitize_email', array_map('trim', explode(',', $cc_raw)));
+        foreach ($emails_cc as $email) {
+            if (is_email($email)) {
+                $headers[] = 'Cc: ' . $email;
+            }
+        }
+    }
+
+    // Gestione Bcc (Copia Nascosta)
+    $bcc_raw = dfn_get_setting('email_bcc', '');
+    if (empty($bcc_raw)) {
+        $bcc_raw = dfn_get_setting('email_cc_bcc', ''); // Retrocompatibilità per impostazione precedente
+    }
+    if (! empty($bcc_raw)) {
+        $emails_bcc = array_map('sanitize_email', array_map('trim', explode(',', $bcc_raw)));
+        foreach ($emails_bcc as $email) {
             if (is_email($email)) {
                 $headers[] = 'Bcc: ' . $email;
             }
