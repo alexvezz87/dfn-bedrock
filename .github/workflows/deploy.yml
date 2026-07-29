@@ -30,11 +30,10 @@ jobs:
         # Creiamo un archivio compresso escludendo uploads e WordPress Core (web/wp) per ridurre il pacchetto da 25MB a 5MB
         tar --exclude="web/app/uploads" --exclude="web/wp" -czf deploy.tar.gz vendor web config
 
-    - name: 📂 Upload Archive via LFTP (Reliable 4MB Upload)
+    - name: 📂 Upload Archive via Curl (Fast & Reliable FTP Upload)
       run: |
-        sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get update -qq
-        sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y -qq -o Dpkg::Options::="--force-confold" lftp
-        lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow yes; set ftp:ssl-force no; set ftp:passive-mode yes; set net:timeout 60; set net:max-retries 3; put deploy.tar.gz; put scompatta.php; quit" -u "${{ secrets.FTP_USERNAME }}","${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_SERVER }}"
+        curl -sS --connect-timeout 30 --retry 3 --ssl-allow -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T deploy.tar.gz "ftp://${{ secrets.FTP_SERVER }}/deploy.tar.gz"
+        curl -sS --connect-timeout 30 --retry 3 --ssl-allow -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T scompatta.php "ftp://${{ secrets.FTP_SERVER }}/scompatta.php"
 
     - name: 🚀 Trigger Remote Extraction
       run: |
