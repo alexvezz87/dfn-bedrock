@@ -157,13 +157,13 @@ function dfn_render_evento_shortcode($atts): string
                 <?php if (! empty($event->description)) : ?>
                     <div class="dfn-booking-section dfn-booking-description-section" style="background:#ffffff; padding:20px 24px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0; border-left: 4px solid #004b23; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
                         <div style="font-size:13px; color:#64748b; font-weight:600; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">🏰 <?php esc_html_e('Descrizione', 'dfn-theme'); ?></div>
-                        <div style="font-size:14px; line-height:1.6; color:#334155;"><?php echo wp_kses_post(wpautop($event->description)); ?></div>
+                        <div style="font-size:14px; line-height:1.6; color:#334155;"><?php echo wp_kses_post(wpautop(stripslashes($event->description))); ?></div>
                     </div>
                 <?php endif; ?>
 
                 <div class="dfn-booking-section" style="background:#f8fafc; padding:18px 20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
                     <div style="font-size:13px; color:#64748b; font-weight:600; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">📍 <?php esc_html_e('Luogo ed Orario', 'dfn-theme'); ?></div>
-                    <div style="font-size:15px; font-weight:700; color:#004b23; margin-bottom:6px;"><?php echo esc_html($event->location); ?></div>
+                    <div style="font-size:15px; font-weight:700; color:#004b23; margin-bottom:6px;"><?php echo esc_html(stripslashes($event->location)); ?></div>
                     <div style="font-size:13px; color:#475569;">
                         📅 <?php echo esc_html(date_i18n('d F Y', strtotime($event->event_date_start))); ?>
                         <?php if ($event->event_date_end && $event->event_date_end !== $event->event_date_start) : ?>
@@ -463,13 +463,13 @@ function dfn_render_evento_shortcode($atts): string
                 <?php if (! empty($event->description)) : ?>
                     <div class="dfn-booking-section dfn-booking-description-section" style="background:#ffffff; padding:20px 24px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0; border-left: 4px solid #004b23; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
                         <div style="font-size:13px; color:#64748b; font-weight:600; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">🏰 <?php esc_html_e('Descrizione', 'dfn-theme'); ?></div>
-                        <div style="font-size:14px; line-height:1.6; color:#334155;"><?php echo wp_kses_post(wpautop($event->description)); ?></div>
+                        <div style="font-size:14px; line-height:1.6; color:#334155;"><?php echo wp_kses_post(wpautop(stripslashes($event->description))); ?></div>
                     </div>
                 <?php endif; ?>
 
                 <div class="dfn-booking-section" style="background:#f8fafc; padding:18px 20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
                     <div style="font-size:13px; color:#64748b; font-weight:600; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">📍 <?php esc_html_e('Luogo ed Orario', 'dfn-theme'); ?></div>
-                    <div style="font-size:15px; font-weight:700; color:#004b23; margin-bottom:6px;"><?php echo esc_html($event->location); ?></div>
+                    <div style="font-size:15px; font-weight:700; color:#004b23; margin-bottom:6px;"><?php echo esc_html(stripslashes($event->location)); ?></div>
                     <div style="font-size:13px; color:#475569;">
                         📅 <?php echo esc_html(date_i18n('d F Y', strtotime($event->event_date_start))); ?>
                         <?php if ($event->event_date_end && $event->event_date_end !== $event->event_date_start) : ?>

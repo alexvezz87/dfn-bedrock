@@ -220,6 +220,22 @@ function dfn_db_install(): void
         KEY idx_ttl (ttl_expires_at)
     ) {$charset_collate};";
 
+    // -------------------------------------------------------------------
+    // TABELLA 7: Registrazioni Utenti In Sospeso (Double Opt-In Email)
+    // -------------------------------------------------------------------
+    $table_pending = $wpdb->prefix . 'dfn_pending_registrations';
+    $sql_pending = "CREATE TABLE {$table_pending} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        email varchar(255) NOT NULL,
+        token varchar(64) NOT NULL,
+        password_hash varchar(255) DEFAULT NULL,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        expires_at datetime NOT NULL,
+        PRIMARY KEY  (id),
+        KEY idx_token (token),
+        KEY idx_email (email)
+    ) {$charset_collate};";
+
     // Esecuzione idempotente di tutte le tabelle
     dbDelta($sql_events);
     dbDelta($sql_slots);
@@ -227,6 +243,7 @@ function dfn_db_install(): void
     dbDelta($sql_booking_slots);
     dbDelta($sql_fai);
     dbDelta($sql_waitlist);
+    dbDelta($sql_pending);
 
     // Forza la creazione della colonna description se manca (dbDelta a volte fallisce l'alter)
     $row = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'description'");

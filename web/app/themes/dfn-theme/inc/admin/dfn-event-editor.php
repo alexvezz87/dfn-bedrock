@@ -63,9 +63,9 @@ function dfn_render_event_editor()
             $event_date_end    = ! empty($_POST['event_date_end']) ? sanitize_text_field($_POST['event_date_end']) : $event_date_start;
             $event_time_start  = sanitize_text_field($_POST['event_time_start']);
             $event_time_end    = ! empty($_POST['event_time_end']) ? sanitize_text_field($_POST['event_time_end']) : null;
-            $location          = sanitize_textarea_field($_POST['location']);
-            $city              = isset($_POST['city']) ? sanitize_text_field($_POST['city']) : '';
-            $description       = wp_kses_post($_POST['description']);
+            $location          = sanitize_textarea_field(wp_unslash($_POST['location']));
+            $city              = isset($_POST['city']) ? sanitize_text_field(wp_unslash($_POST['city'])) : '';
+            $description       = wp_kses_post(wp_unslash($_POST['description']));
             $access_type       = sanitize_text_field($_POST['access_type']); // free_flow o time_slots
             $allocation_mode   = sanitize_text_field($_POST['allocation_mode']); // automatic o self_selection
             $approval_workflow = sanitize_text_field($_POST['approval_workflow']); // auto o manual
@@ -98,7 +98,7 @@ function dfn_render_event_editor()
             } else {
                 $product_id = 0;
                 if ($product_id_raw === 'new') {
-                    $event_title = isset($_POST['event_title']) ? sanitize_text_field($_POST['event_title']) : '';
+                    $event_title = isset($_POST['event_title']) ? sanitize_text_field(wp_unslash($_POST['event_title'])) : '';
                     if (empty($event_title)) {
                         $event_title = 'Evento FAI - ' . date_i18n('d M Y', strtotime($event_date_start));
                     }
@@ -264,9 +264,9 @@ function dfn_render_event_editor()
     $date_end         = $is_post && isset($_POST['event_date_end']) ? sanitize_text_field($_POST['event_date_end']) : ($event ? $event->event_date_end : '');
     $time_start       = $is_post && isset($_POST['event_time_start']) ? sanitize_text_field($_POST['event_time_start']) : ($event ? $event->event_time_start : '');
     $time_end         = $is_post && isset($_POST['event_time_end']) ? sanitize_text_field($_POST['event_time_end']) : ($event ? $event->event_time_end : '');
-    $loc              = $is_post && isset($_POST['location']) ? sanitize_textarea_field($_POST['location']) : ($event ? $event->location : '');
-    $city_val         = $is_post && isset($_POST['city']) ? sanitize_text_field($_POST['city']) : ($event && ! empty($event->city) ? $event->city : '');
-    $desc             = $is_post && isset($_POST['description']) ? wp_kses_post($_POST['description']) : ($event ? $event->description : '');
+    $loc              = $is_post && isset($_POST['location']) ? sanitize_textarea_field(wp_unslash($_POST['location'])) : ($event ? stripslashes($event->location) : '');
+    $city_val         = $is_post && isset($_POST['city']) ? sanitize_text_field(wp_unslash($_POST['city'])) : ($event && ! empty($event->city) ? stripslashes($event->city) : '');
+    $desc             = $is_post && isset($_POST['description']) ? wp_kses_post(wp_unslash($_POST['description'])) : ($event ? stripslashes($event->description) : '');
     $acc_type         = $is_post && isset($_POST['access_type']) ? sanitize_text_field($_POST['access_type']) : ($event ? $event->access_type : 'time_slots');
     $alloc_mode       = $is_post && isset($_POST['allocation_mode']) ? sanitize_text_field($_POST['allocation_mode']) : ($event ? $event->allocation_mode : 'automatic');
     $app_wf           = $is_post && isset($_POST['approval_workflow']) ? sanitize_text_field($_POST['approval_workflow']) : ($event ? $event->approval_workflow : 'auto');

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * DFN Tour — Guided Tutorial Balloon System
  * Area Riservata FAI Prenotazioni 2.0
  *
@@ -331,14 +331,35 @@
         window.addEventListener('scroll', onScrollEnd, { passive: true });
     }
 
-    function completeTour() {
-        if (state.storageKey) {
-            try { localStorage.setItem(state.storageKey, '1'); } catch (e) {}
+    function setTourDismissed(key) {
+        if (!key) return;
+        try { localStorage.setItem(key, '1'); } catch (e) {}
+        try {
+            document.cookie = key + "=1; path=/; max-age=31536000; SameSite=Lax";
+        } catch (e) {}
+    }
+
+    function isTourDismissed(key) {
+        if (!key) return false;
+        var localDone = false;
+        try { localDone = !!localStorage.getItem(key); } catch (e) {}
+        if (localDone) return true;
+        try {
+            return document.cookie.split('; ').some(function (row) {
+                return row.indexOf(key + '=') === 0;
+            });
+        } catch (e) {
+            return false;
         }
+    }
+
+    function completeTour() {
+        setTourDismissed(state.storageKey);
         teardown();
     }
 
     function skipTour() {
+        setTourDismissed(state.storageKey);
         teardown();
     }
 
@@ -442,8 +463,7 @@
             });
 
             // Auto-avvio alla prima visita
-            var done = false;
-            try { done = !!localStorage.getItem(tour.storageKey); } catch (e) {}
+            var done = isTourDismissed(tour.storageKey);
             if (!done) {
                 fab.classList.add('dfn-tour-fab-pulse');
                 setTimeout(function () {
