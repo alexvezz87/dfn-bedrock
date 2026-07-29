@@ -17,6 +17,9 @@ if (! defined('ABSPATH')) {
 define('DFN_RECAPTCHA_SITE_KEY', '6LdW82stAAAAAETgJ0XpPZFq_miN199Byozf2ukN');
 define('DFN_RECAPTCHA_SECRET_KEY', '6LdW82stAAAAAGY-EMZNPHByZEECI0639k4uYvpn');
 
+// Disabilita la generazione automatica casuale di password in WooCommerce
+add_filter('woocommerce_registration_generate_password', '__return_false');
+
 /**
  * Assicura che la tabella per le registrazioni pendenti esista nel DB.
  */
@@ -42,6 +45,44 @@ function dfn_ensure_pending_registrations_table(): void
         dbDelta($sql_pending);
     }
 }
+
+/**
+ * Aggiunge i campi Password, Conferma Password e Checkbox GDPR nel form di registrazione WooCommerce.
+ */
+function dfn_add_registration_form_fields(): void
+{
+    $privacy_url = esc_url(DFN_PRIVACY_POLICY_URL);
+    ?>
+    <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide" style="margin-bottom: 16px;">
+        <label for="reg_password" style="font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">
+            <?php esc_html_e('Password', 'dfn-theme'); ?> <span class="required" style="color: #ef4444;">*</span>
+        </label>
+        <input type="password" class="woocommerce-Input woocommerce-Input--text input-text" name="password" id="reg_password" autocomplete="new-password" required style="width: 100%; height: 46px; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc;" />
+    </p>
+
+    <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide" style="margin-bottom: 16px;">
+        <label for="reg_password_confirm" style="font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">
+            <?php esc_html_e('Conferma Password', 'dfn-theme'); ?> <span class="required" style="color: #ef4444;">*</span>
+        </label>
+        <input type="password" class="woocommerce-Input woocommerce-Input--text input-text" name="password_confirm" id="reg_password_confirm" autocomplete="new-password" required style="width: 100%; height: 46px; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc;" />
+    </p>
+
+    <div class="dfn-privacy-consent-block" style="margin: 20px 0 20px 0;">
+        <label class="woocommerce-form__label woocommerce-form__label-for-checkbox checkbox" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 13px; color: #475569; line-height: 1.5;">
+            <input class="woocommerce-form__input woocommerce-form__input-checkbox input-checkbox" name="dfn_privacy_consent" type="checkbox" id="reg_privacy_consent" value="1" required style="margin-top: 2px;" />
+            <span>
+                <?php
+                printf(
+                    __('Ho letto e accetto l\'<a href="%s" target="_blank" rel="noopener" style="color:#004b23; font-weight:bold; text-decoration:underline;">Informativa sulla Privacy</a>. I miei dati personali verranno trattati nel rispetto del Regolamento GDPR.', 'dfn-theme'),
+                    $privacy_url
+                );
+                ?>
+            </span>
+        </label>
+    </div>
+    <?php
+}
+add_action('woocommerce_register_form', 'dfn_add_registration_form_fields', 15);
 
 /**
  * Verifica un token Google reCAPTCHA v3 tramite API HTTPS.
@@ -228,6 +269,27 @@ function dfn_handle_registration_double_opt_in($errors, $username, $password, $e
         return new WP_Error('email_exists', __('⚠️ Questo indirizzo e-mail risulta già registrato.', 'dfn-theme'));
     }
 
+    // 2. Validazione Password e Conferma Password
+    $pass1 = isset($_POST['password']) ? trim($_POST['password']) : '';
+    $pass2 = isset($_POST['password_confirm']) ? trim($_POST['password_confirm']) : '';
+
+    if (empty($pass1)) {
+        return new WP_Error('empty_password', __('⚠️ Inserisci una password per il tuo account.', 'dfn-theme'));
+    }
+
+    if (strlen($pass1) < 6) {
+        return new WP_Error('short_password', __('⚠️ La password deve contenere almeno 6 caratteri.', 'dfn-theme'));
+    }
+
+    if ($pass1 !== $pass2) {
+        return new WP_Error('password_mismatch', __('⚠️ Le due password inserite non coincidono. Per favore ricontrolla.', 'dfn-theme'));
+    }
+
+    // 3. Validazione Checkbox GDPR Privacy
+    if (empty($_POST['dfn_privacy_consent'])) {
+        return new WP_Error('privacy_required', __('⚠️ È necessario accettare l\'Informativa sulla Privacy per potersi registrare.', 'dfn-theme'));
+    }
+
     dfn_ensure_pending_registrations_table();
 
     global $wpdb;
@@ -245,7 +307,7 @@ function dfn_handle_registration_double_opt_in($errors, $username, $password, $e
         [
             'email'         => $email,
             'token'         => $token,
-            'password_hash' => ! empty($password) ? wp_hash_password($password) : null,
+            'password_hash' => wp_hash_password($pass1),
             'expires_at'    => $expires_at,
         ],
         ['%s', '%s', '%s', '%s']
@@ -355,13 +417,33 @@ function dfn_process_email_confirmation(): void
                 // Cancella il record temporaneo
                 $wpdb->delete($table_pending, ['id' => $pending->id], ['%d']);
 
+                // Invia e-mail di Benvenuto con credenziali di accesso
+                $delegation_name = get_option('dfn_delegation_name_short', 'FAI Novara');
+                $welcome_subject = sprintf(__('Benvenuto su %s! Credenziali del tuo Account', 'dfn-theme'), $delegation_name);
+
+                $welcome_body = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 12px; border: 1px solid #e2e8f0;">';
+                $welcome_body .= '<div style="text-align: center; margin-bottom: 25px;"><h2 style="color: #004b23; margin: 0;">' . esc_html($delegation_name) . '</h2></div>';
+                $welcome_body .= '<h3 style="color: #1e293b;">🎉 Il tuo account è stato attivato con successo!</h3>';
+                $welcome_body .= '<p style="color: #475569; line-height: 1.6;">Ecco il riepilogo delle tue credenziali per i futuri accessi alla piattaforma:</p>';
+                $welcome_body .= '<div style="background-color: #f8fafc; border-left: 4px solid #004b23; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0;">';
+                $welcome_body .= '<p style="margin: 0 0 8px 0; font-size: 15px; color: #0f172a;"><strong>📧 Nome Utente / Email:</strong> ' . esc_html($email) . '</p>';
+                $welcome_body .= '<p style="margin: 0; font-size: 15px; color: #0f172a;"><strong>🔑 Password:</strong> La password impostata durante la registrazione.</p>';
+                $welcome_body .= '</div>';
+                $welcome_body .= '<p style="color: #475569; line-height: 1.6;">Puoi accedere all\'Area Riservata in qualsiasi momento utilizzando questo link:<br><a href="' . esc_url($myaccount_url) . '" style="color: #004b23; font-weight: bold;">' . esc_url($myaccount_url) . '</a></p>';
+                $welcome_body .= '</div>';
+
+                wp_mail($email, $welcome_subject, $welcome_body, [ 'Content-Type: text/html; charset=UTF-8' ]);
+
                 // Effettua l'autenticazione automatica (Login Immediato)
                 wp_set_current_user($user_id);
                 wp_set_auth_cookie($user_id, true);
 
                 if (function_exists('wc_add_notice')) {
                     wc_add_notice(
-                        __('🎉 Indirizzo e-mail confermato con successo! Il tuo account è stato attivato ed hai effettuato l\'accesso all\'Area Riservata.', 'dfn-theme'),
+                        sprintf(
+                            __('🎉 <strong>Benvenuto! Account attivato con successo.</strong><br>📧 Il tuo Nome Utente per i prossimi accessi è: <strong>%s</strong><br>🔑 La tua Password è quella impostata in fase di registrazione.', 'dfn-theme'),
+                            esc_html($email)
+                        ),
                         'success'
                     );
                 }
@@ -381,7 +463,13 @@ function dfn_process_email_confirmation(): void
             }
 
             if (function_exists('wc_add_notice')) {
-                wc_add_notice(__('ℹ️ Il tuo indirizzo e-mail risulta già verificato ed attivo! Accesso effettuato.', 'dfn-theme'), 'success');
+                wc_add_notice(
+                    sprintf(
+                        __('ℹ️ <strong>Account attivo ed autenticato!</strong><br>📧 Nome Utente: <strong>%s</strong> (usa la password scelta in fase di registrazione).', 'dfn-theme'),
+                        esc_html($email)
+                    ),
+                    'success'
+                );
             }
         }
 
