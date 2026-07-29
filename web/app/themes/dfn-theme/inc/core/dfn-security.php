@@ -53,24 +53,24 @@ function dfn_add_registration_form_fields(): void
 {
     $privacy_url = esc_url(DFN_PRIVACY_POLICY_URL);
     ?>
-    <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide" style="margin-bottom: 16px;">
-        <label for="reg_password" style="font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">
+    <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide" style="margin-bottom: 12px;">
+        <label for="reg_password" style="font-weight: 600; color: #334155; display: block; margin-bottom: 4px; font-size: 13px;">
             <?php esc_html_e('Password', 'dfn-theme'); ?> <span class="required" style="color: #ef4444;">*</span>
         </label>
-        <input type="password" class="woocommerce-Input woocommerce-Input--text input-text" name="password" id="reg_password" autocomplete="new-password" required style="width: 100%; height: 46px; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc;" />
+        <input type="password" class="woocommerce-Input woocommerce-Input--text input-text" name="password" id="reg_password" autocomplete="new-password" required style="width: 100%; height: 42px; padding: 0 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #f8fafc;" />
     </p>
 
-    <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide" style="margin-bottom: 16px;">
-        <label for="reg_password_confirm" style="font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">
+    <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide" style="margin-bottom: 12px;">
+        <label for="reg_password_confirm" style="font-weight: 600; color: #334155; display: block; margin-bottom: 4px; font-size: 13px;">
             <?php esc_html_e('Conferma Password', 'dfn-theme'); ?> <span class="required" style="color: #ef4444;">*</span>
         </label>
-        <input type="password" class="woocommerce-Input woocommerce-Input--text input-text" name="password_confirm" id="reg_password_confirm" autocomplete="new-password" required style="width: 100%; height: 46px; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc;" />
+        <input type="password" class="woocommerce-Input woocommerce-Input--text input-text" name="password_confirm" id="reg_password_confirm" autocomplete="new-password" required style="width: 100%; height: 42px; padding: 0 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #f8fafc;" />
     </p>
 
-    <div class="dfn-privacy-consent-block" style="margin: 20px 0 20px 0;">
-        <label class="woocommerce-form__label woocommerce-form__label-for-checkbox checkbox" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 13px; color: #475569; line-height: 1.5;">
-            <input class="woocommerce-form__input woocommerce-form__input-checkbox input-checkbox" name="dfn_privacy_consent" type="checkbox" id="reg_privacy_consent" value="1" required style="margin-top: 2px;" />
-            <span>
+    <div class="dfn-privacy-consent-block" style="margin: 12px 0 14px 0;">
+        <label class="woocommerce-form__label woocommerce-form__label-for-checkbox checkbox" style="display: flex !important; align-items: flex-start !important; gap: 8px !important; cursor: pointer; font-size: 13px; color: #475569; line-height: 1.4; margin-bottom: 0 !important;">
+            <input class="woocommerce-form__input woocommerce-form__input-checkbox input-checkbox" name="dfn_privacy_consent" type="checkbox" id="reg_privacy_consent" value="1" required style="width: 18px !important; height: 18px !important; min-width: 18px !important; margin-top: 1px !important; accent-color: #004d35 !important;" />
+            <span style="font-size: 13px !important; font-weight: 400 !important; color: #475569 !important;">
                 <?php
                 printf(
                     __('Ho letto e accetto l\'<a href="%s" target="_blank" rel="noopener" style="color:#004b23; font-weight:bold; text-decoration:underline;">Informativa sulla Privacy</a>. I miei dati personali verranno trattati nel rispetto del Regolamento GDPR.', 'dfn-theme'),
