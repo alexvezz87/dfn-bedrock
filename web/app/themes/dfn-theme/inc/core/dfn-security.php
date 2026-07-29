@@ -54,7 +54,7 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
 }
 
 /**
- * Carica lo script Google reCAPTCHA v3 nel frontend.
+ * Carica lo script Google reCAPTCHA v3 nel frontend ed intercetta l'invio dei form.
  */
 function dfn_enqueue_recaptcha_scripts(): void
 {
@@ -89,6 +89,16 @@ function dfn_enqueue_recaptcha_scripts(): void
             e.preventDefault();
             e.stopPropagation();
 
+            // Preserva il valore del pulsante di submit che ha scatenato l'invio (es. name="register" o name="login")
+            var submitter = e.submitter || document.activeElement;
+            if (submitter && submitter.name && !form.querySelector('input[type="hidden"][name="' + submitter.name + '"]')) {
+                var hiddenSub = document.createElement('input');
+                hiddenSub.type = 'hidden';
+                hiddenSub.name = submitter.name;
+                hiddenSub.value = submitter.value || '1';
+                form.appendChild(hiddenSub);
+            }
+
             grecaptcha.ready(function() {
                 grecaptcha.execute(siteKey, { action: 'submit' }).then(function(token) {
                     if (!input) {
@@ -107,7 +117,11 @@ function dfn_enqueue_recaptcha_scripts(): void
                     }
                 }).catch(function(err) {
                     form.setAttribute('data-recaptcha-bypassed', 'true');
-                    form.submit();
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                    } else {
+                        form.submit();
+                    }
                 });
             });
         });
@@ -173,7 +187,7 @@ function dfn_handle_registration_double_opt_in($errors, $username, $password, $e
         return $errors;
     }
 
-    // 1. Validazione reCAPTCHA
+    // 1. Validazione reCAPTCHA (se il token è stato inviato dal frontend)
     $recaptcha_token = isset($_POST['g-recaptcha-response']) ? sanitize_text_field($_POST['g-recaptcha-response']) : '';
     if (! empty($recaptcha_token) && ! dfn_verify_recaptcha($recaptcha_token, 'register')) {
         return new WP_Error('recaptcha_failed', __('⚠️ Verifica di sicurezza anti-bot fallita. Riprova.', 'dfn-theme'));
@@ -289,17 +303,35 @@ function dfn_process_email_confirmation(): void
 
         // Se l'utente non esiste ancora in wp_users, crealo ora!
         if (! email_exists($email)) {
-            $customer_id = function_exists('wc_create_new_customer')
-                ? wc_create_new_customer($email)
-                : wp_create_user($email, wp_generate_password(12), $email);
+            $username = sanitize_user(current(explode('@', $email)));
+            if (username_exists($username)) {
+                $username .= '_' . rand(100, 999);
+            }
 
-            if (! is_wp_error($customer_id) && $customer_id > 0) {
+            $random_pass = wp_generate_password(12);
+            $user_id = wp_insert_user([
+                'user_login'    => $username,
+                'user_email'    => $email,
+                'user_pass'     => $random_pass,
+                'role'          => 'customer',
+                'display_name'  => $username,
+            ]);
+
+            if (! is_wp_error($user_id) && $user_id > 0) {
+                if (! empty($pending->password_hash)) {
+                    $wpdb->update($wpdb->users, ['user_pass' => $pending->password_hash], ['ID' => $user_id]);
+                }
+
                 // Cancella il record temporaneo
                 $wpdb->delete($table_pending, ['id' => $pending->id], ['%d']);
 
+                // Effettua l'autenticazione automatica (Login Immediato)
+                wp_set_current_user($user_id);
+                wp_set_auth_cookie($user_id, true);
+
                 if (function_exists('wc_add_notice')) {
                     wc_add_notice(
-                        __('🎉 Indirizzo e-mail confermato con successo! Il tuo account è stato attivato. Ti abbiamo inviato le credenziali di accesso via e-mail.', 'dfn-theme'),
+                        __('🎉 Indirizzo e-mail confermato con successo! Il tuo account è stato attivato ed hai effettuato l\'accesso all\'Area Riservata.', 'dfn-theme'),
                         'success'
                     );
                 }
@@ -310,8 +342,16 @@ function dfn_process_email_confirmation(): void
             }
         } else {
             $wpdb->delete($table_pending, ['id' => $pending->id], ['%d']);
+
+            // Se esiste già, effettuiamo comunque l'autenticazione
+            $user = get_user_by('email', $email);
+            if ($user) {
+                wp_set_current_user($user->ID);
+                wp_set_auth_cookie($user->ID, true);
+            }
+
             if (function_exists('wc_add_notice')) {
-                wc_add_notice(__('ℹ️ Il tuo indirizzo e-mail risulta già verificato ed attivo! Puoi accedere con la tua password.', 'dfn-theme'), 'notice');
+                wc_add_notice(__('ℹ️ Il tuo indirizzo e-mail risulta già verificato ed attivo! Accesso effettuato.', 'dfn-theme'), 'success');
             }
         }
 
@@ -319,4 +359,4 @@ function dfn_process_email_confirmation(): void
         exit;
     }
 }
-add_action('init', 'dfn_process_email_confirmation');
+add_action('wp_loaded', 'dfn_process_email_confirmation');
