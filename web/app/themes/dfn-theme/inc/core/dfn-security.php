@@ -85,6 +85,40 @@ function dfn_add_registration_form_fields(): void
 add_action('woocommerce_register_form', 'dfn_add_registration_form_fields', 15);
 
 /**
+ * Mostra il banner di benvenuto e conferma attivazione nell'Area Riservata quando l'URL contiene ?activated=1
+ */
+function dfn_show_activation_welcome_banner(): void
+{
+    if (isset($_GET['activated']) && $_GET['activated'] === '1') {
+        $current_user = wp_get_current_user();
+        $email_display = ($current_user && $current_user->user_email) ? $current_user->user_email : '';
+        ?>
+        <div class="dfn-activation-banner" style="background: linear-gradient(135deg, #004b23 0%, #006633 100%); color: #ffffff; padding: 24px 28px; border-radius: 16px; margin-bottom: 28px; box-shadow: 0 10px 25px rgba(0,75,35,0.2);">
+            <h3 style="margin: 0 0 10px 0; color: #ffffff; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                🎉 Account Attivato con Successo!
+            </h3>
+            <p style="margin: 0 0 14px 0; font-size: 15px; color: #f1f5f9; line-height: 1.5;">
+                Il tuo indirizzo e-mail è stato verificato con successo. Il tuo account è ora attivo ed hai effettuato l'accesso all'Area Riservata.
+            </p>
+            <?php if (! empty($email_display)) : ?>
+                <div style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); padding: 14px 18px; border-radius: 10px; font-size: 14px; color: #ffffff;">
+                    📧 <strong>Nome Utente / Email per i prossimi accessi:</strong> <span style="text-decoration: underline; font-weight: 600;"><?php echo esc_html($email_display); ?></span><br>
+                    🔑 <strong>Password:</strong> La password scelta durante la registrazione.
+                </div>
+            <?php else : ?>
+                <div style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); padding: 14px 18px; border-radius: 10px; font-size: 14px; color: #ffffff;">
+                    🔑 Utilizza la tua <strong>Email</strong> e la <strong>Password</strong> scelta in fase di registrazione per accedere nei prossimi ingressi.
+                </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+}
+add_action('woocommerce_before_customer_login_form', 'dfn_show_activation_welcome_banner', 5);
+add_action('woocommerce_before_my_account', 'dfn_show_activation_welcome_banner', 5);
+add_action('woocommerce_account_content', 'dfn_show_activation_welcome_banner', 5);
+
+/**
  * Verifica un token Google reCAPTCHA v3 tramite API HTTPS.
  *
  * @param string $token Token ricevuto dal cliente.
@@ -392,6 +426,7 @@ function dfn_process_email_confirmation(): void
         }
 
         $email = $pending->email;
+        $user_id = 0;
 
         // Se l'utente non esiste ancora in wp_users, crealo ora!
         if (! email_exists($email)) {
@@ -433,47 +468,43 @@ function dfn_process_email_confirmation(): void
                 $welcome_body .= '</div>';
 
                 wp_mail($email, $welcome_subject, $welcome_body, [ 'Content-Type: text/html; charset=UTF-8' ]);
-
-                // Effettua l'autenticazione automatica (Login Immediato)
-                wp_set_current_user($user_id);
-                wp_set_auth_cookie($user_id, true);
-
-                if (function_exists('wc_add_notice')) {
-                    wc_add_notice(
-                        sprintf(
-                            __('🎉 <strong>Benvenuto! Account attivato con successo.</strong><br>📧 Il tuo Nome Utente per i prossimi accessi è: <strong>%s</strong><br>🔑 La tua Password è quella impostata in fase di registrazione.', 'dfn-theme'),
-                            esc_html($email)
-                        ),
-                        'success'
-                    );
-                }
-            } else {
-                if (function_exists('wc_add_notice')) {
-                    wc_add_notice(__('⚠️ Si è verificato un errore durante la creazione dell\'account. Riprova più tardi.', 'dfn-theme'), 'error');
-                }
             }
         } else {
             $wpdb->delete($table_pending, ['id' => $pending->id], ['%d']);
-
-            // Se esiste già, effettuiamo comunque l'autenticazione
-            $user = get_user_by('email', $email);
-            if ($user) {
-                wp_set_current_user($user->ID);
-                wp_set_auth_cookie($user->ID, true);
-            }
-
-            if (function_exists('wc_add_notice')) {
-                wc_add_notice(
-                    sprintf(
-                        __('ℹ️ <strong>Account attivo ed autenticato!</strong><br>📧 Nome Utente: <strong>%s</strong> (usa la password scelta in fase di registrazione).', 'dfn-theme'),
-                        esc_html($email)
-                    ),
-                    'success'
-                );
+            $user_existing = get_user_by('email', $email);
+            if ($user_existing) {
+                $user_id = $user_existing->ID;
             }
         }
 
-        wp_safe_redirect($myaccount_url);
+        // Effettua l'autenticazione completa WP & WooCommerce
+        if ($user_id > 0) {
+            $user_obj = get_user_by('id', $user_id);
+            wp_clear_auth_cookie();
+            wp_set_current_user($user_id);
+            wp_set_auth_cookie($user_id, true);
+
+            if ($user_obj) {
+                do_action('wp_login', $user_obj->user_login, $user_obj);
+            }
+            if (function_exists('wc_set_customer_auth_cookie')) {
+                wc_set_customer_auth_cookie($user_id);
+            }
+        }
+
+        if (function_exists('wc_add_notice')) {
+            wc_add_notice(
+                sprintf(
+                    __('🎉 <strong>Benvenuto! Account attivato con successo.</strong><br>📧 Il tuo Nome Utente per i prossimi accessi è: <strong>%s</strong>', 'dfn-theme'),
+                    esc_html($email)
+                ),
+                'success'
+            );
+        }
+
+        // Reindirizza con parametro activated=1 per garantire la visualizzazione del banner di Benvenuto
+        $redirect_dest = add_query_arg('activated', '1', $myaccount_url);
+        wp_safe_redirect($redirect_dest);
         exit;
     }
 }
