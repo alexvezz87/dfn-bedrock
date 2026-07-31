@@ -35,6 +35,7 @@ require_once get_stylesheet_directory() . '/inc/frontend/dfn-gdpr.php'; // GDPR:
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-shortcodes.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-myaccount.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-mobile-app.php';
 
 // Admin / Gestione
 require_once get_stylesheet_directory() . '/inc/admin/dfn-events-manager.php';

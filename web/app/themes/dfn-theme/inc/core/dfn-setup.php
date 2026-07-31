@@ -93,6 +93,30 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             true,
         );
 
+        // Enqueue Mobile Web App (CSS & JS)
+        wp_enqueue_style(
+            'dfn-mobile-app-css',
+            trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-mobile-app.css',
+            [ 'dashicons' ],
+            file_exists(get_stylesheet_directory() . '/assets/css/dfn-mobile-app.css')
+                ? filemtime(get_stylesheet_directory() . '/assets/css/dfn-mobile-app.css')
+                : '2.1.0'
+        );
+
+        wp_enqueue_script(
+            'dfn-mobile-app-js',
+            trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-mobile-app.js',
+            [],
+            file_exists(get_stylesheet_directory() . '/assets/js/dfn-mobile-app.js')
+                ? filemtime(get_stylesheet_directory() . '/assets/js/dfn-mobile-app.js')
+                : '2.1.0',
+            true
+        );
+
+        wp_localize_script('dfn-mobile-app-js', 'dfn_mobile_params', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+        ]);
+
         $user_logged_in = is_user_logged_in();
         $user_data = [
             'ajaxurl'        => admin_url('admin-ajax.php'),
@@ -466,4 +490,24 @@ function dfn_theme_supports(): void
     ]);
 }
 add_action('after_setup_theme', 'dfn_theme_supports', 20);
+
+/**
+ * Inietta i meta tag PWA nel head del sito per l'installazione su mobile.
+ *
+ * @return void
+ */
+function dfn_mobile_pwa_head_tags(): void
+{
+    ?>
+    <!-- PWA Web App Settings -->
+    <link rel="manifest" href="<?php echo esc_url(get_stylesheet_directory_uri() . '/manifest.json'); ?>">
+    <meta name="theme-color" content="#004b23">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DFN Eventi">
+    <link rel="apple-touch-icon" href="<?php echo esc_url(get_stylesheet_directory_uri() . '/assets/images/icon-192.png'); ?>">
+    <?php
+}
+add_action('wp_head', 'dfn_mobile_pwa_head_tags', 2);
+
 

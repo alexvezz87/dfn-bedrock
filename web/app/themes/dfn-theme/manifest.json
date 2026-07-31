@@ -1,0 +1,25 @@
+{
+  "name": "DFN Eventi — Mobile App",
+  "short_name": "DFN Gestione",
+  "description": "App mobile di gestione sul campo per eventi, check-in QR Code, tessere FAI e botteghino live.",
+  "start_url": "/gestione-eventi/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#004b23",
+  "orientation": "portrait",
+  "scope": "/gestione-eventi/",
+  "icons": [
+    {
+      "src": "/app/themes/dfn-theme/assets/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app/themes/dfn-theme/assets/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
