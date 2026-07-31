@@ -587,6 +587,44 @@ function dfn_render_mobile_app(): void
 }
 
 /**
+ * Gestisce il submit della form di login mobile PRIMA dell'output HTML (hook template_redirect).
+ *
+ * @return void
+ */
+function dfn_handle_mobile_login_submit(): void
+{
+    if ('POST' !== ($_SERVER['REQUEST_METHOD'] ?? '')) {
+        return;
+    }
+
+    if (empty($_POST['dfn_mobile_login_nonce']) || ! wp_verify_nonce($_POST['dfn_mobile_login_nonce'], 'dfn_mobile_login_action')) {
+        return;
+    }
+
+    $creds = [
+        'user_login'    => sanitize_text_field($_POST['log'] ?? ''),
+        'user_password' => $_POST['pwd'] ?? '',
+        'remember'      => true,
+    ];
+
+    // Autenticazione pulita prima dell'invio degli header HTML
+    $user = wp_signon($creds, is_ssl());
+
+    if (is_wp_error($user)) {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        set_transient('dfn_mobile_login_err_' . md5($ip), $user->get_error_message(), 60);
+        $target = add_query_arg('login_error', '1', wp_get_referer() ?: get_permalink());
+        wp_safe_redirect($target);
+        exit;
+    }
+
+    $target = remove_query_arg('login_error', wp_get_referer() ?: get_permalink());
+    wp_safe_redirect($target);
+    exit;
+}
+add_action('template_redirect', 'dfn_handle_mobile_login_submit', 5);
+
+/**
  * Renderizza la schermata di login mobile per utenti non autenticati.
  *
  * @return void
@@ -594,18 +632,15 @@ function dfn_render_mobile_app(): void
 function dfn_render_mobile_login(): void
 {
     $login_error = '';
-    if (isset($_POST['dfn_mobile_login_nonce']) && wp_verify_nonce($_POST['dfn_mobile_login_nonce'], 'dfn_mobile_login_action')) {
-        $creds = [
-            'user_login'    => sanitize_text_field($_POST['log'] ?? ''),
-            'user_password' => $_POST['pwd'] ?? '',
-            'remember'      => true,
-        ];
-        $user = wp_signon($creds, is_ssl());
-        if (is_wp_error($user)) {
+    if (isset($_GET['login_error'])) {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        $transient_key = 'dfn_mobile_login_err_' . md5($ip);
+        $err_msg = get_transient($transient_key);
+        if ($err_msg) {
             $login_error = 'Credenziali non corrette. Riprova.';
+            delete_transient($transient_key);
         } else {
-            wp_safe_redirect(get_permalink());
-            exit;
+            $login_error = 'Credenziali non corrette. Riprova.';
         }
     }
     ?>
