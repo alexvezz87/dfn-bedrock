@@ -23,6 +23,23 @@ document.addEventListener('DOMContentLoaded', function () {
     const ajaxUrl = typeof dfn_mobile_params !== 'undefined' ? dfn_mobile_params.ajax_url : '/wp-admin/admin-ajax.php';
 
     // -------------------------------------------------------------------
+    // 0. GESTIONE TEMA GRAFICO (LIGHT DEFAULT / DARK)
+    // -------------------------------------------------------------------
+    const savedTheme = localStorage.getItem('dfn_mobile_theme') || 'light';
+    root.setAttribute('data-theme', savedTheme);
+
+    const themeSelect = document.getElementById('dfn-theme-toggle-select');
+    if (themeSelect) {
+        themeSelect.value = savedTheme;
+        themeSelect.addEventListener('change', function () {
+            const chosen = this.value;
+            root.setAttribute('data-theme', chosen);
+            localStorage.setItem('dfn_mobile_theme', chosen);
+            showToast(chosen === 'dark' ? '🌙 Tema Scuro Attivato' : '☀️ Tema Chiaro Attivato', 'info');
+        });
+    }
+
+    // -------------------------------------------------------------------
     // 1. REGISTRAZIONE SERVICE WORKER PWA & PROMPT INSTALLAZIONE
     // -------------------------------------------------------------------
     if ('serviceWorker' in navigator) {

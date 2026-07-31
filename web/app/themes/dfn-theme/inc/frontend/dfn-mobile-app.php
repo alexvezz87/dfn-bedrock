@@ -16,7 +16,19 @@ if (! defined('ABSPATH')) {
 }
 
 /**
- * Registra lo Shortcode [dfn_mobile_app]
+ * Nasconde la barra di amministrazione di WordPress quando si naviga l'App Mobile (/gestione-eventi/).
+ */
+function dfn_hide_admin_bar_on_mobile_app(bool $show): bool
+{
+    if (is_page('gestione-eventi') || (is_singular() && has_shortcode(get_post()->post_content ?? '', 'dfn_mobile_app'))) {
+        return false;
+    }
+    return $show;
+}
+add_filter('show_admin_bar', 'dfn_hide_admin_bar_on_mobile_app', 99);
+
+/**
+ * Renderizza lo Shortcode [dfn_mobile_app]
  */
 function dfn_mobile_app_shortcode(): string
 {
@@ -520,8 +532,16 @@ function dfn_render_mobile_app(): void
                             <input type="password" id="dfn-prof-pass" name="new_password" placeholder="Nuova password..." />
                         </div>
 
+                        <div class="dfn-form-group">
+                            <label for="dfn-theme-toggle-select">Tema Grafico</label>
+                            <select id="dfn-theme-toggle-select">
+                                <option value="light">☀️ Tema Chiaro (Flat / Predefinito)</option>
+                                <option value="dark">🌙 Tema Scuro</option>
+                            </select>
+                        </div>
+
                         <button type="submit" class="dfn-mobile-btn primary">
-                            💾 Salva Modifiche Profilo
+                            Salva Profilo
                         </button>
                     </form>
 
@@ -617,7 +637,7 @@ function dfn_render_mobile_login(): void
                 </div>
 
                 <button type="submit" class="dfn-mobile-btn primary large">
-                    🔒 Accedi all'App Mobile
+                    Accedi
                 </button>
             </form>
         </div>
