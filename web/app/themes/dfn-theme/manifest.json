@@ -10,13 +10,13 @@
   "scope": "/gestione-eventi/",
   "icons": [
     {
-      "src": "/app/themes/dfn-theme/assets/images/icon-192.png",
+      "src": "/app/uploads/2026/07/cropped-logo_fai_trasparente.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/app/themes/dfn-theme/assets/images/icon-512.png",
+      "src": "/app/uploads/2026/07/cropped-logo_fai_trasparente.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

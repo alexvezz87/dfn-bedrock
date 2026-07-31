@@ -57,6 +57,12 @@
     gap: 10px;
 }
 
+.dfn-mobile-logo-img {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
+}
+
 .dfn-mobile-logo-icon {
     font-size: 24px;
 }
@@ -663,10 +669,12 @@
     margin-bottom: 20px;
 }
 
-.dfn-login-logo {
-    font-size: 42px;
+.dfn-login-logo-img {
+    height: 56px;
+    width: auto;
+    object-fit: contain;
     display: block;
-    margin-bottom: 8px;
+    margin: 0 auto 12px auto;
 }
 
 .dfn-login-header h2 {

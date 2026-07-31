@@ -162,7 +162,7 @@ function dfn_render_mobile_app(): void
         <!-- HEADER MOBILE -->
         <header class="dfn-mobile-app-header">
             <div class="dfn-mobile-header-brand">
-                <span class="dfn-mobile-logo-icon">🏛️</span>
+                <img src="/app/uploads/2026/07/cropped-logo_fai_trasparente.png" class="dfn-mobile-logo-img" alt="FAI Logo" />
                 <div class="dfn-mobile-brand-titles">
                     <h1>FAI Novara</h1>
                     <span>Gestione Eventi Mobile</span>
@@ -592,7 +592,7 @@ function dfn_render_mobile_login(): void
     <div class="dfn-mobile-login-wrapper">
         <div class="dfn-mobile-login-card">
             <div class="dfn-login-header">
-                <span class="dfn-login-logo">🏛️</span>
+                <img src="/app/uploads/2026/07/cropped-logo_fai_trasparente.png" class="dfn-login-logo-img" alt="FAI Logo" />
                 <h2>FAI Novara — Gestione</h2>
                 <p>Accedi con il tuo account operatore o amministratore per accedere all'App Mobile.</p>
             </div>

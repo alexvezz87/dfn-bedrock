@@ -505,7 +505,8 @@ function dfn_mobile_pwa_head_tags(): void
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="DFN Eventi">
-    <link rel="apple-touch-icon" href="<?php echo esc_url(get_stylesheet_directory_uri() . '/assets/images/icon-192.png'); ?>">
+    <link rel="apple-touch-icon" href="/app/uploads/2026/07/cropped-logo_fai_trasparente.png">
+    <link rel="icon" type="image/png" href="/app/uploads/2026/07/cropped-logo_fai_trasparente.png">
     <?php
 }
 add_action('wp_head', 'dfn_mobile_pwa_head_tags', 2);
