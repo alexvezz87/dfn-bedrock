@@ -32,8 +32,8 @@ jobs:
 
     - name: 📂 Upload Archive via Fast FTPS Upload
       run: |
-        curl -sS --connect-timeout 60 --retry 3 --ftp-ssl-reqd -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T deploy.tar.gz "ftp://${{ secrets.FTP_SERVER }}/deploy.tar.gz" || curl -sS --connect-timeout 60 --retry 3 -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T deploy.tar.gz "ftp://${{ secrets.FTP_SERVER }}/deploy.tar.gz"
-        curl -sS --connect-timeout 60 --retry 3 --ftp-ssl-reqd -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T scompatta.php "ftp://${{ secrets.FTP_SERVER }}/scompatta.php" || curl -sS --connect-timeout 60 --retry 3 -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T scompatta.php "ftp://${{ secrets.FTP_SERVER }}/scompatta.php"
+        curl --ftp-pasv -sS --connect-timeout 20 --retry 3 -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T deploy.tar.gz "ftp://${{ secrets.FTP_SERVER }}/deploy.tar.gz" || curl --ftp-pasv -sS --connect-timeout 20 --retry 3 --ftp-ssl-reqd -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T deploy.tar.gz "ftp://${{ secrets.FTP_SERVER }}/deploy.tar.gz"
+        curl --ftp-pasv -sS --connect-timeout 20 --retry 3 -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T scompatta.php "ftp://${{ secrets.FTP_SERVER }}/scompatta.php" || curl --ftp-pasv -sS --connect-timeout 20 --retry 3 --ftp-ssl-reqd -k -u "${{ secrets.FTP_USERNAME }}":"${{ secrets.FTP_PASSWORD }}" -T scompatta.php "ftp://${{ secrets.FTP_SERVER }}/scompatta.php"
 
     - name: 🚀 Trigger Remote Extraction
       run: |
