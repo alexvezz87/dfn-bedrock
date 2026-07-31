@@ -620,32 +620,53 @@ html {
     gap: 10px;
 }
 
-/* SCANNER VIEWPORT */
+/* SCANNER VIEWPORT COMPATTO */
+.dfn-scanner-card {
+    padding: 10px 12px;
+}
+
+.dfn-scanner-header {
+    margin-bottom: 4px;
+}
+
+.dfn-scanner-header h3 {
+    font-size: 15px;
+    margin: 0 0 2px 0;
+}
+
+.dfn-scanner-header p {
+    font-size: 11px;
+    margin: 0;
+    color: var(--dfn-mobile-text-sub);
+}
+
 .dfn-scanner-camera-viewport {
     position: relative;
     width: 100%;
-    min-height: 340px;
+    height: 230px;
+    max-height: 230px;
     background: #000000;
-    border-radius: 16px;
+    border-radius: 12px;
     overflow: hidden;
-    margin: 12px 0;
+    margin: 6px 0;
 }
 
 #dfn-mobile-qr-reader {
     width: 100%;
-    min-height: 340px;
+    height: 230px;
+    max-height: 230px;
 }
 
 #dfn-mobile-qr-reader video {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
-    border-radius: 16px;
+    border-radius: 12px;
 }
 
 /* SCANNER RESULT BOX & CARDS */
 .dfn-scanner-result-box {
-    margin-top: 14px;
+    margin-top: 8px;
 }
 
 .dfn-scan-card {

@@ -180,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             html5QrScanner.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 280, height: 280 } },
+                { fps: 10, qrbox: { width: 200, height: 200 } },
                 onQrScanSuccess,
                 onQrScanError
             ).catch(err => {
