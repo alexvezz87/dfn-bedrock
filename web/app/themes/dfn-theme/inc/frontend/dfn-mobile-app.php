@@ -27,6 +27,49 @@ function dfn_mobile_app_shortcode(): string
 add_shortcode('dfn_mobile_app', 'dfn_mobile_app_shortcode');
 
 /**
+ * Crea o assicura l'esistenza della pagina WordPress "Gestione Eventi" (/gestione-eventi/)
+ * contenente lo shortcode [dfn_mobile_app].
+ *
+ * @return void
+ */
+function dfn_auto_create_mobile_app_page(): void
+{
+    if (get_option('dfn_mobile_app_page_v211') === 'yes') {
+        return;
+    }
+
+    $page_slug  = 'gestione-eventi';
+    $page_title = 'Gestione Eventi Mobile';
+
+    $existing_page = get_page_by_path($page_slug);
+
+    if (! $existing_page) {
+        $page_id = wp_insert_post([
+            'post_title'     => $page_title,
+            'post_name'      => $page_slug,
+            'post_content'   => '[dfn_mobile_app]',
+            'post_status'    => 'publish',
+            'post_type'      => 'page',
+            'comment_status' => 'closed',
+            'ping_status'    => 'closed',
+        ]);
+        if ($page_id && ! is_wp_error($page_id)) {
+            update_option('dfn_mobile_app_page_id', $page_id);
+        }
+    } else {
+        if (strpos($existing_page->post_content, '[dfn_mobile_app]') === false) {
+            wp_update_post([
+                'ID'           => $existing_page->ID,
+                'post_content' => $existing_page->post_content . "\n[dfn_mobile_app]",
+            ]);
+        }
+    }
+
+    update_option('dfn_mobile_app_page_v211', 'yes');
+}
+add_action('init', 'dfn_auto_create_mobile_app_page');
+
+/**
  * Renderizza l'intera applicazione mobile o la schermata di login se non autenticato.
  *
  * @return void
