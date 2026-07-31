@@ -180,12 +180,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
             html5QrScanner.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 220, height: 220 } },
+                { fps: 10, qrbox: { width: 280, height: 280 } },
                 onQrScanSuccess,
                 onQrScanError
             ).catch(err => {
                 console.warn('Errore avvio fotocamera scanner:', err);
-                showToast('Impossibile accedere alla fotocamera. Usa l\'inserimento manuale.', 'info');
+                showToast('Impossibile accedere alla fotocamera.', 'info');
                 isScanningActive = false;
             });
         } catch (e) {
@@ -220,34 +220,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // Ignora gli errori di frame intermedi senza QR
     }
 
-    // Toggle Inserimento Manuale
-    const toggleManualBtn = document.getElementById('dfn-toggle-manual-input-btn');
-    const manualWrapper = document.getElementById('dfn-manual-input-wrapper');
-    if (toggleManualBtn && manualWrapper) {
-        toggleManualBtn.addEventListener('click', () => {
-            if (manualWrapper.style.display === 'none') {
-                manualWrapper.style.display = 'block';
-            } else {
-                manualWrapper.style.display = 'none';
-            }
-        });
-    }
-
-    const manualBtn = document.getElementById('dfn-btn-submit-manual-qr');
-    const manualInput = document.getElementById('dfn-scanner-manual-input');
-
-    if (manualBtn && manualInput) {
-        manualBtn.addEventListener('click', () => {
-            checkInToken(manualInput.value.trim());
-        });
-        manualInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                checkInToken(manualInput.value.trim());
-            }
-        });
-    }
-
     function checkInToken(token, callback) {
         if (!token) return;
 
@@ -255,30 +227,89 @@ document.addEventListener('DOMContentLoaded', function () {
         if (resultBox) {
             resultBox.style.display = 'block';
             resultBox.className = 'dfn-scanner-result-box';
-            resultBox.innerHTML = '⏳ <strong>Verifica in corso...</strong>';
+            resultBox.innerHTML = '<div style="text-align:center; padding:12px;">⏳ <strong>Verifica in corso...</strong></div>';
         }
 
         const formData = new FormData();
-        formData.append('action', 'dfn_scanner_checkin');
+        formData.append('action', 'dfn_process_scan');
         formData.append('qr_token', token);
-        formData.append('nonce', nonces.scanner || '');
+        formData.append('security', nonces.scanner || '');
 
         fetch(ajaxUrl, { method: 'POST', body: formData })
             .then(r => r.json())
             .then(res => {
                 if (res.success) {
-                    vibrate([100, 50, 100]);
-                    if (resultBox) {
-                        resultBox.className = 'dfn-scanner-result-box success';
-                        resultBox.innerHTML = '✅ <strong>CHECK-IN CONFERMATO!</strong><br><strong>' + (res.data.customer_name || 'Biglietto Valido') + '</strong> — ' + (res.data.event_title || '');
+                    const data = res.data;
+
+                    // CASO 1: Pagamento in loco richiesto
+                    if (data.payment_required) {
+                        vibrate([200, 100, 200]);
+                        if (resultBox) {
+                            resultBox.className = 'dfn-scanner-result-box warning';
+                            resultBox.innerHTML = `
+                                <div class="dfn-scan-card warning">
+                                    <span class="dfn-scan-badge warning">💶 PAGAMENTO IN LOCO RICHIESTO</span>
+                                    <h4>${data.customer_name}</h4>
+                                    <p>📅 ${data.event_title}</p>
+                                    <p>👥 <strong>${data.total_persons} Persone</strong> (Interi: ${data.persons_standard}, FAI: ${data.persons_fai})</p>
+                                    <div class="dfn-scan-amount-due">Quota da versare: <strong>${data.amount_due_formatted}</strong></div>
+                                    <button type="button" class="dfn-mobile-btn success large btn-collect-in-loco" style="margin-top:10px;">
+                                        💶 Incassa & Valida Check-in
+                                    </button>
+                                </div>
+                            `;
+
+                            resultBox.querySelector('.btn-collect-in-loco').addEventListener('click', function() {
+                                this.disabled = true;
+                                this.textContent = 'Registrazione incasso...';
+                                consolidatePayment(token, resultBox);
+                            });
+                        }
+                        showToast('💶 Pagamento in loco necessario', 'info');
+                    } 
+                    // CASO 2: Già entrato in precedenza
+                    else if (data.status === 'checked_in') {
+                        vibrate([150, 100, 150]);
+                        if (resultBox) {
+                            resultBox.className = 'dfn-scanner-result-box info';
+                            resultBox.innerHTML = `
+                                <div class="dfn-scan-card info">
+                                    <span class="dfn-scan-badge info">ℹ️ GIÀ CONVALIDATO</span>
+                                    <h4>${data.customer_name}</h4>
+                                    <p>👥 ${data.total_persons} Persone</p>
+                                    <p>⏰ Entrato il: <strong>${data.checked_in_at}</strong> (${data.checked_in_by || 'Staff'})</p>
+                                </div>
+                            `;
+                        }
+                        showToast('ℹ️ Biglietto già validato', 'info');
+                    } 
+                    // CASO 3: Check-in confermato con successo (pagato online / omaggio)
+                    else {
+                        vibrate([100, 50, 100]);
+                        if (resultBox) {
+                            resultBox.className = 'dfn-scanner-result-box success';
+                            resultBox.innerHTML = `
+                                <div class="dfn-scan-card success">
+                                    <span class="dfn-scan-badge success">✅ CHECK-IN VALIDATO!</span>
+                                    <h4>${data.customer_name || 'Biglietto Valido'}</h4>
+                                    <p>📅 ${data.event_title || ''}</p>
+                                    <p>👥 <strong>${data.total_persons || 1} Persone</strong> — Stato: Pagato</p>
+                                </div>
+                            `;
+                        }
+                        showToast('✅ Check-in effettuato!', 'success');
                     }
-                    showToast('✅ Check-in effettuato!', 'success');
-                    if (manualInput) manualInput.value = '';
                 } else {
                     vibrate([200, 100, 200]);
+                    const msg = (res.data && res.data.message) ? res.data.message : (res.data || 'Codice non riconosciuto.');
                     if (resultBox) {
                         resultBox.className = 'dfn-scanner-result-box error';
-                        resultBox.innerHTML = '❌ <strong>CHECK-IN NON VALIDO</strong><br>' + (res.data || 'Codice non riconosciuto o già utilizzato.');
+                        resultBox.innerHTML = `
+                            <div class="dfn-scan-card danger">
+                                <span class="dfn-scan-badge danger">❌ QR NON VALIDO</span>
+                                <p style="margin-top:6px;">${msg}</p>
+                            </div>
+                        `;
                     }
                     showToast('❌ Codice non valido', 'error');
                 }
@@ -287,9 +318,37 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(() => {
                 if (resultBox) {
                     resultBox.className = 'dfn-scanner-result-box error';
-                    resultBox.innerHTML = '⚠️ Errore di connessione col server.';
+                    resultBox.innerHTML = '<div class="dfn-scan-card danger">⚠️ Errore di connessione col server.</div>';
                 }
                 if (callback) callback();
+            });
+    }
+
+    function consolidatePayment(token, resultBox) {
+        const formData = new FormData();
+        formData.append('action', 'dfn_consolidate_in_loco_payment');
+        formData.append('qr_token', token);
+        formData.append('security', nonces.scanner || '');
+
+        fetch(ajaxUrl, { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    vibrate([100, 50, 100]);
+                    if (resultBox) {
+                        resultBox.className = 'dfn-scanner-result-box success';
+                        resultBox.innerHTML = `
+                            <div class="dfn-scan-card success">
+                                <span class="dfn-scan-badge success">✅ INCASSO & CHECK-IN COMPLETATI!</span>
+                                <h4>${res.data.customer_name || 'Acquirente'}</h4>
+                                <p>💶 Pagamento registrato in loco con successo.</p>
+                            </div>
+                        `;
+                    }
+                    showToast('✅ Incasso completato!', 'success');
+                } else {
+                    showToast('⚠️ Errore incasso: ' + (res.data ? res.data.message : ''), 'error');
+                }
             });
     }
 

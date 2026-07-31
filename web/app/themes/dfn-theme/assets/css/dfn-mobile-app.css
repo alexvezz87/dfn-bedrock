@@ -388,34 +388,30 @@ html {
     height: 38px;
 }
 
-/* MODAL MOBILE CHECK-IN EVENTO */
+/* MODAL MOBILE CHECK-IN EVENTO (FULL SCREEN) */
 .dfn-mobile-modal {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: var(--dfn-mobile-bg);
     z-index: 20000;
     display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    flex-direction: column;
 }
 
 .dfn-mobile-modal-content {
     width: 100%;
-    max-width: 600px;
-    background: var(--dfn-mobile-card-bg);
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
-    padding: 20px 16px calc(20px + env(safe-area-inset-bottom)) 16px;
-    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
-    max-height: 90vh;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom)) 16px;
+    box-shadow: none;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    flex: 1;
 }
 
 .dfn-modal-header {
@@ -454,7 +450,7 @@ html {
 }
 
 .dfn-mci-stat {
-    background: var(--dfn-mobile-bg);
+    background: var(--dfn-mobile-card-bg);
     border: 1px solid var(--dfn-mobile-card-border);
     border-radius: 10px;
     padding: 8px;
@@ -628,33 +624,99 @@ html {
 .dfn-scanner-camera-viewport {
     position: relative;
     width: 100%;
-    height: 280px;
+    min-height: 340px;
     background: #000000;
-    border-radius: 12px;
+    border-radius: 16px;
     overflow: hidden;
     margin: 12px 0;
 }
 
-#dfn-mobile-scanner-video {
+#dfn-mobile-qr-reader {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    min-height: 340px;
 }
 
-.dfn-scanner-manual-form {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--dfn-mobile-card-border);
+#dfn-mobile-qr-reader video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 16px;
 }
 
-.dfn-input-group {
-    display: flex;
-    gap: 8px;
-    margin-top: 6px;
+/* SCANNER RESULT BOX & CARDS */
+.dfn-scanner-result-box {
+    margin-top: 14px;
 }
 
-.dfn-input-group input {
-    flex: 1;
+.dfn-scan-card {
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    text-align: left;
+}
+
+.dfn-scan-card.success {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: #10b981;
+    color: #065f46;
+}
+
+.dfn-scan-card.warning {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: #f59e0b;
+    color: #78350f;
+}
+
+.dfn-scan-card.info {
+    background: rgba(2, 132, 199, 0.1);
+    border-color: #0284c7;
+    color: #075985;
+}
+
+.dfn-scan-card.danger {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+    color: #991b1b;
+}
+
+.dfn-scan-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.dfn-scan-badge.success { background: #10b981; color: #ffffff; }
+.dfn-scan-badge.warning { background: #f59e0b; color: #ffffff; }
+.dfn-scan-badge.info { background: #0284c7; color: #ffffff; }
+.dfn-scan-badge.danger { background: #ef4444; color: #ffffff; }
+
+.dfn-scan-card h4 {
+    margin: 4px 0;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.dfn-scan-card p {
+    margin: 3px 0;
+    font-size: 13px;
+}
+
+.dfn-scan-amount-due {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px dashed #f59e0b;
+    font-size: 14px;
+    color: #b45309;
+}
+
+.dfn-scan-amount-due strong {
+    font-size: 19px;
+    color: #92400e;
 }
 
 /* PROFILE CARD */
@@ -721,7 +783,7 @@ html {
     justify-content: center;
     gap: 3px;
     cursor: pointer;
-    transition: color 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .dfn-tab-btn .dashicons {
@@ -735,12 +797,17 @@ html {
     font-weight: 600;
 }
 
-.dfn-tab-btn.active {
-    color: var(--dfn-mobile-tab-active);
+.dfn-tab-btn.active,
+.dfn-tab-btn:hover {
+    background-color: var(--dfn-mobile-green) !important;
+    color: #ffffff !important;
 }
 
-.dfn-tab-btn.active .dashicons {
-    color: var(--dfn-mobile-tab-active);
+.dfn-tab-btn.active .dashicons,
+.dfn-tab-btn:hover .dashicons,
+.dfn-tab-btn.active .dfn-tab-lbl,
+.dfn-tab-btn:hover .dfn-tab-lbl {
+    color: #ffffff !important;
 }
 
 /* LOGIN MOBILE SCREEN (FLAT LIGHT STYLING) */

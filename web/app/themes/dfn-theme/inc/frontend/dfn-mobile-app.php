@@ -455,25 +455,11 @@ function dfn_render_mobile_app(): void
                         <p>Inquadra il codice QR del biglietto: la convalida avverrà in automatico.</p>
                     </div>
 
-                    <!-- Contenitore Videocamera Html5Qrcode -->
+                    <!-- Contenitore Videocamera Html5Qrcode Full Width -->
                     <div id="dfn-mobile-qr-reader" class="dfn-scanner-camera-viewport"></div>
 
-                    <!-- Output Risultato Check-in -->
+                    <!-- Output Dettaglio e Risultato Scansione QR Code -->
                     <div id="dfn-scanner-result-box" class="dfn-scanner-result-box" style="display:none;"></div>
-
-                    <!-- Inserimento Manuale Collassabile -->
-                    <div style="text-align:center; margin-top:16px;">
-                        <button type="button" id="dfn-toggle-manual-input-btn" class="dfn-mobile-btn secondary text-btn">
-                            ⌨️ Inquadratura difficoltosa? Inserisci codice a mano
-                        </button>
-                    </div>
-
-                    <div id="dfn-manual-input-wrapper" style="display:none; margin-top:12px;">
-                        <div class="dfn-input-group">
-                            <input type="text" id="dfn-scanner-manual-input" placeholder="Codice Token..." />
-                            <button type="button" id="dfn-btn-submit-manual-qr" class="dfn-mobile-btn primary">Verifica</button>
-                        </div>
-                    </div>
                 </div>
             </section>
 
