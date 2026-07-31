@@ -104,12 +104,20 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
         );
 
         wp_enqueue_script(
+            'html5-qrcode',
+            'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
+            [],
+            '2.3.8',
+            true
+        );
+
+        wp_enqueue_script(
             'dfn-mobile-app-js',
             trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-mobile-app.js',
-            [],
+            [ 'html5-qrcode' ],
             file_exists(get_stylesheet_directory() . '/assets/js/dfn-mobile-app.js')
                 ? filemtime(get_stylesheet_directory() . '/assets/js/dfn-mobile-app.js')
-                : '2.1.0',
+                : '2.1.5',
             true
         );
 

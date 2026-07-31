@@ -5,10 +5,10 @@
  *
  * Fornisce un'interfaccia mobile-first completa, protetta da login e ottimizzata
  * per l'uso su smartphone e tablet sul campo per la verifica biglietti QR, 
- * l'inserimento rapido prenotazioni, il botteghino live e la validazione tessere FAI.
+ * l'inserimento rapido prenotazioni, il botteghino live, il check-in e la validazione tessere FAI.
  *
  * @package DFN_Theme
- * @since   2.1.0
+ * @since   2.1.5
  */
 
 if (! defined('ABSPATH')) {
@@ -82,13 +82,124 @@ function dfn_auto_create_mobile_app_page(): void
 add_action('init', 'dfn_auto_create_mobile_app_page');
 
 /**
+ * AJAX Handler per recuperare i dettagli del check-in mobile di un evento.
+ */
+function dfn_ajax_mobile_get_event_checkin_list(): void
+{
+    check_ajax_referer('dfn_admin_events_nonce', 'nonce');
+
+    if (! current_user_can('dfn_manage_events') && ! current_user_can('manage_options') && ! current_user_can('dfn_use_scanner')) {
+        wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'));
+    }
+
+    $event_id = isset($_POST['event_id']) ? absint($_POST['event_id']) : 0;
+    if (! $event_id) {
+        wp_send_json_error(__('ID evento non valido.', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table_events   = $wpdb->prefix . 'dfn_events';
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+
+    $event = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_events} WHERE id = %d", $event_id));
+    if (! $event) {
+        wp_send_json_error(__('Evento non trovato.', 'dfn-theme'));
+    }
+
+    $bookings = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
+        $event_id
+    ));
+
+    $total_capacity   = intval($event->total_capacity);
+    $total_booked     = 0;
+    $total_checked_in = 0;
+
+    $formatted_bookings = [];
+    foreach ($bookings as $b) {
+        $total_booked += intval($b->total_persons);
+        $is_checked   = ! empty($b->checked_in_at);
+        if ($is_checked) {
+            $total_checked_in += intval($b->total_persons);
+        }
+
+        $formatted_bookings[] = [
+            'id'              => intval($b->id),
+            'customer_name'   => esc_html($b->customer_name),
+            'customer_email'  => esc_html($b->customer_email),
+            'customer_phone'  => esc_html($b->customer_phone ?: ''),
+            'total_persons'   => intval($b->total_persons),
+            'persons_std'     => intval($b->persons_standard),
+            'persons_fai'     => intval($b->persons_fai),
+            'amount_due'      => floatval($b->amount_due),
+            'amount_paid'     => floatval($b->amount_paid),
+            'checked_in'      => $is_checked,
+            'checked_in_time' => $is_checked ? date('H:i', strtotime($b->checked_in_at)) : '',
+            'qr_token'        => esc_html($b->qr_token),
+        ];
+    }
+
+    wp_send_json_success([
+        'event_title'      => esc_html(get_the_title($event->product_id)),
+        'event_date'       => date('d/m/Y', strtotime($event->event_date_start)),
+        'event_time'       => date('H:i', strtotime($event->event_time_start)),
+        'total_capacity'   => $total_capacity,
+        'total_booked'     => $total_booked,
+        'total_checked_in' => $total_checked_in,
+        'total_remaining'  => max(0, $total_booked - $total_checked_in),
+        'bookings'         => $formatted_bookings,
+    ]);
+}
+add_action('wp_ajax_dfn_mobile_get_event_checkin_list', 'dfn_ajax_mobile_get_event_checkin_list');
+
+/**
+ * AJAX Handler per reinviare l'email del biglietto con QR code al cliente.
+ */
+function dfn_ajax_mobile_resend_ticket_email(): void
+{
+    check_ajax_referer('dfn_booking_nonce', 'nonce');
+
+    if (! current_user_can('dfn_manage_events') && ! current_user_can('manage_options') && ! current_user_can('dfn_use_scanner')) {
+        wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'));
+    }
+
+    $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
+    if (! $booking_id) {
+        wp_send_json_error(__('ID prenotazione non valido.', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_bookings} WHERE id = %d", $booking_id));
+
+    if (! $booking) {
+        wp_send_json_error(__('Prenotazione non trovata.', 'dfn-theme'));
+    }
+
+    if (function_exists('dfn_send_booking_confirmation_email')) {
+        $sent = dfn_send_booking_confirmation_email($booking_id);
+    } else {
+        $event_title = get_the_title($booking->event_id);
+        $subject = 'Il tuo Biglietto FAI — ' . $event_title;
+        $content = '<p>Ciao ' . esc_html($booking->customer_name) . ',</p><p>Ecco il tuo codice di prenotazione per l\'evento ' . esc_html($event_title) . ':</p><h2 style="color:#004b23;">' . esc_html($booking->qr_token) . '</h2><p>Mostra questo codice o la presente email all\'ingresso.</p>';
+        $sent = dfn_send_notification_email($booking->customer_email, $subject, 'Rinvio Biglietto Prenotazione', $content);
+    }
+
+    if ($sent) {
+        wp_send_json_success(__('Email del biglietto inviata con successo!', 'dfn-theme'));
+    } else {
+        wp_send_json_error(__('Errore durante l\'invio dell\'email.', 'dfn-theme'));
+    }
+}
+add_action('wp_ajax_dfn_mobile_resend_ticket_email', 'dfn_ajax_mobile_resend_ticket_email');
+
+/**
  * Renderizza l'intera applicazione mobile o la schermata di login se non autenticato.
  *
  * @return void
  */
 function dfn_render_mobile_app(): void
 {
-    // 1. VERIFICA AUTENTICAZIONE
     if (! is_user_logged_in()) {
         dfn_render_mobile_login();
         return;
@@ -96,7 +207,6 @@ function dfn_render_mobile_app(): void
 
     $current_user = wp_get_current_user();
 
-    // 2. VERIFICA PERMESSI / CAPABILITY
     $has_access = current_user_can('manage_options') 
                || current_user_can('dfn_manage_events') 
                || current_user_can('dfn_quick_booking') 
@@ -108,10 +218,8 @@ function dfn_render_mobile_app(): void
         return;
     }
 
-    // 3. RECUPERO DATI PER LA DASHBOARD HOME
     global $wpdb;
 
-    // A. Eventi in arrivo (prossimi 5 eventi pubblicati)
     $table_events = $wpdb->prefix . 'dfn_events';
     $today        = date('Y-m-d');
     $events       = $wpdb->get_results($wpdb->prepare(
@@ -121,7 +229,6 @@ function dfn_render_mobile_app(): void
         $today
     ));
 
-    // B. Prenotazioni da confermare (ultime 10 prenotazioni pendenti)
     $table_bookings = $wpdb->prefix . 'dfn_bookings';
     $pending_bookings = $wpdb->get_results(
         "SELECT b.*, e.location 
@@ -131,7 +238,6 @@ function dfn_render_mobile_app(): void
          ORDER BY b.created_at DESC LIMIT 10"
     );
 
-    // C. Soci / Tessere FAI in attesa di validazione
     $table_fai = $wpdb->prefix . 'dfn_fai_members';
     $pending_fai = $wpdb->get_results(
         "SELECT * FROM {$table_fai} 
@@ -139,12 +245,10 @@ function dfn_render_mobile_app(): void
          ORDER BY created_at DESC LIMIT 10"
     );
 
-    // Contatori per i badge
     $count_pending_bookings = count($pending_bookings);
     $count_pending_fai      = count($pending_fai);
     $count_events           = count($events);
 
-    // Dati Utente
     $user_display_name = ! empty($current_user->display_name) ? $current_user->display_name : $current_user->user_login;
     $user_initials     = strtoupper(substr($current_user->first_name ?: $current_user->user_login, 0, 1) . substr($current_user->last_name ?: '', 0, 1));
     if (empty(trim($user_initials))) {
@@ -193,12 +297,9 @@ function dfn_render_mobile_app(): void
         <!-- CONTENITORE VISTE TAB -->
         <main class="dfn-mobile-app-main">
 
-            <!-- ======================================================== -->
             <!-- TAB 1: DASHBOARD HOME -->
-            <!-- ======================================================== -->
             <section id="dfn-tab-home" class="dfn-mobile-tab-pane active">
                 
-                <!-- SCHEDA RIEPILOGO UTENTE -->
                 <div class="dfn-mobile-card dfn-user-summary-card">
                     <div class="dfn-user-avatar">
                         <?php echo esc_html($user_initials); ?>
@@ -215,7 +316,6 @@ function dfn_render_mobile_app(): void
                     </button>
                 </div>
 
-                <!-- CONTATORI STATISTICHE RAPIDE -->
                 <div class="dfn-mobile-stats-grid">
                     <div class="dfn-stat-pill" data-target-tab="home" data-scroll-to="sec-upcoming">
                         <span class="dfn-stat-val"><?php echo intval($count_events); ?></span>
@@ -251,12 +351,15 @@ function dfn_render_mobile_app(): void
                                     </div>
                                     <h4 class="dfn-event-title"><?php echo esc_html(get_the_title($ev->product_id)); ?></h4>
                                     <p class="dfn-event-location">📍 <?php echo esc_html($ev->location ?: 'Novara'); ?></p>
-                                    <div class="dfn-event-card-actions">
+                                    <div class="dfn-event-card-actions three-col">
                                         <button type="button" class="dfn-mobile-btn primary btn-quick-book-event" data-event-id="<?php echo absint($ev->id); ?>">
-                                            ⚡ Prenota Ora
+                                            ⚡ Prenota
                                         </button>
                                         <button type="button" class="dfn-mobile-btn secondary btn-botteghino-event" data-event-id="<?php echo absint($ev->id); ?>">
                                             🎟️ Botteghino
+                                        </button>
+                                        <button type="button" class="dfn-mobile-btn success btn-open-checkin-event" data-event-id="<?php echo absint($ev->id); ?>">
+                                            📋 Check-in
                                         </button>
                                     </div>
                                 </div>
@@ -288,13 +391,8 @@ function dfn_render_mobile_app(): void
                                     </div>
                                     <div class="dfn-booking-details">
                                         <p>📧 <?php echo esc_html($b->customer_email); ?></p>
-                                        <?php if ($b->customer_phone) : ?>
-                                            <p>📞 <?php echo esc_html($b->customer_phone); ?></p>
-                                        <?php endif; ?>
+                                        <?php if ($b->customer_phone) : ?><p>📞 <?php echo esc_html($b->customer_phone); ?></p><?php endif; ?>
                                         <p>👥 <strong><?php echo intval($b->total_persons); ?> Persone</strong> (Intero: <?php echo intval($b->persons_standard); ?>, FAI: <?php echo intval($b->persons_fai); ?>)</p>
-                                        <?php if ($b->amount_due > 0) : ?>
-                                            <p>💶 Da incassare: <strong>€<?php echo number_format(floatval($b->amount_due), 2, ',', '.'); ?></strong></p>
-                                        <?php endif; ?>
                                     </div>
                                     <div class="dfn-booking-actions">
                                         <button type="button" class="dfn-mobile-btn success btn-confirm-booking" data-booking-id="<?php echo absint($b->id); ?>">
@@ -330,7 +428,6 @@ function dfn_render_mobile_app(): void
                                     </div>
                                     <div class="dfn-fai-details">
                                         <?php if ($f->email) : ?><p>📧 <?php echo esc_html($f->email); ?></p><?php endif; ?>
-                                        <?php if ($f->card_expiry) : ?><p>📅 Scadenza: <?php echo esc_html(date('d/m/Y', strtotime($f->card_expiry))); ?></p><?php endif; ?>
                                     </div>
                                     <div class="dfn-fai-actions">
                                         <button type="button" class="dfn-mobile-btn success btn-validate-fai" data-fai-id="<?php echo absint($f->id); ?>">
@@ -350,53 +447,38 @@ function dfn_render_mobile_app(): void
             </section>
 
 
-            <!-- ======================================================== -->
-            <!-- TAB 2: SCANNER LIVE -->
-            <!-- ======================================================== -->
+            <!-- TAB 2: SCANNER LIVE (Html5Qrcode Engine) -->
             <section id="dfn-tab-scanner" class="dfn-mobile-tab-pane">
                 <div class="dfn-mobile-card dfn-scanner-card">
                     <div class="dfn-scanner-header">
-                        <h3>🔍 Verifica QR Code Biglietti</h3>
-                        <p>Inquadra il codice QR del biglietto o inserisci il codice manuale.</p>
+                        <h3>🔍 Scanner QR Code Live</h3>
+                        <p>Inquadra il codice QR del biglietto: la convalida avverrà in automatico.</p>
                     </div>
 
-                    <!-- Contenitore Videocamera Scanner -->
-                    <div class="dfn-scanner-camera-viewport">
-                        <video id="dfn-mobile-scanner-video" playsinline></video>
-                        <canvas id="dfn-mobile-scanner-canvas" style="display:none;"></canvas>
-                        <div class="dfn-scanner-overlay-grid">
-                            <div class="dfn-scanner-corner top-left"></div>
-                            <div class="dfn-scanner-corner top-right"></div>
-                            <div class="dfn-scanner-corner bottom-left"></div>
-                            <div class="dfn-scanner-corner bottom-right"></div>
-                            <div class="dfn-scanner-laser"></div>
-                        </div>
-                    </div>
-
-                    <div class="dfn-scanner-controls">
-                        <button type="button" id="dfn-btn-toggle-camera" class="dfn-mobile-btn secondary">
-                            📷 Cambia Fotocamera
-                        </button>
-                    </div>
-
-                    <!-- Form Manuale Fallback -->
-                    <div class="dfn-scanner-manual-form">
-                        <label for="dfn-scanner-manual-input">Inserisci Codice QR / Token:</label>
-                        <div class="dfn-input-group">
-                            <input type="text" id="dfn-scanner-manual-input" placeholder="Es. DFN-12345678" />
-                            <button type="button" id="dfn-btn-submit-manual-qr" class="dfn-mobile-btn primary">Verifica</button>
-                        </div>
-                    </div>
+                    <!-- Contenitore Videocamera Html5Qrcode -->
+                    <div id="dfn-mobile-qr-reader" class="dfn-scanner-camera-viewport"></div>
 
                     <!-- Output Risultato Check-in -->
                     <div id="dfn-scanner-result-box" class="dfn-scanner-result-box" style="display:none;"></div>
+
+                    <!-- Inserimento Manuale Collassabile -->
+                    <div style="text-align:center; margin-top:16px;">
+                        <button type="button" id="dfn-toggle-manual-input-btn" class="dfn-mobile-btn secondary text-btn">
+                            ⌨️ Inquadratura difficoltosa? Inserisci codice a mano
+                        </button>
+                    </div>
+
+                    <div id="dfn-manual-input-wrapper" style="display:none; margin-top:12px;">
+                        <div class="dfn-input-group">
+                            <input type="text" id="dfn-scanner-manual-input" placeholder="Codice Token..." />
+                            <button type="button" id="dfn-btn-submit-manual-qr" class="dfn-mobile-btn primary">Verifica</button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
 
-            <!-- ======================================================== -->
             <!-- TAB 3: INSERIMENTO RAPIDO PRENOTAZIONE -->
-            <!-- ======================================================== -->
             <section id="dfn-tab-quick" class="dfn-mobile-tab-pane">
                 <div class="dfn-mobile-card">
                     <h3>⚡ Inserimento Rapido Prenotazione</h3>
@@ -448,9 +530,7 @@ function dfn_render_mobile_app(): void
             </section>
 
 
-            <!-- ======================================================== -->
-            <!-- TAB 4: BOTTEGHINO LIVE (INCASSI E BIGLIETTERIA) -->
-            <!-- ======================================================== -->
+            <!-- TAB 4: BOTTEGHINO LIVE -->
             <section id="dfn-tab-botteghino" class="dfn-mobile-tab-pane">
                 <div class="dfn-mobile-card">
                     <h3>🎟️ Botteghino Live</h3>
@@ -500,9 +580,7 @@ function dfn_render_mobile_app(): void
             </section>
 
 
-            <!-- ======================================================== -->
             <!-- TAB 5: AREA PERSONALE -->
-            <!-- ======================================================== -->
             <section id="dfn-tab-profile" class="dfn-mobile-tab-pane">
                 <div class="dfn-mobile-card">
                     <div class="dfn-profile-card-header">
@@ -562,7 +640,7 @@ function dfn_render_mobile_app(): void
                 <span class="dfn-tab-lbl">Home</span>
             </button>
             <button type="button" class="dfn-tab-btn" data-tab="scanner">
-                <span class="dashicons dashicons-qr"></span>
+                <span class="dashicons dashicons-camera"></span>
                 <span class="dfn-tab-lbl">Scanner</span>
             </button>
             <button type="button" class="dfn-tab-btn" data-tab="quick">
@@ -578,6 +656,46 @@ function dfn_render_mobile_app(): void
                 <span class="dfn-tab-lbl">Profilo</span>
             </button>
         </nav>
+
+        <!-- MODAL MOBILE CHECK-IN EVENTO -->
+        <div id="dfn-mobile-checkin-modal" class="dfn-mobile-modal" style="display:none;">
+            <div class="dfn-mobile-modal-content">
+                <div class="dfn-modal-header">
+                    <div>
+                        <h3 id="dfn-mci-event-title">Check-in Evento</h3>
+                        <span id="dfn-mci-event-subtitle" class="dfn-modal-subtitle"></span>
+                    </div>
+                    <button type="button" class="dfn-modal-close-btn" id="dfn-btn-close-checkin-modal">&times;</button>
+                </div>
+
+                <div class="dfn-mci-stats-box">
+                    <div class="dfn-mci-stat">
+                        <span class="val" id="dfn-mci-stat-booked">0</span>
+                        <span class="lbl">Prenotati</span>
+                    </div>
+                    <div class="dfn-mci-stat success">
+                        <span class="val" id="dfn-mci-stat-checked">0</span>
+                        <span class="lbl">Entrati</span>
+                    </div>
+                    <div class="dfn-mci-stat warning">
+                        <span class="val" id="dfn-mci-stat-remaining">0</span>
+                        <span class="lbl">Rimanenti</span>
+                    </div>
+                </div>
+
+                <div class="dfn-mci-progress-bar">
+                    <div class="dfn-mci-progress-fill" id="dfn-mci-progress-fill" style="width: 0%;"></div>
+                </div>
+
+                <div class="dfn-mci-search-box">
+                    <input type="text" id="dfn-mci-search-input" placeholder="🔍 Cerca nominativo, email o telefono..." />
+                </div>
+
+                <div id="dfn-mci-bookings-list" class="dfn-mobile-cards-list" style="margin-top:14px; max-height: 55vh; overflow-y: auto;">
+                    <p style="text-align:center; padding:20px; color:#64748b;">Caricamento lista prenotazioni...</p>
+                </div>
+            </div>
+        </div>
 
         <!-- TOAST FEEDBACK NOTIFICATIONS -->
         <div id="dfn-mobile-toast" class="dfn-mobile-toast" style="display:none;"></div>
@@ -607,7 +725,6 @@ function dfn_handle_mobile_login_submit(): void
         'remember'      => true,
     ];
 
-    // Autenticazione pulita prima dell'invio degli header HTML
     $user = wp_signon($creds, is_ssl());
 
     if (is_wp_error($user)) {

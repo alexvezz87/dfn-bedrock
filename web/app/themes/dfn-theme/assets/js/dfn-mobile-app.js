@@ -2,10 +2,11 @@
  * DFN Mobile App & PWA Hub — JavaScript Controller
  * 
  * Gestisce la navigazione a schede (TabBar), il Service Worker PWA,
- * le azioni rapide AJAX sulla Dashboard, lo Scanner QR Live e il Botteghino.
+ * le azioni rapide AJAX sulla Dashboard, il Check-in mobile per evento,
+ * l'invio email del biglietto e lo Scanner QR Code Automatico con Html5Qrcode.
  *
  * @package DFN_Theme
- * @since   2.1.0
+ * @since   2.1.5
  */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -74,7 +75,39 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // -------------------------------------------------------------------
-    // 2. NAVIGAZIONE TABBAR MOBILE
+    // 2. UTILITY FEEDBACK (VIBRAZIONE & TOAST)
+    // -------------------------------------------------------------------
+    function showToast(message, type = 'info') {
+        const toast = document.getElementById('dfn-mobile-toast');
+        if (!toast) return;
+
+        toast.textContent = message;
+        toast.style.borderColor = type === 'success' ? '#10b981' : (type === 'error' ? '#ef4444' : '#0284c7');
+        toast.style.display = 'block';
+
+        setTimeout(() => {
+            toast.style.display = 'none';
+        }, 3000);
+    }
+
+    function vibrate(pattern = 50) {
+        if ('vibrate' in navigator) {
+            try { navigator.vibrate(pattern); } catch (e) {}
+        }
+    }
+
+    // Refresh Button
+    const refreshBtn = document.getElementById('dfn-mobile-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            vibrate(40);
+            showToast('Aggiornamento dati in corso...', 'info');
+            setTimeout(() => window.location.reload(), 400);
+        });
+    }
+
+    // -------------------------------------------------------------------
+    // 3. NAVIGAZIONE TABBAR MOBILE
     // -------------------------------------------------------------------
     const tabBtns = document.querySelectorAll('.dfn-tab-btn');
     const tabPanes = document.querySelectorAll('.dfn-mobile-tab-pane');
@@ -98,11 +131,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // Inizializza videocamera se si passa al tab scanner
         if (tabId === 'scanner') {
-            initScannerCamera();
+            startHtml5Scanner();
         } else {
-            stopScannerCamera();
+            stopHtml5Scanner();
         }
     }
 
@@ -114,7 +146,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Navigazione rapida tramite pulsanti interni (es. profil o pillole)
     document.querySelectorAll('[data-target-tab]').forEach(elem => {
         elem.addEventListener('click', function () {
             const targetTab = this.getAttribute('data-target-tab');
@@ -131,39 +162,297 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // -------------------------------------------------------------------
-    // 3. UTILITY TOAST & VIBRAZIONE
+    // 4. SCANNER QR CODE AUTOMATICO (Html5Qrcode Engine)
     // -------------------------------------------------------------------
-    function showToast(message, type = 'info') {
-        const toast = document.getElementById('dfn-mobile-toast');
-        if (!toast) return;
+    let html5QrScanner = null;
+    let isScanningActive = false;
+    let isProcessingScan = false;
 
-        toast.textContent = message;
-        toast.style.borderColor = type === 'success' ? '#10b981' : (type === 'error' ? '#ef4444' : '#38bdf8');
-        toast.style.display = 'block';
+    function startHtml5Scanner() {
+        if (isScanningActive || typeof Html5Qrcode === 'undefined') return;
 
-        setTimeout(() => {
-            toast.style.display = 'none';
-        }, 3000);
-    }
+        const readerElem = document.getElementById('dfn-mobile-qr-reader');
+        if (!readerElem) return;
 
-    function vibrate(pattern = 50) {
-        if ('vibrate' in navigator) {
-            try { navigator.vibrate(pattern); } catch (e) {}
+        try {
+            html5QrScanner = new Html5Qrcode("dfn-mobile-qr-reader");
+            isScanningActive = true;
+
+            html5QrScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 220, height: 220 } },
+                onQrScanSuccess,
+                onQrScanError
+            ).catch(err => {
+                console.warn('Errore avvio fotocamera scanner:', err);
+                showToast('Impossibile accedere alla fotocamera. Usa l\'inserimento manuale.', 'info');
+                isScanningActive = false;
+            });
+        } catch (e) {
+            console.error('Errore inizializzazione Html5Qrcode:', e);
         }
     }
 
-    // Refresh Button
-    const refreshBtn = document.getElementById('dfn-mobile-refresh-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            vibrate(40);
-            showToast('Aggiornamento dati in corso...', 'info');
-            setTimeout(() => window.location.reload(), 500);
+    function stopHtml5Scanner() {
+        if (html5QrScanner && isScanningActive) {
+            html5QrScanner.stop().then(() => {
+                html5QrScanner.clear();
+                isScanningActive = false;
+            }).catch(err => {
+                isScanningActive = false;
+            });
+        }
+    }
+
+    function onQrScanSuccess(decodedText, decodedResult) {
+        if (isProcessingScan) return;
+        isProcessingScan = true;
+
+        vibrate([100, 50, 100]);
+        checkInToken(decodedText, function() {
+            setTimeout(() => {
+                isProcessingScan = false;
+            }, 2500);
+        });
+    }
+
+    function onQrScanError(errorMessage) {
+        // Ignora gli errori di frame intermedi senza QR
+    }
+
+    // Toggle Inserimento Manuale
+    const toggleManualBtn = document.getElementById('dfn-toggle-manual-input-btn');
+    const manualWrapper = document.getElementById('dfn-manual-input-wrapper');
+    if (toggleManualBtn && manualWrapper) {
+        toggleManualBtn.addEventListener('click', () => {
+            if (manualWrapper.style.display === 'none') {
+                manualWrapper.style.display = 'block';
+            } else {
+                manualWrapper.style.display = 'none';
+            }
+        });
+    }
+
+    const manualBtn = document.getElementById('dfn-btn-submit-manual-qr');
+    const manualInput = document.getElementById('dfn-scanner-manual-input');
+
+    if (manualBtn && manualInput) {
+        manualBtn.addEventListener('click', () => {
+            checkInToken(manualInput.value.trim());
+        });
+        manualInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                checkInToken(manualInput.value.trim());
+            }
+        });
+    }
+
+    function checkInToken(token, callback) {
+        if (!token) return;
+
+        const resultBox = document.getElementById('dfn-scanner-result-box');
+        if (resultBox) {
+            resultBox.style.display = 'block';
+            resultBox.className = 'dfn-scanner-result-box';
+            resultBox.innerHTML = '⏳ <strong>Verifica in corso...</strong>';
+        }
+
+        const formData = new FormData();
+        formData.append('action', 'dfn_scanner_checkin');
+        formData.append('qr_token', token);
+        formData.append('nonce', nonces.scanner || '');
+
+        fetch(ajaxUrl, { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    vibrate([100, 50, 100]);
+                    if (resultBox) {
+                        resultBox.className = 'dfn-scanner-result-box success';
+                        resultBox.innerHTML = '✅ <strong>CHECK-IN CONFERMATO!</strong><br><strong>' + (res.data.customer_name || 'Biglietto Valido') + '</strong> — ' + (res.data.event_title || '');
+                    }
+                    showToast('✅ Check-in effettuato!', 'success');
+                    if (manualInput) manualInput.value = '';
+                } else {
+                    vibrate([200, 100, 200]);
+                    if (resultBox) {
+                        resultBox.className = 'dfn-scanner-result-box error';
+                        resultBox.innerHTML = '❌ <strong>CHECK-IN NON VALIDO</strong><br>' + (res.data || 'Codice non riconosciuto o già utilizzato.');
+                    }
+                    showToast('❌ Codice non valido', 'error');
+                }
+                if (callback) callback();
+            })
+            .catch(() => {
+                if (resultBox) {
+                    resultBox.className = 'dfn-scanner-result-box error';
+                    resultBox.innerHTML = '⚠️ Errore di connessione col server.';
+                }
+                if (callback) callback();
+            });
+    }
+
+    // -------------------------------------------------------------------
+    // 5. CHECK-IN MOBILE PER EVENTO & MODALE
+    // -------------------------------------------------------------------
+    const checkinModal = document.getElementById('dfn-mobile-checkin-modal');
+    const closeCheckinBtn = document.getElementById('dfn-btn-close-checkin-modal');
+    const checkinSearchInput = document.getElementById('dfn-mci-search-input');
+    const checkinBookingsList = document.getElementById('dfn-mci-bookings-list');
+
+    let currentEventCheckinData = null;
+
+    if (closeCheckinBtn && checkinModal) {
+        closeCheckinBtn.addEventListener('click', () => {
+            checkinModal.style.display = 'none';
+        });
+    }
+
+    document.querySelectorAll('.btn-open-checkin-event').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const eventId = this.getAttribute('data-event-id');
+            openEventCheckinModal(eventId);
+        });
+    });
+
+    function openEventCheckinModal(eventId) {
+        if (!checkinModal) return;
+
+        checkinModal.style.display = 'flex';
+        checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">Caricamento lista prenotazioni...</p>';
+
+        const formData = new FormData();
+        formData.append('action', 'dfn_mobile_get_event_checkin_list');
+        formData.append('event_id', eventId);
+        formData.append('nonce', nonces.admin || '');
+
+        fetch(ajaxUrl, { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    currentEventCheckinData = res.data;
+                    renderCheckinModalData(currentEventCheckinData, '');
+                } else {
+                    checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#ef4444;">Erroe: ' + (res.data || 'Impossibile caricare') + '</p>';
+                }
+            })
+            .catch(() => {
+                checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#ef4444;">Errore di connessione di rete.</p>';
+            });
+    }
+
+    function renderCheckinModalData(data, filterQuery = '') {
+        document.getElementById('dfn-mci-event-title').textContent = data.event_title;
+        document.getElementById('dfn-mci-event-subtitle').textContent = '📅 ' + data.event_date + ' • ⏰ ' + data.event_time;
+
+        document.getElementById('dfn-mci-stat-booked').textContent = data.total_booked;
+        document.getElementById('dfn-mci-stat-checked').textContent = data.total_checked_in;
+        document.getElementById('dfn-mci-stat-remaining').textContent = data.total_remaining;
+
+        const pct = data.total_booked > 0 ? Math.min(100, Math.round((data.total_checked_in / data.total_booked) * 100)) : 0;
+        document.getElementById('dfn-mci-progress-fill').style.width = pct + '%';
+
+        const query = filterQuery.toLowerCase().trim();
+        const filtered = data.bookings.filter(b => {
+            if (!query) return true;
+            return b.customer_name.toLowerCase().includes(query) ||
+                   b.customer_email.toLowerCase().includes(query) ||
+                   b.customer_phone.toLowerCase().includes(query) ||
+                   b.qr_token.toLowerCase().includes(query);
+        });
+
+        if (filtered.length === 0) {
+            checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">Nessuna prenotazione trovata.</p>';
+            return;
+        }
+
+        let html = '';
+        filtered.forEach(b => {
+            const statusClass = b.checked_in ? 'success' : 'pending';
+            const statusLabel = b.checked_in ? '✅ Entrato (' + b.checked_in_time + ')' : '⏳ In Attesa';
+
+            html += `
+                <div class="dfn-mobile-card dfn-mci-booking-card" id="dfn-mci-card-${b.id}">
+                    <div class="dfn-booking-card-header">
+                        <strong class="dfn-customer-name">${b.customer_name}</strong>
+                        <span class="dfn-event-status-pill ${statusClass}">${statusLabel}</span>
+                    </div>
+                    <div class="dfn-booking-details">
+                        <p>📧 ${b.customer_email}</p>
+                        ${b.customer_phone ? '<p>📞 ' + b.customer_phone + '</p>' : ''}
+                        <p>👥 <strong>${b.total_persons} Persone</strong> (Interi: ${b.persons_std}, FAI: ${b.persons_fai})</p>
+                    </div>
+                    <div class="dfn-booking-actions 2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top:10px;">
+                        <button type="button" class="dfn-mobile-btn ${b.checked_in ? 'secondary' : 'success'} btn-mci-do-checkin" data-booking-id="${b.id}" data-token="${b.qr_token}">
+                            ${b.checked_in ? '✓ Già Entrato' : '✅ Check-in'}
+                        </button>
+                        <button type="button" class="dfn-mobile-btn secondary btn-mci-resend-email" data-booking-id="${b.id}">
+                            ✉️ Invia Email
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        checkinBookingsList.innerHTML = html;
+
+        // Binding azioni della modale
+        checkinBookingsList.querySelectorAll('.btn-mci-do-checkin').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const token = this.getAttribute('data-token');
+                btn.disabled = true;
+                btn.textContent = 'Check-in...';
+
+                checkInToken(token, function() {
+                    btn.textContent = '✓ Già Entrato';
+                    btn.className = 'dfn-mobile-btn secondary btn-mci-do-checkin';
+                });
+            });
+        });
+
+        checkinBookingsList.querySelectorAll('.btn-mci-resend-email').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const bookingId = this.getAttribute('data-booking-id');
+                btn.disabled = true;
+                btn.textContent = 'Invio email...';
+
+                const formData = new FormData();
+                formData.append('action', 'dfn_mobile_resend_ticket_email');
+                formData.append('booking_id', bookingId);
+                formData.append('nonce', nonces.booking || '');
+
+                fetch(ajaxUrl, { method: 'POST', body: formData })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.success) {
+                            vibrate([100, 50, 100]);
+                            showToast('✉️ Email inviata al cliente!', 'success');
+                        } else {
+                            showToast('⚠️ Errore: ' + (res.data || 'Impossibile inviare'), 'error');
+                        }
+                        btn.disabled = false;
+                        btn.textContent = '✉️ Invia Email';
+                    })
+                    .catch(() => {
+                        showToast('⚠️ Errore di connessione', 'error');
+                        btn.disabled = false;
+                        btn.textContent = '✉️ Invia Email';
+                    });
+            });
+        });
+    }
+
+    if (checkinSearchInput) {
+        checkinSearchInput.addEventListener('input', function () {
+            if (currentEventCheckinData) {
+                renderCheckinModalData(currentEventCheckinData, this.value);
+            }
         });
     }
 
     // -------------------------------------------------------------------
-    // 4. AZIONI DASHBOARD HOME (AJAX 1-TAP)
+    // 6. AZIONI DASHBOARD HOME (AZIONI RAPIDE 1-TAP)
     // -------------------------------------------------------------------
 
     // A. Conferma Prenotazione Pendente
@@ -264,7 +553,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // -------------------------------------------------------------------
-    // 5. INSERIMENTO RAPIDO & BOTTEGHINO SUBMIT
+    // 7. INSERIMENTO RAPIDO & BOTTEGHINO SUBMIT
     // -------------------------------------------------------------------
     const quickForm = document.getElementById('dfn-mobile-quick-booking-form');
     if (quickForm) {
@@ -332,87 +621,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     submitBtn.disabled = false;
                     submitBtn.textContent = '💶 Emetti Biglietto & Registra Incasso';
                 });
-        });
-    }
-
-    // -------------------------------------------------------------------
-    // 6. SCANNER LIVE CONTROLLER
-    // -------------------------------------------------------------------
-    let mediaStream = null;
-
-    function initScannerCamera() {
-        const video = document.getElementById('dfn-mobile-scanner-video');
-        if (!video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-            .then(stream => {
-                mediaStream = stream;
-                video.srcObject = stream;
-                video.play();
-            })
-            .catch(err => {
-                console.warn('Videocamera non disponibile o permessi negati:', err);
-                showToast('Videocamera non disponibile. Usa il codice manuale.', 'info');
-            });
-    }
-
-    function stopScannerCamera() {
-        if (mediaStream) {
-            mediaStream.getTracks().forEach(track => track.stop());
-            mediaStream = null;
-        }
-    }
-
-    // Verification Manual Form
-    const manualBtn = document.getElementById('dfn-btn-submit-manual-qr');
-    const manualInput = document.getElementById('dfn-scanner-manual-input');
-    const resultBox = document.getElementById('dfn-scanner-result-box');
-
-    function checkInToken(token) {
-        if (!token) return;
-
-        if (resultBox) {
-            resultBox.style.display = 'block';
-            resultBox.className = 'dfn-scanner-result-box';
-            resultBox.innerHTML = '⏳ Verifica in corso...';
-        }
-
-        const formData = new FormData();
-        formData.append('action', 'dfn_scanner_checkin');
-        formData.append('qr_token', token);
-        formData.append('nonce', nonces.scanner || '');
-
-        fetch(ajaxUrl, { method: 'POST', body: formData })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    vibrate([100, 50, 100]);
-                    resultBox.className = 'dfn-scanner-result-box success';
-                    resultBox.innerHTML = '✅ <strong>CHECK-IN EFFETTUATO!</strong><br>' + (res.data.customer_name || 'Biglietto Valido') + ' — ' + (res.data.event_title || '');
-                    showToast('✅ Check-in confermato!', 'success');
-                    if (manualInput) manualInput.value = '';
-                } else {
-                    vibrate([200, 100, 200]);
-                    resultBox.className = 'dfn-scanner-result-box error';
-                    resultBox.innerHTML = '❌ <strong>ERRORE CHECK-IN</strong><br>' + (res.data || 'Codice non valido o già utilizzato.');
-                    showToast('❌ Codice non valido', 'error');
-                }
-            })
-            .catch(() => {
-                resultBox.className = 'dfn-scanner-result-box error';
-                resultBox.innerHTML = '⚠️ Errore di connessione.';
-            });
-    }
-
-    if (manualBtn && manualInput) {
-        manualBtn.addEventListener('click', () => {
-            checkInToken(manualInput.value.trim());
-        });
-        manualInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                checkInToken(manualInput.value.trim());
-            }
         });
     }
 });
