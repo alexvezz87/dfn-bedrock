@@ -271,27 +271,50 @@ function dfn_fai_cards_query_vars(array $vars): array
 }
 
 // Inserisce la voce nel menu Mio Account di WooCommerce
-add_filter('woocommerce_account_menu_items', 'dfn_add_fai_cards_to_menu', 15);
 /**
- * Aggiunge la voce "Tessere FAI" al menu di navigazione dell'account.
+ * Aggiunge la voce "Tessere FAI", rinomina "Account" e rimuove "Esci" dalla bottom bar.
  *
  * @param array<string, string> $items Voci del menu account.
  * @return array<string, string> Menu modificato.
  */
 function dfn_add_fai_cards_to_menu(array $items): array
 {
+    unset($items['customer-logout'], $items['downloads'], $items['edit-address']);
+
     $new_items = [];
     foreach ($items as $key => $value) {
         if ('edit-account' === $key) {
-            $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
+            $new_items['tessere-fai']  = esc_html__('Tessere FAI', 'dfn-theme');
+            $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
+        } else {
+            $new_items[ $key ] = $value;
         }
-        $new_items[ $key ] = $value;
     }
     if (! isset($new_items['tessere-fai'])) {
         $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
     }
+    if (isset($new_items['edit-account'])) {
+        $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
+    }
     return $new_items;
 }
+add_filter('woocommerce_account_menu_items', 'dfn_add_fai_cards_to_menu', 15);
+
+/**
+ * Inserisce un pulsante di Logout in stile FAI all'inizio della pagina "Account" (edit-account).
+ */
+function dfn_render_logout_button_before_edit_account(): void
+{
+    $logout_url = wp_logout_url(wc_get_page_permalink('myaccount'));
+    ?>
+    <div class="dfn-account-logout-top-bar" style="margin-bottom: 20px;">
+        <a href="<?php echo esc_url($logout_url); ?>" class="button dfn-logout-fai-btn" style="background: #e74f30 !important; color: #ffffff !important; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; width: 100%; border-radius: 12px; font-weight: 700; padding: 14px 18px; font-size: 14px; border: none; box-shadow: 0 4px 12px rgba(231,79,48,0.25);">
+            🚪 <?php esc_html_e('Disconnettiti / Logout', 'dfn-theme'); ?>
+        </a>
+    </div>
+    <?php
+}
+add_action('woocommerce_before_edit_account_form', 'dfn_render_logout_button_before_edit_account');
 
 // Esegue il flush automatico one-shot delle regole di riscrittura
 add_action('init', 'dfn_fai_cards_flush_rules', 999);
@@ -1333,29 +1356,29 @@ function dfn_custom_myaccount_dashboard_content(): void
     ?>
     <div class="dfn-dashboard-hub" style="display: flex; flex-direction: column; gap: 24px; font-family: 'Outfit', sans-serif;">
         
-        <!-- 1. Hero Saluto & Contatori -->
-        <div style="background: linear-gradient(135deg, #004b23 0%, #006b35 100%); color: #ffffff; border-radius: 16px; padding: 24px 28px; box-shadow: 0 10px 25px rgba(0,75,35,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+        <!-- 1. Hero Saluto & Contatori Vertically Stacked (1 col, 3 rows) -->
+        <div style="background: linear-gradient(135deg, #004b23 0%, #006b35 100%); color: #ffffff; border-radius: 16px; padding: 22px 20px; box-shadow: 0 10px 25px rgba(0,75,35,0.15); display: flex; flex-direction: column; gap: 16px;">
             <div>
-                <h2 style="color: #ffffff; margin: 0 0 6px 0; font-size: 22px; font-weight: 800;">
+                <h2 style="color: #ffffff; margin: 0 0 4px 0; font-size: 20px; font-weight: 800;">
                     <?php printf(esc_html__('Benvenuto, %s! 👋', 'dfn-theme'), esc_html($display_name)); ?>
                 </h2>
-                <p style="margin: 0; color: rgba(255,255,255,0.85); font-size: 14px;">
+                <p style="margin: 0; color: rgba(255,255,255,0.85); font-size: 13px;">
                     <?php esc_html_e('Riepilogo delle tue prenotazioni ed esperienze con FAI Novara', 'dfn-theme'); ?>
                 </p>
             </div>
             
-            <div style="display: flex; gap: 12px;">
-                <div style="background: rgba(255,255,255,0.15); padding: 10px 18px; border-radius: 12px; backdrop-filter: blur(5px); text-align: center; min-width: 80px;">
-                    <span style="display: block; font-size: 20px; font-weight: 900; line-height: 1; margin-bottom: 4px;"><?php echo count($upcoming_list); ?></span>
-                    <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; font-weight: 700;"><?php esc_html_e('Prenotazioni', 'dfn-theme'); ?></span>
+            <div class="dfn-hero-stats" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                <div style="background: rgba(255,255,255,0.18); padding: 10px 16px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                    <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.95; font-weight: 700; text-align: left;"><?php esc_html_e('Prenotazioni', 'dfn-theme'); ?></span>
+                    <span style="font-size: 18px; font-weight: 900; line-height: 1; text-align: right; margin-left: auto;"><?php echo count($upcoming_list); ?></span>
                 </div>
-                <div style="background: rgba(255,255,255,0.15); padding: 10px 18px; border-radius: 12px; backdrop-filter: blur(5px); text-align: center; min-width: 80px;">
-                    <span style="display: block; font-size: 20px; font-weight: 900; line-height: 1; margin-bottom: 4px;"><?php echo count($visited_list); ?></span>
-                    <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; font-weight: 700;"><?php esc_html_e('Visitati', 'dfn-theme'); ?></span>
+                <div style="background: rgba(255,255,255,0.18); padding: 10px 16px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                    <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.95; font-weight: 700; text-align: left;"><?php esc_html_e('Visitati', 'dfn-theme'); ?></span>
+                    <span style="font-size: 18px; font-weight: 900; line-height: 1; text-align: right; margin-left: auto;"><?php echo count($visited_list); ?></span>
                 </div>
-                <div style="background: rgba(255,255,255,0.15); padding: 10px 18px; border-radius: 12px; backdrop-filter: blur(5px); text-align: center; min-width: 80px;">
-                    <span style="display: block; font-size: 20px; font-weight: 900; line-height: 1; margin-bottom: 4px;"><?php echo $verified_cards_count; ?></span>
-                    <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; font-weight: 700;"><?php esc_html_e('Tessere FAI', 'dfn-theme'); ?></span>
+                <div style="background: rgba(255,255,255,0.18); padding: 10px 16px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                    <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.95; font-weight: 700; text-align: left;"><?php esc_html_e('Tessere FAI', 'dfn-theme'); ?></span>
+                    <span style="font-size: 18px; font-weight: 900; line-height: 1; text-align: right; margin-left: auto;"><?php echo $verified_cards_count; ?></span>
                 </div>
             </div>
         </div>
