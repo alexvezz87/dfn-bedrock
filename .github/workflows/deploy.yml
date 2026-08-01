@@ -50,23 +50,14 @@ jobs:
         user = os.environ.get('FTP_USERNAME', '')
         password = os.environ.get('FTP_PASSWORD', '')
 
-        print(f'Connecting to FTP: {server}:{port}...')
+        print(f'Connecting to FTP server: {server}:{port}...')
         
-        ftp = None
         try:
-            try:
-                ftp = ftplib.FTP_TLS(timeout=30)
-                ftp.connect(server, port, timeout=30)
-                ftp.login(user, password)
-                ftp.prot_p()
-                print('Logged in via FTPS (TLS).')
-            except Exception as e_tls:
-                print(f'FTPS fallback ({e_tls}), connecting via plain FTP...')
-                ftp = ftplib.FTP(timeout=30)
-                ftp.connect(server, port, timeout=30)
-                ftp.login(user, password)
-                print('Logged in via plain FTP.')
-
+            ftp = ftplib.FTP(timeout=20)
+            ftp.connect(server, port)
+            print('Connected to control socket.')
+            ftp.login(user, password)
+            print('Logged in successfully.')
             ftp.set_pasv(True)
 
             for fname in ['deploy.tar.gz', 'scompatta.php']:
