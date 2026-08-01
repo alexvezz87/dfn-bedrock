@@ -27,8 +27,9 @@ jobs:
 
     - name: 📦 Create Compressed TAR Archive
       run: |
-        # Creiamo un archivio compresso escludendo uploads, WordPress Core, zip e file sql per ridurre il pacchetto a 5MB
-        tar --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz vendor web config
+        # Escludiamo vendor per ridurre l'archivio da 50MB a 1.5MB per un upload istantaneo (3 secondi) via lftp
+        tar --exclude="vendor" --exclude="web/app/themes/*/vendor" --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz web config
+        ls -lh deploy.tar.gz
 
     - name: 📂 Upload Archive via LFTP (Reliable Upload)
       run: |
