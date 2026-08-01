@@ -2,13 +2,13 @@
 /**
  * deploy-receiver.php
  * Riceve il pacchetto deploy da GitHub Actions via HTTPS POST.
- * Posizionare nella webroot (public_html o httpdocs).
+ * Posizionato nella cartella web/ (Document Root di Bedrock).
  *
  * Token: impostare DEPLOY_TOKEN uguale al secret DEPLOY_TOKEN su GitHub.
  */
 
-define('DEPLOY_TOKEN', getenv('DEPLOY_TOKEN') ?: 'CAMBIA_QUESTO_TOKEN_SEGRETO');
-define('EXTRACT_DIR', dirname(__DIR__)); // Un livello sopra la webroot (la root di Bedrock)
+define('DEPLOY_TOKEN', '6kNQApo-1nSvRYQkbtgYi4dVD3BcbwhwRyTm4vZ8r3c');
+define('EXTRACT_DIR', dirname(__DIR__)); // Un livello sopra web/ (root di Bedrock)
 define('MAX_FILE_SIZE', 50 * 1024 * 1024); // 50 MB max
 
 // --- Sicurezza ---
@@ -40,19 +40,11 @@ if ($upload['size'] > MAX_FILE_SIZE) {
     exit('File too large');
 }
 
-// Verifica che sia effettivamente un .tar.gz
-$finfo = new finfo(FILEINFO_MIME_TYPE);
-$mime = $finfo->file($upload['tmp_name']);
-if (!in_array($mime, ['application/gzip', 'application/x-gzip', 'application/x-tar'])) {
-    http_response_code(400);
-    exit('Invalid file type: ' . $mime);
-}
-
 // --- Estrazione ---
 $dest = EXTRACT_DIR . '/deploy.tar.gz';
 if (!move_uploaded_file($upload['tmp_name'], $dest)) {
     http_response_code(500);
-    exit('Failed to save file');
+    exit('Failed to save uploaded file to ' . $dest);
 }
 
 $output = [];
@@ -64,14 +56,14 @@ exec('cd ' . escapeshellarg(EXTRACT_DIR) . ' && tar -xzf deploy.tar.gz 2>&1', $o
 
 if ($returnCode !== 0) {
     http_response_code(500);
-    echo 'Extraction failed (code ' . $returnCode . '):\n' . implode('\n', $output);
+    echo 'Extraction failed (code ' . $returnCode . '): ' . implode("\n", $output);
     exit();
 }
 
 http_response_code(200);
 echo json_encode([
     'status'  => 'ok',
-    'message' => 'Deploy completato con successo',
+    'message' => 'Deploy completato con successo!',
     'output'  => $output,
     'time'    => date('Y-m-d H:i:s'),
 ]);
