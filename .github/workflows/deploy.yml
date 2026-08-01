@@ -1,4 +1,4 @@
-name: 🚀 Deploy Remoto Bedrock via FTP
+name: 🚀 Deploy Remoto Bedrock via HTTPS
 
 on:
   push:
@@ -30,34 +30,26 @@ jobs:
         tar --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz vendor web config
         ls -lh deploy.tar.gz
 
-    - name: 📂 Install lftp
-      run: sudo apt-get install -y lftp
-
-    - name: 📂 Upload Archive via lftp
+    - name: 📂 Upload & Deploy via HTTPS POST
       env:
-        FTP_SERVER: ${{ secrets.FTP_SERVER }}
-        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
       run: |
-        FTP_HOST=$(echo "$FTP_SERVER" | sed 's|^ftps\?://||' | sed 's|/.*||')
-        echo "Connecting to: $FTP_HOST"
+        echo "Uploading deploy.tar.gz to server via HTTPS..."
+        HTTP_STATUS=$(curl -k -s -o /tmp/deploy_response.txt -w "%{http_code}" \
+          --max-time 120 \
+          --retry 3 \
+          --retry-delay 10 \
+          -X POST \
+          -F "deploy_archive=@deploy.tar.gz;type=application/gzip" \
+          "https://dfnprenotazioni.it/deploy-receiver.php?token=${DEPLOY_TOKEN}")
 
-        lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" << 'EOF'
-        set ssl:verify-certificate false
-        set ftp:ssl-allow true
-        set ftp:ssl-force false
-        set ftp:passive-mode true
-        set net:timeout 90
-        set net:max-retries 5
-        set net:reconnect-interval-base 15
-        set net:reconnect-interval-multiplier 2
-        put -O / deploy.tar.gz
-        put -O / scompatta.php
-        bye
-        EOF
+        echo "HTTP Status: $HTTP_STATUS"
+        echo "Server response:"
+        cat /tmp/deploy_response.txt
 
-    - name: 🚀 Trigger Remote Extraction
-      run: |
-        curl -k -L -sS --max-time 30 "https://dfnprenotazioni.it/scompatta.php?t=202605300020" || \
-        curl -k -L -sS --max-time 30 "http://dfnprenotazioni.it/scompatta.php?t=202605300020" || \
-        echo "Extraction trigger non riuscito (non bloccante)"
+        if [ "$HTTP_STATUS" != "200" ]; then
+          echo "Deploy FAILED with status $HTTP_STATUS"
+          exit 1
+        fi
+
+        echo "Deploy completed successfully!"
