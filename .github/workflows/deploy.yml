@@ -23,7 +23,9 @@ jobs:
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         server-dir: /
-        protocol: ftp
+        port: 21
+        security: loose
+        passive: true
         exclude: |
           **/.git**
           **/.git*/**
@@ -34,3 +36,4 @@ jobs:
           *.sql
           *.zip
           *.gz
+
