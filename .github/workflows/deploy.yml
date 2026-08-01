@@ -1,4 +1,4 @@
-name: 🚀 Deploy Remoto Bedrock via HTTPS
+name: 🚀 Deploy Remoto Bedrock via FTP
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     name: 🎉 Build & Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
+    
     steps:
     - name: 🚚 Get latest code
       uses: actions/checkout@v4
@@ -21,41 +21,21 @@ jobs:
         php-version: '8.3'
         extensions: gd, zip, mysqli, mbstring, xml, curl
 
-    - name: 📦 Create Ultra-Light Compressed TAR Archive
+    - name: 📦 Install Composer Dependencies
       run: |
-        # Escludiamo le cartelle vendor, uploads e wp core per ridurre il pacchetto da ~50MB a soli ~1.5MB
-        # Questo garantisce l'upload istantaneo su Netsons senza superare i limiti PHP upload_max_filesize
-        tar --exclude="vendor" \
-            --exclude="web/app/themes/*/vendor" \
-            --exclude="web/app/uploads" \
-            --exclude="web/wp" \
-            --exclude="*.zip" \
-            --exclude="*.sql" \
-            --exclude="*.tar.gz" \
-            --exclude=".git" \
-            -czf deploy.tar.gz web config
-        ls -lh deploy.tar.gz
+        composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-reqs
 
-    - name: 📂 Upload & Deploy via HTTPS POST
-      env:
-        DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+    - name: 📦 Create Compressed TAR Archive
       run: |
-        echo "Uploading lightweight deploy.tar.gz to server via HTTPS..."
-        HTTP_STATUS=$(curl -k -s -o /tmp/deploy_response.txt -w "%{http_code}" \
-          --max-time 60 \
-          --retry 3 \
-          --retry-delay 5 \
-          -X POST \
-          -F "deploy_archive=@deploy.tar.gz;type=application/gzip" \
-          "https://dfnprenotazioni.it/deploy-receiver.php?token=${DEPLOY_TOKEN}")
+        # Creiamo un archivio compresso escludendo uploads, WordPress Core, zip e file sql per ridurre il pacchetto a 5MB
+        tar --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz vendor web config
 
-        echo "HTTP Status: $HTTP_STATUS"
-        echo "Server response:"
-        cat /tmp/deploy_response.txt
+    - name: 📂 Upload Archive via LFTP (Reliable Upload)
+      run: |
+        sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get update -qq
+        sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y -qq -o Dpkg::Options::="--force-confold" lftp
+        lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow yes; set ftp:ssl-force no; set ftp:passive-mode yes; set net:timeout 60; set net:max-retries 10; put deploy.tar.gz; put scompatta.php; quit" -u "${{ secrets.FTP_USERNAME }}","${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_SERVER }}"
 
-        if [ "$HTTP_STATUS" != "200" ]; then
-          echo "Deploy FAILED with status $HTTP_STATUS"
-          exit 1
-        fi
-
-        echo "Deploy completed successfully!"
+    - name: 🚀 Trigger Remote Extraction
+      run: |
+        curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 15 http://dfnprenotazioni.it/scompatta.php?t=202605300020 || true
