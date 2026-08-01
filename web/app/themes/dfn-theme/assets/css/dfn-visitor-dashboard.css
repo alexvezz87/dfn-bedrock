@@ -506,6 +506,19 @@
         box-sizing: border-box !important;
     }
 
+    /* Box chiarificatori per la sezione prenotazioni su sfondo immagine */
+    .dfn-bookings-header-card {
+        padding: 16px 14px !important;
+        margin-bottom: 14px !important;
+        border-radius: 14px !important;
+    }
+    .dfn-group-title {
+        padding: 10px 14px !important;
+        margin-bottom: 14px !important;
+        font-size: 15px !important;
+        border-radius: 12px !important;
+    }
+
     /* BOTTOM NAVIGATION BAR MOBILE (Solo testo centrato, Verde FAI solido per voce attiva) */
     .woocommerce-MyAccount-navigation {
         position: fixed !important;
@@ -879,14 +892,60 @@
     margin-bottom: 40px;
 }
 
-.dfn-group-title {
-    font-size: 20px;
+/* Card Intestazione Sezione Prenotazioni */
+.dfn-bookings-header-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 20px 22px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.dfn-bookings-header-card .dfn-dashboard-title {
+    margin-top: 0;
+    margin-bottom: 6px;
+    font-size: 22px;
     font-weight: 800;
-    color: var(--dfn-green-dark);
-    border-bottom: 2px solid rgba(0, 75, 35, 0.08);
-    padding-bottom: 10px;
-    margin-bottom: 20px;
+    color: #004b23;
+}
+
+.dfn-bookings-header-card .dfn-dashboard-desc {
+    margin-bottom: 0;
+    font-size: 13.5px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.dfn-group-title {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-size: 17px;
+    font-weight: 800;
+    color: #004b23;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    border-bottom: none;
     letter-spacing: -0.3px;
+}
+
+.dfn-bookings-empty-silent {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 22px 20px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    margin-bottom: 20px;
+}
+
+.dfn-bookings-empty-silent p {
+    margin: 0;
+    font-size: 13.5px;
+    color: #64748b;
+    font-style: italic;
 }
 
 .dfn-bookings-list {

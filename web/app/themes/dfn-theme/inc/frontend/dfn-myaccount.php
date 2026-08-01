@@ -687,8 +687,10 @@ function dfn_custom_myaccount_bookings_content(): void
     $past_groups = array_reverse($past_groups, true);
     ?>
     <div class="dfn-my-bookings-section" id="dfn-my-bookings-section">
-        <h2 class="dfn-dashboard-title"><?php esc_html_e('Le mie prenotazioni', 'dfn-theme'); ?></h2>
-        <p class="dfn-dashboard-desc"><?php esc_html_e('Qui puoi consultare lo storico di tutte le tue prenotazioni suddiviso tra eventi in arrivo e visite già effettuate.', 'dfn-theme'); ?></p>
+        <div class="dfn-bookings-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('Le mie prenotazioni', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Qui puoi consultare lo storico di tutte le tue prenotazioni suddiviso tra eventi in arrivo e visite già effettuate.', 'dfn-theme'); ?></p>
+        </div>
 
         <!-- SEZIONE EVENTI IN ARRIVO -->
         <div class="dfn-bookings-group dfn-bookings-group-upcoming">
