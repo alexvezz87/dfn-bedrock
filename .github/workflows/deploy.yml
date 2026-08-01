@@ -10,7 +10,7 @@ jobs:
     name: 🎉 Build & Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+
     steps:
     - name: 🚚 Get latest code
       uses: actions/checkout@v4
@@ -27,77 +27,37 @@ jobs:
 
     - name: 📦 Create Compressed TAR Archive
       run: |
-        # Creiamo un archivio compresso escludendo uploads, WordPress Core, zip e file sql per ridurre il pacchetto a 5MB
         tar --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz vendor web config
+        ls -lh deploy.tar.gz
 
-    - name: 📂 Upload Archive via Python FTP (with retries)
+    - name: 📂 Install lftp
+      run: sudo apt-get install -y lftp
+
+    - name: 📂 Upload Archive via lftp
       env:
         FTP_SERVER: ${{ secrets.FTP_SERVER }}
         FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
         FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
       run: |
-        python3 -c "
-        import os, sys, ftplib, time
+        FTP_HOST=$(echo "$FTP_SERVER" | sed 's|^ftps\?://||' | sed 's|/.*||')
+        echo "Connecting to: $FTP_HOST"
 
-        server_raw = os.environ['FTP_SERVER'].replace('ftp://', '').replace('ftps://', '').strip('/')
-        # Separa host da porta opzionale (es: ftp.example.com:21)
-        if ':' in server_raw:
-            server, port = server_raw.rsplit(':', 1)
-            port = int(port)
-        else:
-            server = server_raw
-            port = 21
-
-        user = os.environ['FTP_USERNAME']
-        password = os.environ['FTP_PASSWORD']
-
-        MAX_RETRIES = 4
-        CONNECT_TIMEOUT = 90
-
-        def try_connect():
-            print(f'Connecting to FTP server: {server}:{port}...')
-            # Tenta prima FTPS, poi FTP plain
-            try:
-                ftp = ftplib.FTP_TLS(timeout=CONNECT_TIMEOUT)
-                ftp.connect(server, port, timeout=CONNECT_TIMEOUT)
-                ftp.login(user, password)
-                ftp.prot_p()
-                print('Logged in via FTPS (TLS).')
-                return ftp
-            except Exception as e_tls:
-                print(f'FTPS failed ({e_tls}), trying plain FTP...')
-                ftp = ftplib.FTP(timeout=CONNECT_TIMEOUT)
-                ftp.connect(server, port, timeout=CONNECT_TIMEOUT)
-                ftp.login(user, password)
-                print('Logged in via plain FTP.')
-                return ftp
-
-        files_to_upload = [f for f in ['deploy.tar.gz', 'scompatta.php'] if os.path.exists(f)]
-        
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                ftp = try_connect()
-                ftp.set_pasv(True)
-                for fname in files_to_upload:
-                    size_mb = os.path.getsize(fname) / (1024 * 1024)
-                    print(f'[Attempt {attempt}] Uploading {fname} ({size_mb:.2f} MB)...')
-                    with open(fname, 'rb') as f:
-                        ftp.storbinary(f'STOR {fname}', f, blocksize=65536)
-                    print(f'Uploaded {fname} successfully.')
-                ftp.quit()
-                print('All files uploaded!')
-                sys.exit(0)
-            except Exception as e:
-                print(f'[Attempt {attempt}/{MAX_RETRIES}] Error: {e}')
-                if attempt < MAX_RETRIES:
-                    wait = attempt * 15
-                    print(f'Retrying in {wait}s...')
-                    time.sleep(wait)
-                else:
-                    print('All retry attempts exhausted. Deploy failed.')
-                    sys.exit(1)
-        "
+        lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" << 'EOF'
+        set ssl:verify-certificate false
+        set ftp:ssl-allow true
+        set ftp:ssl-force false
+        set ftp:passive-mode true
+        set net:timeout 90
+        set net:max-retries 5
+        set net:reconnect-interval-base 15
+        set net:reconnect-interval-multiplier 2
+        put -O / deploy.tar.gz
+        put -O / scompatta.php
+        bye
+        EOF
 
     - name: 🚀 Trigger Remote Extraction
       run: |
-        curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 15 http://dfnprenotazioni.it/scompatta.php?t=202605300020 || true
+        curl -k -L -sS --max-time 30 "https://dfnprenotazioni.it/scompatta.php?t=202605300020" || \
+        curl -k -L -sS --max-time 30 "http://dfnprenotazioni.it/scompatta.php?t=202605300020" || \
+        echo "Extraction trigger non riuscito (non bloccante)"
