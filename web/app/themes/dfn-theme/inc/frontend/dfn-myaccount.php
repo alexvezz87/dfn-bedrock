@@ -1354,10 +1354,10 @@ function dfn_custom_myaccount_dashboard_content(): void
 
     $next_booking = ! empty($upcoming_list) ? $upcoming_list[0] : null;
     ?>
-    <div class="dfn-dashboard-hub" style="display: flex; flex-direction: column; gap: 24px; font-family: 'Outfit', sans-serif;">
+    <div class="dfn-dashboard-hub" style="display: flex; flex-direction: column; gap: 12px; font-family: 'Outfit', sans-serif;">
         
         <!-- 1. Hero Saluto & Contatori Vertically Stacked (1 col, 3 rows) -->
-        <div style="background: linear-gradient(135deg, #004b23 0%, #006b35 100%); color: #ffffff; border-radius: 16px; padding: 22px 20px; box-shadow: 0 10px 25px rgba(0,75,35,0.15); display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: linear-gradient(135deg, #004b23 0%, #006b35 100%); color: #ffffff; border-radius: 16px; padding: 18px 16px 14px 16px; box-shadow: 0 10px 25px rgba(0,75,35,0.15); display: flex; flex-direction: column; gap: 12px;">
             <div>
                 <h2 style="color: #ffffff; margin: 0 0 4px 0; font-size: 20px; font-weight: 800;">
                     <?php printf(esc_html__('Benvenuto, %s! 👋', 'dfn-theme'), esc_html($display_name)); ?>
@@ -1369,15 +1369,15 @@ function dfn_custom_myaccount_dashboard_content(): void
             
             <div class="dfn-hero-stats" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
                 <div style="background: rgba(255,255,255,0.18); padding: 10px 16px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
-                    <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.95; font-weight: 700; text-align: left;"><?php esc_html_e('Prenotazioni', 'dfn-theme'); ?></span>
+                    <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.95; font-weight: 700; text-align: left;"><?php esc_html_e('Prenotazioni effettuate', 'dfn-theme'); ?></span>
                     <span style="font-size: 18px; font-weight: 900; line-height: 1; text-align: right; margin-left: auto;"><?php echo count($upcoming_list); ?></span>
                 </div>
                 <div style="background: rgba(255,255,255,0.18); padding: 10px 16px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
-                    <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.95; font-weight: 700; text-align: left;"><?php esc_html_e('Visitati', 'dfn-theme'); ?></span>
+                    <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.95; font-weight: 700; text-align: left;"><?php esc_html_e('Eventi visitati', 'dfn-theme'); ?></span>
                     <span style="font-size: 18px; font-weight: 900; line-height: 1; text-align: right; margin-left: auto;"><?php echo count($visited_list); ?></span>
                 </div>
                 <div style="background: rgba(255,255,255,0.18); padding: 10px 16px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
-                    <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.95; font-weight: 700; text-align: left;"><?php esc_html_e('Tessere FAI', 'dfn-theme'); ?></span>
+                    <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.95; font-weight: 700; text-align: left;"><?php esc_html_e('Tessere FAI associate', 'dfn-theme'); ?></span>
                     <span style="font-size: 18px; font-weight: 900; line-height: 1; text-align: right; margin-left: auto;"><?php echo $verified_cards_count; ?></span>
                 </div>
             </div>
@@ -1426,11 +1426,11 @@ function dfn_custom_myaccount_dashboard_content(): void
             </div>
         <?php endif; ?>
 
-        <!-- 3. Griglia Paritaria Box Sottostanti (Spazio uniforme 50/50 full width) -->
-        <div style="display: flex; flex-wrap: wrap; gap: 24px; width: 100%; box-sizing: border-box;">
+        <!-- 3. Box Sottostanti colonna intera, stessa larghezza del box verde -->
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box;">
             
             <!-- Box A: Eventi in Programmazione -->
-            <div style="flex: 1 1 280px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+            <div style="width: 100%; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; box-sizing: border-box;">
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <h3 style="margin: 0; font-size: 15.5px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
@@ -1465,11 +1465,11 @@ function dfn_custom_myaccount_dashboard_content(): void
             </div>
 
             <!-- Box B: Luoghi Visitati (Check-in Effettuati) -->
-            <div style="flex: 1 1 280px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+            <div style="width: 100%; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; box-sizing: border-box;">
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <h3 style="margin: 0; font-size: 15.5px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
-                            <span>✅</span> <?php esc_html_e('I Tuoi Luoghi Visitati', 'dfn-theme'); ?>
+                            <span>✅</span> <?php esc_html_e('Eventi visitati', 'dfn-theme'); ?>
                         </h3>
                     </div>
 
