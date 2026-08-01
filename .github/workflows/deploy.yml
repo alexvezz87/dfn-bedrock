@@ -30,11 +30,51 @@ jobs:
         # Creiamo un archivio compresso escludendo uploads, WordPress Core, zip e file sql per ridurre il pacchetto a 5MB
         tar --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz vendor web config
 
-    - name: 📂 Upload Archive via LFTP (Reliable Upload)
+    - name: 📂 Upload Archive via Python FTP (Instant & Reliable)
+      env:
+        FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
       run: |
-        sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get update -qq
-        sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y -qq -o Dpkg::Options::="--force-confold" lftp
-        lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow yes; set ftp:ssl-force no; set ftp:passive-mode yes; set net:timeout 60; set net:max-retries 10; put deploy.tar.gz; put scompatta.php; quit" -u "${{ secrets.FTP_USERNAME }}","${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_SERVER }}"
+        python3 -c "
+        import os, sys, ftplib
+
+        server = os.environ['FTP_SERVER'].replace('ftp://', '').replace('ftps://', '').strip('/')
+        user = os.environ['FTP_USERNAME']
+        password = os.environ['FTP_PASSWORD']
+
+        print(f'Connecting to FTP server: {server}...')
+        ftp = None
+        try:
+            try:
+                ftp = ftplib.FTP_TLS(timeout=60)
+                ftp.connect(server)
+                ftp.login(user, password)
+                ftp.prot_p()
+                print('Logged in successfully via FTPS (TLS).')
+            except Exception as e_tls:
+                print(f'FTPS fallback ({e_tls}), connecting via standard FTP...')
+                ftp = ftplib.FTP(timeout=60)
+                ftp.connect(server)
+                ftp.login(user, password)
+                print('Logged in successfully via standard FTP.')
+
+            ftp.set_pasv(True)
+
+            for fname in ['deploy.tar.gz', 'scompatta.php']:
+                if os.path.exists(fname):
+                    size_mb = os.path.getsize(fname) / (1024 * 1024)
+                    print(f'Uploading {fname} ({size_mb:.2f} MB)...')
+                    with open(fname, 'rb') as f:
+                        ftp.storbinary(f'STOR {fname}', f, blocksize=65536)
+                    print(f'Finished uploading {fname}.')
+
+            ftp.quit()
+            print('All files uploaded successfully!')
+        except Exception as e:
+            print(f'FTP Upload Error: {e}')
+            sys.exit(1)
+        "
 
     - name: 🚀 Trigger Remote Extraction
       run: |
