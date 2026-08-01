@@ -261,7 +261,7 @@ function dfn_rimuovi_voci_menu_account(array $items): array
 {
     unset($items['downloads'], $items['edit-address'], $items['payment-methods']);
     if (isset($items['orders'])) {
-        $items['orders'] = 'Le Mie Prenotazioni';
+        $items['orders'] = 'Prenotazioni';
     }
 
     $nuovo_menu = [];

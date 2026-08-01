@@ -687,7 +687,7 @@ function dfn_custom_myaccount_bookings_content(): void
     $past_groups = array_reverse($past_groups, true);
     ?>
     <div class="dfn-my-bookings-section" id="dfn-my-bookings-section">
-        <h2 class="dfn-dashboard-title"><?php esc_html_e('Le Mie Prenotazioni', 'dfn-theme'); ?></h2>
+        <h2 class="dfn-dashboard-title"><?php esc_html_e('Le mie prenotazioni', 'dfn-theme'); ?></h2>
         <p class="dfn-dashboard-desc"><?php esc_html_e('Qui puoi consultare lo storico di tutte le tue prenotazioni suddiviso tra eventi in arrivo e visite già effettuate.', 'dfn-theme'); ?></p>
 
         <!-- SEZIONE EVENTI IN ARRIVO -->
@@ -786,12 +786,16 @@ function dfn_custom_myaccount_bookings_content(): void
                                             <tr class="<?php echo $is_cancelled ? 'dfn-row-cancelled' : ''; ?>">
                                                 <td data-label="<?php esc_attr_e('Ordine', 'dfn-theme'); ?>">
                                                     <?php
-                                                    $hub_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
-                                                    $hub_url   = home_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
-                                                    ?>
-                                                    <a href="<?php echo esc_url($hub_url); ?>" class="dfn-table-order-id-link" title="<?php esc_attr_e('Vedi prenotazione', 'dfn-theme'); ?>">
-                                                        #<?php echo esc_html($b->order_id); ?>
-                                                    </a>
+                                                    if ($order) {
+                                                        $hub_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+                                                        $hub_url   = home_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
+                                                        ?>
+                                                        <a href="<?php echo esc_url($hub_url); ?>" class="dfn-table-order-id-link" title="<?php esc_attr_e('Vedi prenotazione', 'dfn-theme'); ?>">
+                                                            #<?php echo esc_html($b->order_id); ?>
+                                                        </a>
+                                                    <?php } else { ?>
+                                                        <span class="dfn-table-order-id-link">#<?php echo esc_html($b->order_id); ?></span>
+                                                    <?php } ?>
                                                 </td>
                                                 <td class="dfn-table-time" data-label="<?php esc_attr_e('Orario', 'dfn-theme'); ?>">
                                                     <strong><?php echo esc_html($time_formatted); ?></strong>
