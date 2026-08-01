@@ -485,7 +485,7 @@ function dfn_fai_cards_endpoint_content(): void
         <!-- Sezione 1: Tessere in Attesa di Verifica -->
         <?php if (! empty($pending_cards)) : ?>
             <div style="margin-bottom: 30px;">
-                <h3 style="font-size: 16px; font-weight: 800; color: #e74f30; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                <h3 class="dfn-group-title" style="color: #e74f30 !important;">
                     <span>⏳</span> <?php esc_html_e('Tessere in Attesa di Verifica', 'dfn-theme'); ?> (<?php echo count($pending_cards); ?>)
                 </h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
@@ -511,7 +511,7 @@ function dfn_fai_cards_endpoint_content(): void
         <?php endif; ?>
 
         <!-- Sezione 2: Tessere Verificate -->
-        <h3 style="font-size: 16px; font-weight: 800; color: #004b23; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+        <h3 class="dfn-group-title">
             <span>✓</span> <?php esc_html_e('Tessere Verificate e Attive', 'dfn-theme'); ?>
         </h3>
 

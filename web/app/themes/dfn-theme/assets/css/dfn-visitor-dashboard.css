@@ -1314,6 +1314,12 @@
         margin-top: 5px;
     }
 
+    .dfn-booking-details-content {
+        padding: 12px 10px !important;
+        background: #ffffff !important;
+        opacity: 1 !important;
+    }
+
     .dfn-bookings-table, 
     .dfn-bookings-table thead, 
     .dfn-bookings-table tbody, 
@@ -1330,12 +1336,14 @@
     }
     
     .dfn-bookings-table tbody tr {
-        margin-bottom: 12px !important;
+        margin-bottom: 10px !important;
         border: 1px solid #e2e8f0 !important;
-        border-radius: 14px !important;
+        border-radius: 12px !important;
         background: #ffffff !important;
-        padding: 6px 14px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+        padding: 4px 12px !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
     
     .dfn-bookings-table tbody td {
@@ -1360,6 +1368,7 @@
         padding-bottom: 6px !important;
     }
     
+    /* Etichetta allineata nettamente a sinistra */
     .dfn-bookings-table tbody td::before {
         content: attr(data-label) !important;
         position: static !important;
@@ -1371,7 +1380,16 @@
         letter-spacing: 0.5px !important;
         text-align: left !important;
         flex-shrink: 0 !important;
-        margin-right: 12px !important;
+        margin-right: auto !important; /* Spinge il valore tutto a destra! */
+    }
+
+    /* Valore spinto a destra e allineato all'estremo bordo destro */
+    .dfn-bookings-table tbody td > * {
+        margin-left: auto !important;
+        text-align: right !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
     }
     
     .dfn-table-actions-container {
@@ -1380,6 +1398,7 @@
         justify-content: flex-end !important;
         gap: 8px !important;
         width: 100% !important;
+        margin-left: auto !important;
     }
 
     .button.dfn-action-modify,

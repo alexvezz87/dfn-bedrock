@@ -176,6 +176,71 @@ html body.woocommerce-account .xoo-wsc-cart-active {
     line-height: 1.5 !important;
 }
 
+/* Card Bianca Solida per Form Modifica Account e Tessere FAI */
+.woocommerce-EditAccountForm,
+form.edit-account,
+.dfn-add-fai-card-wrapper {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 16px !important;
+    padding: 22px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+    margin-top: 16px !important;
+    opacity: 1 !important;
+    box-sizing: border-box !important;
+}
+
+.woocommerce-EditAccountForm fieldset {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 16px 18px !important;
+    margin-top: 20px !important;
+}
+
+.woocommerce-EditAccountForm fieldset legend {
+    font-weight: 800 !important;
+    color: #004b23 !important;
+    padding: 0 8px !important;
+    font-size: 14px !important;
+}
+
+.woocommerce-EditAccountForm label {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #475569 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 6px !important;
+    display: block !important;
+}
+
+.woocommerce-EditAccountForm input.input-text {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+    font-size: 14px !important;
+    color: #1e293b !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.woocommerce-EditAccountForm .woocommerce-Button,
+.woocommerce-EditAccountForm button[type="submit"] {
+    background: #004b23 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 50px !important;
+    padding: 12px 28px !important;
+    font-weight: 800 !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 12px rgba(0, 75, 35, 0.2) !important;
+    margin-top: 16px !important;
+    width: 100% !important;
+}
+
 /* --- STILE MOBILE --- */
 @media (max-width: 768px) {
     body { padding-bottom: 70px !important; }
