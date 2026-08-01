@@ -143,6 +143,39 @@ html body.woocommerce-account .xoo-wsc-cart-active {
 .button.cv_biglietti { background: #2271b1 !important; color: white !important; box-shadow: 0 4px 10px rgba(34, 113, 177, 0.2); }
 .button.cv_biglietti:hover { background: #135e96 !important; transform: translateY(-1px); }
 
+/* Card Intestazione Standardizzata per TUTTE le Sezioni Account */
+.dfn-account-header-card,
+.dfn-bookings-header-card,
+.dfn-fai-header-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 16px !important;
+    padding: 20px 22px !important;
+    margin-bottom: 20px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.dfn-account-header-card .dfn-dashboard-title,
+.dfn-bookings-header-card .dfn-dashboard-title,
+.dfn-fai-header-card .dfn-dashboard-title {
+    margin-top: 0 !important;
+    margin-bottom: 6px !important;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: #004b23 !important;
+}
+
+.dfn-account-header-card .dfn-dashboard-desc,
+.dfn-bookings-header-card .dfn-dashboard-desc,
+.dfn-fai-header-card .dfn-dashboard-desc {
+    margin-bottom: 0 !important;
+    font-size: 13.5px !important;
+    color: #475569 !important;
+    line-height: 1.5 !important;
+}
+
 /* --- STILE MOBILE --- */
 @media (max-width: 768px) {
     body { padding-bottom: 70px !important; }

@@ -307,6 +307,10 @@ function dfn_render_logout_button_before_edit_account(): void
 {
     $logout_url = wp_logout_url(wc_get_page_permalink('myaccount'));
     ?>
+    <div class="dfn-account-header-card">
+        <h2 class="dfn-dashboard-title"><?php esc_html_e('Account', 'dfn-theme'); ?></h2>
+        <p class="dfn-dashboard-desc"><?php esc_html_e('Gestisci le tue informazioni personali, la password di accesso e disconnettiti dal tuo profilo.', 'dfn-theme'); ?></p>
+    </div>
     <div class="dfn-account-logout-top-bar" style="margin-bottom: 20px;">
         <a href="<?php echo esc_url($logout_url); ?>" class="button dfn-logout-fai-btn" style="background: #e74f30 !important; color: #ffffff !important; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; width: 100%; border-radius: 12px; font-weight: 700; padding: 14px 18px; font-size: 14px; border: none; box-shadow: 0 4px 12px rgba(231,79,48,0.25);">
             🚪 <?php esc_html_e('Disconnettiti / Logout', 'dfn-theme'); ?>
@@ -427,8 +431,10 @@ function dfn_fai_cards_endpoint_content(): void
     $default_last_name  = $current_user->last_name ?: '';
     ?>
     <div class="dfn-fai-dashboard-section" id="dfn-fai-section">
-        <h2 class="dfn-dashboard-title"><?php esc_html_e('Le Mie Tessere FAI', 'dfn-theme'); ?></h2>
-        <p class="dfn-dashboard-desc"><?php esc_html_e('In questa sezione puoi gestire ed associare le tue tessere FAI. Le tessere verificate dalla segreteria saranno disponibili come suggerimenti rapidi durante la prenotazione degli eventi.', 'dfn-theme'); ?></p>
+        <div class="dfn-account-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('Tessere FAI', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('In questa sezione puoi gestire ed associare le tue tessere FAI. Le tessere verificate dalla segreteria saranno disponibili come suggerimenti rapidi durante la prenotazione degli eventi.', 'dfn-theme'); ?></p>
+        </div>
 
         <?php if (! empty($notice_message)) : ?>
             <div class="dfn-account-notice dfn-notice-<?php echo esc_attr($notice_type); ?>" style="padding: 14px 18px; border-radius: 8px; margin-bottom: 24px; font-weight: 600; font-size: 14px; <?php echo $notice_type === 'success' ? 'background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;' : ($notice_type === 'info' ? 'background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe;' : 'background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;'); ?>">
