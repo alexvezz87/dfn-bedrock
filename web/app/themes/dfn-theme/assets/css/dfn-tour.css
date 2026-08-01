@@ -333,7 +333,7 @@ body.dfn-tour-running .dfn-tour-fab {
 /* =========================================================
    RESPONSIVE
    ========================================================= */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .dfn-tour-balloon {
         width: calc(100vw - 24px);
     }
@@ -341,10 +341,24 @@ body.dfn-tour-running .dfn-tour-fab {
         display: none;
     }
     .dfn-tour-fab {
-        bottom: 18px;
-        right: 14px;
-        padding: 9px 14px;
-        font-size: 12.5px;
+        bottom: 78px !important;
+        right: 14px !important;
+        width: 42px !important;
+        height: 42px !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
+        display: inline-flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        font-size: 0 !important;
+        box-shadow: 0 4px 14px rgba(0, 75, 35, 0.35) !important;
+    }
+    .dfn-tour-fab-icon {
+        font-size: 18px !important;
+        background: transparent !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 0 !important;
     }
     .dfn-tour-balloon-footer {
         flex-wrap: wrap;
