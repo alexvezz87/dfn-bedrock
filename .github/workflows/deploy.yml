@@ -1,4 +1,4 @@
-name: 🚀 Deploy Remoto Bedrock via FTP
+name: 🚀 Deploy Remoto Bedrock via HTTPS
 
 on:
   push:
@@ -30,51 +30,24 @@ jobs:
         tar --exclude="vendor" --exclude="web/app/themes/*/vendor" --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz web config
         ls -lh deploy.tar.gz
 
-    - name: 📂 Upload Archive via Python FTP (Instant & Zero-Dependencies)
+    - name: 🚀 Deploy via HTTPS (Port 443 - Instant & Unblockable)
       env:
-        FTP_SERVER: ${{ secrets.FTP_SERVER }}
-        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        DEPLOY_TOKEN: 6kNQApo-1nSvRYQkbtgYi4dVD3BcbwhwRyTm4vZ8r3c
       run: |
-        python3 -c "
-        import os, sys, ftplib
+        echo "Uploading deploy package via HTTPS (Port 443)..."
+        HTTP_STATUS=$(curl -k -s -o /tmp/deploy_res.txt -w "%{http_code}" \
+          --max-time 60 \
+          -X POST \
+          -F "deploy_archive=@deploy.tar.gz;type=application/gzip" \
+          "https://www.dfnprenotazioni.it/deploy-receiver.php?token=${DEPLOY_TOKEN}")
 
-        raw_server = os.environ.get('FTP_SERVER', '')
-        server = raw_server.replace('ftp://', '').replace('ftps://', '').strip('/')
-        if ':' in server:
-            server, port_str = server.split(':', 1)
-            port = int(port_str)
-        else:
-            port = 21
+        echo "HTTP Status Code: $HTTP_STATUS"
+        echo "Response:"
+        cat /tmp/deploy_res.txt
 
-        user = os.environ.get('FTP_USERNAME', '')
-        password = os.environ.get('FTP_PASSWORD', '')
+        if [ "$HTTP_STATUS" != "200" ]; then
+          echo "Deploy FAILED!"
+          exit 1
+        fi
 
-        print(f'Connecting to FTP server: {server}:{port}...')
-        
-        try:
-            ftp = ftplib.FTP(timeout=20)
-            ftp.connect(server, port)
-            print('Connected to control socket.')
-            ftp.login(user, password)
-            print('Logged in successfully.')
-            ftp.set_pasv(True)
-
-            for fname in ['deploy.tar.gz', 'scompatta.php']:
-                if os.path.exists(fname):
-                    size_mb = os.path.getsize(fname) / (1024 * 1024)
-                    print(f'Uploading {fname} ({size_mb:.2f} MB)...')
-                    with open(fname, 'rb') as f:
-                        ftp.storbinary(f'STOR {fname}', f, blocksize=65536)
-                    print(f'Successfully uploaded {fname}.')
-
-            ftp.quit()
-            print('All files uploaded successfully!')
-        except Exception as e:
-            print(f'FTP Upload Error: {e}')
-            sys.exit(1)
-        "
-
-    - name: 🚀 Trigger Remote Extraction
-      run: |
-        curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 15 http://dfnprenotazioni.it/scompatta.php?t=202605300020 || true
+        echo "Deploy succeeded!"
