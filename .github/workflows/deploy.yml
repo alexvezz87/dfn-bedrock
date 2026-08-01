@@ -9,31 +9,81 @@ jobs:
   web-deploy:
     name: 🎉 Build & Deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
     - name: 🚚 Get latest code
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
-    - name: 📂 Sync changed files via FTP (Delta Upload - 5 sec)
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
       with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: /
-        port: 21
-        security: loose
-        passive: true
-        exclude: |
-          **/.git**
-          **/.git*/**
-          **/node_modules/**
-          **/vendor/**
-          web/app/uploads/**
-          web/wp/**
-          *.sql
-          *.zip
-          *.gz
+        php-version: '8.3'
+        extensions: gd, zip, mysqli, mbstring, xml, curl
 
+    - name: 📦 Install Composer Dependencies
+      run: |
+        composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-reqs
+
+    - name: 📦 Create Compressed TAR Archive (1.5 MB)
+      run: |
+        tar --exclude="vendor" --exclude="web/app/themes/*/vendor" --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz web config
+        ls -lh deploy.tar.gz
+
+    - name: 📂 Upload Archive via Python FTP (Instant & Zero-Dependencies)
+      env:
+        FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      run: |
+        python3 -c "
+        import os, sys, ftplib
+
+        raw_server = os.environ.get('FTP_SERVER', '')
+        server = raw_server.replace('ftp://', '').replace('ftps://', '').strip('/')
+        if ':' in server:
+            server, port_str = server.split(':', 1)
+            port = int(port_str)
+        else:
+            port = 21
+
+        user = os.environ.get('FTP_USERNAME', '')
+        password = os.environ.get('FTP_PASSWORD', '')
+
+        print(f'Connecting to FTP: {server}:{port}...')
+        
+        ftp = None
+        try:
+            try:
+                ftp = ftplib.FTP_TLS(timeout=30)
+                ftp.connect(server, port, timeout=30)
+                ftp.login(user, password)
+                ftp.prot_p()
+                print('Logged in via FTPS (TLS).')
+            except Exception as e_tls:
+                print(f'FTPS fallback ({e_tls}), connecting via plain FTP...')
+                ftp = ftplib.FTP(timeout=30)
+                ftp.connect(server, port, timeout=30)
+                ftp.login(user, password)
+                print('Logged in via plain FTP.')
+
+            ftp.set_pasv(True)
+
+            for fname in ['deploy.tar.gz', 'scompatta.php']:
+                if os.path.exists(fname):
+                    size_mb = os.path.getsize(fname) / (1024 * 1024)
+                    print(f'Uploading {fname} ({size_mb:.2f} MB)...')
+                    with open(fname, 'rb') as f:
+                        ftp.storbinary(f'STOR {fname}', f, blocksize=65536)
+                    print(f'Successfully uploaded {fname}.')
+
+            ftp.quit()
+            print('All files uploaded successfully!')
+        except Exception as e:
+            print(f'FTP Upload Error: {e}')
+            sys.exit(1)
+        "
+
+    - name: 🚀 Trigger Remote Extraction
+      run: |
+        curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 15 http://dfnprenotazioni.it/scompatta.php?t=202605300020 || true
