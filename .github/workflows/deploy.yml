@@ -36,6 +36,7 @@ jobs:
         echo "Uploading deploy.tar.gz to ftp://$HOST/..."
         curl --ftp-pasv --insecure --connect-timeout 20 --retry 3 --retry-delay 2 -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/deploy.tar.gz" || true
         curl --ftp-pasv --insecure --connect-timeout 20 --retry 3 --retry-delay 2 -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/deploy.tar.gz" || true
+        curl --ftp-pasv --insecure --connect-timeout 20 --retry 3 --retry-delay 2 -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/web/deploy.tar.gz" || true
 
     - name: 🚀 Trigger Remote Extraction
       run: |
