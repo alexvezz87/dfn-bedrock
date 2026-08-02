@@ -26,15 +26,11 @@ if ($archive) {
     echo "<p>Trovato $archive. Avvio estrazione...</p>";
     
     $target_dir = __DIR__;
-    $command = "tar -xzf " . escapeshellarg($archive) . " -C " . escapeshellarg($target_dir) . " 2>&1";
+    $command = "tar -xzf " . escapeshellarg($archive) . " -C " . escapeshellarg($target_dir) . " > /dev/null 2>&1 &";
     
     if (function_exists('exec')) {
-        $out = [];
-        $ret = 0;
-        exec($command, $out, $ret);
-        @unlink($archive);
-        echo "<p style='color: green; font-size: 1.1em;'><strong>Estrazione completata! (Exit code $ret)</strong></p>";
-        echo "<pre>" . esc_html(implode("\n", $out)) . "</pre>";
+        @exec($command);
+        echo "<p style='color: green; font-size: 1.1em;'><strong>Estrazione avviata con successo!</strong></p>";
     } else {
         echo "<p style='color: red;'>exec() non abilitato.</p>";
     }
