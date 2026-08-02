@@ -21,13 +21,9 @@ jobs:
         php-version: '8.3'
         extensions: gd, zip, mysqli, mbstring, xml, curl
 
-    - name: 📦 Install Composer Dependencies
+    - name: 📦 Create Ultra-Compact Archive (700 KB)
       run: |
-        composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-reqs
-
-    - name: 📦 Create Compressed TAR Archive (1.5 MB)
-      run: |
-        tar --exclude="vendor" --exclude="web/app/themes/*/vendor" --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz web config
+        tar --exclude="node_modules" --exclude="vendor" -czf deploy.tar.gz web/app/themes/dfn-theme config web/deploy-receiver.php web/scompatta.php scompatta.php
         ls -lh deploy.tar.gz
 
     - name: 🚀 Deploy via HTTPS (Port 443 - Instant & Unblockable)
@@ -36,7 +32,7 @@ jobs:
       run: |
         echo "Uploading deploy package via HTTPS (Port 443)..."
         HTTP_STATUS=$(curl -k -s -o /tmp/deploy_res.txt -w "%{http_code}" \
-          --max-time 60 \
+          --max-time 30 \
           -X POST \
           -F "deploy_archive=@deploy.tar.gz;type=application/gzip" \
           "https://www.dfnprenotazioni.it/deploy-receiver.php?token=${DEPLOY_TOKEN}")
