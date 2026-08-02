@@ -38,11 +38,18 @@ jobs:
       run: |
         HOST=$(echo "$FTP_SERVER" | sed -e 's|^ftp://||' -e 's|^ftps://||' -e 's|/*$||')
         echo "Uploading to ftp://$HOST/..."
-        curl --ftp-pasv --insecure --retry 3 --retry-delay 2 -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/deploy.tar.gz"
-        curl --ftp-pasv --insecure --retry 3 --retry-delay 2 -T scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/scompatta.php" || true
-        curl --ftp-pasv --insecure --retry 3 --retry-delay 2 -T web/scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/web/scompatta.php" || true
+
+        # Upload deploy.tar.gz to root and public_html/
+        curl --ftp-pasv --insecure -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/deploy.tar.gz" || true
+        curl --ftp-pasv --insecure -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/deploy.tar.gz" || true
+
+        # Upload scompatta.php to root, web/, public_html/, and public_html/web/
+        curl --ftp-pasv --insecure -T scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/scompatta.php" || true
+        curl --ftp-pasv --insecure --ftp-create-dirs -T web/scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/web/scompatta.php" || true
+        curl --ftp-pasv --insecure -T scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/scompatta.php" || true
+        curl --ftp-pasv --insecure --ftp-create-dirs -T web/scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/web/scompatta.php" || true
         echo "Upload complete!"
 
     - name: 🚀 Trigger Remote Extraction
       run: |
-        curl -k -L -sS --max-time 30 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 30 http://dfnprenotazioni.it/scompatta.php?t=202605300020 || true
+        curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/web/scompatta.php?t=202605300020 || true
