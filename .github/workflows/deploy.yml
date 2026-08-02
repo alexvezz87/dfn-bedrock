@@ -21,9 +21,9 @@ jobs:
         php-version: '8.3'
         extensions: gd, zip, mysqli, mbstring, xml, curl
 
-    - name: 📦 Create Ultra-Compact Archive (700 KB)
+    - name: 📦 Create Ultra-Compact Archive (200 KB)
       run: |
-        tar --exclude="node_modules" --exclude="vendor" -czf deploy.tar.gz web/app/themes/dfn-theme config web/scompatta.php scompatta.php
+        cd web && tar --exclude="node_modules" --exclude="vendor" -czf ../deploy.tar.gz app/themes/dfn-theme scompatta.php && cd ..
         ls -lh deploy.tar.gz
 
     - name: 🚀 Upload & Unpack via HTTPS Scompatta
@@ -55,7 +55,7 @@ jobs:
                 print('Status:', res.status)
                 body_str = res.read().decode('utf-8')
                 print('Response:', body_str[:300])
-                if res.status != 200 or 'Estrazione avviata con successo' not in body_str:
+                if res.status != 200 or 'Estrazione completata' not in body_str:
                     print('Deployment verification failed!')
                     sys.exit(1)
                 print('✅ Deploy completed successfully!')
