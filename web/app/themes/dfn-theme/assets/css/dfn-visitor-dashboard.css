@@ -892,29 +892,38 @@
     margin-bottom: 40px;
 }
 
-/* Card Intestazione Sezione Prenotazioni */
-.dfn-bookings-header-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 20px 22px;
-    margin-bottom: 24px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+/* Card Intestazione Standardizzata per TUTTE le Sezioni Account */
+.dfn-account-header-card,
+.dfn-bookings-header-card,
+.dfn-fai-header-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 16px !important;
+    padding: 20px 22px !important;
+    margin-bottom: 24px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    opacity: 1 !important;
 }
 
-.dfn-bookings-header-card .dfn-dashboard-title {
-    margin-top: 0;
-    margin-bottom: 6px;
-    font-size: 22px;
-    font-weight: 800;
-    color: #004b23;
+.dfn-account-header-card .dfn-dashboard-title,
+.dfn-bookings-header-card .dfn-dashboard-title,
+.dfn-fai-header-card .dfn-dashboard-title {
+    margin-top: 0 !important;
+    margin-bottom: 6px !important;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: #004b23 !important;
 }
 
-.dfn-bookings-header-card .dfn-dashboard-desc {
-    margin-bottom: 0;
-    font-size: 13.5px;
-    color: #475569;
-    line-height: 1.5;
+.dfn-account-header-card .dfn-dashboard-desc,
+.dfn-bookings-header-card .dfn-dashboard-desc,
+.dfn-fai-header-card .dfn-dashboard-desc {
+    margin-bottom: 0 !important;
+    font-size: 13.5px !important;
+    color: #475569 !important;
+    line-height: 1.5 !important;
 }
 
 .dfn-group-title {
@@ -1324,7 +1333,6 @@
     .dfn-bookings-table thead, 
     .dfn-bookings-table tbody, 
     .dfn-bookings-table th, 
-    .dfn-bookings-table td, 
     .dfn-bookings-table tr { 
         display: block !important; 
         width: 100% !important;
@@ -1336,6 +1344,7 @@
     }
     
     .dfn-bookings-table tbody tr {
+        display: block !important;
         margin-bottom: 10px !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 12px !important;
@@ -1356,7 +1365,7 @@
         position: static !important;
         border: none !important;
         border-bottom: 1px dashed #e2e8f0 !important;
-        min-height: auto !important;
+        min-height: 40px !important;
         box-sizing: border-box !important;
         width: 100% !important;
         background: transparent !important;
@@ -1399,6 +1408,20 @@
         gap: 8px !important;
         width: 100% !important;
         margin-left: auto !important;
+    }
+
+    /* Card Bianca Solida per Form Modifica Account e Tessere FAI */
+    .woocommerce-EditAccountForm,
+    form.edit-account,
+    .dfn-add-fai-card-wrapper {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 16px !important;
+        padding: 20px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+        margin-top: 16px !important;
+        opacity: 1 !important;
+        box-sizing: border-box !important;
     }
 
     .button.dfn-action-modify,

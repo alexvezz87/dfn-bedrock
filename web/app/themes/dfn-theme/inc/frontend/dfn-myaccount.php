@@ -47,11 +47,14 @@ add_action('wp_ajax_dfn_visitor_submit_cancel', 'dfn_ajax_visitor_submit_cancel'
 function dfn_enqueue_myaccount_assets(): void
 {
     if (is_account_page()) {
+        $css_file = get_stylesheet_directory() . '/assets/css/dfn-visitor-dashboard.css';
+        $ver = file_exists($css_file) ? (string) filemtime($css_file) : '2.4.0';
+
         wp_enqueue_style(
             'dfn-visitor-dashboard-css',
             get_stylesheet_directory_uri() . '/assets/css/dfn-visitor-dashboard.css',
             [],
-            '2.1.1',
+            $ver,
         );
 
         // Tour guidato balloon
@@ -313,7 +316,7 @@ function dfn_render_logout_button_before_edit_account(): void
     </div>
     <div class="dfn-account-logout-top-bar" style="margin-bottom: 20px;">
         <a href="<?php echo esc_url($logout_url); ?>" class="button dfn-logout-fai-btn" style="background: #e74f30 !important; color: #ffffff !important; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; width: 100%; border-radius: 12px; font-weight: 700; padding: 14px 18px; font-size: 14px; border: none; box-shadow: 0 4px 12px rgba(231,79,48,0.25);">
-            🚪 <?php esc_html_e('Disconnettiti / Logout', 'dfn-theme'); ?>
+            <?php esc_html_e('Disconnettiti / Logout', 'dfn-theme'); ?>
         </a>
     </div>
     <?php
