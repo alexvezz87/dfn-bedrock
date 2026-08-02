@@ -1143,26 +1143,28 @@
     box-sizing: border-box !important;
 }
 
-/* Larghezze Colonne per garantire l'allineamento perfetto di ogni riga */
-.dfn-bookings-table th:nth-child(1),
-.dfn-bookings-table td:nth-child(1) {
-    width: 12% !important;
-}
-.dfn-bookings-table th:nth-child(2),
-.dfn-bookings-table td:nth-child(2) {
-    width: 13% !important;
-}
-.dfn-bookings-table th:nth-child(3),
-.dfn-bookings-table td:nth-child(3) {
-    width: 18% !important;
-}
-.dfn-bookings-table th:nth-child(4),
-.dfn-bookings-table td:nth-child(4) {
-    width: 22% !important;
-}
-.dfn-bookings-table th:nth-child(5),
-.dfn-bookings-table td:nth-child(5) {
-    width: 35% !important;
+/* Larghezze Colonne Desktop (applicate solo su schermo grande) */
+@media (min-width: 769px) {
+    .dfn-bookings-table th:nth-child(1),
+    .dfn-bookings-table td:nth-child(1) {
+        width: 12% !important;
+    }
+    .dfn-bookings-table th:nth-child(2),
+    .dfn-bookings-table td:nth-child(2) {
+        width: 13% !important;
+    }
+    .dfn-bookings-table th:nth-child(3),
+    .dfn-bookings-table td:nth-child(3) {
+        width: 18% !important;
+    }
+    .dfn-bookings-table th:nth-child(4),
+    .dfn-bookings-table td:nth-child(4) {
+        width: 22% !important;
+    }
+    .dfn-bookings-table th:nth-child(5),
+    .dfn-bookings-table td:nth-child(5) {
+        width: 35% !important;
+    }
 }
 
 .dfn-row-cancelled {
@@ -1338,6 +1340,15 @@
         width: 100% !important;
         box-sizing: border-box !important;
     }
+
+    .dfn-bookings-table th:nth-child(n),
+    .dfn-bookings-table td:nth-child(n) {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 100% !important;
+        flex: 1 1 100% !important;
+        box-sizing: border-box !important;
+    }
     
     .dfn-bookings-table thead {
         display: none !important;
@@ -1345,14 +1356,21 @@
     
     .dfn-bookings-table tbody tr {
         display: block !important;
-        margin-bottom: 10px !important;
+        margin-bottom: 12px !important;
         border: 1px solid #e2e8f0 !important;
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         background: #ffffff !important;
-        padding: 4px 12px !important;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+        padding: 6px 14px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
         width: 100% !important;
         box-sizing: border-box !important;
+        opacity: 1 !important;
+    }
+
+    .dfn-bookings-table tbody tr.dfn-row-cancelled {
+        background: #ffffff !important;
+        border: 1px solid #fed7aa !important;
+        opacity: 1 !important;
     }
     
     .dfn-bookings-table tbody td {
@@ -1361,11 +1379,11 @@
         justify-content: space-between !important;
         align-items: center !important;
         text-align: right !important;
-        padding: 10px 0 !important;
+        padding: 12px 0 !important;
         position: static !important;
         border: none !important;
         border-bottom: 1px dashed #e2e8f0 !important;
-        min-height: 40px !important;
+        min-height: 44px !important;
         box-sizing: border-box !important;
         width: 100% !important;
         background: transparent !important;
@@ -1373,11 +1391,11 @@
     
     .dfn-bookings-table tbody td:last-child {
         border-bottom: none !important;
-        padding-top: 10px !important;
-        padding-bottom: 6px !important;
+        padding-top: 12px !important;
+        padding-bottom: 8px !important;
     }
     
-    /* Etichetta allineata nettamente a sinistra */
+    /* Etichetta allineata nettamente a SINISTRA */
     .dfn-bookings-table tbody td::before {
         content: attr(data-label) !important;
         position: static !important;
@@ -1389,16 +1407,17 @@
         letter-spacing: 0.5px !important;
         text-align: left !important;
         flex-shrink: 0 !important;
-        margin-right: auto !important; /* Spinge il valore tutto a destra! */
+        margin-right: auto !important; /* Spinge il valore tutto a destra a filo bordo! */
     }
 
-    /* Valore spinto a destra e allineato all'estremo bordo destro */
+    /* Valore spinto a DESTRA allineato a filo bordo */
     .dfn-bookings-table tbody td > * {
         margin-left: auto !important;
         text-align: right !important;
         display: flex !important;
         justify-content: flex-end !important;
         align-items: center !important;
+        flex-shrink: 0 !important;
     }
     
     .dfn-table-actions-container {
@@ -1406,7 +1425,7 @@
         align-items: center !important;
         justify-content: flex-end !important;
         gap: 8px !important;
-        width: 100% !important;
+        width: auto !important;
         margin-left: auto !important;
     }
 
