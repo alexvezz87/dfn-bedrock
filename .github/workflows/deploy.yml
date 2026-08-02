@@ -1,4 +1,4 @@
-name: 🚀 Deploy Remoto Bedrock via FTP
+name: 🚀 Deploy Remoto Bedrock via HTTPS
 
 on:
   push:
@@ -25,22 +25,29 @@ jobs:
       run: |
         composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-reqs
 
-    - name: 📂 Sync changed files via FTP (Delta Upload)
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: /
-        protocol: ftp
-        security: loose
-        exclude: |
-          **/.git**
-          **/.git*/**
-          **/node_modules/**
-          **/vendor/**
-          web/app/uploads/**
-          web/wp/**
-          *.sql
-          *.zip
-          *.gz
+    - name: 📦 Create Compressed TAR Archive (1.5 MB)
+      run: |
+        tar --exclude="vendor" --exclude="web/app/themes/*/vendor" --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz web config
+        ls -lh deploy.tar.gz
+
+    - name: 🚀 Deploy via HTTPS (Port 443 - Instant & Unblockable)
+      env:
+        DEPLOY_TOKEN: 6kNQApo-1nSvRYQkbtgYi4dVD3BcbwhwRyTm4vZ8r3c
+      run: |
+        echo "Uploading deploy package via HTTPS (Port 443)..."
+        HTTP_STATUS=$(curl -k -s -o /tmp/deploy_res.txt -w "%{http_code}" \
+          --max-time 60 \
+          -X POST \
+          -F "deploy_archive=@deploy.tar.gz;type=application/gzip" \
+          "https://www.dfnprenotazioni.it/deploy-receiver.php?token=${DEPLOY_TOKEN}")
+
+        echo "HTTP Status Code: $HTTP_STATUS"
+        echo "Response:"
+        cat /tmp/deploy_res.txt
+
+        if [ "$HTTP_STATUS" != "200" ]; then
+          echo "Deploy FAILED!"
+          exit 1
+        fi
+
+        echo "Deploy succeeded!"
