@@ -269,6 +269,7 @@ function dfn_render_mobile_app(): void
         'booking' => wp_create_nonce('dfn_booking_nonce'),
         'scanner' => wp_create_nonce('dfn_scanner_nonce'),
         'admin'   => wp_create_nonce('dfn_admin_events_nonce'),
+        'quick'   => wp_create_nonce('dfn_quick_booking_nonce'),
         'fai'     => wp_create_nonce('dfn_fai_admin_nonce'),
     ];
     ?>

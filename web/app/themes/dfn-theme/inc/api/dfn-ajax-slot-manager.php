@@ -48,14 +48,27 @@ function dfn_ajax_admin_verify_access(): void
 }
 
 /**
- * Verifica i permessi per la pagina Quick Booking (segreteria).
+ * Verifica i permessi per la pagina Quick Booking (segreteria e mobile app).
  */
 function dfn_ajax_quick_verify_access(): void
 {
-    if (! current_user_can('dfn_quick_booking') && ! current_user_can('dfn_manage_events') && ! current_user_can('manage_options')) {
-        wp_send_json_error([ 'message' => esc_html__('Permessi insufficienti.', 'dfn-theme') ]);
+    if (! is_user_logged_in()) {
+        wp_send_json_error([ 'message' => esc_html__('Utente non autenticato.', 'dfn-theme') ], 401);
     }
-    check_ajax_referer('dfn_quick_booking_nonce', 'nonce');
+
+    if (! current_user_can('dfn_quick_booking') && ! current_user_can('dfn_manage_events') && ! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! current_user_can('read')) {
+        wp_send_json_error([ 'message' => esc_html__('Permessi insufficienti.', 'dfn-theme') ], 403);
+    }
+
+    $nonce = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($nonce, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($nonce, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($nonce, 'dfn_booking_nonce') &&
+        ! wp_verify_nonce($nonce, 'dfn_scanner_nonce')
+    ) {
+        wp_send_json_error([ 'message' => esc_html__('Sessione o token di sicurezza non valido. Ricarica la pagina.', 'dfn-theme') ], 403);
+    }
 }
 
 /**

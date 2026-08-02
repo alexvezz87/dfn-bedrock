@@ -645,7 +645,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const fd = new FormData();
             fd.append('action', 'dfn_quick_get_dates');
-            fd.append('nonce', nonces.admin || nonces.booking || '');
+            fd.append('nonce', nonces.quick || nonces.admin || nonces.booking || '');
             fd.append('event_id', evId);
 
             fetch(ajaxUrl, { method: 'POST', body: fd })
@@ -701,7 +701,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const fd = new FormData();
             fd.append('action', 'dfn_quick_get_slots');
-            fd.append('nonce', nonces.admin || nonces.booking || '');
+            fd.append('nonce', nonces.quick || nonces.admin || nonces.booking || '');
             fd.append('event_id', evId);
             fd.append('date', date);
 
@@ -777,7 +777,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const formData = new FormData(this);
             formData.append('action', 'dfn_admin_add_booking');
-            formData.append('nonce', nonces.admin || nonces.booking || '');
+            formData.append('nonce', nonces.quick || nonces.admin || nonces.booking || '');
 
             fetch(ajaxUrl, { method: 'POST', body: formData })
                 .then(r => r.json())
