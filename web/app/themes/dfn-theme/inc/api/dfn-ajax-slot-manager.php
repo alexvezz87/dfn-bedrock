@@ -41,7 +41,7 @@ add_action('wp_ajax_dfn_botteghino_get_slots', 'dfn_ajax_botteghino_get_slots');
  */
 function dfn_ajax_admin_verify_access(): void
 {
-    if (! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! current_user_can('dfn_manage_events')) {
+    if (! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! current_user_can('dfn_manage_events') && ! current_user_can('dfn_quick_booking')) {
         wp_send_json_error([ 'message' => esc_html__('Permessi insufficienti.', 'dfn-theme') ]);
     }
     check_ajax_referer('dfn_admin_events_nonce', 'nonce');
@@ -389,9 +389,9 @@ function dfn_ajax_admin_add_booking(): void
         $email = 'no-email@dfn.it';
     }
 
-    // slot_id = 0 è permesso per eventi free_flow (non hanno slot fisici)
-    if ($event_id <= 0 || empty($date) || empty($first_name) || empty($last_name)) {
-        wp_send_json_error([ 'message' => esc_html__('I campi Nome e Cognome dell\'acquirente sono obbligatori.', 'dfn-theme') ]);
+    // slot_id = 0 è permesso per tutti i tipi di evento (smistamento automatico se necessario)
+    if ($event_id <= 0 || empty($date) || empty($last_name)) {
+        wp_send_json_error([ 'message' => esc_html__('Il campo Cognome dell\'acquirente è obbligatorio.', 'dfn-theme') ]);
     }
 
     $total_qty = $qty_standard + $qty_fai;

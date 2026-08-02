@@ -520,3 +520,62 @@
         font-size: 22px;
     }
 }
+
+@media (min-width: 850px) {
+    .dfn-qb-wrap {
+        max-width: 1080px;
+        margin: 24px auto;
+        padding: 0 0 40px;
+        background: transparent;
+    }
+
+    .dfn-qb-header {
+        border-radius: 16px 16px 0 0;
+        padding: 26px 36px;
+        position: relative;
+    }
+
+    #dfn-qb-form-wrap {
+        padding: 28px 36px 36px;
+        background: #ffffff;
+        border-radius: 0 0 16px 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e2e8f0;
+        border-top: none;
+    }
+
+    #dfn-qb-form {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 28px;
+        align-items: start;
+    }
+
+    /* Column 1: Step 1 (Evento) and Step 2 (Turno) */
+    .dfn-qb-section:nth-child(1),
+    .dfn-qb-section:nth-child(2) {
+        grid-column: 1;
+    }
+
+    /* Column 2: Step 3 (Dati Prenotante), Error box, Submit */
+    .dfn-qb-section#qb-guest-section {
+        grid-column: 2;
+        grid-row: 1 / span 3;
+    }
+
+    .dfn-qb-error {
+        grid-column: 1 / span 2;
+    }
+
+    .dfn-qb-submit-wrap {
+        grid-column: 2;
+    }
+
+    .dfn-qb-row {
+        gap: 16px;
+    }
+
+    .dfn-qb-section {
+        margin-bottom: 20px;
+    }
+}

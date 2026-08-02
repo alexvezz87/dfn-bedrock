@@ -471,46 +471,88 @@ function dfn_render_mobile_app(): void
                     <p class="dfn-subtitle">Registra una nuova prenotazione prima o durante l'evento.</p>
 
                     <form id="dfn-mobile-quick-booking-form" class="dfn-mobile-form">
+                        <!-- Step 1: Evento & Data -->
                         <div class="dfn-form-group">
-                            <label for="dfn-qb-event">Evento *</label>
-                            <select id="dfn-qb-event" name="event_id" required>
+                            <label for="dfn-m-qb-event">Evento *</label>
+                            <select id="dfn-m-qb-event" name="event_id" required>
                                 <option value="">Seleziona Evento...</option>
                                 <?php foreach ($events as $ev) : ?>
-                                    <option value="<?php echo absint($ev->id); ?>"><?php echo esc_html(get_the_title($ev->product_id)); ?> (<?php echo esc_html(date('d/m/Y', strtotime($ev->event_date_start))); ?>)</option>
+                                    <option value="<?php echo absint($ev->id); ?>"
+                                            data-access="<?php echo esc_attr($ev->access_type ?? 'time_slots'); ?>"
+                                            data-name="<?php echo esc_attr(get_the_title($ev->product_id)); ?>">
+                                        <?php echo esc_html(get_the_title($ev->product_id)); ?> (<?php echo esc_html(date('d/m/Y', strtotime($ev->event_date_start))); ?>)
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
 
-                        <div class="dfn-form-group">
-                            <label for="dfn-qb-name">Nome e Cognome Referente *</label>
-                            <input type="text" id="dfn-qb-name" name="customer_name" required placeholder="Es. Mario Rossi" />
+                        <div class="dfn-form-group" id="dfn-m-qb-date-wrap" style="display:none;">
+                            <label for="dfn-m-qb-date">Data *</label>
+                            <select id="dfn-m-qb-date" name="date" required>
+                                <option value="">— Seleziona prima un evento —</option>
+                            </select>
                         </div>
 
-                        <div class="dfn-form-row">
-                            <div class="dfn-form-group">
-                                <label for="dfn-qb-email">Email *</label>
-                                <input type="email" id="dfn-qb-email" name="customer_email" required placeholder="mario@example.com" />
-                            </div>
-                            <div class="dfn-form-group">
-                                <label for="dfn-qb-phone">Telefono</label>
-                                <input type="tel" id="dfn-qb-phone" name="customer_phone" placeholder="+39 340..." />
-                            </div>
+                        <!-- Step 2: Turno -->
+                        <div class="dfn-form-group" id="dfn-m-qb-slot-wrap" style="display:none;">
+                            <label for="dfn-m-qb-slot">Turno <span class="dfn-qb-optional">(opzionale)</span></label>
+                            <select id="dfn-m-qb-slot" name="slot_id">
+                                <option value="0">🤖 Auto — Smistamento automatico</option>
+                            </select>
                         </div>
 
-                        <div class="dfn-form-row">
-                            <div class="dfn-form-group">
-                                <label for="dfn-qb-qty-std">Biglietti Intero (€)</label>
-                                <input type="number" id="dfn-qb-qty-std" name="persons_standard" min="0" value="1" />
+                        <!-- Step 3: Dati Prenotante -->
+                        <div id="dfn-m-qb-guest-wrap" style="display:none;">
+                            <div class="dfn-form-row">
+                                <div class="dfn-form-group">
+                                    <label for="dfn-m-qb-lastname">Cognome *</label>
+                                    <input type="text" id="dfn-m-qb-lastname" name="last_name" required placeholder="Es. Rossi" />
+                                </div>
+                                <div class="dfn-form-group">
+                                    <label for="dfn-m-qb-firstname">Nome <span class="dfn-qb-optional">(opzionale)</span></label>
+                                    <input type="text" id="dfn-m-qb-firstname" name="first_name" placeholder="Es. Mario" />
+                                </div>
                             </div>
-                            <div class="dfn-form-group">
-                                <label for="dfn-qb-qty-fai">Biglietti FAI (€)</label>
-                                <input type="number" id="dfn-qb-qty-fai" name="persons_fai" min="0" value="0" />
-                            </div>
-                        </div>
 
-                        <button type="submit" class="dfn-mobile-btn primary large">
-                            ✅ Salva e Conferma Prenotazione
-                        </button>
+                            <div class="dfn-form-row">
+                                <div class="dfn-form-group">
+                                    <label for="dfn-m-qb-qty-std">Posti Standard *</label>
+                                    <input type="number" id="dfn-m-qb-qty-std" name="qty_standard" min="0" value="1" required />
+                                </div>
+                                <div class="dfn-form-group">
+                                    <label for="dfn-m-qb-qty-fai">Soci FAI</label>
+                                    <input type="number" id="dfn-m-qb-qty-fai" name="qty_fai" min="0" value="0" />
+                                </div>
+                            </div>
+
+                            <!-- Tessere FAI dinamiche -->
+                            <div id="dfn-m-qb-fai-cards-wrap" style="display:none; margin-bottom: 15px;">
+                                <div class="dfn-qb-fai-header" style="font-weight: 700; margin-bottom: 8px; color: #004b23;">
+                                    🏅 Dati tessere Soci FAI
+                                </div>
+                                <div id="dfn-m-qb-fai-cards-list"></div>
+                            </div>
+
+                            <div class="dfn-form-row">
+                                <div class="dfn-form-group">
+                                    <label for="dfn-m-qb-email">Email <span class="dfn-qb-optional">(opzionale)</span></label>
+                                    <input type="email" id="dfn-m-qb-email" name="email" placeholder="mario.rossi@email.it" />
+                                </div>
+                                <div class="dfn-form-group">
+                                    <label for="dfn-m-qb-phone">Telefono <span class="dfn-qb-optional">(opzionale)</span></label>
+                                    <input type="tel" id="dfn-m-qb-phone" name="phone" placeholder="333 1234567" />
+                                </div>
+                            </div>
+
+                            <div class="dfn-form-group">
+                                <label for="dfn-m-qb-notes">Note <span class="dfn-qb-optional">(opzionale)</span></label>
+                                <textarea id="dfn-m-qb-notes" name="notes" rows="2" placeholder="Richieste particolari, accessibilità..."></textarea>
+                            </div>
+
+                            <button type="submit" class="dfn-mobile-btn primary large" style="margin-top: 15px;">
+                                ✅ Salva e Conferma Prenotazione
+                            </button>
+                        </div>
                     </form>
                 </div>
             </section>

@@ -596,8 +596,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.btn-quick-book-event').forEach(btn => {
         btn.addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id');
-            const select = document.getElementById('dfn-qb-event');
-            if (select) select.value = eventId;
+            const select = document.getElementById('dfn-m-qb-event') || document.getElementById('dfn-qb-event');
+            if (select) {
+                select.value = eventId;
+                select.dispatchEvent(new Event('change'));
+            }
             switchTab('quick');
         });
     });
@@ -612,19 +615,169 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // -------------------------------------------------------------------
-    // 7. INSERIMENTO RAPIDO & BOTTEGHINO SUBMIT
+    // 7. INSERIMENTO RAPIDO (MOBILE APP) — CASCADE & SUBMIT
     // -------------------------------------------------------------------
+    const mQbEventSel    = document.getElementById('dfn-m-qb-event');
+    const mQbDateSel     = document.getElementById('dfn-m-qb-date');
+    const mQbDateWrap    = document.getElementById('dfn-m-qb-date-wrap');
+    const mQbSlotSel     = document.getElementById('dfn-m-qb-slot');
+    const mQbSlotWrap    = document.getElementById('dfn-m-qb-slot-wrap');
+    const mQbGuestWrap   = document.getElementById('dfn-m-qb-guest-wrap');
+    const mQbQtyFaiInput = document.getElementById('dfn-m-qb-qty-fai');
+    const mQbFaiCardsWrap= document.getElementById('dfn-m-qb-fai-cards-wrap');
+    const mQbFaiCardsList= document.getElementById('dfn-m-qb-fai-cards-list');
+
+    if (mQbEventSel) {
+        mQbEventSel.addEventListener('change', function () {
+            const evId = parseInt(this.value, 10);
+            if (mQbDateWrap) mQbDateWrap.style.display = 'none';
+            if (mQbSlotWrap) mQbSlotWrap.style.display = 'none';
+            if (mQbGuestWrap) mQbGuestWrap.style.display = 'none';
+            if (mQbDateSel) mQbDateSel.innerHTML = '<option value="">— Seleziona una data —</option>';
+
+            if (!evId) return;
+
+            if (mQbDateWrap) mQbDateWrap.style.display = 'block';
+            if (mQbDateSel) {
+                mQbDateSel.disabled = true;
+                mQbDateSel.innerHTML = '<option value="">⏳ Caricamento date…</option>';
+            }
+
+            const fd = new FormData();
+            fd.append('action', 'dfn_quick_get_dates');
+            fd.append('nonce', nonces.admin || nonces.booking || '');
+            fd.append('event_id', evId);
+
+            fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.data.dates && res.data.dates.length > 0) {
+                        let html = res.data.dates.length > 1 ? '<option value="">— Seleziona una data —</option>' : '';
+                        res.data.dates.forEach(d => {
+                            const p = d.split('-');
+                            const fmt = p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
+                            html += `<option value="${d}">${fmt}</option>`;
+                        });
+                        if (mQbDateSel) {
+                            mQbDateSel.innerHTML = html;
+                            mQbDateSel.disabled = false;
+                            if (res.data.dates.length === 1) {
+                                mQbDateSel.value = res.data.dates[0];
+                                mQbDateSel.dispatchEvent(new Event('change'));
+                            }
+                        }
+                    } else if (mQbDateSel) {
+                        mQbDateSel.innerHTML = '<option value="">Nessuna data disponibile</option>';
+                    }
+                })
+                .catch(() => {
+                    if (mQbDateSel) mQbDateSel.innerHTML = '<option value="">Errore caricamento date</option>';
+                });
+        });
+    }
+
+    if (mQbDateSel) {
+        mQbDateSel.addEventListener('change', function () {
+            const date = this.value;
+            const evId = mQbEventSel ? parseInt(mQbEventSel.value, 10) : 0;
+            const selectedOpt = mQbEventSel ? mQbEventSel.options[mQbEventSel.selectedIndex] : null;
+            const accessType = selectedOpt ? selectedOpt.getAttribute('data-access') : 'time_slots';
+
+            if (mQbSlotWrap) mQbSlotWrap.style.display = 'none';
+            if (mQbGuestWrap) mQbGuestWrap.style.display = 'none';
+
+            if (!date || !evId) return;
+
+            if (accessType === 'free_flow') {
+                if (mQbGuestWrap) mQbGuestWrap.style.display = 'block';
+                return;
+            }
+
+            if (mQbSlotWrap) mQbSlotWrap.style.display = 'block';
+            if (mQbSlotSel) {
+                mQbSlotSel.disabled = true;
+                mQbSlotSel.innerHTML = '<option value="0">⏳ Caricamento turni…</option>';
+            }
+
+            const fd = new FormData();
+            fd.append('action', 'dfn_quick_get_slots');
+            fd.append('nonce', nonces.admin || nonces.booking || '');
+            fd.append('event_id', evId);
+            fd.append('date', date);
+
+            fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    let html = '<option value="0">🤖 Auto — Smistamento automatico</option>';
+                    if (res.success && res.data.slots && res.data.slots.length > 0) {
+                        res.data.slots.forEach(s => {
+                            const locked = s.is_locked;
+                            const avail = s.available;
+                            const icon = locked ? '🔒' : (avail === 0 ? '🔴' : avail <= 3 ? '🟡' : '🟢');
+                            const label = locked ? `${s.time_start} → ${s.time_end} ${icon} Bloccato` : `${s.time_start} → ${s.time_end} ${icon} ${avail} liberi`;
+                            html += `<option value="${s.id}" ${locked || avail === 0 ? 'disabled' : ''}>${label}</option>`;
+                        });
+                    }
+                    if (mQbSlotSel) {
+                        mQbSlotSel.innerHTML = html;
+                        mQbSlotSel.disabled = false;
+                    }
+                    if (mQbGuestWrap) mQbGuestWrap.style.display = 'block';
+                })
+                .catch(() => {
+                    if (mQbSlotSel) {
+                        mQbSlotSel.innerHTML = '<option value="0">🤖 Auto — Smistamento automatico</option>';
+                        mQbSlotSel.disabled = false;
+                    }
+                    if (mQbGuestWrap) mQbGuestWrap.style.display = 'block';
+                });
+        });
+    }
+
+    if (mQbQtyFaiInput) {
+        mQbQtyFaiInput.addEventListener('input', function () {
+            const qty = parseInt(this.value, 10) || 0;
+            if (!mQbFaiCardsWrap || !mQbFaiCardsList) return;
+            if (qty <= 0) {
+                mQbFaiCardsWrap.style.display = 'none';
+                mQbFaiCardsList.innerHTML = '';
+                return;
+            }
+            mQbFaiCardsWrap.style.display = 'block';
+            let html = '';
+            for (let i = 0; i < qty; i++) {
+                html += `
+                    <div class="dfn-m-fai-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px; margin-bottom:8px;">
+                        <div style="font-size:12px; font-weight:700; color:#004b23; margin-bottom:6px;">Socio FAI #${i + 1}</div>
+                        <div style="display:flex; gap:8px; margin-bottom:6px;">
+                            <input type="text" name="fai_cards[${i}][cognome]" placeholder="Cognome" style="flex:1; padding:6px 10px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px;" />
+                            <input type="text" name="fai_cards[${i}][nome]" placeholder="Nome" style="flex:1; padding:6px 10px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px;" />
+                        </div>
+                        <input type="text" name="fai_cards[${i}][tessera]" placeholder="N° Tessera FAI" style="width:100%; padding:6px 10px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px;" />
+                    </div>
+                `;
+            }
+            mQbFaiCardsList.innerHTML = html;
+        });
+    }
+
     const quickForm = document.getElementById('dfn-mobile-quick-booking-form');
     if (quickForm) {
         quickForm.addEventListener('submit', function (e) {
             e.preventDefault();
+            const lastName = document.getElementById('dfn-m-qb-lastname')?.value.trim();
+            if (!lastName) {
+                showToast('⚠️ Il cognome è obbligatorio.', 'error');
+                return;
+            }
+
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Salvataggio in corso...';
 
             const formData = new FormData(this);
-            formData.append('action', 'dfn_process_quick_booking');
-            formData.append('nonce', nonces.booking || nonces.admin || '');
+            formData.append('action', 'dfn_admin_add_booking');
+            formData.append('nonce', nonces.admin || nonces.booking || '');
 
             fetch(ajaxUrl, { method: 'POST', body: formData })
                 .then(r => r.json())
@@ -633,9 +786,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         vibrate([100, 50, 100]);
                         showToast('⚡ Prenotazione creata con successo!', 'success');
                         quickForm.reset();
+                        if (mQbDateWrap) mQbDateWrap.style.display = 'none';
+                        if (mQbSlotWrap) mQbSlotWrap.style.display = 'none';
+                        if (mQbGuestWrap) mQbGuestWrap.style.display = 'none';
                         switchTab('home');
                     } else {
-                        showToast('⚠️ Errore: ' + (res.data || 'Impossibile registrare'), 'error');
+                        showToast('⚠️ Errore: ' + (res.data?.message || res.data || 'Impossibile registrare'), 'error');
                     }
                     submitBtn.disabled = false;
                     submitBtn.textContent = '✅ Salva e Conferma Prenotazione';

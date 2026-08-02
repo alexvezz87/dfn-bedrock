@@ -113,9 +113,9 @@ function dfn_render_quick_booking(): void
                                    placeholder="Es. Rossi" autocomplete="family-name" required>
                         </div>
                         <div class="dfn-qb-field">
-                            <label class="dfn-qb-label" for="qb-firstname">Nome *</label>
+                            <label class="dfn-qb-label" for="qb-firstname">Nome <span class="dfn-qb-optional">(opzionale)</span></label>
                             <input class="dfn-qb-input" type="text" id="qb-firstname" name="first_name"
-                                   placeholder="Es. Mario" autocomplete="given-name" required>
+                                   placeholder="Es. Mario" autocomplete="given-name">
                         </div>
                     </div>
 

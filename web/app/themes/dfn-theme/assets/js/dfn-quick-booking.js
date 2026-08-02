@@ -338,9 +338,6 @@
             if (! lastName) {
                 return showError('Il cognome è obbligatorio.');
             }
-            if (! firstName) {
-                return showError('Il nome è obbligatorio.');
-            }
             if (qtyStd + qtyFai <= 0) {
                 return showError('Inserisci almeno 1 posto (standard o Socio FAI).');
             }
