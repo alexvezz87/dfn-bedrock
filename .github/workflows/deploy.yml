@@ -25,31 +25,22 @@ jobs:
       run: |
         composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-reqs
 
-    - name: 📦 Create Compressed TAR Archive (1.5 MB)
-      run: |
-        tar --exclude="vendor" --exclude="web/app/themes/*/vendor" --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz web config
-        ls -lh deploy.tar.gz
-
-    - name: 📂 Upload Archive via Native Curl FTP (Instant 2-Sec Upload)
-      env:
-        FTP_SERVER: ${{ secrets.FTP_SERVER }}
-        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-      run: |
-        HOST=$(echo "$FTP_SERVER" | sed -e 's|^ftp://||' -e 's|^ftps://||' -e 's|/*$||')
-        echo "Uploading to ftp://$HOST/..."
-
-        # Upload deploy.tar.gz to root and public_html/
-        curl --ftp-pasv --insecure -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/deploy.tar.gz" || true
-        curl --ftp-pasv --insecure -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/deploy.tar.gz" || true
-
-        # Upload scompatta.php to root, web/, public_html/, and public_html/web/
-        curl --ftp-pasv --insecure -T scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/scompatta.php" || true
-        curl --ftp-pasv --insecure --ftp-create-dirs -T web/scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/web/scompatta.php" || true
-        curl --ftp-pasv --insecure -T scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/scompatta.php" || true
-        curl --ftp-pasv --insecure --ftp-create-dirs -T web/scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/web/scompatta.php" || true
-        echo "Upload complete!"
-
-    - name: 🚀 Trigger Remote Extraction
-      run: |
-        curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/web/scompatta.php?t=202605300020 || true
+    - name: 📂 Sync changed files via FTP (Delta Upload)
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        server-dir: /
+        protocol: ftp
+        security: loose
+        exclude: |
+          **/.git**
+          **/.git*/**
+          **/node_modules/**
+          **/vendor/**
+          web/app/uploads/**
+          web/wp/**
+          *.sql
+          *.zip
+          *.gz
