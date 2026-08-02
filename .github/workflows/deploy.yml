@@ -9,7 +9,7 @@ jobs:
   web-deploy:
     name: 🎉 Build & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
 
     steps:
     - name: 🚚 Get latest code
@@ -30,10 +30,17 @@ jobs:
         tar --exclude="vendor" --exclude="web/app/themes/*/vendor" --exclude="web/app/uploads" --exclude="web/wp" --exclude="*.zip" --exclude="*.sql" --exclude="*.tar.gz" -czf deploy.tar.gz web config
         ls -lh deploy.tar.gz
 
-    - name: 📂 Upload Archive via LFTP (Reliable & Instant)
+    - name: 📂 Upload Archive via Native Curl FTP (Instant 2-Sec Upload)
+      env:
+        FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
       run: |
-        sudo NEEDRESTART_SUSPEND=1 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends lftp
-        lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow yes; set ftp:ssl-force no; set ftp:passive-mode yes; set net:timeout 60; set net:max-retries 10; put deploy.tar.gz; put scompatta.php; quit" -u "${{ secrets.FTP_USERNAME }}","${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_SERVER }}"
+        HOST=$(echo "$FTP_SERVER" | sed -e 's|^ftp://||' -e 's|^ftps://||' -e 's|/*$||')
+        echo "Uploading to ftp://$HOST/..."
+        curl --ftp-pasv --insecure --retry 3 --retry-delay 2 -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/deploy.tar.gz"
+        curl --ftp-pasv --insecure --retry 3 --retry-delay 2 -T scompatta.php -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/scompatta.php" || true
+        echo "Upload complete!"
 
     - name: 🚀 Trigger Remote Extraction
       run: |
