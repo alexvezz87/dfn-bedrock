@@ -1,4 +1,4 @@
-name: 🚀 Deploy Remoto Bedrock via FTP Single-Connection
+name: 🚀 Deploy Remoto Bedrock via HTTPS Direct Scompatta
 
 on:
   push:
@@ -23,21 +23,45 @@ jobs:
 
     - name: 📦 Create Ultra-Compact Archive (700 KB)
       run: |
-        tar --exclude="node_modules" --exclude="vendor" -czf deploy.tar.gz web/app/themes/dfn-theme config web/deploy-receiver.php web/scompatta.php scompatta.php
+        tar --exclude="node_modules" --exclude="vendor" -czf deploy.tar.gz web/app/themes/dfn-theme config web/scompatta.php scompatta.php
         ls -lh deploy.tar.gz
 
-    - name: 📂 Upload Archive via Single-Connection FTP (1 Second)
-      env:
-        FTP_SERVER: ${{ secrets.FTP_SERVER }}
-        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    - name: 🚀 Upload & Unpack via HTTPS Scompatta
       run: |
-        HOST=$(echo "$FTP_SERVER" | sed -e 's|^ftp://||' -e 's|^ftps://||' -e 's|/*$||')
-        echo "Uploading deploy.tar.gz to ftp://$HOST/..."
-        curl --ftp-pasv --insecure --connect-timeout 20 --retry 3 --retry-delay 2 -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/deploy.tar.gz" || true
-        curl --ftp-pasv --insecure --connect-timeout 20 --retry 3 --retry-delay 2 -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/deploy.tar.gz" || true
-        curl --ftp-pasv --insecure --connect-timeout 20 --retry 3 --retry-delay 2 -T deploy.tar.gz -u "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$HOST/public_html/web/deploy.tar.gz" || true
+        python3 -c "
+        import os, sys, base64, urllib.request, json
 
-    - name: 🚀 Trigger Remote Extraction
-      run: |
-        curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/scompatta.php?t=202605300020 || curl -k -L -sS --max-time 15 https://dfnprenotazioni.it/web/scompatta.php?t=202605300020 || true
+        print('Encoding deploy package to Base64...')
+        with open('deploy.tar.gz', 'rb') as f:
+            b64_data = base64.b64encode(f.read()).decode('utf-8')
+
+        print(f'Base64 string size: {len(b64_data) / 1024:.1f} KB. Uploading & extracting...')
+
+        payload = json.dumps({'archive_b64': b64_data}).encode('utf-8')
+
+        url = 'https://dfnprenotazioni.it/scompatta.php?t=202605300020'
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            },
+            method='POST'
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as res:
+                print('Status:', res.status)
+                body_str = res.read().decode('utf-8')
+                print('Response:', body_str[:300])
+                if res.status != 200 or 'Estrazione avviata con successo' not in body_str:
+                    print('Deployment verification failed!')
+                    sys.exit(1)
+                print('✅ Deploy completed successfully!')
+        except Exception as e:
+            print('Deploy Error:', e)
+            if hasattr(e, 'read'):
+                print('Server Response:', e.read().decode('utf-8'))
+            sys.exit(1)
+        "
