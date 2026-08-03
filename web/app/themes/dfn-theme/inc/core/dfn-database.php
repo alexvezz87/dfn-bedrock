@@ -411,9 +411,12 @@ function dfn_db_get_events(string $status = 'published'): array
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_events';
 
+    $can_see_test = current_user_can('dfn_manage_events') || current_user_can('manage_options');
+    $test_sql = $can_see_test ? '' : ' AND (is_test_event = 0 OR is_test_event IS NULL)';
+
     $results = $wpdb->get_results(
         $wpdb->prepare(
-            "SELECT * FROM {$table} WHERE status = %s ORDER BY event_date_start ASC, event_time_start ASC",
+            "SELECT * FROM {$table} WHERE status = %s {$test_sql} ORDER BY event_date_start ASC, event_time_start ASC",
             $status,
         ),
     );
@@ -439,9 +442,12 @@ function dfn_db_get_event_cities(string $status = 'published'): array
         return [];
     }
 
+    $can_see_test = current_user_can('dfn_manage_events') || current_user_can('manage_options');
+    $test_sql = $can_see_test ? '' : ' AND (is_test_event = 0 OR is_test_event IS NULL)';
+
     $results = $wpdb->get_col(
         $wpdb->prepare(
-            "SELECT DISTINCT city FROM {$table} WHERE status = %s AND city IS NOT NULL AND city != '' ORDER BY city ASC",
+            "SELECT DISTINCT city FROM {$table} WHERE status = %s {$test_sql} AND city IS NOT NULL AND city != '' ORDER BY city ASC",
             $status
         )
     );
@@ -460,9 +466,12 @@ function dfn_db_get_event_months(string $status = 'published'): array
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_events';
 
+    $can_see_test = current_user_can('dfn_manage_events') || current_user_can('manage_options');
+    $test_sql = $can_see_test ? '' : ' AND (is_test_event = 0 OR is_test_event IS NULL)';
+
     $dates = $wpdb->get_col(
         $wpdb->prepare(
-            "SELECT DISTINCT event_date_start FROM {$table} WHERE status = %s AND event_date_start IS NOT NULL AND event_date_start != '0000-00-00' ORDER BY event_date_start ASC",
+            "SELECT DISTINCT event_date_start FROM {$table} WHERE status = %s {$test_sql} AND event_date_start IS NOT NULL AND event_date_start != '0000-00-00' ORDER BY event_date_start ASC",
             $status
         )
     );
@@ -792,3 +801,27 @@ function dfn_db_recalculate_event_slots_booked_count(int $event_id): void
         );
     }
 }
+
+/**
+ * Impedisce la visualizzazione front-end e l'acquisto degli Eventi Test agli utenti non amministratori.
+ */
+function dfn_restrict_test_events_access(): void
+{
+    if (is_admin() || wp_doing_ajax()) {
+        return;
+    }
+
+    if (is_singular('product')) {
+        $product_id = get_queried_object_id();
+        if ($product_id > 0 && function_exists('dfn_db_get_event_by_product')) {
+            $event = dfn_db_get_event_by_product($product_id);
+            if ($event && ! empty($event->is_test_event)) {
+                if (! current_user_can('dfn_manage_events') && ! current_user_can('manage_options')) {
+                    wp_redirect(home_url('/'));
+                    exit;
+                }
+            }
+        }
+    }
+}
+add_action('template_redirect', 'dfn_restrict_test_events_access', 1);

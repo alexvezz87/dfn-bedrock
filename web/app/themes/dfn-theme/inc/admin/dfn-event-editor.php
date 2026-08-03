@@ -165,6 +165,15 @@ function dfn_render_event_editor()
                     // Associa la galleria al prodotto WooCommerce
                     $gallery_ids = isset($_POST['dfn_event_gallery_ids']) ? sanitize_text_field($_POST['dfn_event_gallery_ids']) : '';
                     update_post_meta($product_id, '_product_image_gallery', $gallery_ids);
+
+                    // Se l'evento è in modalità TEST, nasconde il prodotto dal catalogo pubblico e dai motori di ricerca
+                    if ($is_test_event) {
+                        update_post_meta($product_id, '_visibility', 'hidden');
+                        wp_set_post_terms($product_id, ['exclude-from-search', 'exclude-from-catalog'], 'product_visibility');
+                    } else {
+                        update_post_meta($product_id, '_visibility', 'visible');
+                        wp_remove_object_terms($product_id, ['exclude-from-search', 'exclude-from-catalog'], 'product_visibility');
+                    }
                 }
 
                 $data = [
