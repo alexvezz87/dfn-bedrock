@@ -234,7 +234,7 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
     $formatted_bookings = [];
     foreach ($bookings as $b) {
         $total_booked += intval($b->total_persons);
-        $is_checked   = ! empty($b->checked_in_at);
+        $is_checked   = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in';
         if ($is_checked) {
             $total_checked_in += intval($b->total_persons);
         }
@@ -250,7 +250,7 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
             'amount_due'      => floatval($b->amount_due),
             'amount_paid'     => floatval($b->amount_paid),
             'checked_in'      => $is_checked,
-            'checked_in_time' => $is_checked ? date('H:i', strtotime($b->checked_in_at)) : '',
+            'checked_in_time' => ($is_checked && ! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') ? date('H:i', strtotime($b->checked_in_at)) : '',
             'qr_token'        => esc_html($b->qr_token),
         ];
     }
@@ -269,6 +269,114 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
     ]);
 }
 add_action('wp_ajax_dfn_mobile_get_event_checkin_list', 'dfn_ajax_mobile_get_event_checkin_list');
+
+/**
+ * AJAX Handler per eseguire o annullare il Check-in di una prenotazione dall'App Mobile.
+ */
+function dfn_ajax_mobile_do_checkin(): void
+{
+    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
+    ) {
+        if (! is_user_logged_in()) {
+            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
+        }
+    }
+
+    $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
+    $qr_token   = isset($_POST['qr_token']) ? sanitize_text_field(wp_unslash($_POST['qr_token'])) : '';
+
+    global $wpdb;
+    $table_bookings      = $wpdb->prefix . 'dfn_bookings';
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+
+    if ($booking_id > 0) {
+        $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_bookings} WHERE id = %d", $booking_id));
+    } elseif (! empty($qr_token)) {
+        $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_bookings} WHERE qr_token = %s", $qr_token));
+    } else {
+        $booking = null;
+    }
+
+    if (! $booking) {
+        wp_send_json_error(__('Prenotazione non trovata.', 'dfn-theme'));
+    }
+
+    $is_already_checked = (! empty($booking->checked_in_at) && $booking->checked_in_at !== '0000-00-00 00:00:00') || $booking->status === 'checked_in';
+
+    if ($is_already_checked) {
+        // Toggle: Annulla check-in se già eseguito
+        $wpdb->update(
+            $table_bookings,
+            [
+                'status'        => 'confirmed',
+                'checked_in_at' => null,
+                'checked_in_by' => null,
+            ],
+            [ 'id' => $booking->id ]
+        );
+
+        $wpdb->update(
+            $table_booking_slots,
+            [
+                'checked_in_at' => null,
+                'checked_in_by' => null,
+            ],
+            [ 'booking_id' => $booking->id ]
+        );
+
+        wp_send_json_success([
+            'checked_in' => false,
+            'message'    => __('Check-in annullato.', 'dfn-theme'),
+            'booking_id' => $booking->id,
+        ]);
+    } else {
+        // Esegui Check-in
+        $now = current_time('mysql');
+        $user_id = get_current_user_id();
+
+        $wpdb->update(
+            $table_bookings,
+            [
+                'status'        => 'checked_in',
+                'checked_in_at' => $now,
+                'checked_in_by' => $user_id,
+            ],
+            [ 'id' => $booking->id ]
+        );
+
+        $wpdb->update(
+            $table_booking_slots,
+            [
+                'checked_in_at' => $now,
+                'checked_in_by' => $user_id,
+            ],
+            [ 'booking_id' => $booking->id ]
+        );
+
+        if (! empty($booking->order_id)) {
+            $order = wc_get_order($booking->order_id);
+            if ($order) {
+                $order->update_meta_data('_cv_checked_in', 'yes');
+                $order->update_meta_data('_cv_checked_in_at', $now);
+                $order->update_meta_data('_cv_checked_in_by', $user_id);
+                $order->save();
+            }
+        }
+
+        wp_send_json_success([
+            'checked_in'      => true,
+            'checked_in_time' => date('H:i', strtotime($now)),
+            'message'         => __('Check-in registrato con successo.', 'dfn-theme'),
+            'booking_id'      => $booking->id,
+        ]);
+    }
+}
+add_action('wp_ajax_dfn_mobile_do_checkin', 'dfn_ajax_mobile_do_checkin');
 
 /**
  * AJAX Handler per reinviare l'email del biglietto con QR code al cliente.

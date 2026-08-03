@@ -531,14 +531,48 @@ document.addEventListener('DOMContentLoaded', function () {
         // Binding azioni della modale
         checkinBookingsList.querySelectorAll('.btn-mci-do-checkin').forEach(btn => {
             btn.addEventListener('click', function () {
+                const bookingId = this.getAttribute('data-booking-id');
                 const token = this.getAttribute('data-token');
                 btn.disabled = true;
-                btn.textContent = 'Check-in...';
+                btn.textContent = '⏳ Registrazione...';
 
-                checkInToken(token, function() {
-                    btn.textContent = '✓ Già Entrato';
-                    btn.className = 'dfn-mobile-btn secondary btn-mci-do-checkin';
-                });
+                const fd = new FormData();
+                fd.append('action', 'dfn_mobile_do_checkin');
+                fd.append('booking_id', bookingId);
+                fd.append('qr_token', token || '');
+                fd.append('nonce', nonces.admin || nonces.quick || nonces.booking || '');
+
+                fetch(ajaxUrl, { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(res => {
+                        btn.disabled = false;
+                        if (res.success) {
+                            if (res.data.checked_in) {
+                                vibrate([100, 50, 100]);
+                                btn.textContent = '✓ Già Entrato (' + (res.data.checked_in_time || '') + ')';
+                                btn.className = 'dfn-mobile-btn secondary btn-mci-do-checkin';
+                                showToast('✅ Check-in confermato!', 'success');
+                            } else {
+                                vibrate([50]);
+                                btn.textContent = '✅ Check-in';
+                                btn.className = 'dfn-mobile-btn success btn-mci-do-checkin';
+                                showToast('ℹ️ Check-in annullato', 'info');
+                            }
+
+                            // Ricarica la lista per aggiornare le statistiche in tempo reale
+                            if (mciCurrentEventId && mciDateSelect) {
+                                openEventCheckinModal(mciCurrentEventId, mciDateSelect.value);
+                            }
+                        } else {
+                            showToast('⚠️ Errore: ' + (res.data || 'Operazione fallita'), 'error');
+                            btn.textContent = '✅ Check-in';
+                        }
+                    })
+                    .catch(() => {
+                        btn.disabled = false;
+                        btn.textContent = '✅ Check-in';
+                        showToast('⚠️ Errore di connessione', 'error');
+                    });
             });
         });
 
