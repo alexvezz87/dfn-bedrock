@@ -53,10 +53,7 @@
 /* NASCONDI COMPONENTI INTRUSIVI SOLTANTO DENTRO L'APP MOBILE PWA SU MOBILE (<768px) */
 @media (max-width: 768px) {
     #dfn-mobile-app-root ~ #cookiebot-widget,
-    #dfn-mobile-app-root ~ #dfn-cookie-banner-overlay,
-    #dfn-mobile-app-root ~ #dfn-cookie-banner,
-    .dfn-mobile-app-root ~ #dfn-cookie-banner-overlay,
-    .dfn-mobile-app-root ~ #dfn-cookie-banner {
+    .dfn-mobile-app-root ~ #cookiebot-widget {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;

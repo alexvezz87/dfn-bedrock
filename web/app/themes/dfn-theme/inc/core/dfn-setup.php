@@ -96,7 +96,7 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
         // Enqueue Mobile Web App (CSS & JS) - Soltanto sulla pagina /gestione-eventi/
         $is_mobile_app_page = is_page('gestione-eventi') 
             || is_page_template('template-mobile-app.php') 
-            || (is_singular() && has_shortcode(get_post()->post_content ?? '', 'dfn_mobile_app'));
+            || (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'gestione-eventi') !== false);
 
         if ($is_mobile_app_page) {
             wp_enqueue_style(
