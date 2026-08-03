@@ -151,7 +151,13 @@
                 this.banner.style.setProperty('pointer-events', 'auto', 'important');
             }
 
-            document.body.style.overflow = 'hidden';
+            // CONTROLLO DI SICUREZZA ASSOLUTO: Se l'overlay risulta nascosto per qualsiasi motivo, SBLOCCA LO SCROLL
+            var computedStyle = window.getComputedStyle(this.overlay);
+            if (computedStyle.display === 'none' || computedStyle.pointerEvents === 'none' || computedStyle.visibility === 'hidden') {
+                document.body.style.overflow = '';
+            } else {
+                document.body.style.overflow = 'hidden';
+            }
         },
 
         hide: function () {
