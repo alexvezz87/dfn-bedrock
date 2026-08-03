@@ -92,6 +92,8 @@ function dfn_db_install(): void
         booking_opening_date datetime DEFAULT NULL,
         booking_status varchar(20) NOT NULL DEFAULT 'open',
         status varchar(20) DEFAULT 'draft',
+        is_test_event tinyint(1) NOT NULL DEFAULT 0,
+        test_notification_email varchar(255) DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
@@ -99,6 +101,12 @@ function dfn_db_install(): void
         KEY idx_date (event_date_start),
         KEY idx_status (status)
     ) {$charset_collate};";
+
+    // Assicura che le nuove colonne per gli Eventi Test esistano nelle tabelle già create
+    $col_test_check = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'is_test_event'");
+    if (empty($col_test_check)) {
+        $wpdb->query("ALTER TABLE {$table_events} ADD COLUMN is_test_event tinyint(1) NOT NULL DEFAULT 0, ADD COLUMN test_notification_email varchar(255) DEFAULT NULL");
+    };
 
     // -------------------------------------------------------------------
     // TABELLA 2: Slot / Turni orari

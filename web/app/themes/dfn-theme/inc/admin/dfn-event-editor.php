@@ -88,6 +88,8 @@ function dfn_render_event_editor()
             $booking_status       = in_array($_POST['booking_status'] ?? '', ['open', 'closed', 'email'], true)
                 ? $_POST['booking_status']
                 : 'open';
+            $is_test_event           = isset($_POST['is_test_event']) ? 1 : 0;
+            $test_notification_email = ! empty($_POST['test_notification_email']) ? sanitize_email($_POST['test_notification_email']) : null;
 
             if ($price_fai !== null && $price_fai > $price_standard) {
                 $message = __('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme');
@@ -192,11 +194,14 @@ function dfn_render_event_editor()
                     'booking_opening_date' => $booking_opening_date,
                     'booking_status'       => $booking_status,
                     'status'               => $status,
+                    'is_test_event'           => $is_test_event,
+                    'test_notification_email' => $test_notification_email,
                 ];
 
                 $format = [
                     '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
                     '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%s', '%s',
+                    '%d', '%s',
                 ];
 
                 if ($event_id > 0) {
@@ -285,6 +290,8 @@ function dfn_render_event_editor()
     $layout_sel       = $is_post && isset($_POST['detail_layout']) ? sanitize_text_field($_POST['detail_layout']) : ($event && ! empty($event->detail_layout) ? $event->detail_layout : 'auto');
     $booking_opening  = $is_post && isset($_POST['booking_opening_date']) ? sanitize_text_field($_POST['booking_opening_date']) : ($event && ! empty($event->booking_opening_date) ? date('Y-m-d\TH:i', strtotime($event->booking_opening_date)) : '');
     $booking_stat     = $is_post && isset($_POST['booking_status']) ? sanitize_text_field($_POST['booking_status']) : ($event && ! empty($event->booking_status) ? $event->booking_status : 'open');
+    $is_test_evt      = $is_post ? (isset($_POST['is_test_event']) ? 1 : 0) : ($event && isset($event->is_test_event) ? (int) $event->is_test_event : 0);
+    $test_email       = $is_post && isset($_POST['test_notification_email']) ? sanitize_email($_POST['test_notification_email']) : ($event && isset($event->test_notification_email) ? $event->test_notification_email : '');
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header">
@@ -523,6 +530,24 @@ function dfn_render_event_editor()
                                 <p class="description" style="margin-top: 6px; font-size: 12px; color: #64748b;" id="dfn-auto-cancel-help">
                                     <?php esc_html_e('Dopo quante ore un ordine non pagato viene annullato automaticamente. Imposta 0 per disabilitare (consigliato per pagamento in loco).', 'dfn-theme'); ?>
                                 </p>
+                            </div>
+
+                            <!-- Blocco Evento di Test -->
+                            <div class="dfn-form-group" style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px 14px; border-radius:8px; margin-top:15px;">
+                                <label for="is_test_event" class="dfn-label" style="display:flex; align-items:center; gap:8px; font-weight:700; color:#15803d; cursor:pointer; margin-bottom:4px;">
+                                    <input type="checkbox" name="is_test_event" id="is_test_event" value="1" <?php checked($is_test_evt, 1); ?> onchange="document.getElementById('dfn-test-email-wrap').style.display = this.checked ? 'block' : 'none';" />
+                                    🧪 Modalità Evento di Test
+                                </label>
+                                <p class="description" style="font-size:12px; color:#166534; margin:2px 0 8px 24px;">
+                                    Se attivo, le notifiche per lo Staff verranno inviate <strong>solo all'email di test</strong> specificata sotto per non intasare la casella ufficiale.
+                                </p>
+
+                                <div id="dfn-test-email-wrap" style="display: <?php echo $is_test_evt ? 'block' : 'none'; ?>; margin-left:24px; margin-top:6px;">
+                                    <label for="test_notification_email" class="dfn-label" style="font-size:12px; font-weight:600; color:#166534;">
+                                        Email Notifiche di Test:
+                                    </label>
+                                    <input type="email" name="test_notification_email" id="test_notification_email" value="<?php echo esc_attr($test_email); ?>" placeholder="es. tua.email@dominio.it" class="dfn-input" style="width:100%; margin-top:4px;" />
+                                </div>
                             </div>
 
                             <div class="divider"></div>

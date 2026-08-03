@@ -899,6 +899,10 @@ function dfn_send_admin_new_booking_notification(int $booking_id)
     }
 
     $admin_email = dfn_get_setting('email_new_booking', get_option('admin_email'));
+    if (! empty($event->is_test_event) && ! empty($event->test_notification_email)) {
+        $admin_email = $event->test_notification_email;
+        $subject = '🧪 [EVENTO TEST] ' . $subject;
+    }
 
     $content = '<p>Gentile Amministratore,</p>';
     $content .= '<p>Ti notifichiamo che è stata registrata una nuova prenotazione per l\'evento <strong>' . esc_html($product_name) . '</strong>.</p>';
@@ -1272,6 +1276,11 @@ function dfn_send_booking_modification_notifications(int $booking_id): bool
     // --- 2. EMAIL PER L'AMMINISTRATORE (NOTIFICA MODIFICA) ---
     $admin_email = dfn_get_setting('email_verify_fai', get_option('admin_email'));
     $admin_subject = '[Notifica FAI] Prenotazione Modificata dall\'Utente: ' . $product_name;
+
+    if (! empty($event->is_test_event) && ! empty($event->test_notification_email)) {
+        $admin_email = $event->test_notification_email;
+        $admin_subject = '🧪 [EVENTO TEST] ' . $admin_subject;
+    }
     
     $admin_content = '<p>Gentile Staff della Delegazione FAI,</p>';
     $admin_content .= '<p>La prenotazione di <strong>' . esc_html($booking->customer_name) . '</strong> per l\'evento <strong>' . esc_html($product_name) . '</strong> è stata modificata autonomamente dall\'utente tramite l\'area di salvagente e-mail o l\'area riservata.</p>';

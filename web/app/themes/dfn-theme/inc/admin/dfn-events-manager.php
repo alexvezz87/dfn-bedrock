@@ -430,6 +430,9 @@ function dfn_render_events_manager()
                             <tr>
                                 <td class="column-title">
                                     <strong><a class="row-title" href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php echo esc_html($product_name); ?></a></strong>
+                                    <?php if (! empty($event->is_test_event)) : ?>
+                                        <span class="dfn-badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:11px; font-weight:bold; padding:2px 6px; border-radius:4px; margin-left:6px; vertical-align:middle;">🧪 TEST</span>
+                                    <?php endif; ?>
                                     <div class="row-actions">
                                         <span class="edit"><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php esc_html_e('Modifica', 'dfn-theme'); ?></a> | </span>
                                         <span class="view"><a href="<?php echo esc_url(get_permalink($event->product_id)); ?>" target="_blank"><?php esc_html_e('Vedi Prodotto', 'dfn-theme'); ?></a> | </span>

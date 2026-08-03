@@ -618,7 +618,11 @@ function dfn_render_mobile_app(): void
                                 <div class="dfn-mobile-card dfn-event-card-item">
                                     <div class="dfn-event-card-top">
                                         <span class="dfn-event-date-badge">📅 <?php echo esc_html($date_formatted); ?> • ⏰ <?php echo esc_html($time_formatted); ?></span>
-                                        <span class="dfn-event-status-pill open">Aperto</span>
+                                        <?php if (! empty($ev->is_test_event)) : ?>
+                                            <span class="dfn-event-status-pill test" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:bold;">🧪 TEST</span>
+                                        <?php else : ?>
+                                            <span class="dfn-event-status-pill open">Aperto</span>
+                                        <?php endif; ?>
                                     </div>
                                     <h4 class="dfn-event-title"><?php echo esc_html(get_the_title($ev->product_id)); ?></h4>
                                     <p class="dfn-event-location">📍 <?php echo esc_html($ev->location ?: 'Novara'); ?></p>
@@ -751,7 +755,7 @@ function dfn_render_mobile_app(): void
                                     <option value="<?php echo absint($ev->id); ?>"
                                             data-access="<?php echo esc_attr($ev->access_type ?? 'time_slots'); ?>"
                                             data-name="<?php echo esc_attr(get_the_title($ev->product_id)); ?>">
-                                        <?php echo esc_html(get_the_title($ev->product_id)); ?> (<?php echo esc_html(date('d/m/Y', strtotime($ev->event_date_start))); ?>)
+                                        <?php echo esc_html(get_the_title($ev->product_id)); ?><?php echo ! empty($ev->is_test_event) ? ' 🧪 [TEST]' : ''; ?> (<?php echo esc_html(date('d/m/Y', strtotime($ev->event_date_start))); ?>)
                                     </option>
                                 <?php endforeach; ?>
                             </select>
