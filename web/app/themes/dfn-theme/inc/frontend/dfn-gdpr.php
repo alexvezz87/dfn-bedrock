@@ -59,21 +59,18 @@ if (! defined('DFN_GA4_MEASUREMENT_ID')) {
  */
 function dfn_gdpr_enqueue_assets(): void
 {
-    $css_path = get_stylesheet_directory() . '/assets/css/dfn-gdpr.css';
-    $js_path  = get_stylesheet_directory() . '/assets/js/dfn-gdpr.js';
-
     wp_enqueue_style(
         'dfn-gdpr-css',
         trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-gdpr.css',
         [],
-        file_exists($css_path) ? (string) filemtime($css_path) : '2.1.0'
+        (string) time()
     );
 
     wp_enqueue_script(
         'dfn-gdpr-js',
         trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-gdpr.js',
         [],
-        file_exists($js_path) ? (string) filemtime($js_path) : '2.1.0',
+        (string) time(),
         true // In footer
     );
 

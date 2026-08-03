@@ -872,3 +872,20 @@ article.page:has(#dfn-inline-cookie-prefs),
     from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+
+/* FORZATURA ULTIMATA E UNIFICATA DEI COMPONENTI GDPR BANNER */
+#dfn-cookie-banner-overlay.dfn-banner-visible {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    z-index: 999999 !important;
+}
+
+#dfn-cookie-banner-overlay.dfn-banner-visible #dfn-cookie-banner {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    z-index: 999999 !important;
+}
