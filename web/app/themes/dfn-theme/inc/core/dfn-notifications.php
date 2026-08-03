@@ -301,9 +301,23 @@ function dfn_send_booking_confirmation(int $booking_id)
     $details_table .= '<tr><td class="label">Data e Inizio Visita:</td><td>' . esc_html($slot_info) . '</td></tr>';
     $details_table .= '<tr><td class="label">Luogo:</td><td>' . esc_html($event->location) . '</td></tr>';
     $details_table .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali (' . absint($booking->persons_standard) . ' Standard + ' . absint($booking->persons_fai) . ' Soci FAI)</td></tr>';
-    $details_table .= '<tr><td class="label">Modalità Contributo:</td><td>' . ($booking->payment_method === 'dfn_in_loco' ? 'Contributo all\'ingresso (Botteghino)' : 'Versato Online') . '</td></tr>';
-    if ($booking->payment_method === 'dfn_in_loco' && $booking->amount_due > 0) {
+    $is_event_free = ($event && (
+        (floatval($event->price_standard) === 0.00 && floatval($event->price_fai) === 0.00) ||
+        ($event->pricing_type ?? '') === 'free' ||
+        ! empty($event->is_free)
+    ));
+    if ($is_event_free && floatval($booking->amount_due) > 0) {
+        $wpdb->update($wpdb->prefix . 'dfn_bookings', ['amount_due' => 0.00], ['id' => $booking->id]);
+        $booking->amount_due = 0.00;
+    }
+
+    $payment_mode_text = $is_event_free ? 'Gratuito (Ingresso Libero)' : ($booking->payment_method === 'dfn_in_loco' ? 'Contributo all\'ingresso (Botteghino)' : 'Versato Online');
+
+    $details_table .= '<tr><td class="label">Modalità Contributo:</td><td>' . $payment_mode_text . '</td></tr>';
+    if (! $is_event_free && $booking->payment_method === 'dfn_in_loco' && $booking->amount_due > 0) {
         $details_table .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#ff6600;">' . wc_price($booking->amount_due) . '</td></tr>';
+    } elseif ($is_event_free) {
+        $details_table .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#004b23;">Ingresso Gratuito (€0.00)</td></tr>';
     }
     $details_table .= '</table>';
     $details_table .= '</div>';
@@ -904,8 +918,20 @@ function dfn_send_admin_new_booking_notification(int $booking_id)
     $content .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
     $content .= '<tr><td class="label">Data e Turno:</td><td>' . esc_html($slot_info) . '</td></tr>';
     $content .= '<tr><td class="label">Ingressi:</td><td><strong>' . absint($booking->total_persons) . '</strong> totali (' . absint($booking->persons_standard) . ' Intero Standard + ' . absint($booking->persons_fai) . ' Ridotto Socio FAI)</td></tr>';
-    $content .= '<tr><td class="label">Modalità Contributo:</td><td>' . ($booking->payment_method === 'dfn_in_loco' ? 'Contributo all\'ingresso (Botteghino)' : 'Versato Online') . '</td></tr>';
-    $content .= '<tr><td class="label">Contributo:</td><td>' . wc_price($booking->payment_method === 'dfn_in_loco' ? $booking->amount_due : $booking->amount_paid) . '</td></tr>';
+    $is_event_free = ($event && (
+        (floatval($event->price_standard) === 0.00 && floatval($event->price_fai) === 0.00) ||
+        ($event->pricing_type ?? '') === 'free' ||
+        ! empty($event->is_free)
+    ));
+    if ($is_event_free && floatval($booking->amount_due) > 0) {
+        $wpdb->update($wpdb->prefix . 'dfn_bookings', ['amount_due' => 0.00], ['id' => $booking->id]);
+        $booking->amount_due = 0.00;
+    }
+
+    $payment_mode_text = $is_event_free ? 'Gratuito (Ingresso Libero)' : ($booking->payment_method === 'dfn_in_loco' ? 'Contributo all\'ingresso (Botteghino)' : 'Versato Online');
+
+    $content .= '<tr><td class="label">Modalità Contributo:</td><td>' . $payment_mode_text . '</td></tr>';
+    $content .= '<tr><td class="label">Contributo:</td><td>' . ($is_event_free ? 'Ingresso Gratuito (€0.00)' : wc_price($booking->payment_method === 'dfn_in_loco' ? $booking->amount_due : $booking->amount_paid)) . '</td></tr>';
     if (! empty($booking->notes)) {
         $content .= '<tr><td class="label">Note:</td><td>' . esc_html($booking->notes) . '</td></tr>';
     }
@@ -1190,9 +1216,23 @@ function dfn_send_booking_modification_notifications(int $booking_id): bool
     $details_table .= '<tr><td class="label">Data e Inizio Visita:</td><td>' . esc_html($slot_info) . '</td></tr>';
     $details_table .= '<tr><td class="label">Luogo:</td><td>' . esc_html($event->location) . '</td></tr>';
     $details_table .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali (' . absint($booking->persons_standard) . ' Standard + ' . absint($booking->persons_fai) . ' Soci FAI)</td></tr>';
-    $details_table .= '<tr><td class="label">Modalità Contributo:</td><td>' . ($booking->payment_method === 'dfn_in_loco' ? 'Contributo all\'ingresso (Botteghino)' : 'Versato Online') . '</td></tr>';
-    if ($booking->payment_method === 'dfn_in_loco' && $booking->amount_due > 0) {
+    $is_event_free = ($event && (
+        (floatval($event->price_standard) === 0.00 && floatval($event->price_fai) === 0.00) ||
+        ($event->pricing_type ?? '') === 'free' ||
+        ! empty($event->is_free)
+    ));
+    if ($is_event_free && floatval($booking->amount_due) > 0) {
+        $wpdb->update($wpdb->prefix . 'dfn_bookings', ['amount_due' => 0.00], ['id' => $booking->id]);
+        $booking->amount_due = 0.00;
+    }
+
+    $payment_mode_text = $is_event_free ? 'Gratuito (Ingresso Libero)' : ($booking->payment_method === 'dfn_in_loco' ? 'Contributo all\'ingresso (Botteghino)' : 'Versato Online');
+
+    $details_table .= '<tr><td class="label">Modalità Contributo:</td><td>' . $payment_mode_text . '</td></tr>';
+    if (! $is_event_free && $booking->payment_method === 'dfn_in_loco' && $booking->amount_due > 0) {
         $details_table .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#ff6600;">' . wc_price($booking->amount_due) . '</td></tr>';
+    } elseif ($is_event_free) {
+        $details_table .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#004b23;">Ingresso Gratuito (€0.00)</td></tr>';
     }
     $details_table .= '</table>';
     $details_table .= '</div>';
