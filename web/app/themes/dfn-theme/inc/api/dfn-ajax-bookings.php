@@ -154,6 +154,22 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
 {
     global $wpdb;
 
+    if (! $order && $order_id > 0) {
+        $order = wc_get_order($order_id);
+    }
+    if (! $order) {
+        return;
+    }
+
+    // Idempotenza: garantisce che per ciascun ordine WooCommerce venga creata una sola prenotazione master
+    $existing_booking_id = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}dfn_bookings WHERE order_id = %d LIMIT 1",
+        $order->get_id()
+    ));
+    if ($existing_booking_id > 0) {
+        return;
+    }
+
     // Rileva se l'ordine contiene elementi legati a eventi
     foreach ($order->get_items() as $item_id => $item) {
         if (! is_a($item, 'WC_Order_Item_Product')) {
