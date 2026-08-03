@@ -39,6 +39,12 @@ function dfn_render_event_editor()
     global $wpdb;
     $table_events = $wpdb->prefix . 'dfn_events';
 
+    // Self-healing DB check: assicura che le nuove colonne per gli Eventi Test esistano nella tabella
+    $col_test_check = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'is_test_event'");
+    if (empty($col_test_check)) {
+        $wpdb->query("ALTER TABLE {$table_events} ADD COLUMN is_test_event tinyint(1) NOT NULL DEFAULT 0, ADD COLUMN test_notification_email varchar(255) DEFAULT NULL");
+    }
+
     // Determina se stiamo modificando o creando
     $event_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
     $event = null;
@@ -153,13 +159,11 @@ function dfn_render_event_editor()
                     $product_id = intval($product_id_raw);
                 }
 
-                // Associa l'immagine in evidenza al prodotto WooCommerce
+                // Associa l'immagine in evidenza al prodotto WooCommerce se specificata
                 if ($product_id > 0) {
                     $image_id = isset($_POST['dfn_event_image_id']) ? intval($_POST['dfn_event_image_id']) : 0;
                     if ($image_id > 0) {
                         set_post_thumbnail($product_id, $image_id);
-                    } else {
-                        set_post_thumbnail($product_id, 2223);
                     }
 
                     // Associa la galleria al prodotto WooCommerce
@@ -207,53 +211,51 @@ function dfn_render_event_editor()
                     'test_notification_email' => $test_notification_email,
                 ];
 
-                $format = [
-                    '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
-                    '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%s', '%s',
-                    '%d', '%s',
-                ];
-
+                $saved = false;
                 if ($event_id > 0) {
                     // Modifica
-                    $wpdb->update($table_events, $data, [ 'id' => $event_id ], $format, [ '%d' ]);
-                    $message = __('Evento aggiornato con successo nel database.', 'dfn-theme');
+                    $saved = $wpdb->update($table_events, $data, [ 'id' => $event_id ]) !== false;
                 } else {
                     // Inserimento
-                    $wpdb->insert($table_events, $data, $format);
-                    $event_id = $wpdb->insert_id;
-                    $message = __('Nuovo evento creato con successo!', 'dfn-theme');
+                    $saved = $wpdb->insert($table_events, $data) !== false;
+                    $event_id = (int) $wpdb->insert_id;
 
                     // Genera gli slot iniziali se previsto
-                    if ('time_slots' === $access_type) {
+                    if ($saved && $event_id > 0 && 'time_slots' === $access_type) {
                         dfn_db_generate_slots_for_event($event_id);
                     }
                 }
 
-                // Sincronizza la giacenza ed il magazzino sul prodotto WooCommerce associato
-                if ($product_id > 0) {
-                    if ('free_flow' === $access_type) {
-                        $total_booked = (int) $wpdb->get_var($wpdb->prepare(
-                            "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
-                            $event_id
-                        ));
-                        $remaining_stock = max(0, $total_capacity - $total_booked);
-                    } else {
-                        $remaining_stock = (int) $wpdb->get_var($wpdb->prepare(
-                            "SELECT SUM(GREATEST(0, (capacity + bonus_capacity) - booked_count)) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d AND is_locked = 0",
-                            $event_id
-                        ));
-                        if ($remaining_stock === 0) {
-                            $remaining_stock = $total_capacity > 0 ? $total_capacity : ($slot_capacity * 10);
+                if (! $saved || $event_id <= 0) {
+                    $message = __('Errore durante il salvataggio dell\'evento nel database: ', 'dfn-theme') . ($wpdb->last_error ?: __('Operazione fallita.', 'dfn-theme'));
+                    $message_type = 'error';
+                } else {
+                    // Sincronizza la giacenza ed il magazzino sul prodotto WooCommerce associato
+                    if ($product_id > 0) {
+                        if ('free_flow' === $access_type) {
+                            $total_booked = (int) $wpdb->get_var($wpdb->prepare(
+                                "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+                                $event_id
+                            ));
+                            $remaining_stock = max(0, $total_capacity - $total_booked);
+                        } else {
+                            $remaining_stock = (int) $wpdb->get_var($wpdb->prepare(
+                                "SELECT SUM(GREATEST(0, (capacity + bonus_capacity) - booked_count)) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d AND is_locked = 0",
+                                $event_id
+                            ));
+                            if ($remaining_stock === 0) {
+                                $remaining_stock = $total_capacity > 0 ? $total_capacity : ($slot_capacity * 10);
+                            }
                         }
+                        update_post_meta($product_id, '_manage_stock', 'yes');
+                        update_post_meta($product_id, '_stock', $remaining_stock);
+                        update_post_meta($product_id, '_stock_status', ($remaining_stock > 0 ? 'instock' : 'outofstock'));
                     }
-                    update_post_meta($product_id, '_manage_stock', 'yes');
-                    update_post_meta($product_id, '_stock', $remaining_stock);
-                    update_post_meta($product_id, '_stock_status', ($remaining_stock > 0 ? 'instock' : 'outofstock'));
-                }
 
-                // Reindirizza al tabellone principale con messaggio di successo
-                wp_safe_redirect(admin_url('admin.php?page=dfn-events&action=saved&event_id=' . $event_id));
-                exit;
+                    // Reindirizza al tabellone principale con messaggio di successo
+                    wp_safe_redirect(admin_url('admin.php?page=dfn-events&action=saved&event_id=' . $event_id));
+                    exit;
+                }
             }
         } else {
             $message = __('Errore di sicurezza durante il salvataggio dei dati.', 'dfn-theme');
