@@ -50,10 +50,16 @@
     --dfn-mobile-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
-/* NASCONDI COMPONENTI INTRUSIVI SOLTANTO DENTRO L'APP MOBILE PWA SU MOBILE (<768px) */
+/* NASCONDI COMPONENTI INTRUSIVI (COOKIE BADGE, BANNER E RECAPTCHA) SOLTANTO SULLA PAGINA DELL'APP MOBILE SU DISPOSITIVI MOBILI (<768px) */
 @media (max-width: 768px) {
-    #dfn-mobile-app-root ~ #cookiebot-widget,
-    .dfn-mobile-app-root ~ #cookiebot-widget {
+    #dfn-cookie-manage-link,
+    .grecaptcha-badge,
+    #dfn-cookie-banner-overlay,
+    #dfn-cookie-banner,
+    #cookiebot-widget,
+    .cookiebot-banner,
+    #CookiebotWidget,
+    .cookie-bar {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;

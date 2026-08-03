@@ -174,6 +174,14 @@
 
         showManageLink: function () {
             if (this.manageLink) {
+                var isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                var isMobileAppPage = window.location.pathname.indexOf('gestione-eventi') !== -1 || !!document.getElementById('dfn-mobile-app-root');
+
+                if (isMobile && isMobileAppPage) {
+                    this.manageLink.classList.remove('visible');
+                    this.manageLink.style.setProperty('display', 'none', 'important');
+                    return;
+                }
                 this.manageLink.classList.add('visible');
             }
         },
