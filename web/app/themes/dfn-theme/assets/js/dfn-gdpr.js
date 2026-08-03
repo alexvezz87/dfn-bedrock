@@ -139,10 +139,17 @@
             }
 
             this.overlay.classList.add('dfn-banner-visible');
-            this.overlay.style.display = 'flex';
-            this.overlay.style.opacity = '1';
-            this.overlay.style.visibility = 'visible';
-            this.overlay.style.pointerEvents = 'auto';
+            this.overlay.style.setProperty('display', 'flex', 'important');
+            this.overlay.style.setProperty('opacity', '1', 'important');
+            this.overlay.style.setProperty('visibility', 'visible', 'important');
+            this.overlay.style.setProperty('pointer-events', 'auto', 'important');
+
+            if (this.banner) {
+                this.banner.style.setProperty('display', 'block', 'important');
+                this.banner.style.setProperty('opacity', '1', 'important');
+                this.banner.style.setProperty('visibility', 'visible', 'important');
+                this.banner.style.setProperty('pointer-events', 'auto', 'important');
+            }
 
             document.body.style.overflow = 'hidden';
         },
@@ -150,10 +157,10 @@
         hide: function () {
             if (this.overlay) {
                 this.overlay.classList.remove('dfn-banner-visible');
-                this.overlay.style.display = 'none';
-                this.overlay.style.opacity = '0';
-                this.overlay.style.visibility = 'hidden';
-                this.overlay.style.pointerEvents = 'none';
+                this.overlay.style.setProperty('display', 'none', 'important');
+                this.overlay.style.setProperty('opacity', '0', 'important');
+                this.overlay.style.setProperty('visibility', 'hidden', 'important');
+                this.overlay.style.setProperty('pointer-events', 'none', 'important');
             }
             document.body.style.overflow = '';
             this.showManageLink();

@@ -44,9 +44,17 @@ document.addEventListener('DOMContentLoaded', function () {
     // 1. REGISTRAZIONE SERVICE WORKER PWA & PROMPT INSTALLAZIONE
     // -------------------------------------------------------------------
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/app/themes/dfn-theme/sw.js')
-            .then(reg => console.log('Service Worker DFN PWA registrato:', reg.scope))
-            .catch(err => console.warn('Registrazione Service Worker fallita:', err));
+        if (window.location.pathname.indexOf('gestione-eventi') !== -1 || !!document.getElementById('dfn-mobile-app-root')) {
+            navigator.serviceWorker.register('/app/themes/dfn-theme/sw.js')
+                .then(reg => console.log('Service Worker DFN PWA registrato:', reg.scope))
+                .catch(err => console.warn('Registrazione Service Worker fallita:', err));
+        } else {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
     }
 
     let deferredPrompt = null;
