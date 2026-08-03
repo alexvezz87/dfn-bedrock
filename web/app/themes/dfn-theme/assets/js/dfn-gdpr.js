@@ -128,20 +128,32 @@
 
         show: function () {
             if (!this.overlay || !this.banner) return;
-            this.overlay.classList.add('dfn-banner-visible');
-            
-            // Verifica di sicurezza: se l'overlay è nascosto via CSS (es. display: none o pointer-events: none), non bloccare lo scroll!
-            var postStyle = window.getComputedStyle(this.overlay);
-            if (postStyle.display === 'none' || postStyle.pointerEvents === 'none') {
-                document.body.style.overflow = '';
-            } else {
-                document.body.style.overflow = 'hidden';
+
+            // Il banner deve vedersi OVUNQUE tranne nella pagina /gestione-eventi/ da mobile (<768px)
+            var isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            var isMobileAppPage = window.location.pathname.indexOf('gestione-eventi') !== -1 || !!document.getElementById('dfn-mobile-app-root');
+
+            if (isMobile && isMobileAppPage) {
+                this.hide();
+                return;
             }
+
+            this.overlay.classList.add('dfn-banner-visible');
+            this.overlay.style.display = 'flex';
+            this.overlay.style.opacity = '1';
+            this.overlay.style.visibility = 'visible';
+            this.overlay.style.pointerEvents = 'auto';
+
+            document.body.style.overflow = 'hidden';
         },
 
         hide: function () {
             if (this.overlay) {
                 this.overlay.classList.remove('dfn-banner-visible');
+                this.overlay.style.display = 'none';
+                this.overlay.style.opacity = '0';
+                this.overlay.style.visibility = 'hidden';
+                this.overlay.style.pointerEvents = 'none';
             }
             document.body.style.overflow = '';
             this.showManageLink();

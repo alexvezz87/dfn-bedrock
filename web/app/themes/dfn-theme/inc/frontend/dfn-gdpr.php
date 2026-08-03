@@ -374,7 +374,7 @@ add_shortcode('dfn_cookie_preferences', 'dfn_render_cookie_preferences_shortcode
  */
 function dfn_render_cookie_banner(): void
 {
-    if (is_admin() || is_page('gestione-eventi') || (is_singular() && has_shortcode(get_post()->post_content ?? '', 'dfn_mobile_app'))) {
+    if (is_admin()) {
         return;
     }
 

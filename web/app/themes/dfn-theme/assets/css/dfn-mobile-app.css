@@ -50,23 +50,18 @@
     --dfn-mobile-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
-/* NASCONDI COMPONENTI INTRUSIVI SOLO ALL'INTERNO DELL'APP MOBILE PWA (#dfn-mobile-app-root) */
-#dfn-mobile-app-root ~ #wpadminbar,
-body.has-dfn-mobile-app #wpadminbar,
-body.has-dfn-mobile-app .grecaptcha-badge,
-body.has-dfn-mobile-app #cookiebot-widget,
-body.has-dfn-mobile-app .cookiebot-banner,
-body.has-dfn-mobile-app #CookiebotWidget,
-body.has-dfn-mobile-app .cookie-bar,
-body.has-dfn-mobile-app #CybotCookiebotDialog,
-body.has-dfn-mobile-app #CybotCookiebotDialogBodyUnderlay,
-body.has-dfn-mobile-app #dfn-cookie-manage-link,
-body.has-dfn-mobile-app #dfn-cookie-banner-overlay,
-body.has-dfn-mobile-app #dfn-cookie-banner {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
+/* NASCONDI COMPONENTI INTRUSIVI SOLTANTO DENTRO L'APP MOBILE PWA SU MOBILE (<768px) */
+@media (max-width: 768px) {
+    #dfn-mobile-app-root ~ #cookiebot-widget,
+    #dfn-mobile-app-root ~ #dfn-cookie-banner-overlay,
+    #dfn-mobile-app-root ~ #dfn-cookie-banner,
+    .dfn-mobile-app-root ~ #dfn-cookie-banner-overlay,
+    .dfn-mobile-app-root ~ #dfn-cookie-banner {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
 }
 
 html {
