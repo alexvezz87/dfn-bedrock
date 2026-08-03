@@ -59,11 +59,19 @@
     #cookiebot-widget,
     .cookiebot-banner,
     #CookiebotWidget,
-    .cookie-bar {
+    .cookie-bar,
+    iframe[src*="recaptcha"],
+    div[style*="grecaptcha"] {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;
         pointer-events: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        top: -9999px !important;
+        left: -9999px !important;
     }
 }
 

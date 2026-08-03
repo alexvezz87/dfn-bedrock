@@ -13,6 +13,43 @@ document.addEventListener('DOMContentLoaded', function () {
     const root = document.getElementById('dfn-mobile-app-root');
     if (!root) return;
 
+    // -------------------------------------------------------------------
+    // 00. RIMOZIONE FORZATA RECAPTCHA & COOKIE BADGE SU MOBILE GESTIONE EVENTI
+    // -------------------------------------------------------------------
+    function hideIntrusiveBadges() {
+        const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (!isMobile) return;
+
+        const selectors = [
+            '.grecaptcha-badge',
+            '#dfn-cookie-manage-link',
+            '#dfn-cookie-banner-overlay',
+            '#dfn-cookie-banner',
+            'iframe[src*="recaptcha"]',
+            'div[style*="grecaptcha"]'
+        ];
+
+        selectors.forEach(function (sel) {
+            const els = document.querySelectorAll(sel);
+            els.forEach(function (el) {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('visibility', 'hidden', 'important');
+                el.style.setProperty('opacity', '0', 'important');
+                el.style.setProperty('pointer-events', 'none', 'important');
+                el.style.setProperty('top', '-9999px', 'important');
+                el.style.setProperty('left', '-9999px', 'important');
+            });
+        });
+    }
+
+    hideIntrusiveBadges();
+    setInterval(hideIntrusiveBadges, 600);
+
+    try {
+        const observer = new MutationObserver(hideIntrusiveBadges);
+        observer.observe(document.body, { childList: true, subtree: true });
+    } catch (e) {}
+
     // Recupero Nonces e Config
     let nonces = {};
     try {
