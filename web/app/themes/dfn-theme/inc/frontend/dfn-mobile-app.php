@@ -419,20 +419,44 @@ function dfn_ajax_mobile_resend_ticket_email(): void
     }
 
     if (! $sent) {
-        $event_title = get_the_title($booking->event_id);
-        $subject = 'Il tuo Biglietto FAI — ' . $event_title;
-        $content = '<p>Ciao <strong>' . esc_html($booking->customer_name) . '</strong>,</p>' .
-                   '<p>Ecco il riepilogo del tuo biglietto per l\'evento <strong>' . esc_html($event_title) . '</strong>:</p>' .
-                   '<div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; margin:15px 0;">' .
-                   '<p style="margin:4px 0;">👥 <strong>Persone:</strong> ' . intval($booking->total_persons) . '</p>' .
-                   '<p style="margin:4px 0;">🎟️ <strong>Codice QR / Token:</strong> <code style="font-size:16px; font-weight:bold; color:#004b23;">' . esc_html($booking->qr_token) . '</code></p>' .
-                   '</div>' .
-                   '<p>Mostra questo codice all\'ingresso dell\'evento.</p>';
-        $sent = dfn_send_notification_email($email, $subject, 'Rinvio Biglietto Prenotazione', $content);
+        $event = dfn_db_get_event($booking->event_id);
+        $event_title = ($event && ! empty($event->product_id)) ? get_the_title($event->product_id) : '';
+        if (empty($event_title) || $event_title === 'Privacy Policy') {
+            $event_title = get_the_title($booking->event_id);
+            if (empty($event_title) || $event_title === 'Privacy Policy') {
+                $event_title = 'Evento FAI Novara';
+            }
+        }
+
+        $qr_token = esc_html($booking->qr_token);
+        $qr_img_url = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' . urlencode($booking->qr_token) . '&margin=10';
+
+        $subject = '🎟️ Il tuo Biglietto con QR Code — ' . $event_title;
+        $content = '
+            <p>Ciao <strong>' . esc_html($booking->customer_name) . '</strong>,</p>
+            <p>Ecco il tuo biglietto di ingresso per l\'evento <strong>' . esc_html($event_title) . '</strong>:</p>
+            
+            <div style="text-align: center; margin: 20px 0; padding: 20px; background: #ffffff; border: 2px dashed #004b23; border-radius: 12px;">
+                <p style="font-size: 13px; font-weight: bold; color: #004b23; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;">
+                    📱 Mostra questo QR Code all\'ingresso per lo scanner
+                </p>
+                <img src="' . esc_url($qr_img_url) . '" alt="QR Code Biglietto" width="240" height="240" style="display: block; margin: 0 auto; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
+                <p style="font-family: monospace; font-size: 15px; font-weight: bold; color: #334155; margin-top: 12px; letter-spacing: 1px;">
+                    ' . $qr_token . '
+                </p>
+            </div>
+
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; margin:15px 0;">
+                <p style="margin:4px 0;">👥 <strong>Partecipanti:</strong> ' . intval($booking->total_persons) . ' Persone (Interi: ' . intval($booking->persons_standard) . ', FAI: ' . intval($booking->persons_fai) . ')</p>
+            </div>
+            <p>Conserva questa email ed esibisci il codice QR direttamente dal tuo smartphone all\'arrivo.</p>
+        ';
+
+        $sent = dfn_send_notification_email($email, $subject, 'Biglietto di Prenotazione', $content);
     }
 
     if ($sent) {
-        wp_send_json_success(__('Email del biglietto inviata con successo!', 'dfn-theme'));
+        wp_send_json_success(__('Email del biglietto con QR Code inviata con successo!', 'dfn-theme'));
     } else {
         wp_send_json_error(__('Errore durante l\'invio dell\'email.', 'dfn-theme'));
     }
