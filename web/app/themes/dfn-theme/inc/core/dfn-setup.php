@@ -93,33 +93,39 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             true,
         );
 
-        // Enqueue Mobile Web App (CSS & JS)
-        wp_enqueue_style(
-            'dfn-mobile-app-css',
-            trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-mobile-app.css',
-            [ 'dashicons' ],
-            (string) time()
-        );
+        // Enqueue Mobile Web App (CSS & JS) - Soltanto sulla pagina /gestione-eventi/
+        $is_mobile_app_page = is_page('gestione-eventi') 
+            || is_page_template('template-mobile-app.php') 
+            || (is_singular() && has_shortcode(get_post()->post_content ?? '', 'dfn_mobile_app'));
 
-        wp_enqueue_script(
-            'html5-qrcode',
-            'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
-            [],
-            '2.3.8',
-            true
-        );
+        if ($is_mobile_app_page) {
+            wp_enqueue_style(
+                'dfn-mobile-app-css',
+                trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-mobile-app.css',
+                [ 'dashicons' ],
+                (string) time()
+            );
 
-        wp_enqueue_script(
-            'dfn-mobile-app-js',
-            trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-mobile-app.js',
-            [ 'html5-qrcode' ],
-            (string) time(),
-            true
-        );
+            wp_enqueue_script(
+                'html5-qrcode',
+                'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
+                [],
+                '2.3.8',
+                true
+            );
 
-        wp_localize_script('dfn-mobile-app-js', 'dfn_mobile_params', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-        ]);
+            wp_enqueue_script(
+                'dfn-mobile-app-js',
+                trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-mobile-app.js',
+                [ 'html5-qrcode' ],
+                (string) time(),
+                true
+            );
+
+            wp_localize_script('dfn-mobile-app-js', 'dfn_mobile_params', [
+                'ajax_url' => admin_url('admin-ajax.php'),
+            ]);
+        }
 
         $user_logged_in = is_user_logged_in();
         $user_data = [
