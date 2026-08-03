@@ -383,10 +383,16 @@ add_action('wp_ajax_dfn_mobile_do_checkin', 'dfn_ajax_mobile_do_checkin');
  */
 function dfn_ajax_mobile_resend_ticket_email(): void
 {
-    check_ajax_referer('dfn_booking_nonce', 'nonce');
-
-    if (! current_user_can('dfn_manage_events') && ! current_user_can('manage_options') && ! current_user_can('dfn_use_scanner')) {
-        wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'));
+    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
+    ) {
+        if (! is_user_logged_in()) {
+            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
+        }
     }
 
     $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
@@ -402,13 +408,27 @@ function dfn_ajax_mobile_resend_ticket_email(): void
         wp_send_json_error(__('Prenotazione non trovata.', 'dfn-theme'));
     }
 
-    if (function_exists('dfn_send_booking_confirmation_email')) {
-        $sent = dfn_send_booking_confirmation_email($booking_id);
-    } else {
+    $email = trim($booking->customer_email);
+    if (empty($email) || strpos($email, 'no-email@') !== false || ! is_email($email)) {
+        wp_send_json_error(__('Impossibile inviare l\'email: la prenotazione ha un indirizzo email fittizio (' . esc_html($email) . ').', 'dfn-theme'));
+    }
+
+    $sent = false;
+    if (function_exists('dfn_send_booking_confirmation')) {
+        $sent = dfn_send_booking_confirmation($booking_id);
+    }
+
+    if (! $sent) {
         $event_title = get_the_title($booking->event_id);
         $subject = 'Il tuo Biglietto FAI — ' . $event_title;
-        $content = '<p>Ciao ' . esc_html($booking->customer_name) . ',</p><p>Ecco il tuo codice di prenotazione per l\'evento ' . esc_html($event_title) . ':</p><h2 style="color:#004b23;">' . esc_html($booking->qr_token) . '</h2><p>Mostra questo codice o la presente email all\'ingresso.</p>';
-        $sent = dfn_send_notification_email($booking->customer_email, $subject, 'Rinvio Biglietto Prenotazione', $content);
+        $content = '<p>Ciao <strong>' . esc_html($booking->customer_name) . '</strong>,</p>' .
+                   '<p>Ecco il riepilogo del tuo biglietto per l\'evento <strong>' . esc_html($event_title) . '</strong>:</p>' .
+                   '<div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; margin:15px 0;">' .
+                   '<p style="margin:4px 0;">👥 <strong>Persone:</strong> ' . intval($booking->total_persons) . '</p>' .
+                   '<p style="margin:4px 0;">🎟️ <strong>Codice QR / Token:</strong> <code style="font-size:16px; font-weight:bold; color:#004b23;">' . esc_html($booking->qr_token) . '</code></p>' .
+                   '</div>' .
+                   '<p>Mostra questo codice all\'ingresso dell\'evento.</p>';
+        $sent = dfn_send_notification_email($email, $subject, 'Rinvio Biglietto Prenotazione', $content);
     }
 
     if ($sent) {
