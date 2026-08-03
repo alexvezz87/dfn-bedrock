@@ -159,11 +159,18 @@ function dfn_render_event_editor()
                     $product_id = intval($product_id_raw);
                 }
 
-                // Associa l'immagine in evidenza al prodotto WooCommerce se specificata
+                // Associa l'immagine in evidenza o il segnaposto predefinito al prodotto WooCommerce
                 if ($product_id > 0) {
                     $image_id = isset($_POST['dfn_event_image_id']) ? intval($_POST['dfn_event_image_id']) : 0;
                     if ($image_id > 0) {
                         set_post_thumbnail($product_id, $image_id);
+                    } else {
+                        $default_placeholder_id = intval(dfn_get_setting('default_placeholder_image_id', 0));
+                        if ($default_placeholder_id > 0 && wp_attachment_is_image($default_placeholder_id)) {
+                            set_post_thumbnail($product_id, $default_placeholder_id);
+                        } else {
+                            delete_post_thumbnail($product_id);
+                        }
                     }
 
                     // Associa la galleria al prodotto WooCommerce
@@ -577,17 +584,28 @@ function dfn_render_event_editor()
                         <div class="dfn-card-body" style="text-align: center;">
                             <?php
                             $image_id = 0;
-    $image_url = '';
-    if ($p_id > 0) {
-        $image_id = get_post_thumbnail_id($p_id);
-        if ($image_id) {
-            $image_url = wp_get_attachment_image_url($image_id, 'medium');
-        }
-    }
-    ?>
+                            $image_url = '';
+                            $is_placeholder = false;
+                            if ($p_id > 0) {
+                                $image_id = get_post_thumbnail_id($p_id);
+                                if ($image_id) {
+                                    $image_url = wp_get_attachment_image_url($image_id, 'medium');
+                                }
+                            }
+                            if (! $image_url) {
+                                $default_placeholder_id = intval(dfn_get_setting('default_placeholder_image_id', 0));
+                                if ($default_placeholder_id > 0) {
+                                    $image_url = wp_get_attachment_image_url($default_placeholder_id, 'medium');
+                                    if ($image_url) {
+                                        $is_placeholder = true;
+                                    }
+                                }
+                            }
+                            ?>
                             <div class="dfn-event-image-preview" style="margin-bottom: 15px; min-height: 150px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden; position: relative;">
                                 <?php if ($image_url) : ?>
                                     <img src="<?php echo esc_url($image_url); ?>" style="max-width: 100%; max-height: 150px; display: block;" id="dfn-event-image-img">
+                                    <span style="display: <?php echo $is_placeholder ? 'inline-block' : 'none'; ?>; position: absolute; bottom: 4px; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px;" id="dfn-event-image-placeholder-label"><?php esc_html_e('Segnaposto Predefinito', 'dfn-theme'); ?></span>
                                 <?php else : ?>
                                     <span style="color: #64748b; font-size: 13px;" id="dfn-event-image-placeholder"><?php esc_html_e('Nessuna immagine impostata', 'dfn-theme'); ?></span>
                                     <img src="" style="max-width: 100%; max-height: 150px; display: none;" id="dfn-event-image-img">

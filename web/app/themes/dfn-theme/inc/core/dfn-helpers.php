@@ -26,6 +26,7 @@ function dfn_get_setting($key, $default = null)
         'delegation_email'            => 'novara@delegazione.fondoambiente.it',
         'delegation_footer'           => 'FAI - Delegazione di Novara',
         'email_staff_signature'       => 'Lo Staff della Delegazione FAI Novara',
+        'default_placeholder_image_id'=> 0,
         'email_new_booking'           => get_option('admin_email'),
         'email_verify_fai'            => get_option('admin_email'),
         'email_cc'                    => '',

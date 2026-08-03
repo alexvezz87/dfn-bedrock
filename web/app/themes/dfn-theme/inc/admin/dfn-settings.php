@@ -56,6 +56,7 @@ function dfn_settings_save_fields(): void
         'delegation_email'            => 'sanitize_email',
         'delegation_footer'           => 'sanitize_text_field',
         'email_staff_signature'       => 'sanitize_text_field',
+        'default_placeholder_image_id'=> 'absint',
 
         // Tab Email & Notifiche
         'email_new_booking'           => 'sanitize_email_list',
@@ -210,6 +211,7 @@ function dfn_render_settings_page(): void
     // Carica gli stili specifici dell'admin se non sono già stati inclusi
     wp_enqueue_style('wp-color-picker');
     wp_enqueue_script('wp-color-picker');
+    wp_enqueue_media();
 
     // Mostra i messaggi di notifica/errore
     settings_errors('dfn_settings_messages');
@@ -291,6 +293,27 @@ function dfn_render_settings_page(): void
                                 <td>
                                     <input name="dfn_settings[email_staff_signature]" type="text" id="email_staff_signature" value="<?php echo esc_attr(dfn_get_setting('email_staff_signature')); ?>" class="regular-text" />
                                     <p class="description"><strong>Comportamento:</strong> La firma testuale predefinita (es. "Lo Staff della Delegazione FAI Novara") utilizzata per chiudere i messaggi automatici o inviati a mano dai gestori.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="default_placeholder_image_id">🖼️ Immagine Segnaposto Eventi (Placeholder)</label></th>
+                                <td>
+                                    <?php
+                                    $placeholder_id = intval(dfn_get_setting('default_placeholder_image_id', 0));
+                                    $placeholder_url = $placeholder_id > 0 ? wp_get_attachment_image_url($placeholder_id, 'medium') : '';
+                                    ?>
+                                    <div class="dfn-placeholder-image-preview" style="margin-bottom: 10px; min-height: 120px; max-width: 250px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden;">
+                                        <?php if ($placeholder_url) : ?>
+                                            <img src="<?php echo esc_url($placeholder_url); ?>" style="max-width: 100%; max-height: 120px; display: block;" id="dfn-placeholder-img">
+                                        <?php else : ?>
+                                            <span style="color: #64748b; font-size: 13px;" id="dfn-placeholder-text">Nessun segnaposto impostato</span>
+                                            <img src="" style="max-width: 100%; max-height: 120px; display: none;" id="dfn-placeholder-img">
+                                        <?php endif; ?>
+                                    </div>
+                                    <input type="hidden" name="dfn_settings[default_placeholder_image_id]" id="default_placeholder_image_id" value="<?php echo intval($placeholder_id); ?>">
+                                    <button type="button" class="button button-secondary" id="dfn-upload-placeholder-btn">Seleziona Immagine</button>
+                                    <button type="button" class="button" id="dfn-remove-placeholder-btn" style="color: #ef4444; border-color: #fca5a5; display: <?php echo $placeholder_id ? 'inline-block' : 'none'; ?>;">Rimuovi</button>
+                                    <p class="description" style="margin-top: 6px;"><strong>Comportamento:</strong> L'immagine predefinita della libreria media usata come copertina quando un evento viene creato senza inserire un'immagine in evidenza.</p>
                                 </td>
                             </tr>
                         </table>
@@ -918,6 +941,35 @@ function dfn_render_settings_page(): void
                         alert('Si è verificato un errore di connessione col server.');
                     }
                 });
+            });
+
+            var placeholderUploader;
+            $('#dfn-upload-placeholder-btn').on('click', function(e) {
+                e.preventDefault();
+                if (placeholderUploader) {
+                    placeholderUploader.open();
+                    return;
+                }
+                placeholderUploader = wp.media({
+                    title: 'Seleziona Immagine Segnaposto Predefinita',
+                    button: { text: 'Usa come Segnaposto' },
+                    multiple: false
+                });
+                placeholderUploader.on('select', function() {
+                    var attachment = placeholderUploader.state().get('selection').first().toJSON();
+                    $('#default_placeholder_image_id').val(attachment.id);
+                    $('#dfn-placeholder-img').attr('src', attachment.url).show();
+                    $('#dfn-placeholder-text').hide();
+                    $('#dfn-remove-placeholder-btn').show();
+                });
+                placeholderUploader.open();
+            });
+            $('#dfn-remove-placeholder-btn').on('click', function(e) {
+                e.preventDefault();
+                $('#default_placeholder_image_id').val('0');
+                $('#dfn-placeholder-img').attr('src', '').hide();
+                $('#dfn-placeholder-text').show();
+                $(this).hide();
             });
         });
     </script>
