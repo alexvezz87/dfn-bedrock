@@ -355,12 +355,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // -------------------------------------------------------------------
     // 5. CHECK-IN MOBILE PER EVENTO & MODALE
     // -------------------------------------------------------------------
-    const checkinModal = document.getElementById('dfn-mobile-checkin-modal');
-    const closeCheckinBtn = document.getElementById('dfn-btn-close-checkin-modal');
-    const checkinSearchInput = document.getElementById('dfn-mci-search-input');
+    const checkinModal        = document.getElementById('dfn-mobile-checkin-modal');
+    const closeCheckinBtn     = document.getElementById('dfn-btn-close-checkin-modal');
+    const checkinSearchInput  = document.getElementById('dfn-mci-search-input');
     const checkinBookingsList = document.getElementById('dfn-mci-bookings-list');
+    const mciDateWrap         = document.getElementById('dfn-mci-date-wrap');
+    const mciDateSelect       = document.getElementById('dfn-mci-date-select');
 
     let currentEventCheckinData = null;
+    let mciCurrentEventId       = 0;
 
     if (closeCheckinBtn && checkinModal) {
         closeCheckinBtn.addEventListener('click', () => {
@@ -368,32 +371,42 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    if (mciDateSelect) {
+        mciDateSelect.addEventListener('change', function () {
+            if (mciCurrentEventId) {
+                openEventCheckinModal(mciCurrentEventId, this.value);
+            }
+        });
+    }
+
     document.querySelectorAll('.btn-open-checkin-event').forEach(btn => {
         btn.addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id');
-            openEventCheckinModal(eventId);
+            openEventCheckinModal(eventId, 'all');
         });
     });
 
-    function openEventCheckinModal(eventId) {
+    function openEventCheckinModal(eventId, selectedDate = 'all') {
         if (!checkinModal) return;
 
+        mciCurrentEventId = eventId;
         checkinModal.style.display = 'flex';
         checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">Caricamento lista prenotazioni...</p>';
 
         const formData = new FormData();
         formData.append('action', 'dfn_mobile_get_event_checkin_list');
         formData.append('event_id', eventId);
-        formData.append('nonce', nonces.admin || '');
+        formData.append('date', selectedDate);
+        formData.append('nonce', nonces.admin || nonces.quick || '');
 
         fetch(ajaxUrl, { method: 'POST', body: formData })
             .then(r => r.json())
             .then(res => {
                 if (res.success) {
                     currentEventCheckinData = res.data;
-                    renderCheckinModalData(currentEventCheckinData, '');
+                    renderCheckinModalData(currentEventCheckinData, checkinSearchInput ? checkinSearchInput.value : '', selectedDate);
                 } else {
-                    checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#ef4444;">Erroe: ' + (res.data || 'Impossibile caricare') + '</p>';
+                    checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#ef4444;">Errore: ' + (res.data || 'Impossibile caricare') + '</p>';
                 }
             })
             .catch(() => {
@@ -401,9 +414,21 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    function renderCheckinModalData(data, filterQuery = '') {
+    function renderCheckinModalData(data, filterQuery = '', activeDate = 'all') {
         document.getElementById('dfn-mci-event-title').textContent = data.event_title;
         document.getElementById('dfn-mci-event-subtitle').textContent = '📅 ' + data.event_date + ' • ⏰ ' + data.event_time;
+
+        if (mciDateWrap && mciDateSelect && Array.isArray(data.available_dates) && data.available_dates.length > 0) {
+            let optionsHtml = '<option value="all">📅 Tutte le date (' + data.available_dates.length + ' date)</option>';
+            data.available_dates.forEach(d => {
+                const isSel = (d.date === data.selected_date || d.date === activeDate) ? 'selected' : '';
+                optionsHtml += `<option value="${d.date}" ${isSel}>📅 ${d.label}</option>`;
+            });
+            mciDateSelect.innerHTML = optionsHtml;
+            mciDateWrap.style.display = 'block';
+        } else if (mciDateWrap) {
+            mciDateWrap.style.display = 'none';
+        }
 
         document.getElementById('dfn-mci-stat-booked').textContent = data.total_booked;
         document.getElementById('dfn-mci-stat-checked').textContent = data.total_checked_in;
@@ -804,35 +829,283 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // =========================================================================
+    // BOTTEGHINO LIVE MOBILE TAB (TAB 4)
+    // =========================================================================
+    const mBotEventSel     = document.getElementById('dfn-bot-event');
+    const mBotDateSel      = document.getElementById('dfn-bot-date');
+    const mBotDateWrap     = document.getElementById('dfn-bot-date-wrap');
+    const mBotSlotSel      = document.getElementById('dfn-bot-slot');
+    const mBotSlotWrap     = document.getElementById('dfn-bot-slot-wrap');
+    const mBotGuestWrap    = document.getElementById('dfn-bot-guest-wrap');
+    const mBotQtyFaiInput  = document.getElementById('dfn-bot-qty-fai');
+    const mBotFaiCardsWrap = document.getElementById('dfn-bot-fai-cards-wrap');
+    const mBotCustInput   = document.getElementById('dfn-bot-cust-search');
+    const mBotCustResults = document.getElementById('dfn-bot-cust-results');
+    let mBotCustTimer     = null;
+
+    if (mBotCustInput && mBotCustResults) {
+        mBotCustInput.addEventListener('input', function () {
+            const query = this.value.trim();
+            clearTimeout(mBotCustTimer);
+
+            if (query.length < 2) {
+                mBotCustResults.style.display = 'none';
+                mBotCustResults.innerHTML = '';
+                return;
+            }
+
+            mBotCustTimer = setTimeout(() => {
+                const secToken = nonces.cust || nonces.admin || nonces.quick || nonces.booking || '';
+                fetch(ajaxUrl + '?action=cv_search_customers&term=' + encodeURIComponent(query) + '&security=' + encodeURIComponent(secToken))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (Array.isArray(data) && data.length > 0) {
+                            let html = '';
+                            data.forEach(item => {
+                                html += `<div class="dfn-m-cust-item" data-id="${item.id}" style="padding:10px 12px; border-bottom:1px solid #f1f5f9; cursor:pointer; font-size:13px; color:#1e293b;">
+                                    👤 <strong>${item.text}</strong>
+                                </div>`;
+                            });
+                            mBotCustResults.innerHTML = html;
+                            mBotCustResults.style.display = 'block';
+
+                            mBotCustResults.querySelectorAll('.dfn-m-cust-item').forEach(el => {
+                                el.addEventListener('click', function () {
+                                    const customerId = this.getAttribute('data-id');
+                                    mBotCustResults.style.display = 'none';
+                                    mBotCustInput.value = '';
+
+                                    const fdCust = new FormData();
+                                    fdCust.append('action', 'cv_get_customer_data');
+                                    fdCust.append('customer_id', customerId);
+                                    fdCust.append('security', secToken);
+
+                                    fetch(ajaxUrl, { method: 'POST', body: fdCust })
+                                        .then(r => r.json())
+                                        .then(cRes => {
+                                            if (cRes.success && cRes.data) {
+                                                const c = cRes.data;
+                                                const fnInput = document.getElementById('dfn-bot-firstname');
+                                                const lnInput = document.getElementById('dfn-bot-lastname');
+                                                const emInput = document.getElementById('dfn-bot-email');
+                                                const phInput = document.getElementById('dfn-bot-phone');
+
+                                                if (fnInput) fnInput.value = c.first_name || '';
+                                                if (lnInput) lnInput.value = c.last_name || '';
+                                                if (emInput) emInput.value = c.email || '';
+                                                if (phInput) phInput.value = c.phone || '';
+
+                                                showToast('👤 Dati cliente caricati!', 'success');
+                                            } else {
+                                                showToast('⚠️ Impossibile caricare i dati del cliente', 'error');
+                                            }
+                                        })
+                                        .catch(() => {
+                                            showToast('⚠️ Errore durante il caricamento cliente', 'error');
+                                        });
+                                });
+                            });
+                        } else {
+                            mBotCustResults.innerHTML = '<div style="padding:10px; font-size:13px; color:#64748b;">Nessun cliente trovato</div>';
+                            mBotCustResults.style.display = 'block';
+                        }
+                    })
+                    .catch(() => {});
+            }, 300);
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!mBotCustInput.contains(e.target) && !mBotCustResults.contains(e.target)) {
+                mBotCustResults.style.display = 'none';
+            }
+        });
+    }
+
+    if (mBotEventSel) {
+        mBotEventSel.addEventListener('change', function () {
+            const evId = parseInt(this.value, 10);
+            if (mBotDateWrap) mBotDateWrap.style.display = 'none';
+            if (mBotSlotWrap) mBotSlotWrap.style.display = 'none';
+            if (mBotGuestWrap) mBotGuestWrap.style.display = 'none';
+
+            if (!evId || isNaN(evId)) return;
+
+            if (mBotDateWrap) mBotDateWrap.style.display = 'block';
+            if (mBotDateSel) {
+                mBotDateSel.disabled = true;
+                mBotDateSel.innerHTML = '<option value="">⏳ Caricamento date…</option>';
+            }
+
+            const fd = new FormData();
+            fd.append('action', 'dfn_quick_get_dates');
+            fd.append('nonce', nonces.quick || nonces.admin || nonces.booking || '');
+            fd.append('event_id', evId);
+
+            fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.data.dates && res.data.dates.length > 0) {
+                        let html = res.data.dates.length > 1 ? '<option value="">— Seleziona una data —</option>' : '';
+                        res.data.dates.forEach(d => {
+                            const p = d.split('-');
+                            const fmt = p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
+                            html += `<option value="${d}">${fmt}</option>`;
+                        });
+                        if (mBotDateSel) {
+                            mBotDateSel.innerHTML = html;
+                            mBotDateSel.disabled = false;
+                            if (res.data.dates.length === 1) {
+                                mBotDateSel.value = res.data.dates[0];
+                                mBotDateSel.dispatchEvent(new Event('change'));
+                            }
+                        }
+                    } else if (mBotDateSel) {
+                        mBotDateSel.innerHTML = '<option value="">Nessuna data disponibile</option>';
+                    }
+                })
+                .catch(() => {
+                    if (mBotDateSel) mBotDateSel.innerHTML = '<option value="">Errore caricamento date</option>';
+                });
+        });
+    }
+
+    if (mBotDateSel) {
+        mBotDateSel.addEventListener('change', function () {
+            const date = this.value;
+            const evId = mBotEventSel ? parseInt(mBotEventSel.value, 10) : 0;
+            const selectedOpt = mBotEventSel ? mBotEventSel.options[mBotEventSel.selectedIndex] : null;
+            const accessType = selectedOpt ? selectedOpt.getAttribute('data-access') : 'time_slots';
+
+            if (mBotSlotWrap) mBotSlotWrap.style.display = 'none';
+            if (mBotGuestWrap) mBotGuestWrap.style.display = 'none';
+
+            if (!date || !evId) return;
+
+            if (accessType === 'free_flow') {
+                if (mBotGuestWrap) mBotGuestWrap.style.display = 'block';
+                return;
+            }
+
+            if (mBotSlotWrap) mBotSlotWrap.style.display = 'block';
+            if (mBotSlotSel) {
+                mBotSlotSel.disabled = true;
+                mBotSlotSel.innerHTML = '<option value="0">⏳ Caricamento turni…</option>';
+            }
+
+            const fd = new FormData();
+            fd.append('action', 'dfn_quick_get_slots');
+            fd.append('nonce', nonces.quick || nonces.admin || nonces.booking || '');
+            fd.append('event_id', evId);
+            fd.append('date', date);
+
+            fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    let html = '<option value="0">🤖 Auto — Smistamento automatico</option>';
+                    if (res.success && res.data.slots && res.data.slots.length > 0) {
+                        res.data.slots.forEach(s => {
+                            const locked = s.is_locked;
+                            const avail = s.available;
+                            const icon = locked ? '🔒' : (avail === 0 ? '🔴' : avail <= 3 ? '🟡' : '🟢');
+                            const label = locked ? `${s.time_start} → ${s.time_end} ${icon} Bloccato` : `${s.time_start} → ${s.time_end} ${icon} ${avail} liberi`;
+                            html += `<option value="${s.id}" ${locked || avail === 0 ? 'disabled' : ''}>${label}</option>`;
+                        });
+                    }
+                    if (mBotSlotSel) {
+                        mBotSlotSel.innerHTML = html;
+                        mBotSlotSel.disabled = false;
+                    }
+                    if (mBotGuestWrap) mBotGuestWrap.style.display = 'block';
+                })
+                .catch(() => {
+                    if (mBotSlotSel) {
+                        mBotSlotSel.innerHTML = '<option value="0">🤖 Auto — Smistamento automatico</option>';
+                        mBotSlotSel.disabled = false;
+                    }
+                    if (mBotGuestWrap) mBotGuestWrap.style.display = 'block';
+                });
+        });
+    }
+
+    if (mBotQtyFaiInput) {
+        mBotQtyFaiInput.addEventListener('input', function () {
+            const qty = parseInt(this.value, 10) || 0;
+            if (!mBotFaiCardsWrap || !mBotFaiCardsList) return;
+            if (qty <= 0) {
+                mBotFaiCardsWrap.style.display = 'none';
+                mBotFaiCardsList.innerHTML = '';
+                return;
+            }
+            mBotFaiCardsWrap.style.display = 'block';
+            let html = '';
+            for (let i = 0; i < qty; i++) {
+                html += `
+                    <div class="dfn-m-fai-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px; margin-bottom:8px;">
+                        <div style="font-size:12px; font-weight:700; color:#92400e; margin-bottom:6px;">Socio FAI #${i + 1}</div>
+                        <div style="display:flex; gap:8px; margin-bottom:6px;">
+                            <input type="text" name="fai_cards[${i}][cognome]" placeholder="Cognome" style="flex:1; padding:6px 10px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px;" />
+                            <input type="text" name="fai_cards[${i}][nome]" placeholder="Nome" style="flex:1; padding:6px 10px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px;" />
+                        </div>
+                        <input type="text" name="fai_cards[${i}][tessera]" placeholder="N° Tessera FAI" style="width:100%; padding:6px 10px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px;" />
+                    </div>
+                `;
+            }
+            mBotFaiCardsList.innerHTML = html;
+        });
+    }
+
+    // Gestione submit form Botteghino Live Mobile
     const botteghinoForm = document.getElementById('dfn-mobile-botteghino-form');
     if (botteghinoForm) {
         botteghinoForm.addEventListener('submit', function (e) {
             e.preventDefault();
+            const paymentMethod = document.getElementById('dfn-bot-payment')?.value || 'contanti';
+            const lastName = document.getElementById('dfn-bot-lastname')?.value.trim();
+
+            if (paymentMethod !== 'autorita' && !lastName) {
+                showToast('⚠️ Il cognome è obbligatorio.', 'error');
+                return;
+            }
+
+            const qtyStd = parseInt(document.getElementById('dfn-bot-qty-std')?.value, 10) || 0;
+            const qtyFai = parseInt(document.getElementById('dfn-bot-qty-fai')?.value, 10) || 0;
+            if ((qtyStd + qtyFai) <= 0) {
+                showToast('⚠️ Specifica almeno un biglietto.', 'error');
+                return;
+            }
+
+            if (paymentMethod === 'autorita') {
+                if (!confirm('Confermi di voler riservare i posti come OMAGGIO PER AUTORITÀ?')) return;
+            }
+
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Emissione biglietto...';
+            submitBtn.textContent = '⏳ Emissione in corso...';
 
             const formData = new FormData(this);
-            formData.append('action', 'dfn_process_quick_booking');
-            formData.append('nonce', nonces.booking || nonces.admin || '');
-            formData.append('is_botteghino', '1');
+            formData.append('action', 'dfn_botteghino_create_booking');
+            formData.append('nonce', nonces.admin || nonces.quick || nonces.booking || '');
 
             fetch(ajaxUrl, { method: 'POST', body: formData })
                 .then(r => r.json())
                 .then(res => {
                     if (res.success) {
                         vibrate([100, 100, 100]);
-                        showToast('💶 Biglietto emesso e incasso registrato!', 'success');
+                        showToast(res.data?.message || '🎟️ Operazione Botteghino registrata con successo!', 'success');
                         botteghinoForm.reset();
+                        if (mBotDateWrap) mBotDateWrap.style.display = 'none';
+                        if (mBotSlotWrap) mBotSlotWrap.style.display = 'none';
+                        if (mBotGuestWrap) mBotGuestWrap.style.display = 'none';
                         switchTab('home');
                     } else {
-                        showToast('⚠️ Errore: ' + (res.data || 'Impossibile completare incasso'), 'error');
+                        showToast('⚠️ Errore: ' + (res.data?.message || res.data || 'Impossibile completare'), 'error');
                     }
                     submitBtn.disabled = false;
                     submitBtn.textContent = '💶 Emetti Biglietto & Registra Incasso';
                 })
                 .catch(() => {
-                    showToast('⚠️ Errore di rete', 'error');
+                    showToast('⚠️ Errore di connessione', 'error');
                     submitBtn.disabled = false;
                     submitBtn.textContent = '💶 Emetti Biglietto & Registra Incasso';
                 });

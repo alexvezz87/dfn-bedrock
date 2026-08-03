@@ -127,12 +127,22 @@
         },
 
         show: function () {
+            if (!this.overlay || !this.banner) return;
             this.overlay.classList.add('dfn-banner-visible');
-            document.body.style.overflow = 'hidden';
+            
+            // Verifica di sicurezza: se l'overlay è nascosto via CSS (es. display: none o pointer-events: none), non bloccare lo scroll!
+            var postStyle = window.getComputedStyle(this.overlay);
+            if (postStyle.display === 'none' || postStyle.pointerEvents === 'none') {
+                document.body.style.overflow = '';
+            } else {
+                document.body.style.overflow = 'hidden';
+            }
         },
 
         hide: function () {
-            this.overlay.classList.remove('dfn-banner-visible');
+            if (this.overlay) {
+                this.overlay.classList.remove('dfn-banner-visible');
+            }
             document.body.style.overflow = '';
             this.showManageLink();
         },

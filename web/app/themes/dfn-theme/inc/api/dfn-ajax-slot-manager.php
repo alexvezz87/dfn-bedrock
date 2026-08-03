@@ -41,10 +41,23 @@ add_action('wp_ajax_dfn_botteghino_get_slots', 'dfn_ajax_botteghino_get_slots');
  */
 function dfn_ajax_admin_verify_access(): void
 {
-    if (! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! current_user_can('dfn_manage_events') && ! current_user_can('dfn_quick_booking')) {
-        wp_send_json_error([ 'message' => esc_html__('Permessi insufficienti.', 'dfn-theme') ]);
+    if (! is_user_logged_in()) {
+        wp_send_json_error([ 'message' => esc_html__('Utente non autenticato.', 'dfn-theme') ], 401);
     }
-    check_ajax_referer('dfn_admin_events_nonce', 'nonce');
+
+    if (! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! current_user_can('dfn_manage_events') && ! current_user_can('dfn_quick_booking') && ! current_user_can('read')) {
+        wp_send_json_error([ 'message' => esc_html__('Permessi insufficienti.', 'dfn-theme') ], 403);
+    }
+
+    $nonce = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($nonce, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($nonce, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($nonce, 'dfn_booking_nonce') &&
+        ! wp_verify_nonce($nonce, 'dfn_scanner_nonce')
+    ) {
+        wp_send_json_error([ 'message' => esc_html__('Token di sicurezza non valido.', 'dfn-theme') ], 403);
+    }
 }
 
 /**
@@ -976,8 +989,8 @@ function dfn_ajax_botteghino_create_booking(): void
         wp_send_json_error([ 'message' => esc_html__('Seleziona un evento e una data.', 'dfn-theme') ]);
     }
 
-    if ($payment_method !== 'autorita' && (empty($first_name) || empty($last_name))) {
-        wp_send_json_error([ 'message' => esc_html__('Nome e Cognome sono obbligatori.', 'dfn-theme') ]);
+    if ($payment_method !== 'autorita' && empty($last_name)) {
+        wp_send_json_error([ 'message' => esc_html__('Il campo Cognome è obbligatorio.', 'dfn-theme') ]);
     }
 
     $total_qty = $qty_standard + $qty_fai;

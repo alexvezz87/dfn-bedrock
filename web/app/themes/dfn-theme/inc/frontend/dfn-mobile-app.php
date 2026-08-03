@@ -86,30 +86,117 @@ add_action('init', 'dfn_auto_create_mobile_app_page');
  */
 function dfn_ajax_mobile_get_event_checkin_list(): void
 {
-    check_ajax_referer('dfn_admin_events_nonce', 'nonce');
-
-    if (! current_user_can('dfn_manage_events') && ! current_user_can('manage_options') && ! current_user_can('dfn_use_scanner')) {
-        wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'));
+    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_booking_nonce')
+    ) {
+        if (! is_user_logged_in()) {
+            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
+        }
     }
 
-    $event_id = isset($_POST['event_id']) ? absint($_POST['event_id']) : 0;
+    $event_id      = isset($_POST['event_id']) ? absint($_POST['event_id']) : 0;
+    $selected_date = isset($_POST['date']) ? sanitize_text_field(wp_unslash($_POST['date'])) : '';
+
     if (! $event_id) {
         wp_send_json_error(__('ID evento non valido.', 'dfn-theme'));
     }
 
     global $wpdb;
-    $table_events   = $wpdb->prefix . 'dfn_events';
-    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $table_events        = $wpdb->prefix . 'dfn_events';
+    $table_bookings      = $wpdb->prefix . 'dfn_bookings';
+    $table_slots         = $wpdb->prefix . 'dfn_time_slots';
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
 
     $event = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_events} WHERE id = %d", $event_id));
     if (! $event) {
         wp_send_json_error(__('Evento non trovato.', 'dfn-theme'));
     }
 
-    $bookings = $wpdb->get_results($wpdb->prepare(
-        "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
+    // 1. Raccogli le date disponibili per l'evento
+    $raw_dates = [];
+
+    // a) Date da dfn_event_slots
+    $table_event_slots = $wpdb->prefix . 'dfn_event_slots';
+    $slot_dates = $wpdb->get_col($wpdb->prepare(
+        "SELECT DISTINCT slot_date FROM {$table_event_slots} WHERE event_id = %d AND slot_date IS NOT NULL ORDER BY slot_date ASC",
         $event_id
     ));
+    if (! empty($slot_dates)) {
+        $raw_dates = array_merge($raw_dates, $slot_dates);
+    }
+
+    // b) Date da dfn_time_slots (se presente)
+    $table_time_slots = $wpdb->prefix . 'dfn_time_slots';
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$table_time_slots}'") === $table_time_slots) {
+        $ts_dates = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT slot_date FROM {$table_time_slots} WHERE event_id = %d AND slot_date IS NOT NULL ORDER BY slot_date ASC",
+            $event_id
+        ));
+        if (! empty($ts_dates)) {
+            $raw_dates = array_merge($raw_dates, $ts_dates);
+        }
+    }
+
+    // c) Genera date tra event_date_start e event_date_end
+    if (! empty($event->event_date_start)) {
+        $start = $event->event_date_start;
+        $end   = (! empty($event->event_date_end) && $event->event_date_end >= $start) ? $event->event_date_end : $start;
+        $cur   = new \DateTime($start);
+        $endDt = new \DateTime($end);
+        while ($cur <= $endDt) {
+            $raw_dates[] = $cur->format('Y-m-d');
+            $cur->modify('+1 day');
+        }
+    }
+
+    $raw_dates = array_values(array_unique(array_filter($raw_dates)));
+    sort($raw_dates);
+
+    // Formatta la lista di date disponibili per il JS
+    $available_dates_formatted = [];
+    foreach ($raw_dates as $d) {
+        $available_dates_formatted[] = [
+            'date'  => $d,
+            'label' => date('d/m/Y', strtotime($d)),
+        ];
+    }
+
+    // 2. Filtra le prenotazioni in base alla data selezionata
+    if (! empty($selected_date) && 'all' !== $selected_date && in_array($selected_date, $raw_dates, true)) {
+        // Cerca booking_id associati a slot in quella data
+        $b_ids_slots = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT bs.booking_id 
+             FROM {$wpdb->prefix}dfn_booking_slots bs 
+             INNER JOIN {$table_event_slots} s ON bs.slot_id = s.id 
+             WHERE s.event_id = %d AND s.slot_date = %s",
+            $event_id,
+            $selected_date
+        ));
+
+        $is_main_event_date = ($selected_date === $event->event_date_start);
+        $is_free_flow       = ('free_flow' === ($event->access_type ?? ''));
+
+        if ($is_main_event_date || $is_free_flow || empty($b_ids_slots)) {
+            $bookings = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
+                $event_id
+            ));
+        } else {
+            $in_sql = implode(',', array_map('absint', $b_ids_slots));
+            $bookings = $wpdb->get_results(
+                "SELECT * FROM {$table_bookings} WHERE id IN ({$in_sql}) AND status != 'cancelled' ORDER BY customer_name ASC"
+            );
+        }
+    } else {
+        // Tutte le date
+        $bookings = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
+            $event_id
+        ));
+    }
 
     $total_capacity   = intval($event->total_capacity);
     $total_booked     = 0;
@@ -147,6 +234,8 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
         'total_booked'     => $total_booked,
         'total_checked_in' => $total_checked_in,
         'total_remaining'  => max(0, $total_booked - $total_checked_in),
+        'available_dates'  => $available_dates_formatted,
+        'selected_date'    => $selected_date,
         'bookings'         => $formatted_bookings,
     ]);
 }
@@ -563,47 +652,115 @@ function dfn_render_mobile_app(): void
             <section id="dfn-tab-botteghino" class="dfn-mobile-tab-pane">
                 <div class="dfn-mobile-card">
                     <h3>🎟️ Botteghino Live</h3>
-                    <p class="dfn-subtitle">Emetti biglietti sul posto con pagamento in contanti o POS.</p>
+                    <p class="dfn-subtitle">Gestisci le prenotazioni in sede: incassa in contanti, invia link di pagamento, riserva posti o registra l'incasso.</p>
 
                     <form id="dfn-mobile-botteghino-form" class="dfn-mobile-form">
+                        <!-- Step 1: Evento, Data, Turno -->
                         <div class="dfn-form-group">
-                            <label for="dfn-bot-event">Evento In Corso *</label>
+                            <label for="dfn-bot-event">Evento *</label>
                             <select id="dfn-bot-event" name="event_id" required>
                                 <option value="">Seleziona Evento...</option>
                                 <?php foreach ($events as $ev) : ?>
-                                    <option value="<?php echo absint($ev->id); ?>"><?php echo esc_html(get_the_title($ev->product_id)); ?></option>
+                                    <option value="<?php echo absint($ev->id); ?>"
+                                            data-access="<?php echo esc_attr($ev->access_type ?? 'time_slots'); ?>"
+                                            data-name="<?php echo esc_attr(get_the_title($ev->product_id)); ?>">
+                                        <?php echo esc_html(get_the_title($ev->product_id)); ?> (<?php echo esc_html(date('d/m/Y', strtotime($ev->event_date_start))); ?>)
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
 
-                        <div class="dfn-form-group">
-                            <label for="dfn-bot-name">Nome Acquirente</label>
-                            <input type="text" id="dfn-bot-name" name="customer_name" placeholder="Botteghino Volante / Nome" />
-                        </div>
-
-                        <div class="dfn-form-row">
-                            <div class="dfn-form-group">
-                                <label for="dfn-bot-std">N° Interi</label>
-                                <input type="number" id="dfn-bot-std" name="persons_standard" min="0" value="1" />
-                            </div>
-                            <div class="dfn-form-group">
-                                <label for="dfn-bot-fai">N° FAI</label>
-                                <input type="number" id="dfn-bot-fai" name="persons_fai" min="0" value="0" />
-                            </div>
-                        </div>
-
-                        <div class="dfn-form-group">
-                            <label for="dfn-bot-payment">Metodo Pagamento Incassato *</label>
-                            <select id="dfn-bot-payment" name="payment_method" required>
-                                <option value="contanti">💵 Contanti in Loco</option>
-                                <option value="pos">💳 POS / Carta di Credito</option>
-                                <option value="omaggio">🎁 Omaggio / Riservato</option>
+                        <div class="dfn-form-group" id="dfn-bot-date-wrap" style="display:none;">
+                            <label for="dfn-bot-date">Data *</label>
+                            <select id="dfn-bot-date" name="date" required>
+                                <option value="">— Seleziona prima un evento —</option>
                             </select>
                         </div>
 
-                        <button type="submit" class="dfn-mobile-btn success large">
-                            💶 Emetti Biglietto & Registra Incasso
-                        </button>
+                        <div class="dfn-form-group" id="dfn-bot-slot-wrap" style="display:none;">
+                            <label for="dfn-bot-slot">Turno <span class="dfn-qb-optional">(opzionale)</span></label>
+                            <select id="dfn-bot-slot" name="slot_id">
+                                <option value="0">🤖 Auto — Smistamento automatico</option>
+                            </select>
+                        </div>
+
+                        <!-- Step 2: Dati Prenotante & Biglietti -->
+                        <div id="dfn-bot-guest-wrap" style="display:none;">
+                            <div class="dfn-form-group" style="position:relative; background:#f0f6fc; padding:10px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:15px;">
+                                <label for="dfn-bot-cust-search" style="font-weight:700; color:#1e293b;">🔍 Cerca Cliente Esistente <span class="dfn-qb-optional">(opzionale)</span></label>
+                                <input type="text" id="dfn-bot-cust-search" placeholder="Digita nome o email cliente..." autocomplete="off" style="width:100%; margin-top:4px;" />
+                                <div id="dfn-bot-cust-results" style="display:none; position:absolute; left:0; right:0; top:100%; z-index:99; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; max-height:180px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                            </div>
+
+                            <div class="dfn-form-row">
+                                <div class="dfn-form-group">
+                                    <label for="dfn-bot-firstname">Nome <span class="dfn-qb-optional">(opzionale)</span></label>
+                                    <input type="text" id="dfn-bot-firstname" name="first_name" placeholder="Es. Mario" />
+                                </div>
+                                <div class="dfn-form-group">
+                                    <label for="dfn-bot-lastname">Cognome *</label>
+                                    <input type="text" id="dfn-bot-lastname" name="last_name" placeholder="Es. Rossi" required />
+                                </div>
+                            </div>
+
+                            <div class="dfn-form-row">
+                                <div class="dfn-form-group">
+                                    <label for="dfn-bot-email">Email <span class="dfn-qb-optional">(opzionale)</span></label>
+                                    <input type="email" id="dfn-bot-email" name="email" placeholder="mario.rossi@email.it" />
+                                </div>
+                                <div class="dfn-form-group">
+                                    <label for="dfn-bot-phone">Telefono <span class="dfn-qb-optional">(opzionale)</span></label>
+                                    <input type="tel" id="dfn-bot-phone" name="phone" placeholder="333 1234567" />
+                                </div>
+                            </div>
+
+                            <div class="dfn-form-row">
+                                <div class="dfn-form-group">
+                                    <label for="dfn-bot-qty-std">Posti Standard *</label>
+                                    <input type="number" id="dfn-bot-qty-std" name="qty_standard" min="0" value="1" required />
+                                </div>
+                                <div class="dfn-form-group">
+                                    <label for="dfn-bot-qty-fai">Soci FAI</label>
+                                    <input type="number" id="dfn-bot-qty-fai" name="qty_fai" min="0" value="0" />
+                                </div>
+                            </div>
+
+                            <!-- Tessere FAI dinamiche -->
+                            <div id="dfn-bot-fai-cards-wrap" style="display:none; margin-bottom: 15px;">
+                                <div class="dfn-qb-fai-header" style="font-weight: 700; margin-bottom: 8px; color: #92400e; background:#fffbeb; padding:8px 12px; border-radius:6px; border:1px solid #f59e0b;">
+                                    🏅 Dati tessere Soci FAI
+                                </div>
+                                <div id="dfn-bot-fai-cards-list"></div>
+                            </div>
+
+                            <div class="dfn-form-group">
+                                <label for="dfn-bot-notes">Note <span class="dfn-qb-optional">(opzionale)</span></label>
+                                <textarea id="dfn-bot-notes" name="notes" rows="2" placeholder="Richieste particolari, accessibilità..."></textarea>
+                            </div>
+
+                            <!-- Step 4: Salta Fila Auto Check-in -->
+                            <div class="dfn-form-group" style="background:#eaf7ea; padding:12px; border-radius:8px; border:1px solid #c3e6c3; margin-bottom:15px;">
+                                <label style="margin:0; display:flex; align-items:center; cursor:pointer; color:#166534; font-weight:700; font-size:14px;">
+                                    <input type="checkbox" id="dfn-bot-auto-checkin" name="auto_checkin" value="1" style="margin-right:8px; width:18px; height:18px; flex-shrink:0;" />
+                                    Salta fila: Valida automaticamente i biglietti
+                                </label>
+                            </div>
+
+                            <!-- Step 5: Selezione Metodo di Pagamento con Select -->
+                            <div class="dfn-form-group">
+                                <label for="dfn-bot-payment">Metodo Pagamento / Modalità *</label>
+                                <select id="dfn-bot-payment" name="payment_method" required>
+                                    <option value="contanti">💵 Incassa in Contanti / POS</option>
+                                    <option value="link">💳 Invia Link di Pagamento (Carta)</option>
+                                    <option value="prenotazione">📋 Solo Prenotazione (Paga all'arrivo)</option>
+                                    <option value="autorita">🎁 Riserva Posti Autorità (Omaggio)</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="dfn-mobile-btn success large" style="margin-top:15px; width:100%;">
+                                💶 Emetti Biglietto & Registra Incasso
+                            </button>
+                        </div>
                     </form>
                 </div>
             </section>
@@ -714,6 +871,16 @@ function dfn_render_mobile_app(): void
 
                 <div class="dfn-mci-progress-bar">
                     <div class="dfn-mci-progress-fill" id="dfn-mci-progress-fill" style="width: 0%;"></div>
+                </div>
+
+                <!-- Selector Data Evento (se più date) -->
+                <div id="dfn-mci-date-wrap" style="display:none; margin: 12px 0 6px 0;">
+                    <label for="dfn-mci-date-select" style="font-size:13px; font-weight:700; color:#1e293b; display:block; margin-bottom:4px;">
+                        📅 Seleziona Data Evento:
+                    </label>
+                    <select id="dfn-mci-date-select" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; font-weight:600; background:#ffffff; color:#1e293b;">
+                        <option value="all">📅 Tutte le date</option>
+                    </select>
                 </div>
 
                 <div class="dfn-mci-search-box">

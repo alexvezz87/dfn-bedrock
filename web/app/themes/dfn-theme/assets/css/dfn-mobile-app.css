@@ -50,19 +50,19 @@
     --dfn-mobile-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
-/* NASCONDI COMPONENTI INTRUSIVI IN MOBILE APP (WP Admin Bar, Cookiebot, Recaptcha) */
-#wpadminbar,
-.grecaptcha-badge,
-#cookiebot-widget,
-.cookiebot-banner,
-#CookiebotWidget,
-.cookie-bar,
-#CybotCookiebotDialog,
-#CybotCookiebotDialogBodyUnderlay,
-#dfn-cookie-manage-link,
-#dfn-cookie-banner-overlay,
-#dfn-cookie-banner,
-.dfn-privacy-consent-wrapper + .dfn-privacy-error-msg {
+/* NASCONDI COMPONENTI INTRUSIVI SOLO ALL'INTERNO DELL'APP MOBILE PWA (#dfn-mobile-app-root) */
+#dfn-mobile-app-root ~ #wpadminbar,
+body.has-dfn-mobile-app #wpadminbar,
+body.has-dfn-mobile-app .grecaptcha-badge,
+body.has-dfn-mobile-app #cookiebot-widget,
+body.has-dfn-mobile-app .cookiebot-banner,
+body.has-dfn-mobile-app #CookiebotWidget,
+body.has-dfn-mobile-app .cookie-bar,
+body.has-dfn-mobile-app #CybotCookiebotDialog,
+body.has-dfn-mobile-app #CybotCookiebotDialogBodyUnderlay,
+body.has-dfn-mobile-app #dfn-cookie-manage-link,
+body.has-dfn-mobile-app #dfn-cookie-banner-overlay,
+body.has-dfn-mobile-app #dfn-cookie-banner {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;

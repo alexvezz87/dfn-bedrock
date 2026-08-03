@@ -43,9 +43,9 @@ function cv_enqueue_botteghino_assets($hook)
     wp_enqueue_script('selectWoo');
     wp_enqueue_style('select2');
 
-    // I nostri file separati
-    wp_enqueue_style('cv-botteghino-css', get_stylesheet_directory_uri() . '/assets/css/cv-botteghino.css', [], '2.2');
-    wp_enqueue_script('cv-botteghino-js', get_stylesheet_directory_uri() . '/assets/js/cv-botteghino.js', ['jquery', 'selectWoo'], '2.2', true);
+    // I nostri file separati con cache buster
+    wp_enqueue_style('cv-botteghino-css', get_stylesheet_directory_uri() . '/assets/css/cv-botteghino.css', [], time());
+    wp_enqueue_script('cv-botteghino-js', get_stylesheet_directory_uri() . '/assets/js/cv-botteghino.js', ['jquery', 'selectWoo'], time(), true);
 
     // Passiamo le variabili PHP al JS in modo sicuro
     wp_localize_script('cv-botteghino-js', 'cvBotteghinoVars', [
@@ -71,13 +71,7 @@ function cv_render_generatore_fai()
 
         <div class="cv-fai-container">
 
-            <!-- ===== SEZIONE 1: Cerca Cliente ===== -->
-            <div class="cv-form-row" style="background:#f0f6fc; padding:15px; border-radius:6px; border:1px solid #c8d7e1;">
-                <label for="fai_customer_search">🔍 Cerca Cliente Esistente (Opzionale)</label>
-                <select id="fai_customer_search" name="fai_customer_id" data-placeholder="Digita nome o email..."><option value=""></option></select>
-            </div>
-
-            <!-- ===== SEZIONE 2: Evento / Data / Turno ===== -->
+            <!-- ===== SEZIONE 1: Evento / Data / Turno ===== -->
             <div class="cv-bott-section">
                 <div class="cv-bott-section-label">
                     <span class="cv-bott-step-num">1</span>
@@ -107,17 +101,22 @@ function cv_render_generatore_fai()
                 </div>
             </div>
 
-            <!-- ===== SEZIONE 3: Dati Cliente ===== -->
+            <!-- ===== SEZIONE 2: Dati Cliente ===== -->
             <div class="cv-bott-section" id="cv-bott-guest-section" style="display:none;">
                 <div class="cv-bott-section-label">
                     <span class="cv-bott-step-num">2</span>
                     Dati prenotante
                 </div>
 
+                <div class="cv-form-row" style="background:#f0f6fc; padding:10px 12px; border-radius:6px; border:1px solid #c8d7e1; margin-bottom:14px;">
+                    <label for="fai_customer_search">🔍 Cerca Cliente Esistente <span style="color:#666; font-weight:normal;">(opzionale)</span></label>
+                    <select id="fai_customer_search" name="fai_customer_id" data-placeholder="Digita nome o email..."><option value=""></option></select>
+                </div>
+
                 <div style="display: flex; gap: 15px;">
                     <div class="cv-form-row" style="flex: 1;">
-                        <label for="fai_nome">Nome *</label>
-                        <input type="text" id="fai_nome" placeholder="Es. Mario" required>
+                        <label for="fai_nome">Nome <span style="color:#999; font-weight:normal;">(opzionale)</span></label>
+                        <input type="text" id="fai_nome" placeholder="Es. Mario">
                     </div>
                     <div class="cv-form-row" style="flex: 1;">
                         <label for="fai_cognome">Cognome *</label>
@@ -125,17 +124,18 @@ function cv_render_generatore_fai()
                     </div>
                 </div>
 
-                <div class="cv-form-row">
-                    <label for="fai_email" style="display:flex; justify-content:space-between;">
-                        <span>Email</span>
-                        <a href="#" id="cv-btn-no-email" style="font-size:12px; color:#d63638; text-decoration:none; border-bottom:1px dashed #d63638;">Il cliente non ha email?</a>
-                    </label>
-                    <input type="email" id="fai_email" placeholder="mario.rossi@email.it">
-                </div>
-
-                <div class="cv-form-row">
-                    <label for="fai_telefono">Telefono</label>
-                    <input type="tel" id="fai_telefono" placeholder="Es. 3331234567">
+                <div style="display: flex; gap: 15px;">
+                    <div class="cv-form-row" style="flex: 1;">
+                        <label for="fai_email" style="display:flex; justify-content:space-between;">
+                            <span>Email</span>
+                            <a href="#" id="cv-btn-no-email" style="font-size:11px; color:#d63638; text-decoration:none; border-bottom:1px dashed #d63638;">No email?</a>
+                        </label>
+                        <input type="email" id="fai_email" placeholder="mario.rossi@email.it">
+                    </div>
+                    <div class="cv-form-row" style="flex: 1;">
+                        <label for="fai_telefono">Telefono</label>
+                        <input type="tel" id="fai_telefono" placeholder="Es. 3331234567">
+                    </div>
                 </div>
             </div>
 
@@ -180,19 +180,20 @@ function cv_render_generatore_fai()
                 <p class="description" style="margin-left:30px; color:#166534;">Spunta questa casella <strong>SOLO</strong> se il cliente entra in questo esatto momento (es. gli dai il braccialetto cartaceo).</p>
             </div>
 
-            <!-- ===== BOTTONI POS ===== -->
-            <div class="cv-pos-buttons" id="cv-bott-buttons" style="display:none;">
-                <button type="button" id="cv-btn-submit-cash" class="cv-pos-btn cv-btn-cash">
-                    <span style="font-size:24px;">💵</span>Incassa in Contanti<br>ed Emetti Biglietti
-                </button>
-                <button type="button" id="cv-btn-submit-link" class="cv-pos-btn cv-btn-link">
-                    <span style="font-size:24px;">💳</span>Invia Link di<br>Pagamento (Carta)
-                </button>
-                <button type="button" id="cv-btn-submit-booking" class="cv-pos-btn cv-btn-booking">
-                    <span style="font-size:24px;">📋</span>Solo Prenotazione<br>(Paga all'arrivo)
-                </button>
-                <button type="button" id="cv-btn-submit-auth" class="cv-pos-btn cv-btn-auth">
-                    <span style="font-size:24px;">🎁</span>Riserva Posti<br>Autorità (Omaggio)
+            <!-- ===== SEZIONE 6: Pagamento & Conferma ===== -->
+            <div id="cv-bott-buttons" style="display:none; margin-top:20px; padding-top:15px; border-top:1px solid #e8e8e8;">
+                <div class="cv-form-row">
+                    <label for="cv-bott-payment-method">Metodo di Pagamento / Modalità *</label>
+                    <select id="cv-bott-payment-method" style="width:100%; font-weight:600;">
+                        <option value="contanti">💵 Incassa in Contanti ed Emetti Biglietti</option>
+                        <option value="link">💳 Invia Link di Pagamento (Carta)</option>
+                        <option value="prenotazione">📋 Solo Prenotazione (Paga all'arrivo)</option>
+                        <option value="autorita">🎁 Riserva Posti Autorità (Omaggio)</option>
+                    </select>
+                </div>
+
+                <button type="button" id="cv-btn-submit-botteghino" class="button button-primary button-hero" style="width:100%; margin-top:10px; font-size:16px; height:auto; padding:10px 16px;">
+                    💶 Emetti Biglietto & Registra Operazione
                 </button>
             </div>
 
