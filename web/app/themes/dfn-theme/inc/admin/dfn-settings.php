@@ -146,36 +146,54 @@ function dfn_settings_save_fields(): void
         'enable_auto_verify_fai'      => 'sanitize_text_field', // 'yes' o 'no' — default 'no'
     ];
 
-    $new_settings = [];
-    foreach ($fields_to_sanitize as $key => $sanitize_func) {
-        if (isset($_POST['dfn_settings'][$key])) {
-            $val = wp_unslash($_POST['dfn_settings'][$key]);
+    $merged_settings = $existing_settings;
+    $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'generale';
+
+    if (isset($_POST['dfn_settings']) && is_array($_POST['dfn_settings'])) {
+        foreach ($_POST['dfn_settings'] as $key => $raw_val) {
+            if (! isset($fields_to_sanitize[$key])) {
+                continue;
+            }
+            $sanitize_func = $fields_to_sanitize[$key];
+            $val = wp_unslash($raw_val);
+
             if ($sanitize_func === 'absint') {
-                $new_settings[$key] = absint($val);
+                $merged_settings[$key] = absint($val);
             } elseif ($sanitize_func === 'sanitize_hex_color') {
-                $new_settings[$key] = sanitize_hex_color($val);
+                $merged_settings[$key] = sanitize_hex_color($val);
             } elseif ($sanitize_func === 'sanitize_email_list') {
                 $emails = array_map('sanitize_email', array_map('trim', explode(',', $val)));
                 $emails = array_filter($emails);
-                $new_settings[$key] = implode(', ', $emails);
+                $merged_settings[$key] = implode(', ', $emails);
             } elseif ($sanitize_func === 'sanitize_textarea_field') {
-                $new_settings[$key] = sanitize_textarea_field($val);
+                $merged_settings[$key] = sanitize_textarea_field($val);
             } else {
-                $new_settings[$key] = sanitize_text_field($val);
+                $merged_settings[$key] = sanitize_text_field($val);
             }
-        } else {
-            // Se un checkbox non è inviato, assumiamo sia 'no' se appartiene ai toggle
-            if (strpos($key, 'enable_') === 0) {
-                $new_settings[$key] = 'no';
+        }
+    }
+
+    // Se ci troviamo nel tab avanzate, aggiorna anche i toggle non spuntati
+    if ($active_tab === 'avanzate') {
+        $toggle_keys = [
+            'enable_admin_notification',
+            'enable_reminder_24h',
+            'enable_auto_waitlist',
+            'enable_auto_complete_paid',
+            'enable_auto_verify_fai',
+        ];
+        foreach ($toggle_keys as $t_key) {
+            if (! isset($_POST['dfn_settings'][$t_key])) {
+                $merged_settings[$t_key] = 'no';
             }
         }
     }
 
     // Mantieni i campi di sola lettura non inviabili/modificabili direttamente
-    $new_settings['setup_roles_version'] = '2.0';
-    $new_settings['setup_fai_discount']  = 5;
+    $merged_settings['setup_roles_version'] = '2.0';
+    $merged_settings['setup_fai_discount']  = 5;
 
-    $updated = update_option('dfn_settings', $new_settings);
+    $updated = update_option('dfn_settings', $merged_settings);
 
     if ($updated) {
         add_settings_error(
