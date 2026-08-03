@@ -164,10 +164,21 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
         ];
     }
 
+    // Determina la data selezionata di default (oggi se presente nelle date, altrimenti la prima data dell'evento)
+    $today_str = date('Y-m-d');
+    if (empty($selected_date)) {
+        if (in_array($today_str, $raw_dates, true)) {
+            $selected_date = $today_str;
+        } elseif (! empty($raw_dates)) {
+            $selected_date = $raw_dates[0];
+        } else {
+            $selected_date = 'all';
+        }
+    }
+
     // 2. Filtra le prenotazioni in base alla data selezionata
     if (! empty($selected_date) && 'all' !== $selected_date && in_array($selected_date, $raw_dates, true)) {
-        // Cerca booking_id associati a slot in quella data
-        $b_ids_slots = $wpdb->get_col($wpdb->prepare(
+        $b_ids_event_slots = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT bs.booking_id 
              FROM {$wpdb->prefix}dfn_booking_slots bs 
              INNER JOIN {$table_event_slots} s ON bs.slot_id = s.id 
@@ -176,19 +187,37 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
             $selected_date
         ));
 
-        $is_main_event_date = ($selected_date === $event->event_date_start);
-        $is_free_flow       = ('free_flow' === ($event->access_type ?? ''));
-
-        if ($is_main_event_date || $is_free_flow || empty($b_ids_slots)) {
-            $bookings = $wpdb->get_results($wpdb->prepare(
-                "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
-                $event_id
+        $b_ids_time_slots = [];
+        if ($wpdb->get_var("SHOW TABLES LIKE '{$table_slots}'") === $table_slots) {
+            $b_ids_time_slots = $wpdb->get_col($wpdb->prepare(
+                "SELECT DISTINCT bs.booking_id 
+                 FROM {$wpdb->prefix}dfn_booking_slots bs 
+                 INNER JOIN {$table_slots} ts ON bs.slot_id = ts.id 
+                 WHERE ts.event_id = %d AND ts.slot_date = %s",
+                $event_id,
+                $selected_date
             ));
-        } else {
-            $in_sql = implode(',', array_map('absint', $b_ids_slots));
+        }
+
+        $b_ids_created = $wpdb->get_col($wpdb->prepare(
+            "SELECT id FROM {$table_bookings} WHERE event_id = %d AND DATE(created_at) = %s AND status != 'cancelled'",
+            $event_id,
+            $selected_date
+        ));
+
+        $all_matching_b_ids = array_values(array_unique(array_filter(array_merge(
+            $b_ids_event_slots ?: [],
+            $b_ids_time_slots ?: [],
+            $b_ids_created ?: []
+        ))));
+
+        if (! empty($all_matching_b_ids)) {
+            $in_sql = implode(',', array_map('absint', $all_matching_b_ids));
             $bookings = $wpdb->get_results(
                 "SELECT * FROM {$table_bookings} WHERE id IN ({$in_sql}) AND status != 'cancelled' ORDER BY customer_name ASC"
             );
+        } else {
+            $bookings = [];
         }
     } else {
         // Tutte le date

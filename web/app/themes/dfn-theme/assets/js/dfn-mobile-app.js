@@ -427,11 +427,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.btn-open-checkin-event').forEach(btn => {
         btn.addEventListener('click', function () {
             const eventId = this.getAttribute('data-event-id');
-            openEventCheckinModal(eventId, 'all');
+            openEventCheckinModal(eventId, '');
         });
     });
 
-    function openEventCheckinModal(eventId, selectedDate = 'all') {
+    function openEventCheckinModal(eventId, selectedDate = '') {
         if (!checkinModal) return;
 
         mciCurrentEventId = eventId;
@@ -449,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(res => {
                 if (res.success) {
                     currentEventCheckinData = res.data;
-                    renderCheckinModalData(currentEventCheckinData, checkinSearchInput ? checkinSearchInput.value : '', selectedDate);
+                    renderCheckinModalData(currentEventCheckinData, checkinSearchInput ? checkinSearchInput.value : '', res.data.selected_date || selectedDate);
                 } else {
                     checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#ef4444;">Errore: ' + (res.data || 'Impossibile caricare') + '</p>';
                 }
@@ -459,16 +459,18 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    function renderCheckinModalData(data, filterQuery = '', activeDate = 'all') {
+    function renderCheckinModalData(data, filterQuery = '', activeDate = '') {
         document.getElementById('dfn-mci-event-title').textContent = data.event_title;
         document.getElementById('dfn-mci-event-subtitle').textContent = '📅 ' + data.event_date + ' • ⏰ ' + data.event_time;
 
         if (mciDateWrap && mciDateSelect && Array.isArray(data.available_dates) && data.available_dates.length > 0) {
-            let optionsHtml = '<option value="all">📅 Tutte le date (' + data.available_dates.length + ' date)</option>';
+            let optionsHtml = '';
             data.available_dates.forEach(d => {
-                const isSel = (d.date === data.selected_date || d.date === activeDate) ? 'selected' : '';
+                const isSel = (d.date === data.selected_date) ? 'selected' : '';
                 optionsHtml += `<option value="${d.date}" ${isSel}>📅 ${d.label}</option>`;
             });
+            const isAllSel = (data.selected_date === 'all') ? 'selected' : '';
+            optionsHtml += `<option value="all" ${isAllSel}>📋 Tutte le date (${data.available_dates.length} date)</option>`;
             mciDateSelect.innerHTML = optionsHtml;
             mciDateWrap.style.display = 'block';
         } else if (mciDateWrap) {
