@@ -69,6 +69,31 @@ function dfn_log_email($to, string $subject, string $from, bool $sent, string $l
 }
 
 /**
+ * Hook automatico su wp_mail_succeeded — cattura TUTTI gli invii riusciti di wp_mail()
+ * (WooCommerce, FAI Prenotazioni, WordPress core, ecc.).
+ *
+ * @param array $mail_data Dati dell'email inviata (to, subject, message, headers, attachments).
+ */
+add_action('wp_mail_succeeded', 'dfn_log_wp_mail_succeeded');
+function dfn_log_wp_mail_succeeded(array $mail_data): void
+{
+    $to_raw  = $mail_data['to'] ?? '';
+    $to      = is_array($to_raw) ? implode(', ', $to_raw) : $to_raw;
+    $subject = $mail_data['subject'] ?? 'N/A';
+
+    $executor = dfn_log_detect_executor();
+
+    $description = "Oggetto: {$subject} | Destinatario: {$to}";
+
+    dfn_log_write(
+        'email',
+        $executor,
+        $description,
+        'success'
+    );
+}
+
+/**
  * Hook automatico su wp_mail_failed — cattura i fallimenti di wp_mail()
  * per tutte le email inviate (WooCommerce, WordPress, ecc.).
  *
@@ -94,25 +119,28 @@ function dfn_log_wp_mail_failed(WP_Error $error): void
 
 /**
  * Rileva l'executor di sistema tramite analisi dello stack di chiamata.
- * Cerca nei frame di chiamata i namespace WooCommerce, WordPress o DFN.
+ * Cerca nei frame di chiamata i namespace WooCommerce, FAI Prenotazioni o WordPress.
  *
  * @return string Nome dell'executor.
  */
 function dfn_log_detect_executor(): string
 {
-    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15);
+    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 25);
     foreach ($backtrace as $frame) {
         $file  = $frame['file'] ?? '';
         $class = $frame['class'] ?? '';
-        if (strpos($file, 'woocommerce') !== false || strpos($class, 'WC_') !== false) {
+        $func  = $frame['function'] ?? '';
+
+        if (strpos($file, 'woocommerce') !== false || strpos($class, 'WC_') !== false || strpos($func, 'wc_') !== false) {
             return 'WooCommerce';
         }
-        if (strpos($file, 'dfn-') !== false) {
+        if (strpos($file, 'dfn-') !== false || strpos($func, 'dfn_') !== false) {
             return 'FAI Prenotazioni';
         }
     }
     return 'WordPress';
 }
+
 
 /**
  * Elimina automaticamente i log più vecchi di N giorni.

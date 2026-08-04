@@ -75,17 +75,9 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
     // Genera il template HTML completo
     $body = dfn_get_email_html_template($title, $content_html);
 
-    $sent = wp_mail($to, $subject, $body, $headers, $attachments);
-
-    // Log dell'invio nella tabella dfn_logs
-    if (function_exists('dfn_log_email')) {
-        $from_address = dfn_get_setting('delegation_email', get_option('admin_email'));
-        $to_log       = is_array($to) ? implode(', ', $to) : $to;
-        dfn_log_email($to_log, $subject, $from_address, $sent, '', 'FAI Prenotazioni');
-    }
-
-    return $sent;
+    return wp_mail($to, $subject, $body, $headers, $attachments);
 }
+
 
 /**
  * Restituisce la struttura HTML del template email premium FAI Novara.
