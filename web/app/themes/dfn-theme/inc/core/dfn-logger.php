@@ -69,6 +69,51 @@ function dfn_log_email($to, string $subject, string $from, bool $sent, string $l
 }
 
 /**
+ * Estrae o determina l'indirizzo Mittente (From) da un header email o dai valori di sistema.
+ *
+ * @param string|array $headers  Header passati a wp_mail.
+ * @param string       $executor Nome dell'esecutore rilevato.
+ * @return string                Indirizzo o stringa mittente formattata.
+ */
+function dfn_log_extract_from_address($headers, string $executor): string
+{
+    $from = '';
+
+    if (is_array($headers)) {
+        foreach ($headers as $header) {
+            if (is_string($header) && stripos(trim($header), 'from:') === 0) {
+                $from = trim(substr(trim($header), 5));
+                break;
+            }
+        }
+    } elseif (is_string($headers) && ! empty($headers)) {
+        $lines = explode("\n", str_replace("\r\n", "\n", $headers));
+        foreach ($lines as $line) {
+            if (stripos(trim($line), 'from:') === 0) {
+                $from = trim(substr(trim($line), 5));
+                break;
+            }
+        }
+    }
+
+    if (empty($from)) {
+        if ($executor === 'WooCommerce' && function_exists('WC')) {
+            $from_name  = get_option('woocommerce_email_from_name', get_bloginfo('name'));
+            $from_email = get_option('woocommerce_email_from_address', get_option('admin_email'));
+            $from       = ! empty($from_name) ? "{$from_name} <{$from_email}>" : $from_email;
+        } elseif (function_exists('dfn_get_setting')) {
+            $from_name  = dfn_get_setting('delegation_name', 'FAI Prenotazioni');
+            $from_email = dfn_get_setting('delegation_email', get_option('admin_email'));
+            $from       = ! empty($from_name) ? "{$from_name} <{$from_email}>" : $from_email;
+        } else {
+            $from = get_option('admin_email');
+        }
+    }
+
+    return $from;
+}
+
+/**
  * Hook automatico su wp_mail_succeeded — cattura TUTTI gli invii riusciti di wp_mail()
  * (WooCommerce, FAI Prenotazioni, WordPress core, ecc.).
  *
@@ -77,13 +122,15 @@ function dfn_log_email($to, string $subject, string $from, bool $sent, string $l
 add_action('wp_mail_succeeded', 'dfn_log_wp_mail_succeeded');
 function dfn_log_wp_mail_succeeded(array $mail_data): void
 {
-    $to_raw  = $mail_data['to'] ?? '';
-    $to      = is_array($to_raw) ? implode(', ', $to_raw) : $to_raw;
-    $subject = $mail_data['subject'] ?? 'N/A';
+    $to_raw   = $mail_data['to'] ?? '';
+    $to       = is_array($to_raw) ? implode(', ', $to_raw) : $to_raw;
+    $subject  = $mail_data['subject'] ?? 'N/A';
+    $headers  = $mail_data['headers'] ?? '';
 
     $executor = dfn_log_detect_executor();
+    $from     = dfn_log_extract_from_address($headers, $executor);
 
-    $description = "Oggetto: {$subject} | Destinatario: {$to}";
+    $description = "Oggetto: {$subject} | Mittente: {$from} | Destinatario: {$to}";
 
     dfn_log_write(
         'email',
@@ -105,41 +152,58 @@ function dfn_log_wp_mail_failed(WP_Error $error): void
     $data    = $error->get_error_data();
     $to      = isset($data['to']) ? (is_array($data['to']) ? implode(', ', $data['to']) : $data['to']) : 'N/A';
     $subject = $data['subject'] ?? 'N/A';
+    $headers = $data['headers'] ?? '';
     $message = $error->get_error_message();
 
     $executor = dfn_log_detect_executor();
+    $from     = dfn_log_extract_from_address($headers, $executor);
 
     dfn_log_write(
         'email',
         $executor,
-        "ERRORE invio email — Destinatario: {$to} | Oggetto: {$subject} | Errore: {$message}",
+        "ERRORE invio email — Oggetto: {$subject} | Mittente: {$from} | Destinatario: {$to} | Errore: {$message}",
         'failure'
     );
 }
 
 /**
- * Rileva l'executor di sistema tramite analisi dello stack di chiamata.
- * Cerca nei frame di chiamata i namespace WooCommerce, FAI Prenotazioni o WordPress.
+ * Rileva l'executor di sistema tramite analisi precisa dello stack di chiamata.
  *
- * @return string Nome dell'executor.
+ * @return string Nome dell'executor ('WooCommerce', 'FAI Prenotazioni' o 'WordPress').
  */
 function dfn_log_detect_executor(): string
 {
-    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 25);
+    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 30);
+
     foreach ($backtrace as $frame) {
-        $file  = $frame['file'] ?? '';
+        $file  = isset($frame['file']) ? str_replace('\\', '/', $frame['file']) : '';
         $class = $frame['class'] ?? '';
         $func  = $frame['function'] ?? '';
 
-        if (strpos($file, 'woocommerce') !== false || strpos($class, 'WC_') !== false || strpos($func, 'wc_') !== false) {
+        // 1. Controlla prima se un'email WooCommerce ha generato l'invio
+        if (
+            strpos($class, 'WC_Email') !== false ||
+            strpos($class, 'WC_Emails') !== false ||
+            strpos($file, '/plugins/woocommerce/') !== false ||
+            strpos($file, '/woocommerce/') !== false ||
+            $func === 'wc_mail'
+        ) {
             return 'WooCommerce';
         }
-        if (strpos($file, 'dfn-') !== false || strpos($func, 'dfn_') !== false) {
+
+        // 2. Controlla se l'invio parte dai nostri file di notifica FAI Prenotazioni
+        if (
+            strpos($file, 'dfn-notifications.php') !== false ||
+            strpos($file, 'dfn-security.php') !== false ||
+            $func === 'dfn_send_notification_email'
+        ) {
             return 'FAI Prenotazioni';
         }
     }
+
     return 'WordPress';
 }
+
 
 
 /**
