@@ -13,12 +13,29 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
+add_action('admin_menu', 'dfn_logs_register_admin_menu', 99);
+
+/**
+ * Registra il sottomenu Log di Sistema in FAI Prenotazioni.
+ */
+function dfn_logs_register_admin_menu(): void
+{
+    add_submenu_page(
+        'dfn-events',
+        __('Log di Sistema', 'dfn-theme'),
+        __('📋 Log di Sistema', 'dfn-theme'),
+        'read',
+        'dfn-logs',
+        'dfn_render_logs_page'
+    );
+}
+
 /**
  * Renderizza la pagina admin Log di Sistema.
  */
 function dfn_render_logs_page(): void
 {
-    if (! current_user_can('edit_pages') && ! current_user_can('manage_options') && ! current_user_can('dfn_manage_events')) {
+    if (! is_user_logged_in() || ! current_user_can('read')) {
         wp_die(__('Permessi insufficienti.', 'dfn-theme'));
     }
 
