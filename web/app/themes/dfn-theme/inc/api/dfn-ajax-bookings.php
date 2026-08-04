@@ -678,6 +678,13 @@ function dfn_ajax_create_direct_booking(): void
         wp_send_json_error([ 'message' => esc_html__('Evento non valido.', 'dfn-theme') ]);
     }
 
+    // Blocco anti-duplicati / invii simultanei
+    $lock_key = 'dfn_booking_lock_' . md5($event_id . '_' . $date . '_' . $slot_id . '_' . strtolower($email) . '_' . strtolower($first_name . $last_name));
+    if (get_transient($lock_key)) {
+        wp_send_json_error([ 'message' => esc_html__('Una richiesta di prenotazione per questi dati è già in corso. Attendi qualche istante.', 'dfn-theme') ]);
+    }
+    set_transient($lock_key, 1, 10);
+
     global $wpdb;
 
     $confirm_split = isset($_POST['confirm_split']) && '1' === $_POST['confirm_split'];
