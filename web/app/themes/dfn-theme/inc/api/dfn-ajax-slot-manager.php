@@ -113,7 +113,7 @@ function dfn_ajax_admin_get_slots(): void
              WHERE event_id = %d
                AND DATE(created_at) = %s
                AND status != 'cancelled'
-             ORDER BY created_at ASC",
+             ORDER BY created_at DESC, id DESC",
             $event_id,
             $date,
         ));
@@ -123,7 +123,7 @@ function dfn_ajax_admin_get_slots(): void
             $bookings_raw = $wpdb->get_results($wpdb->prepare(
                 "SELECT * FROM {$table_bookings}
                  WHERE event_id = %d AND status != 'cancelled'
-                 ORDER BY created_at ASC",
+                 ORDER BY created_at DESC, id DESC",
                 $event_id,
             ));
         }
@@ -168,7 +168,7 @@ function dfn_ajax_admin_get_slots(): void
              FROM {$table_bookings} b
              INNER JOIN {$table_booking_slots} bs ON b.id = bs.booking_id
              WHERE bs.slot_id = %d AND b.status != 'cancelled'
-             ORDER BY b.created_at ASC",
+             ORDER BY b.created_at DESC, b.id DESC",
             $slot->id,
         ));
 

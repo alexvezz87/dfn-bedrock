@@ -148,13 +148,14 @@
                         '<th style="padding:10px; font-weight:700; width:120px;">Qualifica</th>' +
                         '<th style="padding:10px; font-weight:700; width:130px;">Telefono</th>' +
                         '<th style="padding:10px; font-weight:700; width:90px; text-align:center;">Biglietti</th>' +
-                        '<th style="padding:10px; font-weight:700; width:130px; text-align:center;">Pagamento</th>' +
+                        '<th style="padding:10px; font-weight:700; width:120px; text-align:center;">Pagamento</th>' +
+                        '<th style="padding:10px; font-weight:700; width:180px;">Note</th>' +
                         '<th style="padding:10px; font-weight:700; width:140px; text-align:center;">Azioni</th>' +
                     '</tr></thead>' +
                     '<tbody>';
 
                 if (filteredBookings.length === 0) {
-                    tableHtml += '<tr><td colspan="7" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
+                    tableHtml += '<tr><td colspan="8" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
                 } else {
                     filteredBookings.forEach(function(b) {
                         var orderEditUrl = dfnAdminVars.ajaxurl.replace('admin-ajax.php', 'post.php?post=' + b.order_id + '&action=edit');
@@ -163,6 +164,9 @@
                         var payBadge     = b.payment_status === 'pagato'
                             ? '<span style="background:#dcfce7; color:#166534; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9989; Pagato</span>'
                             : '<span style="background:#fef2f2; color:#991b1b; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9203; Da pagare</span>';
+                        var notesCell    = b.notes
+                            ? '<div style="font-size:11.5px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:4px 8px; border-radius:4px; font-style:italic; line-height:1.3; max-width:200px; word-break:break-word;">💬 ' + escHtml(b.notes) + '</div>'
+                            : '<span style="color:#cbd5e1;">-</span>';
 
                         tableHtml +=
                             '<tr class="dfn-slot-booking-row" data-booking-id="' + b.id + '" data-persons="' + b.slot_persons + '" data-name="' + b.customer_name + '" data-slot-id="' + slot.id + '">' +
@@ -175,6 +179,7 @@
                                 '<td style="padding:10px; vertical-align:middle;">' + telLink + '</td>' +
                                 '<td style="padding:10px; vertical-align:middle; text-align:center; font-weight:700;">' + b.slot_persons + '</td>' +
                                 '<td style="padding:10px; vertical-align:middle; text-align:center;">' + payBadge + '</td>' +
+                                '<td style="padding:10px; vertical-align:middle;">' + notesCell + '</td>' +
                                 '<td style="padding:10px; vertical-align:middle; text-align:center;">' +
                                     '<div style="display:flex; gap:5px; justify-content:center;">' +
                                         '<button class="dfn-btn dfn-btn-secondary slot-booking-info" title="Dettagli" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-visibility" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
