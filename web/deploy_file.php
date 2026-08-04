@@ -11,6 +11,40 @@ if ($token !== '202605300020') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $raw = file_get_contents('php://input');
     $data = json_decode($raw, true);
+
+    if (!empty($data['action']) && $data['action'] === 'cleanup') {
+        $cleaned = [];
+        $orphan_dir = __DIR__ . '/web';
+        if (is_dir($orphan_dir)) {
+            $delete_dir = function ($dir) use (&$delete_dir) {
+                if (!is_dir($dir)) return;
+                $items = array_diff(scandir($dir), ['.', '..']);
+                foreach ($items as $item) {
+                    $path = $dir . '/' . $item;
+                    is_dir($path) ? $delete_dir($path) : @unlink($path);
+                }
+                @rmdir($dir);
+            };
+            $delete_dir($orphan_dir);
+            $cleaned[] = 'Orphan /web/web directory deleted';
+        }
+        $temp_files = [
+            __DIR__ . '/test_prod.php',
+            __DIR__ . '/deploy.tar.gz',
+            __DIR__ . '/deploy.zip',
+            dirname(__DIR__) . '/deploy.tar.gz',
+            dirname(__DIR__) . '/deploy.zip',
+        ];
+        foreach ($temp_files as $tf) {
+            if (file_exists($tf)) {
+                @unlink($tf);
+                $cleaned[] = basename($tf) . ' deleted';
+            }
+        }
+        echo "CLEANUP COMPLETE: " . (empty($cleaned) ? 'No orphan files found' : implode(', ', $cleaned));
+        exit;
+    }
+
     if (!empty($data['filepath']) && isset($data['content_b64'])) {
         $rel_path = ltrim($data['filepath'], '/');
         $target_file = __DIR__ . '/' . $rel_path;
