@@ -370,7 +370,11 @@ function dfn_handle_registration_double_opt_in($errors, $username, $password, $e
 
     $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
 
-    wp_mail($email, $subject, $body, $headers);
+    $sent_reg = wp_mail($email, $subject, $body, $headers);
+    if (function_exists('dfn_log_email')) {
+        $from_address = dfn_get_setting('delegation_email', get_option('admin_email'));
+        dfn_log_email($email, $subject, $from_address, (bool) $sent_reg, 'Conferma registrazione', 'FAI Prenotazioni');
+    }
 
     // Mostra l'avviso verde di successo prima di interrompere il flusso
     if (function_exists('wc_add_notice')) {
@@ -467,7 +471,11 @@ function dfn_process_email_confirmation(): void
                 $welcome_body .= '<p style="color: #475569; line-height: 1.6;">Puoi accedere all\'Area Riservata in qualsiasi momento utilizzando questo link:<br><a href="' . esc_url($myaccount_url) . '" style="color: #004b23; font-weight: bold;">' . esc_url($myaccount_url) . '</a></p>';
                 $welcome_body .= '</div>';
 
-                wp_mail($email, $welcome_subject, $welcome_body, [ 'Content-Type: text/html; charset=UTF-8' ]);
+                $sent_welcome = wp_mail($email, $welcome_subject, $welcome_body, [ 'Content-Type: text/html; charset=UTF-8' ]);
+                if (function_exists('dfn_log_email')) {
+                    $from_address = dfn_get_setting('delegation_email', get_option('admin_email'));
+                    dfn_log_email($email, $welcome_subject, $from_address, (bool) $sent_welcome, 'Benvenuto account attivato', 'FAI Prenotazioni');
+                }
             }
         } else {
             $wpdb->delete($table_pending, ['id' => $pending->id], ['%d']);

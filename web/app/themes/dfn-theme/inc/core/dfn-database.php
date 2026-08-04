@@ -3,13 +3,14 @@
 /**
  * DFN Booking System 2.0 — Database Schema & Migration
  *
- * Crea e gestisce le 6 tabelle custom del sistema prenotazioni:
+ * Crea e gestisce le tabelle custom del sistema prenotazioni:
  * - dfn_events          : Metadata centralizzata degli eventi
  * - dfn_event_slots     : Turni/slot orari generati per evento
  * - dfn_bookings        : Record master prenotazione (per gruppo)
  * - dfn_booking_slots   : Assegnazione N:M prenotazione → slot
  * - dfn_fai_members     : Anagrafica iscritti FAI con tessera
  * - dfn_waitlist        : Lista di attesa con TTL
+ * - dfn_logs            : Log centralizzato delle azioni di sistema
  *
  * @package DFN_Theme
  * @since   2.0.0
@@ -20,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.1.5');
+define('DFN_DB_VERSION', '2.2.0');
 
 /**
  * ========================================================================
@@ -244,6 +245,23 @@ function dfn_db_install(): void
         KEY idx_email (email)
     ) {$charset_collate};";
 
+    // -------------------------------------------------------------------
+    // TABELLA 8: Log Azioni di Sistema
+    // -------------------------------------------------------------------
+    $table_logs = $wpdb->prefix . 'dfn_logs';
+    $sql_logs = "CREATE TABLE {$table_logs} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        logged_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        type varchar(50) NOT NULL DEFAULT 'generic',
+        executor varchar(100) NOT NULL DEFAULT 'Sistema',
+        description text NOT NULL,
+        outcome varchar(20) NOT NULL DEFAULT 'success',
+        PRIMARY KEY  (id),
+        KEY idx_type (type),
+        KEY idx_outcome (outcome),
+        KEY idx_logged_at (logged_at)
+    ) {$charset_collate};";
+
     // Esecuzione idempotente di tutte le tabelle
     dbDelta($sql_events);
     dbDelta($sql_slots);
@@ -252,6 +270,7 @@ function dfn_db_install(): void
     dbDelta($sql_fai);
     dbDelta($sql_waitlist);
     dbDelta($sql_pending);
+    dbDelta($sql_logs);
 
     // Forza la creazione della colonna description se manca (dbDelta a volte fallisce l'alter)
     $row = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'description'");

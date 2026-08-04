@@ -117,6 +117,16 @@ function dfn_admin_register_menus()
 
     // Enqueue degli asset specifici per l'admin
     add_action('admin_enqueue_scripts', 'dfn_enqueue_admin_assets');
+
+    // Sottomenu "Log di Sistema"
+    add_submenu_page(
+        'dfn-events',
+        __('Log di Sistema', 'dfn-theme'),
+        __('📋 Log', 'dfn-theme'),
+        'dfn_manage_events',
+        'dfn-logs',
+        'dfn_render_logs_page',
+    );
 }
 
 /**

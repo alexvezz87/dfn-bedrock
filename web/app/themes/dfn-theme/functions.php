@@ -22,6 +22,7 @@ require_once get_stylesheet_directory() . '/inc/core/dfn-database.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-setup.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-helpers.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-security.php';
+require_once get_stylesheet_directory() . '/inc/core/dfn-logger.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-notifications.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-cron.php';
 
@@ -49,6 +50,7 @@ require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-members-admin.php'
 require_once get_stylesheet_directory() . '/inc/admin/dfn-waitlist.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-quick-booking.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-pending-bookings.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-logs.php';
 
 // API / Router
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slots.php';
