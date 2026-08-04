@@ -9,31 +9,45 @@ if ($token !== '202605300020') {
     exit('Forbidden: invalid token');
 }
 
+$target_dir = __DIR__;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $raw = file_get_contents('php://input');
     $data = json_decode($raw, true);
     if (!empty($data['archive_b64'])) {
-        $tar_content = base64_decode($data['archive_b64']);
-        file_put_contents(__DIR__ . '/deploy.tar.gz', $tar_content);
+        $archive_content = base64_decode($data['archive_b64']);
+        file_put_contents(__DIR__ . '/deploy.zip', $archive_content);
     }
 }
 
 header('Content-Type: text/html; charset=utf-8');
 echo "<html><head><title>Scompattatore Bedrock</title></head><body style='font-family: sans-serif; padding: 20px; line-height: 1.6;'>";
 
-$archive = file_exists(__DIR__ . '/deploy.tar.gz') ? __DIR__ . '/deploy.tar.gz' : null;
+$archive = file_exists(__DIR__ . '/deploy.zip') ? __DIR__ . '/deploy.zip' : (file_exists(__DIR__ . '/deploy.tar.gz') ? __DIR__ . '/deploy.tar.gz' : null);
 
 if ($archive) {
     echo "<p>Trovato $archive (" . filesize($archive) . " bytes). Avvio estrazione...</p>";
-    $target_dir = __DIR__;
-
     $extracted = false;
 
-    // Tentativo 1: PharData (PHP nativo, sincrono, affidabile)
-    if (class_exists('PharData')) {
+    if (str_ends_with($archive, '.zip') && class_exists('ZipArchive')) {
+        $zip = new ZipArchive();
+        if ($zip->open($archive) === true) {
+            $zip->extractTo($target_dir);
+            $zip->close();
+            echo "<p style='color: green; font-weight: bold;'>SUCCESS: Estrazione ZipArchive completata in " . htmlspecialchars($target_dir) . "</p>";
+            $extracted = true;
+        } else {
+            echo "<p style='color: red;'>Errore apertura ZipArchive.</p>";
+        }
+    }
+
+    if (!$extracted && class_exists('PharData')) {
         try {
             $phar = new PharData($archive);
-            $phar->extractTo($target_dir, null, true); // true = sovrascrivi
+            if ($phar->isCompressed()) {
+                $phar = $phar->decompress();
+            }
+            $phar->extractTo($target_dir, null, true);
             echo "<p style='color: green; font-weight: bold;'>SUCCESS: Estrazione PharData completata in " . htmlspecialchars($target_dir) . "</p>";
             $extracted = true;
         } catch (Exception $e) {
@@ -41,7 +55,6 @@ if ($archive) {
         }
     }
 
-    // Tentativo 2: exec('tar -xzf ...') sincrono se PharData fallisce
     if (!$extracted && function_exists('exec')) {
         $output = [];
         $return_var = 0;
@@ -60,7 +73,7 @@ if ($archive) {
         @unlink($archive);
     }
 } else {
-    echo "<p style='color: red;'>File deploy.tar.gz non trovato.</p>";
+    echo "<p style='color: red;'>File di archivio non trovato.</p>";
 }
 
 echo "</body></html>";
