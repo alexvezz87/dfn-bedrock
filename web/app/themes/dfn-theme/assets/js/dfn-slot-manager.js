@@ -151,21 +151,22 @@
                 // ── Tabella Gestione Prenotazioni (senza colonne check-in) ──
                 var tableHtml =
                     '<div style="overflow-x:auto;">' +
-                    '<table class="wp-list-table widefat fixed striped dfn-bookings-rich-table" style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1;">' +
+                    '<table class="wp-list-table widefat striped dfn-bookings-rich-table" style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1; table-layout:auto;">' +
                     '<thead><tr style="background:#f1f5f9;">' +
-                        '<th style="padding:10px; font-weight:700; width:80px;">Ordine #</th>' +
-                        '<th style="padding:10px; font-weight:700;">Cliente</th>' +
-                        '<th style="padding:10px; font-weight:700; width:120px;">Qualifica</th>' +
-                        '<th style="padding:10px; font-weight:700; width:130px;">Telefono</th>' +
-                        '<th style="padding:10px; font-weight:700; width:90px; text-align:center;">Biglietti</th>' +
-                        '<th style="padding:10px; font-weight:700; width:120px; text-align:center;">Pagamento</th>' +
-                        '<th style="padding:10px; font-weight:700; width:180px;">Note</th>' +
-                        '<th style="padding:10px; font-weight:700; width:140px; text-align:center;">Azioni</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:75px;">Ordine #</th>' +
+                        '<th style="padding:10px 8px; font-weight:700;">Cliente</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:100px;">Qualifica</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:110px;">Telefono</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:75px; text-align:center;">Biglietti</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:105px; text-align:center;">Pagamento</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:140px; text-align:center;">Prenotazione registrata</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:130px;">Note</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:125px; text-align:center;">Azioni</th>' +
                     '</tr></thead>' +
                     '<tbody>';
 
                 if (filteredBookings.length === 0) {
-                    tableHtml += '<tr><td colspan="8" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
+                    tableHtml += '<tr><td colspan="9" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
                 } else {
                     filteredBookings.forEach(function(b) {
                         var orderEditUrl = dfnAdminVars.ajaxurl.replace('admin-ajax.php', 'post.php?post=' + b.order_id + '&action=edit');
@@ -174,29 +175,33 @@
                         var payBadge     = b.payment_status === 'pagato'
                             ? '<span style="background:#dcfce7; color:#166534; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9989; Pagato</span>'
                             : '<span style="background:#fef2f2; color:#991b1b; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9203; Da pagare</span>';
+                        
                         var noteRaw = b.notes ? b.notes.trim() : '';
-                        var isLongNote = noteRaw.length > 35;
-                        var noteDisplay = isLongNote ? noteRaw.substring(0, 35) + '…' : noteRaw;
+                        var isLongNote = noteRaw.length > 25;
+                        var noteDisplay = isLongNote ? noteRaw.substring(0, 25) + '…' : noteRaw;
 
                         var notesCell = noteRaw
-                            ? '<div class="dfn-note-balloon" data-full-note="' + escHtml(noteRaw) + '" data-customer="' + escHtml(b.customer_name) + '" data-order="' + (b.order_id || '-') + '" style="font-size:11.5px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:5px 10px; border-radius:6px; font-style:italic; line-height:1.3; max-width:190px; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.15s ease;" title="Clicca per visualizzare la nota completa">' +
-                                  '<span>💬</span> <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + escHtml(noteDisplay) + '</span>' +
+                            ? '<div class="dfn-note-balloon" data-full-note="' + escHtml(noteRaw) + '" data-customer="' + escHtml(b.customer_name) + '" data-order="' + (b.order_id || '-') + '" style="font-size:11px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:4px 7px; border-radius:5px; font-style:italic; line-height:1.2; max-width:125px; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:3px; transition:all 0.15s ease;" title="Clicca per visualizzare la nota completa">' +
+                                  '<span>💬</span> <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100px;">' + escHtml(noteDisplay) + '</span>' +
                               '</div>'
                             : '<span style="color:#cbd5e1;">-</span>';
 
+                        var dateRegistered = b.created_at_formatted || b.created_at || '-';
+
                         tableHtml +=
                             '<tr class="dfn-slot-booking-row" data-booking-id="' + b.id + '" data-persons="' + b.slot_persons + '" data-name="' + b.customer_name + '" data-slot-id="' + slot.id + '">' +
-                                '<td style="padding:10px; vertical-align:middle;">' + orderLink + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle;">' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' + orderLink + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' +
                                     '<div style="font-weight:700;">' + b.customer_name + '</div>' +
                                     '<div style="font-size:11px; color:#64748b;">' + (b.customer_email !== 'no-email@dfn.it' ? b.customer_email : '') + '</div>' +
                                 '</td>' +
-                                '<td style="padding:10px; vertical-align:middle;">' + (b.qualifica_html || '') + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle;">' + telLink + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle; text-align:center; font-weight:700;">' + b.slot_persons + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle; text-align:center;">' + payBadge + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle;">' + notesCell + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle; text-align:center;">' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' + (b.qualifica_html || '') + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' + telLink + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle; text-align:center; font-weight:700;">' + b.slot_persons + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle; text-align:center;">' + payBadge + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle; text-align:center; font-size:12px; color:#334155; white-space:nowrap;">' + dateRegistered + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' + notesCell + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle; text-align:center;">' +
                                     '<div style="display:flex; gap:5px; justify-content:center;">' +
                                         '<button class="dfn-btn dfn-btn-secondary slot-booking-info" title="Dettagli" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-visibility" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
                                         '<button class="dfn-btn dfn-btn-secondary dfn-btn-move-booking" title="Sposta turno" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-randomize" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +

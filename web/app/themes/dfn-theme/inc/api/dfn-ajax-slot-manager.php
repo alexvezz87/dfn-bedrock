@@ -1639,6 +1639,7 @@ function dfn_enrich_booking_data($b, $order) {
         'qr_token'         => esc_html($b->qr_token),
         'notes'            => esc_html($b->notes),
         'created_at'       => esc_html($b->created_at),
+        'created_at_formatted' => $b->created_at ? date_i18n('d/m/Y - H:i', strtotime($b->created_at)) : '-',
         'fai_cards'        => $fai_cards,
         'order_total'      => $order_total,
         'payment_status'   => $payment_status,
