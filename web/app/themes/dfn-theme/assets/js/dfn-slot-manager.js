@@ -437,6 +437,7 @@
                             '<div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + b.customer_name + '</div>' +
                             '<div style="font-size:11px; color:#64748b;">' + orderLink + ' &bull; ' + b.slot_persons + ' posti &bull; ' + paymentBadge + '</div>' +
                             (b.customer_phone ? '<div style="font-size:11px; color:#64748b;"><a href="tel:' + b.customer_phone + '">' + b.customer_phone + '</a></div>' : '') +
+                            (b.notes ? '<div style="font-size:11px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:4px 8px; border-radius:4px; margin-top:4px; font-style:italic;">💬 <strong>Note:</strong> ' + escHtml(b.notes) + '</div>' : '') +
                         '</div>' +
                         '<div class="slot-booking-actions" style="display:flex; gap:6px; flex-shrink:0;">' +
                             '<button type="button" class="dfn-btn dfn-btn-secondary dfn-btn-move-booking" title="Sposta turno" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-randomize" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
@@ -1222,9 +1223,9 @@
                         displayName = b.customer_name;
                     }
 
-                    var contribution = parseFloat(b.order_total || 0).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-                    var paymentStatusText = b.payment_status === 'pagato' ? 'Pagato' : 'Ancora da pagare';
-                    var paymentStatusClass = b.payment_status === 'pagato' ? 'payment-status-pagato' : 'payment-status-non-pagato';
+                    if (b.notes) {
+                        displayName += '<div style="font-size:9px; color:#334155; font-style:italic; margin-top:2px; font-weight:normal;">💬 Note: ' + b.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    }
 
                     printHtml += '<tr>';
                     printHtml += '<td>' + (idx + 1) + '</td>';

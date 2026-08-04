@@ -633,6 +633,7 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
         WC()->session->set('dfn_checkout_last_name', null);
         WC()->session->set('dfn_checkout_email', null);
         WC()->session->set('dfn_checkout_phone', null);
+        WC()->session->set('dfn_checkout_notes', null);
         WC()->session->set('dfn_checkout_fai_cards', null);
     }
 }
@@ -897,12 +898,13 @@ function dfn_ajax_create_direct_booking(): void
         // Aggiungi il prodotto al carrello con i dati della prenotazione
         WC()->cart->add_to_cart($product_id, $total_qty, 0, [], $cart_item_data);
 
-        // Salva i dati di contatto e le tessere nella sessione di WooCommerce
+        // Salva i dati di contatto, note e tessere nella sessione di WooCommerce
         if (WC()->session) {
             WC()->session->set('dfn_checkout_first_name', $first_name);
             WC()->session->set('dfn_checkout_last_name', $last_name);
             WC()->session->set('dfn_checkout_email', $email);
             WC()->session->set('dfn_checkout_phone', $phone);
+            WC()->session->set('dfn_checkout_notes', $notes);
             if (! empty($fai_cards)) {
                 WC()->session->set('dfn_checkout_fai_cards', $fai_cards);
             }

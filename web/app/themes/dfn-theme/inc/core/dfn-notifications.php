@@ -320,6 +320,9 @@ function dfn_send_booking_confirmation(int $booking_id)
     } elseif ($is_event_free) {
         $details_table .= '<tr><td class="label">Contributo minimo suggerito:</td><td style="font-weight:bold; color:#004b23;">Ingresso Gratuito (€0.00)</td></tr>';
     }
+    if (! empty($booking->notes)) {
+        $details_table .= '<tr><td class="label">Note / Richieste:</td><td style="font-style:italic; color:#475569;">' . esc_html($booking->notes) . '</td></tr>';
+    }
     $details_table .= '</table>';
     $details_table .= '</div>';
 
@@ -382,6 +385,9 @@ function dfn_send_booking_pending_approval(int $booking_id)
     $details_table .= '<tr><td class="label">Evento:</td><td>' . esc_html($product_name) . '</td></tr>';
     $details_table .= '<tr><td class="label">Stato:</td><td style="font-weight:bold; color:#e74f30;">In Attesa di Approvazione Staff</td></tr>';
     $details_table .= '<tr><td class="label">Partecipanti:</td><td>' . absint($booking->total_persons) . ' totali</td></tr>';
+    if (! empty($booking->notes)) {
+        $details_table .= '<tr><td class="label">Note / Richieste:</td><td style="font-style:italic; color:#475569;">' . esc_html($booking->notes) . '</td></tr>';
+    }
     $details_table .= '</table>';
     $details_table .= '</div>';
 
