@@ -13,6 +13,16 @@
             return;
         }
 
+        function escHtml(str) {
+            if (!str) return '';
+            return str.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         var eventId = parseInt($wrapper.data('event-id'), 10);
         var nonce = $wrapper.data('nonce');
         var accessType = $wrapper.data('access-type') || 'time_slots'; // 'free_flow' o 'time_slots'
