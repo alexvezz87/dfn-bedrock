@@ -25,6 +25,13 @@ function dfn_render_logs_page(): void
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_logs';
 
+    // Self-healing: crea la tabella se non esiste ancora (es. prima migrazione DB 2.2.0)
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$table}'") !== $table) {
+        if (function_exists('dfn_db_install')) {
+            dfn_db_install();
+        }
+    }
+
     // --- Azioni manuali ---
     if (isset($_POST['dfn_log_action']) && check_admin_referer('dfn_log_action_nonce')) {
         $action = sanitize_text_field($_POST['dfn_log_action']);
@@ -46,7 +53,8 @@ function dfn_render_logs_page(): void
     $filter_date    = isset($_GET['filter_date'])    ? sanitize_text_field($_GET['filter_date'])    : '';
     $filter_search  = isset($_GET['filter_search'])  ? sanitize_text_field($_GET['filter_search'])  : '';
     $allowed_per_page = [20, 50, 100];
-    $per_page         = in_array((int) ($_GET['per_page'] ?? 20), $allowed_per_page, true) ? (int) $_GET['per_page'] : 20;
+    $req_per_page     = isset($_GET['per_page']) ? (int) $_GET['per_page'] : 20;
+    $per_page         = in_array($req_per_page, $allowed_per_page, true) ? $req_per_page : 20;
     $current_page   = max(1, (int) ($_GET['paged'] ?? 1));
     $offset         = ($current_page - 1) * $per_page;
 
@@ -83,7 +91,7 @@ function dfn_render_logs_page(): void
         $logs       = $wpdb->get_results($wpdb->prepare($data_sql, $per_page, $offset));
     }
 
-    $total_pages = max(1, (int) ceil($total_rows / $per_page));
+    $total_pages = ($per_page > 0 && $total_rows > 0) ? (int) ceil($total_rows / $per_page) : 1;
 
     // --- Elenco tipologie distinte per filtro ---
     $types = $wpdb->get_col("SELECT DISTINCT type FROM {$table} ORDER BY type ASC");
