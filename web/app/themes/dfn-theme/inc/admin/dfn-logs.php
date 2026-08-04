@@ -41,12 +41,12 @@ function dfn_render_logs_page(): void
         }
     }
 
-    // --- Parametri filtro ---
     $filter_type    = isset($_GET['filter_type'])    ? sanitize_text_field($_GET['filter_type'])    : '';
     $filter_outcome = isset($_GET['filter_outcome']) ? sanitize_text_field($_GET['filter_outcome']) : '';
     $filter_date    = isset($_GET['filter_date'])    ? sanitize_text_field($_GET['filter_date'])    : '';
     $filter_search  = isset($_GET['filter_search'])  ? sanitize_text_field($_GET['filter_search'])  : '';
-    $per_page       = 25;
+    $allowed_per_page = [20, 50, 100];
+    $per_page         = in_array((int) ($_GET['per_page'] ?? 20), $allowed_per_page, true) ? (int) $_GET['per_page'] : 20;
     $current_page   = max(1, (int) ($_GET['paged'] ?? 1));
     $offset         = ($current_page - 1) * $per_page;
 
@@ -95,8 +95,7 @@ function dfn_render_logs_page(): void
         <h1 class="wp-heading-inline">📋 Log di Sistema</h1>
         <hr class="wp-header-end">
 
-        <!-- FILTRI -->
-        <form method="get" action="<?php echo esc_url($base_url); ?>" class="dfn-logs-filters">
+        <form method="get" action="<?php echo esc_url($base_url); ?>" class="dfn-logs-filters" id="dfn-logs-filter-form">
             <input type="hidden" name="page" value="dfn-logs">
             <div class="dfn-logs-filter-row">
                 <label>
@@ -125,6 +124,14 @@ function dfn_render_logs_page(): void
                 <label>
                     Cerca
                     <input type="text" name="filter_search" value="<?php echo esc_attr($filter_search); ?>" placeholder="Descrizione o esecutore…">
+                </label>
+                <label>
+                    Righe per pagina
+                    <select name="per_page" id="dfn-per-page-select" onchange="document.getElementById('dfn-logs-filter-form').submit()">
+                        <?php foreach ([20, 50, 100] as $opt) : ?>
+                            <option value="<?php echo $opt; ?>" <?php selected($per_page, $opt); ?>><?php echo $opt; ?> per pagina</option>
+                        <?php endforeach; ?>
+                    </select>
                 </label>
                 <button type="submit" class="button button-primary">Filtra</button>
                 <a href="<?php echo esc_url($base_url); ?>" class="button">Reset</a>
@@ -159,7 +166,10 @@ function dfn_render_logs_page(): void
 
         <!-- RISULTATI / TABELLA -->
         <div class="dfn-logs-result-info">
-            <?php printf('<strong>%d</strong> log trovati (pagina %d di %d)', $total_rows, $current_page, $total_pages); ?>
+            <?php printf(
+                '<strong>%d</strong> log trovati &mdash; pagina <strong>%d</strong> di <strong>%d</strong> &mdash; <span class="dfn-per-page-info">%d righe per pagina</span>',
+                $total_rows, $current_page, $total_pages, $per_page
+            ); ?>
         </div>
 
         <?php if (! empty($logs)) : ?>
@@ -215,6 +225,7 @@ function dfn_render_logs_page(): void
                                 'filter_outcome' => $filter_outcome,
                                 'filter_date'    => $filter_date,
                                 'filter_search'  => $filter_search,
+                                'per_page'       => $per_page !== 20 ? $per_page : false,
                             ]),
                         ]);
                         echo wp_kses_post($page_links);
@@ -290,6 +301,9 @@ function dfn_render_logs_page(): void
         .dfn-logs-cleanup-actions { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
         .dfn-cleanup-group { display: flex; align-items: center; gap: 8px; }
         .button-link-delete { color: #b91c1c !important; }
+        #dfn-per-page-select { border: 1px solid #3b82f6 !important; color: #1e40af; font-weight: 600; cursor: pointer; background: #eff6ff; }
+        #dfn-per-page-select:focus { outline: 2px solid #3b82f6; }
+        .dfn-per-page-info { background: #eff6ff; color: #1e40af; font-weight: 600; padding: 1px 7px; border-radius: 4px; font-size: 11px; }
     </style>
     <?php
 }
