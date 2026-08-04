@@ -580,7 +580,7 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                         'amount_due'       => $amount_due,
                         'amount_paid'      => $amount_paid,
                         'notes'            => $order->get_customer_note(),
-                        'created_at'       => $booking_date . ' ' . date('H:i:s'),
+                        'created_at'       => current_time('mysql'),
                     ],
                     [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
                 );
