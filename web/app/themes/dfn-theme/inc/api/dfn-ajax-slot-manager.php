@@ -134,6 +134,13 @@ function dfn_ajax_admin_get_slots(): void
             $bookings_list[] = dfn_enrich_booking_data($b, $order);
         }
 
+        // Ordinamento rigoroso dal più recente al meno recente (per Order ID o ID Prenotazione)
+        usort($bookings_list, function ($a, $b) {
+            $id_a = ! empty($a['order_id']) ? intval($a['order_id']) : intval($a['id']);
+            $id_b = ! empty($b['order_id']) ? intval($b['order_id']) : intval($b['id']);
+            return $id_b <=> $id_a;
+        });
+
         $total_booked = array_sum(array_column($bookings_list, 'total_persons'));
 
         // Slot virtuale: id=0 segnala al JS che è flusso libero
@@ -177,6 +184,12 @@ function dfn_ajax_admin_get_slots(): void
             $order = $b->order_id ? wc_get_order($b->order_id) : null;
             $bookings_list[] = dfn_enrich_booking_data($b, $order);
         }
+
+        usort($bookings_list, function ($a, $b) {
+            $id_a = ! empty($a['order_id']) ? intval($a['order_id']) : intval($a['id']);
+            $id_b = ! empty($b['order_id']) ? intval($b['order_id']) : intval($b['id']);
+            return $id_b <=> $id_a;
+        });
 
         $slots_data[] = [
             'id'             => intval($slot->id),

@@ -417,5 +417,24 @@ function dfn_render_slot_manager()
             <button type="button" class="button cv-close-modal-btn" style="text-align:center; width:100%; padding: 10px; height: auto; font-size: 16px; margin-top:10px;"><?php esc_html_e('Chiudi Log', 'dfn-theme'); ?></button>
         </div>
     </div>
+
+    <!-- MODALE 7: Visualizzazione Nota Completa del Visitatore -->
+    <div id="dfn-modal-view-note" class="dfn-sm-modal">
+        <div class="dfn-sm-modal-content" style="max-width: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);">
+            <div class="dfn-sm-modal-header" style="background:#fffdf5; border-bottom:1px solid #ffeeba; padding: 16px 20px;">
+                <h3 style="margin:0; font-size:16px; color:#856404; display:flex; align-items:center; gap:8px;">
+                    <span>💬</span> <?php esc_html_e('Nota del Visitatore', 'dfn-theme'); ?>
+                </h3>
+                <span class="dfn-modal-close" data-modal="dfn-modal-view-note" style="font-size:24px; cursor:pointer; color:#856404; line-height:1;">&times;</span>
+            </div>
+            <div class="dfn-sm-modal-body" style="padding: 20px;">
+                <div id="dfn-note-modal-subtitle" style="font-size:12px; color:#64748b; margin-bottom:12px; font-weight:600;"></div>
+                <div id="dfn-note-modal-content" style="font-size:13.5px; color:#1e293b; line-height:1.6; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:16px; white-space:pre-wrap; max-height:280px; overflow-y:auto; word-break:break-word;"></div>
+            </div>
+            <div class="dfn-sm-modal-footer" style="padding: 12px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; text-align:right;">
+                <button type="button" class="dfn-btn dfn-btn-secondary dfn-modal-close-btn" data-modal="dfn-modal-view-note" style="padding: 6px 16px; font-weight:600;"><?php esc_html_e('Chiudi', 'dfn-theme'); ?></button>
+            </div>
+        </div>
+    </div>
     <?php
 }

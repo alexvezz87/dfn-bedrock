@@ -174,8 +174,14 @@
                         var payBadge     = b.payment_status === 'pagato'
                             ? '<span style="background:#dcfce7; color:#166534; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9989; Pagato</span>'
                             : '<span style="background:#fef2f2; color:#991b1b; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9203; Da pagare</span>';
-                        var notesCell    = b.notes
-                            ? '<div style="font-size:11.5px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:4px 8px; border-radius:4px; font-style:italic; line-height:1.3; max-width:200px; word-break:break-word;">💬 ' + escHtml(b.notes) + '</div>'
+                        var noteRaw = b.notes ? b.notes.trim() : '';
+                        var isLongNote = noteRaw.length > 35;
+                        var noteDisplay = isLongNote ? noteRaw.substring(0, 35) + '…' : noteRaw;
+
+                        var notesCell = noteRaw
+                            ? '<div class="dfn-note-balloon" data-full-note="' + escHtml(noteRaw) + '" data-customer="' + escHtml(b.customer_name) + '" data-order="' + (b.order_id || '-') + '" style="font-size:11.5px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:5px 10px; border-radius:6px; font-style:italic; line-height:1.3; max-width:190px; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.15s ease;" title="Clicca per visualizzare la nota completa">' +
+                                  '<span>💬</span> <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + escHtml(noteDisplay) + '</span>' +
+                              '</div>'
                             : '<span style="color:#cbd5e1;">-</span>';
 
                         tableHtml +=
@@ -452,7 +458,7 @@
                             '<div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + b.customer_name + '</div>' +
                             '<div style="font-size:11px; color:#64748b;">' + orderLink + ' &bull; ' + b.slot_persons + ' posti &bull; ' + paymentBadge + '</div>' +
                             (b.customer_phone ? '<div style="font-size:11px; color:#64748b;"><a href="tel:' + b.customer_phone + '">' + b.customer_phone + '</a></div>' : '') +
-                            (b.notes ? '<div style="font-size:11px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:4px 8px; border-radius:4px; margin-top:4px; font-style:italic;">💬 <strong>Note:</strong> ' + escHtml(b.notes) + '</div>' : '') +
+                            (b.notes ? '<div class="dfn-note-balloon" data-full-note="' + escHtml(b.notes) + '" data-customer="' + escHtml(b.customer_name) + '" data-order="' + (b.order_id || '-') + '" style="font-size:11px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:4px 8px; border-radius:4px; margin-top:4px; font-style:italic; cursor:pointer; display:inline-block;" title="Clicca per visualizzare la nota completa">💬 <strong>Note:</strong> ' + escHtml(b.notes.length > 35 ? b.notes.substring(0, 35) + '…' : b.notes) + '</div>' : '') +
                         '</div>' +
                         '<div class="slot-booking-actions" style="display:flex; gap:6px; flex-shrink:0;">' +
                             '<button type="button" class="dfn-btn dfn-btn-secondary dfn-btn-move-booking" title="Sposta turno" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-randomize" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
@@ -701,6 +707,26 @@
             if ($(e.target).hasClass('dfn-sm-modal')) {
                 closeModal($(e.target));
             }
+        });
+
+        // Apertura popup nota completa
+        $(document).on('click', '.dfn-note-balloon', function(e) {
+            e.stopPropagation();
+            var fullNote = $(this).data('full-note');
+            var customer = $(this).data('customer');
+            var orderId  = $(this).data('order');
+
+            var $modal = $('#dfn-modal-view-note');
+            $modal.find('#dfn-note-modal-subtitle').text('Cliente: ' + customer + (orderId && orderId !== '-' ? ' • Ordine #' + orderId : ''));
+            $modal.find('#dfn-note-modal-content').text(fullNote);
+
+            openModal($modal, 3);
+        });
+
+        $(document).on('mouseenter', '.dfn-note-balloon', function() {
+            $(this).css({ 'background': '#fff1b8', 'border-color': '#ffd666', 'transform': 'translateY(-1px)' });
+        }).on('mouseleave', '.dfn-note-balloon', function() {
+            $(this).css({ 'background': '#fffbe6', 'border-color': '#ffe58f', 'transform': 'translateY(0)' });
         });
 
         // ========================================================================
