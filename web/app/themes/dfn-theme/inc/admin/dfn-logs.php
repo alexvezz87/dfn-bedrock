@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * DFN Booking System 2.0 — Pannello Admin: Log di Sistema
  *
@@ -18,7 +18,7 @@ if (! defined('ABSPATH')) {
  */
 function dfn_render_logs_page(): void
 {
-    if (! current_user_can('dfn_manage_events')) {
+    if (! current_user_can('edit_pages') && ! current_user_can('manage_options') && ! current_user_can('dfn_manage_events')) {
         wp_die(__('Permessi insufficienti.', 'dfn-theme'));
     }
 

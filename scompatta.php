@@ -25,7 +25,7 @@ $archive = file_exists(__DIR__ . '/deploy.tar.gz') ? __DIR__ . '/deploy.tar.gz' 
 
 if ($archive) {
     echo "<p>Trovato $archive (" . filesize($archive) . " bytes). Avvio estrazione...</p>";
-    $target_dir = file_exists(__DIR__ . '/web') ? __DIR__ . '/web' : __DIR__;
+    $target_dir = __DIR__;
 
     $extracted = false;
 

@@ -122,8 +122,8 @@ function dfn_admin_register_menus()
     add_submenu_page(
         'dfn-events',
         __('Log di Sistema', 'dfn-theme'),
-        __('📋 Log', 'dfn-theme'),
-        'dfn_manage_events',
+        __('📋 Log di Sistema', 'dfn-theme'),
+        'edit_pages',
         'dfn-logs',
         'dfn_render_logs_page',
     );
