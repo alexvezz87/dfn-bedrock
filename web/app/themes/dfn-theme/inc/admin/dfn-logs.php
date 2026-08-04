@@ -37,14 +37,14 @@ function dfn_render_logs_page(): void
         $action = sanitize_text_field($_POST['dfn_log_action']);
         if ($action === 'purge_all') {
             $wpdb->query("TRUNCATE TABLE {$table}");
-            echo '<div class="notice notice-success"><p>Log eliminati.</p></div>';
+            echo '<div class="notice notice-success"><p>Log eliminati con successo.</p></div>';
         } elseif ($action === 'purge_days') {
             $days = max(1, (int) ($_POST['purge_days'] ?? 30));
             $wpdb->query($wpdb->prepare(
                 "DELETE FROM {$table} WHERE logged_at < DATE_SUB(NOW(), INTERVAL %d DAY)",
                 $days
             ));
-            echo '<div class="notice notice-success"><p>Log piu vecchi di ' . intval($days) . ' giorni eliminati.</p></div>';
+            echo '<div class="notice notice-success"><p>Log più vecchi di ' . intval($days) . ' giorni eliminati.</p></div>';
         }
     }
 
@@ -92,11 +92,11 @@ function dfn_render_logs_page(): void
                 <span class="dashicons dashicons-list-view"></span>
                 <h1>Log di Sistema</h1>
             </div>
-            <span class="dfn-count-badge"><?php echo number_format($stats_total); ?> log totali &mdash; <?php echo number_format($stats_today); ?> oggi</span>
+            <span class="dfn-count-badge"><?php echo number_format($stats_total); ?> log registrati</span>
         </header>
 
         <!-- FILTRI -->
-        <div class="dfn-card dfn-main-card" style="margin-bottom:10px;">
+        <div class="dfn-card dfn-main-card" style="margin-bottom:12px;">
             <form method="get" action="<?php echo esc_url($base_url); ?>" id="dfn-logs-filter-form">
                 <input type="hidden" name="page" value="dfn-logs">
                 <div class="dfn-logs-filter-row">
@@ -134,6 +134,26 @@ function dfn_render_logs_page(): void
                     </div>
                 </div>
             </form>
+        </div>
+
+        <!-- SCHEDE STATISTICHE SINTESI DATO -->
+        <div class="dfn-logs-stats-grid">
+            <div class="dfn-card dfn-stat-card">
+                <span class="dfn-stat-val"><?php echo number_format($stats_total); ?></span>
+                <span class="dfn-stat-lbl">Totale Log</span>
+            </div>
+            <div class="dfn-card dfn-stat-card dfn-stat-card--success">
+                <span class="dfn-stat-val"><?php echo number_format($stats_success); ?></span>
+                <span class="dfn-stat-lbl">✓ Successi</span>
+            </div>
+            <div class="dfn-card dfn-stat-card dfn-stat-card--failure">
+                <span class="dfn-stat-val"><?php echo number_format($stats_failure); ?></span>
+                <span class="dfn-stat-lbl">✗ Fallimenti</span>
+            </div>
+            <div class="dfn-card dfn-stat-card">
+                <span class="dfn-stat-val"><?php echo number_format($stats_today); ?></span>
+                <span class="dfn-stat-lbl">Oggi</span>
+            </div>
         </div>
 
         <!-- TABELLA LOG -->
@@ -213,13 +233,13 @@ function dfn_render_logs_page(): void
         </div>
 
         <!-- PULIZIA LOG -->
-        <div class="dfn-card dfn-main-card" style="margin-top:10px;">
+        <div class="dfn-card dfn-main-card" style="margin-top:12px;">
             <div class="dfn-card-header"><h2>Pulizia Log</h2></div>
-            <form method="post" style="padding:12px 0 4px;" onsubmit="return confirm('Confermi? Questa operazione e irreversibile.');">
+            <form method="post" style="padding:12px 0 4px;" onsubmit="return confirm('Confermi? Questa operazione è irreversibile.');">
                 <?php wp_nonce_field('dfn_log_action_nonce'); ?>
                 <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <label style="font-size:13px;">Elimina log piu vecchi di</label>
+                        <label style="font-size:13px;">Elimina log più vecchi di</label>
                         <input type="number" name="purge_days" value="30" min="1" max="365" class="small-text" style="width:60px;">
                         <span style="font-size:13px;">giorni</span>
                         <button type="submit" name="dfn_log_action" value="purge_days" class="button button-secondary">Elimina Vecchi Log</button>
@@ -243,6 +263,14 @@ function dfn_render_logs_page(): void
         .dfn-filter-wide { flex:1; min-width:160px; }
         .dfn-log-type--email { background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; border-radius:3px; padding:1px 6px; }
         .dfn-log-type--generic { background:#f1f5f9; color:#475569; border:1px solid #cbd5e0; border-radius:3px; padding:1px 6px; }
+
+        /* Grid Schede Statistiche Sincere e Compatte */
+        .dfn-logs-stats-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:12px; }
+        .dfn-stat-card { padding:10px 14px; text-align:center; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+        .dfn-stat-val { font-size:18px; font-weight:700; color:#1d2327; line-height:1.2; }
+        .dfn-stat-lbl { font-size:11px; color:#646970; font-weight:600; text-transform:uppercase; margin-top:2px; }
+        .dfn-stat-card--success .dfn-stat-val { color:#004b23; }
+        .dfn-stat-card--failure .dfn-stat-val { color:#b91c1c; }
     </style>
     <?php
 }
