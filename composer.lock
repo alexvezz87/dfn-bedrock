@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b6ecf8e01694903a06782a59979e4b80",
+    "content-hash": "dd03c5e08c0cd770f62ae84ca7483391",
     "packages": [
         {
             "name": "composer/installers",
@@ -1167,15 +1167,15 @@
         },
         {
             "name": "wp-plugin/font-awesome",
-            "version": "5.2.0",
+            "version": "5.2.1",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/font-awesome/",
-                "reference": "tags/5.2.0"
+                "reference": "tags/5.2.1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/font-awesome.5.2.0.zip"
+                "url": "https://downloads.wordpress.org/plugin/font-awesome.5.2.1.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1194,7 +1194,7 @@
                 "issues": "https://wordpress.org/support/plugin/font-awesome",
                 "source": "https://plugins.svn.wordpress.org/font-awesome"
             },
-            "time": "2026-07-27T23:21:02+00:00"
+            "time": "2026-07-29T00:40:58+00:00"
         },
         {
             "name": "wp-plugin/google-site-kit",
@@ -1410,7 +1410,7 @@
                 "issues": "https://wordpress.org/support/plugin/woo-order-export-lite",
                 "source": "https://plugins.svn.wordpress.org/woo-order-export-lite"
             },
-            "time": "2026-06-10T13:01:17+00:00"
+            "time": "2026-08-01T05:56:14+00:00"
         },
         {
             "name": "wp-plugin/woo-stripe-payment",
@@ -1445,15 +1445,15 @@
         },
         {
             "name": "wp-plugin/woocommerce",
-            "version": "10.9.4",
+            "version": "11.0.0",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/woocommerce/",
-                "reference": "tags/10.9.4"
+                "reference": "tags/11.0.0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/woocommerce.10.9.4.zip"
+                "url": "https://downloads.wordpress.org/plugin/woocommerce.11.0.0.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1472,19 +1472,19 @@
                 "issues": "https://wordpress.org/support/plugin/woocommerce",
                 "source": "https://plugins.svn.wordpress.org/woocommerce"
             },
-            "time": "2026-07-27T14:31:02+00:00"
+            "time": "2026-08-04T16:31:14+00:00"
         },
         {
             "name": "wp-plugin/woocommerce-gateway-stripe",
-            "version": "10.8.4",
+            "version": "10.8.5",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/woocommerce-gateway-stripe/",
-                "reference": "tags/10.8.4"
+                "reference": "tags/10.8.5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/woocommerce-gateway-stripe.10.8.4.zip"
+                "url": "https://downloads.wordpress.org/plugin/woocommerce-gateway-stripe.10.8.5.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1503,7 +1503,7 @@
                 "issues": "https://wordpress.org/support/plugin/woocommerce-gateway-stripe",
                 "source": "https://plugins.svn.wordpress.org/woocommerce-gateway-stripe"
             },
-            "time": "2026-07-15T22:25:52+00:00"
+            "time": "2026-08-05T16:36:14+00:00"
         },
         {
             "name": "wp-plugin/woolentor-addons",
@@ -1538,15 +1538,15 @@
         },
         {
             "name": "wp-plugin/wordpress-seo",
-            "version": "28.1",
+            "version": "28.2",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/wordpress-seo/",
-                "reference": "tags/28.1"
+                "reference": "tags/28.2"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/wordpress-seo.28.1.zip"
+                "url": "https://downloads.wordpress.org/plugin/wordpress-seo.28.2.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1558,26 +1558,26 @@
                     "name": "Yoast"
                 }
             ],
-            "description": "Improve your SEO with real-time feedback, schema, and clear guidance. Upgrade for AI tools, Google Docs integration, and 24/7 support, no hidden fees.",
+            "description": "Real-time SEO guidance, schema, and AI built in. Help search engines and AI systems understand your content. All AI tools included, no hidden fees.",
             "homepage": "https://yoa.st/1uj",
             "support": {
                 "changelog": "https://wordpress.org/plugins/wordpress-seo/#developers",
                 "issues": "https://wordpress.org/support/plugin/wordpress-seo",
                 "source": "https://plugins.svn.wordpress.org/wordpress-seo"
             },
-            "time": "2026-07-28T12:20:49+00:00"
+            "time": "2026-08-04T12:10:58+00:00"
         },
         {
             "name": "wp-plugin/wp-crontrol",
-            "version": "1.21.0",
+            "version": "1.21.1",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/wp-crontrol/",
-                "reference": "tags/1.21.0"
+                "reference": "tags/1.21.1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/wp-crontrol.1.21.0.zip"
+                "url": "https://downloads.wordpress.org/plugin/wp-crontrol.1.21.1.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1589,26 +1589,26 @@
                     "name": "John Blackbourn"
                 }
             ],
-            "description": "WP Crontrol enables you to take control of the cron events on your WordPress website.",
+            "description": "Take control of the cron events on your WordPress website or WooCommerce store with WP Crontrol.",
             "homepage": "https://wp-crontrol.com",
             "support": {
                 "changelog": "https://wordpress.org/plugins/wp-crontrol/#developers",
                 "issues": "https://wordpress.org/support/plugin/wp-crontrol",
                 "source": "https://plugins.svn.wordpress.org/wp-crontrol"
             },
-            "time": "2026-05-20T14:41:16+00:00"
+            "time": "2026-07-31T15:50:47+00:00"
         },
         {
             "name": "wp-plugin/wp-fastest-cache",
-            "version": "1.4.9",
+            "version": "1.5.0",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/wp-fastest-cache/",
-                "reference": "tags/1.4.9"
+                "reference": "tags/1.5.0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/wp-fastest-cache.1.4.9.zip"
+                "url": "https://downloads.wordpress.org/plugin/wp-fastest-cache.1.5.0.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1627,7 +1627,7 @@
                 "issues": "https://wordpress.org/support/plugin/wp-fastest-cache",
                 "source": "https://plugins.svn.wordpress.org/wp-fastest-cache"
             },
-            "time": "2026-07-11T08:26:11+00:00"
+            "time": "2026-08-03T17:06:01+00:00"
         },
         {
             "name": "wp-plugin/wp-mail-smtp",
@@ -1662,15 +1662,15 @@
         },
         {
             "name": "wp-plugin/wp-migrate-db",
-            "version": "2.7.10",
+            "version": "2.7.11",
             "source": {
                 "type": "svn",
                 "url": "https://plugins.svn.wordpress.org/wp-migrate-db/",
-                "reference": "tags/2.7.10"
+                "reference": "tags/2.7.11"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://downloads.wordpress.org/plugin/wp-migrate-db.2.7.10.zip"
+                "url": "https://downloads.wordpress.org/plugin/wp-migrate-db.2.7.11.zip"
             },
             "require": {
                 "composer/installers": "~1.0|~2.0"
@@ -1689,7 +1689,7 @@
                 "issues": "https://wordpress.org/support/plugin/wp-migrate-db",
                 "source": "https://plugins.svn.wordpress.org/wp-migrate-db"
             },
-            "time": "2026-06-30T15:06:16+00:00"
+            "time": "2026-08-05T15:16:43+00:00"
         },
         {
             "name": "wp-theme/twentytwentyfive",
