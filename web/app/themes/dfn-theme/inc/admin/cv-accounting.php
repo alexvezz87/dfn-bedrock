@@ -15,7 +15,7 @@ function cv_aggiungi_pagina_bilancio()
     $hook = add_submenu_page(
         'dfn-events',
         'Bilancio Eventi',
-        '📊 Bilancio Eventi',
+        'Bilancio Eventi',
         'manage_woocommerce',
         'cv-bilancio-eventi',
         'cv_render_pagina_bilancio',

@@ -23,7 +23,7 @@ function cv_aggiungi_generatore_fai()
     $hook = add_submenu_page(
         'dfn-events',
         'Botteghino Live',
-        '🎟️ Botteghino Live',
+        'Botteghino Live',
         'manage_woocommerce',
         'cv-generatore-fai',
         'cv_render_generatore_fai',

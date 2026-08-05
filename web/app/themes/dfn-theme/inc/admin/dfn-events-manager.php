@@ -76,7 +76,7 @@ function dfn_admin_register_menus()
     add_submenu_page(
         'dfn-events',
         __('Check-in Banchetto', 'dfn-theme'),
-        __('🎟️ Check-in', 'dfn-theme'),
+        __('Check-in', 'dfn-theme'),
         'dfn_manage_events',
         'dfn-checkin-manager',
         'dfn_render_checkin_manager',
@@ -86,7 +86,7 @@ function dfn_admin_register_menus()
     add_submenu_page(
         'dfn-events',
         __('Inserimento Rapido', 'dfn-theme'),
-        __('✏️ Inserimento Rapido', 'dfn-theme'),
+        __('Inserimento Rapido', 'dfn-theme'),
         'dfn_quick_booking',
         'dfn-quick-booking',
         'dfn_render_quick_booking',
@@ -117,16 +117,6 @@ function dfn_admin_register_menus()
 
     // Enqueue degli asset specifici per l'admin
     add_action('admin_enqueue_scripts', 'dfn_enqueue_admin_assets');
-
-    // Sottomenu "Log di Sistema"
-    add_submenu_page(
-        'dfn-events',
-        __('Log di Sistema', 'dfn-theme'),
-        __('📋 Log di Sistema', 'dfn-theme'),
-        'edit_pages',
-        'dfn-logs',
-        'dfn_render_logs_page',
-    );
 }
 
 /**

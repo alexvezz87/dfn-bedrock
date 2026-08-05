@@ -13,7 +13,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-add_action('admin_menu', 'dfn_logs_register_admin_menu', 99);
+add_action('admin_menu', 'dfn_logs_register_admin_menu', 999);
 
 /**
  * Registra il sottomenu Log di Sistema in FAI Prenotazioni.
@@ -23,7 +23,7 @@ function dfn_logs_register_admin_menu(): void
     add_submenu_page(
         'dfn-events',
         __('Log di Sistema', 'dfn-theme'),
-        __('📋 Log di Sistema', 'dfn-theme'),
+        __('Log di Sistema', 'dfn-theme'),
         'read',
         'dfn-logs',
         'dfn_render_logs_page'

@@ -16,7 +16,7 @@ function cv_aggiungi_pagina_recensioni()
     add_submenu_page(
         'dfn-events',
         'Recensioni Eventi',
-        '⭐ Recensioni Eventi',
+        'Recensioni Eventi',
         'manage_woocommerce',
         'cv-recensioni-eventi',
         'cv_render_pagina_recensioni',

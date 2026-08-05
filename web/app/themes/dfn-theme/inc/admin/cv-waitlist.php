@@ -17,7 +17,7 @@ function cv_aggiungi_pagina_liste_attesa()
     add_submenu_page(
         'dfn-events',
         'Liste di Attesa',
-        '⏳ Liste di Attesa',
+        'Liste di Attesa',
         'manage_woocommerce',
         'cv-liste-attesa',
         'cv_render_pagina_liste_attesa',
