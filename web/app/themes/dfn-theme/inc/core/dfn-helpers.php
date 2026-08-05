@@ -134,21 +134,13 @@ function dfn_is_order_fai($order)
         return false;
     }
 
-    // 1. Verifica tramite i coupon
-    $coupons = $order->get_coupon_codes();
-    $fai_coupon = strtolower(dfn_get_setting('fai_coupon_code', 'socio_fai_novara_2025'));
-    if (in_array($fai_coupon, array_map('strtolower', $coupons))) {
+    // 1. Verifica se ci sono tessere FAI collegate all'ordine
+    $fai_cards = $order->get_meta('_dfn_fai_cards');
+    if (! empty($fai_cards) && is_array($fai_cards) && count($fai_cards) > 0) {
         return true;
     }
 
-    // 2. Verifica tramite fees (ereditate) o custom items
-    foreach ($order->get_items('fee') as $item) {
-        if (strpos(strtolower($item->get_name()), 'fai') !== false) {
-            return true;
-        }
-    }
-
-    // 3. Verifica tramite i record di booking nel database dfn_bookings (se presenti)
+    // 2. Verifica tramite i record di booking nel database dfn_bookings (se persons_fai > 0)
     global $wpdb;
     $order_id = $order->get_id();
     $booking = $wpdb->get_row($wpdb->prepare(
@@ -156,8 +148,23 @@ function dfn_is_order_fai($order)
         $order_id,
     ));
 
-    if ($booking && $booking->persons_fai > 0) {
+    if ($booking && intval($booking->persons_fai) > 0) {
         return true;
+    }
+
+    // 3. Verifica tramite i coupon FAI dedicati
+    $coupons = $order->get_coupon_codes();
+    $fai_coupon = strtolower(dfn_get_setting('fai_coupon_code', 'socio_fai_novara_2025'));
+    if (! empty($fai_coupon) && in_array($fai_coupon, array_map('strtolower', $coupons), true)) {
+        return true;
+    }
+
+    // 4. Verifica tramite fee specifiche di sconto/quota socio
+    foreach ($order->get_items('fee') as $item) {
+        $name = strtolower($item->get_name());
+        if (strpos($name, 'sconto socio fai') !== false || strpos($name, 'tessera fai') !== false) {
+            return true;
+        }
     }
 
     return false;

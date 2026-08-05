@@ -11,14 +11,8 @@ function cv_is_order_fai($order)
     if (! $order) {
         return false;
     }
-    $coupons = $order->get_coupon_codes();
-    if (in_array('socio_fai_novara_2025', array_map('strtolower', $coupons))) {
-        return true;
-    }
-    foreach ($order->get_items('fee') as $item) {
-        if (strpos(strtolower($item->get_name()), 'fai') !== false) {
-            return true;
-        }
+    if (function_exists('dfn_is_order_fai')) {
+        return dfn_is_order_fai($order);
     }
     return false;
 }
