@@ -142,13 +142,15 @@ function dfn_distribute_slots_balanced($total_qty, $slots)
 }
 
 add_action('woocommerce_checkout_order_processed', 'dfn_allocate_slots_on_checkout', 10, 3);
+add_action('woocommerce_store_api_checkout_order_processed', 'dfn_allocate_slots_on_checkout', 10, 1);
+add_action('woocommerce_new_order', 'dfn_allocate_slots_on_checkout', 20, 1);
 /**
  * Trigger primario all'atto della creazione dell'ordine.
  * Esegue le query transazionali con row-locking, applicando l'algoritmo di allocazione.
  *
- * @param int      $order_id ID dell'ordine appena creato.
- * @param array    $posted_data Dati inviati.
- * @param WC_Order $order Oggetto ordine WooCommerce.
+ * @param int           $order_id ID dell'ordine appena creato.
+ * @param array         $posted_data Dati inviati.
+ * @param WC_Order|null $order Oggetto ordine WooCommerce.
  */
 function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
 {
@@ -1146,24 +1148,55 @@ function dfn_confirm_booking_on_payment(int $order_id): void
     
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_bookings';
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        return;
+    }
     
-    // Cerca se esiste una prenotazione associata a questo ordine con stato 'pending_payment'.
-    // NOTA: le prenotazioni in 'pending_approval' (tessere FAI non verificate) non devono
-    // essere confermate automaticamente al pagamento: richiedono prima l'approvazione dello staff.
+    // 1. Cerca se esiste una prenotazione attiva o in attesa legata a questo ordine
     $booking = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$table} WHERE order_id = %d AND status = 'pending_payment'",
+        "SELECT * FROM {$table} WHERE order_id = %d AND status != 'cancelled'",
         $order_id,
     ));
     
-    if ($booking) {
+    // 2. Se NON esiste una prenotazione attiva per questo ordine (es. pagamento con Apple Pay / Express Checkout che ha generato un nuovo ID ordine)
+    if (! $booking) {
+        // Cerca se esiste una prenotazione annullata per la stessa email creata nelle ultime 2 ore (es. tentativo di pagamento precedente fallito)
+        $billing_email = $order->get_billing_email();
+        $recent_cancelled = null;
+        if (! empty($billing_email)) {
+            $recent_cancelled = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$table} WHERE customer_email = %s AND status = 'cancelled' AND created_at >= NOW() - INTERVAL 2 HOUR ORDER BY id DESC LIMIT 1",
+                $billing_email
+            ));
+        }
+
+        if ($recent_cancelled) {
+            // Ripristina la prenotazione associandola al nuovo ordine pagato!
+            $booking = $recent_cancelled;
+            $wpdb->update(
+                $table,
+                ['order_id' => $order_id, 'status' => 'pending_payment'],
+                ['id' => $booking->id],
+                ['%d', '%s'],
+                ['%d']
+            );
+        } else {
+            // Altrimenti, alloca e crea la prenotazione per questo nuovo ordine
+            dfn_allocate_slots_on_checkout($order_id, [], $order);
+            $booking = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$table} WHERE order_id = %d AND status != 'cancelled'",
+                $order_id
+            ));
+        }
+    }
+    
+    if ($booking && in_array($booking->status, ['pending_payment', 'cancelled'], true)) {
         $event = dfn_db_get_event($booking->event_id);
         if ($event) {
             $new_status = 'confirmed';
-            
-            // Aggiorna lo stato della prenotazione e imposta il metodo e importo pagato
-            $order = wc_get_order($order_id);
-            $pay_method = $order ? $order->get_payment_method() : 'online';
-            $total_paid = $order ? floatval($order->get_total()) : 0.00;
+            $pay_method = $order->get_payment_method() ?: 'online';
+            $total_paid = floatval($order->get_total());
 
             $wpdb->update(
                 $table,
@@ -1178,14 +1211,12 @@ function dfn_confirm_booking_on_payment(int $order_id): void
                 [ '%d' ],
             );
             
-            // Invia le notifiche via email
+            // Invia le notifiche via email con i biglietti ed il QR code PDF
             dfn_send_booking_confirmation($booking->id);
             dfn_send_admin_new_booking_notification($booking->id);
             
             // Aggiunge una nota riepilogativa all'ordine
-            if ($order) {
-                $order->add_order_note(sprintf(__('🎟️ Pagamento online ricevuto. Prenotazione FAI confermata (Stato: %s).', 'dfn-theme'), $new_status));
-            }
+            $order->add_order_note(sprintf(__('🎟️ Pagamento online ricevuto. Prenotazione FAI #%d confermata con successo (Stato: %s).', 'dfn-theme'), $booking->id, $new_status));
         }
     }
 }
