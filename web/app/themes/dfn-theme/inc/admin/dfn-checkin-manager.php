@@ -339,7 +339,7 @@ function dfn_render_checkin_manager()
 
     <!-- POPUP LOG STORICO -->
     <div id="cv-history-modal" class="dfn-sm-modal">
-        <div class="dfn-sm-modal-content" style="max-width: 500px; display: flex; flex-direction: column;">
+        <div class="dfn-sm-modal-content" style="max-width: 700px; width: 92%; display: flex; flex-direction: column;">
             <div class="dfn-sm-modal-header">
                 <h3><?php esc_html_e('Log Operazioni Cliente', 'dfn-theme'); ?></h3>
                 <span class="dfn-modal-close cv-close-modal-btn">&times;</span>
@@ -348,7 +348,7 @@ function dfn_render_checkin_manager()
                 <p style="font-size:15px; margin-top: 0; margin-bottom: 15px; font-weight: 600; color: var(--dfn-text-main);">
                     <?php esc_html_e('Ordine Cliente:', 'dfn-theme'); ?> <strong id="cv-history-cliente-name" style="color: var(--dfn-primary);"></strong>
                 </p>
-                <div id="cv-history-content-area" style="flex-grow:1; overflow-y:auto; padding:12px; background:#f8fafc; border:1px solid var(--dfn-border); border-radius:6px; margin-bottom: 20px; font-family: monospace; font-size: 12px; line-height: 1.4;"></div>
+                <div id="cv-history-content-area" style="flex-grow:1; overflow-y:auto; overflow-x:auto; padding:12px; background:#f8fafc; border:1px solid var(--dfn-border); border-radius:6px; margin-bottom: 20px; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: nowrap;"></div>
                 <div class="dfn-sm-modal-footer" style="margin-top: 0; padding-top: 15px;">
                     <button type="button" class="dfn-btn dfn-btn-secondary cv-close-modal-btn" style="width: 100%; justify-content: center;"><?php esc_html_e('Chiudi Log', 'dfn-theme'); ?></button>
                 </div>

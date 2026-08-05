@@ -1619,7 +1619,7 @@ function dfn_enrich_booking_data($b, $order) {
             });
             $html_history_popup = '<div class="cv-history-data-container" style="display:none;">';
             foreach ($history_meta as $log) {
-                $html_history_popup .= '<div class="cv-history-item" style="border-bottom:1px solid #f1f5f9; padding:6px 0;"><span style="color:#777; margin-right:10px;">🕒 ' . date_i18n('d/m/Y - H:i:s', strtotime($log['time'])) . '</span> <strong>' . esc_html($log['action']) . '</strong></div>';
+                $html_history_popup .= '<div class="cv-history-item" style="border-bottom:1px solid #e2e8f0; padding:8px 0; white-space:nowrap;"><span style="color:#64748b; margin-right:12px;">🕒 ' . date_i18n('d/m/Y - H:i:s', strtotime($log['time'])) . '</span> <strong>' . esc_html($log['action']) . '</strong></div>';
             }
             $html_history_popup .= '</div>';
         }

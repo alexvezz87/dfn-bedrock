@@ -279,7 +279,7 @@ function cv_fetch_report_data_ajax()
                     return strtotime($b['time']) - strtotime($a['time']);
                 });
                 foreach ($history_meta as $log) {
-                    $html_history_popup .= '<div class="cv-history-item"><span style="color:#777; margin-right:10px;">🕒 ' . date_i18n('d/m/Y - H:i:s', strtotime($log['time'])) . '</span> <strong>' . esc_html($log['action']) . '</strong></div>';
+                    $html_history_popup .= '<div class="cv-history-item" style="border-bottom:1px solid #e2e8f0; padding:8px 0; white-space:nowrap;"><span style="color:#64748b; margin-right:12px;">🕒 ' . date_i18n('d/m/Y - H:i:s', strtotime($log['time'])) . '</span> <strong>' . esc_html($log['action']) . '</strong></div>';
                 }
             }
             $html_history_popup .= '</div>';
