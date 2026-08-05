@@ -1554,11 +1554,19 @@ function dfn_enrich_booking_data($b, $order) {
     $html_history_popup = '<p style="color:#666; font-style:italic;">Nessuna interazione registrata.</p>';
 
     if ($order) {
+        $status = $order->get_status();
+        if (in_array($status, ['failed', 'cancelled', 'refunded'], true) && $b->status !== 'cancelled') {
+            global $wpdb;
+            $wpdb->update($wpdb->prefix . 'dfn_bookings', ['status' => 'cancelled'], ['id' => $b->id], ['%s'], ['%d']);
+            $b->status = 'cancelled';
+        }
+
         $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
         $order_total = floatval($order->get_total());
-        $status = $order->get_status();
         if (in_array($status, ['completed', 'processing'], true)) {
             $payment_status = 'pagato';
+        } elseif ($status === 'failed') {
+            $payment_status = 'fallito (annullato)';
         } else {
             $payment_status = 'ancora da pagare';
         }

@@ -1191,6 +1191,48 @@ function dfn_confirm_booking_on_payment(int $order_id): void
 }
 
 /**
+ * Hook per annullare automaticamente la prenotazione e liberare i posti nel turno
+ * quando un ordine WooCommerce passa a Fallito, Annullato o Rimborsato.
+ */
+add_action('woocommerce_order_status_failed', 'dfn_cancel_booking_on_failed_order', 10, 1);
+add_action('woocommerce_order_status_cancelled', 'dfn_cancel_booking_on_failed_order', 10, 1);
+add_action('woocommerce_order_status_refunded', 'dfn_cancel_booking_on_failed_order', 10, 1);
+function dfn_cancel_booking_on_failed_order(int $order_id): void
+{
+    if (! $order_id) {
+        return;
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_bookings';
+
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table} WHERE order_id = %d AND status != 'cancelled'",
+        $order_id
+    ));
+
+    if ($booking) {
+        $wpdb->update(
+            $table,
+            ['status' => 'cancelled'],
+            ['id' => $booking->id],
+            ['%s'],
+            ['%d']
+        );
+
+        if (function_exists('dfn_log_event')) {
+            dfn_log_event(
+                'BOOKING_CANCELLED',
+                sprintf('Prenotazione #%d annullata automaticamente (Posti liberati): Ordine WooCommerce #%d in stato Fallito/Annullato', $booking->id, $order_id),
+                ['booking_id' => $booking->id, 'order_id' => $order_id],
+                $booking->event_id,
+                'warning'
+            );
+        }
+    }
+}
+
+/**
  * Cerca e sblocca prenotazioni in pending_approval associate a una tessera FAI che è appena stata verificata.
  */
 function dfn_check_and_process_pending_bookings_for_fai_card(string $card_number): void
