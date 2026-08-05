@@ -1161,14 +1161,52 @@ function dfn_confirm_booking_on_payment(int $order_id): void
     
     // 2. Se NON esiste una prenotazione attiva per questo ordine (es. pagamento con Apple Pay / Express Checkout che ha generato un nuovo ID ordine)
     if (! $booking) {
-        // Cerca se esiste una prenotazione annullata per la stessa email creata nelle ultime 2 ore (es. tentativo di pagamento precedente fallito)
+        $target_event_id = 0;
+        $target_total_qty = 0;
+        foreach ($order->get_items() as $item) {
+            if (is_a($item, 'WC_Order_Item_Product')) {
+                $evt = dfn_db_get_event_by_product($item->get_product_id());
+                if ($evt) {
+                    $target_event_id = intval($evt->id);
+                    $meta_std = $item->get_meta('_dfn_qty_standard');
+                    $std = ($meta_std !== '' && $meta_std !== false && $meta_std !== null) ? intval($meta_std) : intval($item->get_quantity());
+                    $fai = intval($item->get_meta('_dfn_qty_fai'));
+                    $target_total_qty = $std + $fai;
+                    break;
+                }
+            }
+        }
+
         $billing_email = $order->get_billing_email();
         $recent_cancelled = null;
         if (! empty($billing_email)) {
-            $recent_cancelled = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM {$table} WHERE customer_email = %s AND status = 'cancelled' AND created_at >= NOW() - INTERVAL 2 HOUR ORDER BY id DESC LIMIT 1",
-                $billing_email
-            ));
+            // Priorità 1: Cerca la prenotazione annullata più recente (ORDER BY id DESC) con STESSA EMAIL, STESSO EVENTO e STESSO NUMERO DI PERSONE
+            if ($target_event_id > 0 && $target_total_qty > 0) {
+                $recent_cancelled = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM {$table} 
+                     WHERE customer_email = %s 
+                       AND event_id = %d 
+                       AND total_persons = %d 
+                       AND status = 'cancelled' 
+                       AND created_at >= NOW() - INTERVAL 2 HOUR 
+                     ORDER BY id DESC LIMIT 1",
+                    $billing_email,
+                    $target_event_id,
+                    $target_total_qty
+                ));
+            }
+
+            // Priorità 2: Fallback se non c'è corrispondenza di quantitativo (pesca comunque il tentativo annullato più recente)
+            if (! $recent_cancelled) {
+                $recent_cancelled = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM {$table} 
+                     WHERE customer_email = %s 
+                       AND status = 'cancelled' 
+                       AND created_at >= NOW() - INTERVAL 2 HOUR 
+                     ORDER BY id DESC LIMIT 1",
+                    $billing_email
+                ));
+            }
         }
 
         if ($recent_cancelled) {
