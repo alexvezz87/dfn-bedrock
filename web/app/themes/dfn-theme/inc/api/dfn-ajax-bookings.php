@@ -1249,6 +1249,11 @@ function dfn_confirm_booking_on_payment(int $order_id): void
                 [ '%d' ],
             );
             
+            // Recalculate booked_count on slots
+            if (function_exists('dfn_db_recalculate_event_slots_booked_count')) {
+                dfn_db_recalculate_event_slots_booked_count($booking->event_id);
+            }
+
             // Invia le notifiche via email con i biglietti ed il QR code PDF
             dfn_send_booking_confirmation($booking->id);
             dfn_send_admin_new_booking_notification($booking->id);
@@ -1288,6 +1293,10 @@ function dfn_cancel_booking_on_failed_order(int $order_id): void
             ['%s'],
             ['%d']
         );
+
+        if (function_exists('dfn_db_recalculate_event_slots_booked_count')) {
+            dfn_db_recalculate_event_slots_booked_count($booking->event_id);
+        }
 
         if (function_exists('dfn_log_event')) {
             dfn_log_event(
