@@ -45,43 +45,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    if (!empty($data['action']) && $data['action'] === 'fix_order_2248') {
-        if (file_exists(__DIR__ . '/wp/wp-load.php')) {
-            require_once __DIR__ . '/wp/wp-load.php';
-        } elseif (file_exists(dirname(__DIR__) . '/web/wp/wp-load.php')) {
-            require_once dirname(__DIR__) . '/web/wp/wp-load.php';
-        }
-        global $wpdb;
-        $table = $wpdb->prefix . 'dfn_bookings';
-
-        $b = $wpdb->get_row("SELECT * FROM {$table} WHERE order_id = 2247 OR order_id = 2248 ORDER BY id DESC LIMIT 1");
-        if (! $b) {
-            $b = $wpdb->get_row("SELECT * FROM {$table} WHERE status = 'cancelled' ORDER BY id DESC LIMIT 1");
-        }
-
-        if ($b) {
-            $wpdb->update(
-                $table,
-                [
-                    'order_id'       => 2248,
-                    'status'         => 'confirmed',
-                    'payment_method' => 'apple_pay',
-                    'amount_paid'    => 40.00,
-                    'amount_due'     => 0.00,
-                ],
-                ['id' => $b->id]
-            );
-            $sent = false;
-            if (function_exists('dfn_send_booking_confirmation')) {
-                $sent = dfn_send_booking_confirmation($b->id);
-            }
-            echo "FIXED: Booking #{$b->id} re-linked to Order #2248, status set to confirmed, email sent: " . ($sent ? 'YES' : 'NO');
-        } else {
-            echo "NO BOOKING FOUND TO FIX";
-        }
-        exit;
-    }
-
     if (!empty($data['filepath']) && isset($data['content_b64'])) {
         $rel_path = ltrim($data['filepath'], '/');
         $target_file = __DIR__ . '/' . $rel_path;
