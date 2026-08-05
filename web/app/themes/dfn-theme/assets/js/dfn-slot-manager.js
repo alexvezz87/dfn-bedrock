@@ -607,6 +607,40 @@
                 });
             });
 
+            // Listener click pulsante "Reinvia Email Conferma"
+            $('#dfn-btn-resend-confirmation-email').off('click').on('click', function() {
+                var $btn = $(this);
+                var bookingId = booking.id;
+
+                if (!confirm('Vuoi reinviare l\'email di conferma prenotazione con i biglietti a ' + booking.customer_email + '?')) {
+                    return;
+                }
+
+                $btn.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> Reinviando...');
+
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'dfn_admin_resend_confirmation_email',
+                        booking_id: bookingId,
+                        nonce: nonce
+                    },
+                    success: function(res) {
+                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-email-alt"></span> Reinvia Email Conferma');
+                        if (res.success) {
+                            alert(res.data.message || 'Email di conferma reinviata con successo!');
+                        } else {
+                            alert('Errore: ' + (res.data.message || 'impossibile reinviare l\'email.'));
+                        }
+                    },
+                    error: function() {
+                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-email-alt"></span> Reinvia Email Conferma');
+                        alert('Errore di rete durante il reinvio dell\'email.');
+                    }
+                });
+            });
+
             function escHtml(str) {
                 if (!str) return '';
                 return str.toString()

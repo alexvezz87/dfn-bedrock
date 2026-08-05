@@ -1713,3 +1713,95 @@ function dfn_admin_update_payment_status(): void
         'new_status' => $new_status,
     ]);
 }
+
+add_action('wp_ajax_dfn_admin_resend_confirmation_email', 'dfn_ajax_admin_resend_confirmation_email');
+/**
+ * Reinvia manualmente l'email di conferma prenotazione dall'admin (Gestione Turni).
+ */
+function dfn_ajax_admin_resend_confirmation_email(): void
+{
+    dfn_ajax_admin_verify_access();
+
+    $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    if (! $booking_id) {
+        wp_send_json_error(['message' => __('ID prenotazione non valido.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $booking_id));
+
+    if (! $booking) {
+        wp_send_json_error(['message' => __('Prenotazione non trovata.', 'dfn-theme')]);
+    }
+
+    $sent = false;
+    if (function_exists('dfn_send_booking_confirmation')) {
+        $sent = dfn_send_booking_confirmation($booking_id);
+    }
+
+    if ($sent) {
+        if (function_exists('dfn_log_event')) {
+            dfn_log_event(
+                'MAIL_RESEND',
+                sprintf('Email di conferma reinviata da admin per prenotazione #%d (Ordine #%d)', $booking_id, $booking->order_id),
+                [
+                    'booking_id' => $booking_id,
+                    'order_id'   => $booking->order_id,
+                    'recipient'  => $booking->customer_email,
+                ],
+                $booking->event_id,
+                'success'
+            );
+        }
+        wp_send_json_success([
+            'message' => sprintf(__('Email di conferma reinviata con successo a %s!', 'dfn-theme'), esc_html($booking->customer_email)),
+        ]);
+    } else {
+        wp_send_json_error(['message' => __('Impossibile inviare l\'email di conferma.', 'dfn-theme')]);
+    }
+}
+
+add_action('wp_ajax_cv_send_single_reminder', 'cv_send_single_reminder_ajax');
+/**
+ * Handler AJAX per il reinvio del promemoria singolo (da cassa / check-in).
+ */
+function cv_send_single_reminder_ajax(): void
+{
+    dfn_ajax_admin_verify_access();
+
+    $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+    if (! $order_id) {
+        wp_send_json_error(__('ID Ordine non valido.', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE order_id = %d LIMIT 1", $order_id));
+
+    if (! $booking) {
+        wp_send_json_error(__('Prenotazione non trovata per questo ordine.', 'dfn-theme'));
+    }
+
+    $sent = false;
+    if (function_exists('dfn_send_booking_24h_reminder')) {
+        $sent = dfn_send_booking_24h_reminder($booking->id);
+    } elseif (function_exists('dfn_send_booking_confirmation')) {
+        $sent = dfn_send_booking_confirmation($booking->id);
+    }
+
+    if ($sent) {
+        if (function_exists('dfn_log_event')) {
+            dfn_log_event(
+                'REMINDER_SENT',
+                sprintf('Promemoria reinviato da cassa/check-in per ordine #%d', $order_id),
+                ['order_id' => $order_id, 'recipient' => $booking->customer_email],
+                $booking->event_id,
+                'success'
+            );
+        }
+        wp_send_json_success(__('Promemoria inviato con successo!', 'dfn-theme'));
+    } else {
+        wp_send_json_error(__('Impossibile inviare il promemoria email.', 'dfn-theme'));
+    }
+}

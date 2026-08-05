@@ -387,11 +387,16 @@ function dfn_render_slot_manager()
                     <div id="dfn-details-fai-cards-list"></div>
                 </div>
             </div>
-            <div class="dfn-sm-modal-footer" style="padding: 16px 24px; background:#f8fafc; display:flex; justify-content:space-between; align-items:center;">
-                <a href="#" id="dfn-btn-view-order-wc" target="_blank" class="dfn-btn dfn-btn-secondary">
-                    <span class="dashicons dashicons-external"></span> <?php esc_html_e('Vedi Ordine WooCommerce', 'dfn-theme'); ?>
-                </a>
-                <div style="display:flex; gap:8px;">
+            <div class="dfn-sm-modal-footer" style="padding: 16px 24px; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <a href="#" id="dfn-btn-view-order-wc" target="_blank" class="dfn-btn dfn-btn-secondary">
+                        <span class="dashicons dashicons-external"></span> <?php esc_html_e('Vedi Ordine WooCommerce', 'dfn-theme'); ?>
+                    </a>
+                    <button type="button" id="dfn-btn-resend-confirmation-email" class="dfn-btn" style="background:#1e40af; color:#fff; border:none; display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:8px 14px; border-radius:6px; cursor:pointer;">
+                        <span class="dashicons dashicons-email-alt"></span> <?php esc_html_e('Reinvia Email Conferma', 'dfn-theme'); ?>
+                    </button>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
                     <button type="button" class="dfn-btn dfn-btn-secondary dfn-modal-close-btn" data-modal="dfn-modal-booking-details"><?php esc_html_e('Annulla', 'dfn-theme'); ?></button>
                     <button type="button" id="dfn-btn-save-payment-status" class="dfn-btn dfn-btn-primary" style="display:none;"><?php esc_html_e('Salva Stato Pagamento', 'dfn-theme'); ?></button>
                 </div>
