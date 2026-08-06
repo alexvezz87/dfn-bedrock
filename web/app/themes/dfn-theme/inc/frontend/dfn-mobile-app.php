@@ -693,6 +693,23 @@ function dfn_ajax_mobile_get_booking_details(): void
         ];
     }
 
+    // Recupera storico operazioni dall'ordine se presente
+    $history_logs_formatted = [];
+    if ($order) {
+        $history_meta = $order->get_meta('_cv_ticket_history');
+        if (! empty($history_meta) && is_array($history_meta)) {
+            usort($history_meta, function ($a, $b) {
+                return strtotime($b['time']) - strtotime($a['time']);
+            });
+            foreach ($history_meta as $log) {
+                $history_logs_formatted[] = [
+                    'time'   => date_i18n('d/m/Y - H:i:s', strtotime($log['time'])),
+                    'action' => esc_html($log['action']),
+                ];
+            }
+        }
+    }
+
     $is_checked = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in';
 
     $data = [
@@ -718,6 +735,7 @@ function dfn_ajax_mobile_get_booking_details(): void
         'current_slot_info'  => $current_slot_info,
         'current_slot_id'    => $current_slot_id,
         'available_slots'    => $available_slots_formatted,
+        'history_logs'       => $history_logs_formatted,
     ];
 
     wp_send_json_success($data);
@@ -1341,12 +1359,15 @@ function dfn_render_mobile_app(): void
 
         <!-- MODALE 2: GESTIONE & DETTAGLI SINGOLA PRENOTAZIONE -->
         <div id="dfn-mobile-booking-details-modal" class="dfn-mobile-modal" style="display:none; z-index: 100050;">
-            <div class="dfn-mobile-modal-content" style="max-width: 520px;">
-                <div class="dfn-mobile-modal-header">
-                    <h3 id="dfn-mbd-title">Gestione Prenotazione</h3>
-                    <button type="button" class="dfn-mobile-modal-close" id="dfn-btn-close-mbd-modal">&times;</button>
+            <div class="dfn-modal-content" style="max-width: 520px;">
+                <div class="dfn-modal-header">
+                    <div>
+                        <h3 id="dfn-mbd-title">Gestione Prenotazione</h3>
+                        <span class="dfn-modal-subtitle">Dettagli cliente ed azioni operative</span>
+                    </div>
+                    <button type="button" class="dfn-modal-close-btn" id="dfn-btn-close-mbd-modal">&times;</button>
                 </div>
-                <div class="dfn-mobile-modal-body" id="dfn-mbd-body" style="padding: 16px;">
+                <div class="dfn-modal-body" id="dfn-mbd-body" style="padding: 16px;">
                     <p style="text-align:center; padding:20px; color:#64748b;">Caricamento dettagli prenotazione...</p>
                 </div>
             </div>
@@ -1354,12 +1375,15 @@ function dfn_render_mobile_app(): void
 
         <!-- MODALE 3: SPOSTA TURNO / DATA PRENOTAZIONE -->
         <div id="dfn-mobile-move-slot-modal" class="dfn-mobile-modal" style="display:none; z-index: 100060;">
-            <div class="dfn-mobile-modal-content" style="max-width: 480px;">
-                <div class="dfn-mobile-modal-header" style="background: #0f172a; color: #ffffff;">
-                    <h3>✏️ Sposta Turno / Data</h3>
-                    <button type="button" class="dfn-mobile-modal-close" id="dfn-btn-close-move-slot-modal" style="color:#ffffff;">&times;</button>
+            <div class="dfn-modal-content" style="max-width: 480px;">
+                <div class="dfn-modal-header">
+                    <div>
+                        <h3>✏️ Sposta Turno / Data</h3>
+                        <span class="dfn-modal-subtitle">Riassegna la prenotazione a un nuovo turno</span>
+                    </div>
+                    <button type="button" class="dfn-modal-close-btn" id="dfn-btn-close-move-slot-modal">&times;</button>
                 </div>
-                <div class="dfn-mobile-modal-body" style="padding: 16px;">
+                <div class="dfn-modal-body" style="padding: 16px;">
                     <form id="dfn-mobile-move-slot-form">
                         <input type="hidden" id="dfn-move-booking-id" name="booking_id" value="0" />
                         
@@ -1395,6 +1419,27 @@ function dfn_render_mobile_app(): void
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODALE 4: LOG STORICO OPERAZIONI CLIENTE -->
+        <div id="dfn-mobile-history-modal" class="dfn-mobile-modal" style="display:none; z-index: 100070;">
+            <div class="dfn-modal-content" style="max-width: 540px;">
+                <div class="dfn-modal-header">
+                    <div>
+                        <h3>📜 Log Operazioni Cliente</h3>
+                        <span class="dfn-modal-subtitle" id="dfn-history-customer-subtitle">Storico interventi</span>
+                    </div>
+                    <button type="button" class="dfn-modal-close-btn" id="dfn-btn-close-history-modal">&times;</button>
+                </div>
+                <div class="dfn-modal-body" style="padding: 16px;">
+                    <div id="dfn-history-list-content" style="max-height:55vh; overflow-y:auto; overflow-x:auto; background:#f8fafc; border:1px solid #cbd5e1; padding:12px; border-radius:8px; font-family:monospace; font-size:13px; line-height:1.6;">
+                        <p style="text-align:center; color:#64748b;">Nessuna registrazione trovata.</p>
+                    </div>
+                    <button type="button" id="dfn-btn-close-history-bottom" class="dfn-mobile-btn secondary" style="margin-top:14px; width:100%;">
+                        Chiudi Log
+                    </button>
                 </div>
             </div>
         </div>

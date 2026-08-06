@@ -621,13 +621,45 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        // Listener Log Storico
-        const logBtn = document.getElementById('dfn-btn-mbd-log');
-        if (logBtn && window.cvOpenHistoryModal) {
-            logBtn.addEventListener('click', () => {
-                window.cvOpenHistoryModal(b.order_id);
-            });
+    // MODALE LOG STORICO
+    const historyModal       = document.getElementById('dfn-mobile-history-modal');
+    const closeHistoryBtn    = document.getElementById('dfn-btn-close-history-modal');
+    const closeHistoryBottom = document.getElementById('dfn-btn-close-history-bottom');
+    const historyContentArea = document.getElementById('dfn-history-list-content');
+    const historySubtitle    = document.getElementById('dfn-history-customer-subtitle');
+
+    if (closeHistoryBtn && historyModal) {
+        closeHistoryBtn.addEventListener('click', () => { historyModal.style.display = 'none'; });
+    }
+    if (closeHistoryBottom && historyModal) {
+        closeHistoryBottom.addEventListener('click', () => { historyModal.style.display = 'none'; });
+    }
+
+    function openMobileHistoryModal(b) {
+        if (! historyModal || ! historyContentArea) return;
+        historyModal.style.display = 'flex';
+        if (historySubtitle) {
+            historySubtitle.textContent = b.customer_name + ' (Ordine #' + (b.order_id || 'N/D') + ')';
         }
+
+        if (Array.isArray(b.history_logs) && b.history_logs.length > 0) {
+            let logHtml = '';
+            b.history_logs.forEach(item => {
+                logHtml += `<div class="cv-history-item" style="border-bottom:1px solid #cbd5e1; padding:8px 0; white-space:nowrap;"><span style="color:#64748b; margin-right:12px;">🕒 ${item.time}</span> <strong>${item.action}</strong></div>`;
+            });
+            historyContentArea.innerHTML = logHtml;
+        } else {
+            historyContentArea.innerHTML = '<p style="text-align:center; color:#64748b; margin:10px 0;">Nessun intervento registrato per questo ordine.</p>';
+        }
+    }
+
+    // Listener Log Storico
+    const logBtn = document.getElementById('dfn-btn-mbd-log');
+    if (logBtn) {
+        logBtn.addEventListener('click', () => {
+            openMobileHistoryModal(b);
+        });
+    }
 
         // Listener Annulla Prenotazione
         const cancelBtn = document.getElementById('dfn-btn-mbd-cancel');
