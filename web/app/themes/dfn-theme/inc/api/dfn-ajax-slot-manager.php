@@ -546,7 +546,11 @@ function dfn_ajax_admin_add_booking(): void
             throw new \Exception('Prodotto WooCommerce dell\'evento non trovato.');
         }
 
-        $order->add_product($product, $total_qty);
+        $price_standard = floatval($event->price_standard);
+        $order->add_product($product, $total_qty, [
+            'subtotal' => $price_standard * $total_qty,
+            'total'    => $price_standard * $total_qty,
+        ]);
 
         // Dati di fatturazione
         $order->set_billing_first_name($first_name);
@@ -1155,7 +1159,11 @@ function dfn_ajax_botteghino_create_booking(): void
             throw new \Exception('Prodotto WooCommerce dell\'evento non trovato.');
         }
 
-        $order->add_product($product, $total_qty);
+        $price_standard = floatval($event->price_standard);
+        $order->add_product($product, $total_qty, [
+            'subtotal' => $price_standard * $total_qty,
+            'total'    => $price_standard * $total_qty,
+        ]);
         $order->set_billing_first_name($first_name);
         $order->set_billing_last_name($last_name);
         $order->set_billing_email($email);
@@ -1163,7 +1171,6 @@ function dfn_ajax_botteghino_create_booking(): void
         $order->set_customer_note($notes);
 
         // Applica sconto/adeguamento Soci FAI
-        $price_standard = floatval($event->price_standard);
         $price_fai      = floatval($event->price_fai);
         $unit_discount  = $price_standard - $price_fai;
         $total_discount = $unit_discount * $qty_fai;
