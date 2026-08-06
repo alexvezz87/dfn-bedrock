@@ -198,64 +198,116 @@
     color: #006b32 !important;
 }
 
-/* Modifica Premium Button */
+/* 1. Vedi Biglietto Button */
+.button.dfn-action-ticket {
+    background: #f0fdf4 !important;
+    color: #004b23 !important;
+    border: 1px solid #bbf7d0 !important;
+    padding: 0 14px !important;
+    height: 34px !important;
+    border-radius: 20px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.3px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.2s ease-in-out !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+}
+
+.button.dfn-action-ticket:hover {
+    background: #dcfce7 !important;
+    border-color: #86efac !important;
+    color: #003318 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 75, 35, 0.15) !important;
+}
+
+.button.dfn-action-ticket svg {
+    color: #004b23 !important;
+    flex-shrink: 0;
+}
+
+/* 2. Modifica Icon Button (Pencil Icon) */
 .button.dfn-action-modify {
     background: #004b23 !important;
-    color: var(--dfn-white) !important;
-    padding: 8px 16px !important;
-    border-radius: 20px !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
+    color: #ffffff !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
     border: none !important;
-    box-shadow: 0 3px 8px rgba(0, 75, 35, 0.15);
-    transition: all 0.2s ease !important;
-    display: inline-block;
-    text-decoration: none;
-    text-align: center;
-    white-space: nowrap;
-    min-width: 90px;
+    box-shadow: 0 2px 6px rgba(0, 75, 35, 0.2) !important;
+    transition: all 0.2s ease-in-out !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
 }
 
 .button.dfn-action-modify:hover {
     background: #006b32 !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 75, 35, 0.25);
+    transform: translateY(-1px) scale(1.06);
+    box-shadow: 0 4px 10px rgba(0, 75, 35, 0.3) !important;
 }
 
-/* Annulla Premium Button - Symmetrical */
+.button.dfn-action-modify svg {
+    color: #ffffff !important;
+    flex-shrink: 0;
+}
+
+/* 3. Annulla Icon Button (Red X Icon) */
 .button.dfn-action-cancel {
     background: #dc2626 !important;
-    color: var(--dfn-white) !important;
-    padding: 8px 16px !important;
-    border-radius: 20px !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
+    color: #ffffff !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
     border: none !important;
-    box-shadow: 0 3px 8px rgba(220, 38, 38, 0.15);
-    transition: all 0.2s ease !important;
-    display: inline-block;
-    text-decoration: none;
-    text-align: center;
-    white-space: nowrap;
-    min-width: 90px;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.2) !important;
+    transition: all 0.2s ease-in-out !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
 }
 
 .button.dfn-action-cancel:hover {
     background: #b91c1c !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+    transform: translateY(-1px) scale(1.06);
+    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3) !important;
+}
+
+.button.dfn-action-cancel svg {
+    color: #ffffff !important;
+    flex-shrink: 0;
 }
 
 /* Container allineamento azioni in tabella */
 .dfn-table-actions-container {
-    display: flex !important;
+    display: inline-flex !important;
     align-items: center !important;
+    justify-content: flex-end !important;
     gap: 8px !important;
-    flex-wrap: nowrap;
+    flex-wrap: nowrap !important;
+    vertical-align: middle !important;
 }
 
 /* ==========================================================================
@@ -1445,12 +1497,13 @@
 
     .button.dfn-action-modify,
     .button.dfn-action-cancel {
-        flex: 1 !important;
-        min-width: 0 !important;
-        text-align: center !important;
-        padding: 8px 12px !important;
-        font-size: 12px !important;
-        font-weight: 700 !important;
+        flex: none !important;
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        max-width: 34px !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
     }
 
     /* Mobile overrides for FAI card */
