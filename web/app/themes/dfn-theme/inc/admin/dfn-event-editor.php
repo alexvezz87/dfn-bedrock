@@ -761,12 +761,12 @@ function dfn_render_event_editor()
                             
                             <div class="dfn-form-group">
                                 <label for="price_standard" class="dfn-label"><?php esc_html_e('Biglietto Standard (€)', 'dfn-theme'); ?> <span class="required">*</span></label>
-                                <input type="number" name="price_standard" id="price_standard" value="<?php echo esc_attr($price_std); ?>" step="0.50" min="0" required class="dfn-input">
+                                <input type="number" name="price_standard" id="price_standard" value="<?php echo esc_attr($price_std); ?>" step="0.01" min="0" required class="dfn-input">
                             </div>
 
                             <div class="dfn-form-group">
                                 <label for="price_fai" class="dfn-label"><?php esc_html_e('Socio FAI / Scontato (€)', 'dfn-theme'); ?> <span style="font-weight:normal; color:#64748b;">(opzionale)</span></label>
-                                <input type="number" name="price_fai" id="price_fai" value="<?php echo esc_attr($price_fai_member); ?>" step="0.50" min="0" class="dfn-input" placeholder="Es. 8.00">
+                                <input type="number" name="price_fai" id="price_fai" value="<?php echo esc_attr($price_fai_member); ?>" step="0.01" min="0" class="dfn-input" placeholder="Es. 8.00">
                             </div>
                         </div>
                     </div>
