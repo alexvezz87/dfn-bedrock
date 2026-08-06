@@ -177,7 +177,13 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
     }
 
     // 2. Filtra le prenotazioni in base alla data selezionata
-    if (! empty($selected_date) && 'all' !== $selected_date && in_array($selected_date, $raw_dates, true)) {
+    if ('free_flow' === $event->access_type || count($raw_dates) <= 1 || 'all' === $selected_date) {
+        // Eventi Flusso Libero, data unica o "Tutte le date": mostra tutte le prenotazioni attive dell'evento
+        $bookings = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
+            $event_id
+        ));
+    } elseif (! empty($selected_date) && in_array($selected_date, $raw_dates, true)) {
         $b_ids_event_slots = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT bs.booking_id 
              FROM {$wpdb->prefix}dfn_booking_slots bs 
@@ -199,16 +205,9 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
             ));
         }
 
-        $b_ids_created = $wpdb->get_col($wpdb->prepare(
-            "SELECT id FROM {$table_bookings} WHERE event_id = %d AND DATE(created_at) = %s AND status != 'cancelled'",
-            $event_id,
-            $selected_date
-        ));
-
         $all_matching_b_ids = array_values(array_unique(array_filter(array_merge(
             $b_ids_event_slots ?: [],
-            $b_ids_time_slots ?: [],
-            $b_ids_created ?: []
+            $b_ids_time_slots ?: []
         ))));
 
         if (! empty($all_matching_b_ids)) {
@@ -217,10 +216,14 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
                 "SELECT * FROM {$table_bookings} WHERE id IN ({$in_sql}) AND status != 'cancelled' ORDER BY customer_name ASC"
             );
         } else {
-            $bookings = [];
+            // Fallback: se la mappatura slot non restituisce id, mostra tutte le prenotazioni dell'evento
+            $bookings = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
+                $event_id
+            ));
         }
     } else {
-        // Tutte le date
+        // Fallback: mostra tutte le prenotazioni attive
         $bookings = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
             $event_id
@@ -1100,9 +1103,24 @@ function dfn_handle_mobile_login_submit(): void
         return;
     }
 
+    $raw_user = trim(sanitize_text_field($_POST['log'] ?? ''));
+    $raw_pass = $_POST['pwd'] ?? '';
+
+    if (empty($raw_user) || empty($raw_pass)) {
+        return;
+    }
+
+    // Se l'utente ha inserito un'email (con eventuale spazio da tastiera mobile), risolvila al nome utente
+    if (is_email($raw_user)) {
+        $user_obj = get_user_by('email', $raw_user);
+        if ($user_obj) {
+            $raw_user = $user_obj->user_login;
+        }
+    }
+
     $creds = [
-        'user_login'    => sanitize_text_field($_POST['log'] ?? ''),
-        'user_password' => $_POST['pwd'] ?? '',
+        'user_login'    => $raw_user,
+        'user_password' => $raw_pass,
         'remember'      => true,
     ];
 
@@ -1112,15 +1130,24 @@ function dfn_handle_mobile_login_submit(): void
         $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
         set_transient('dfn_mobile_login_err_' . md5($ip), $user->get_error_message(), 60);
         $target = add_query_arg('login_error', '1', wp_get_referer() ?: get_permalink());
+        nocache_headers();
         wp_safe_redirect($target);
         exit;
     }
 
+    nocache_headers();
     $target = remove_query_arg('login_error', wp_get_referer() ?: get_permalink());
     wp_safe_redirect($target);
     exit;
 }
 add_action('template_redirect', 'dfn_handle_mobile_login_submit', 5);
+
+// Disabilita il caching delle pagine per l'App Mobile (/gestione-eventi/)
+add_action('template_redirect', function () {
+    if (is_page('gestione-eventi') || (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'gestione-eventi') !== false)) {
+        nocache_headers();
+    }
+}, 1);
 
 /**
  * Renderizza la schermata di login mobile per utenti non autenticati.
