@@ -498,6 +498,238 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+    // MODALI AZIONI DETTAGLIO & SPOSTA TURNO
+    const mbdModal         = document.getElementById('dfn-mobile-booking-details-modal');
+    const closeMbdBtn      = document.getElementById('dfn-btn-close-mbd-modal');
+    const mbdBody          = document.getElementById('dfn-mbd-body');
+    const moveSlotModal    = document.getElementById('dfn-mobile-move-slot-modal');
+    const closeMoveSlotBtn = document.getElementById('dfn-btn-close-move-slot-modal');
+    const cancelMoveBtn    = document.getElementById('dfn-btn-cancel-move-slot');
+    const moveSlotForm     = document.getElementById('dfn-mobile-move-slot-form');
+
+    if (closeMbdBtn && mbdModal) {
+        closeMbdBtn.addEventListener('click', () => { mbdModal.style.display = 'none'; });
+    }
+    if (closeMoveSlotBtn && moveSlotModal) {
+        closeMoveSlotBtn.addEventListener('click', () => { moveSlotModal.style.display = 'none'; });
+    }
+    if (cancelMoveBtn && moveSlotModal) {
+        cancelMoveBtn.addEventListener('click', () => { moveSlotModal.style.display = 'none'; });
+    }
+
+    let activeBookingDetails = null;
+
+    function openBookingDetailsModal(bookingId) {
+        if (! mbdModal || ! mbdBody) return;
+        mbdModal.style.display = 'flex';
+        mbdBody.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">Caricamento dettagli in corso...</p>';
+
+        const fd = new FormData();
+        fd.append('action', 'dfn_mobile_get_booking_details');
+        fd.append('booking_id', bookingId);
+        fd.append('nonce', nonces.admin || nonces.quick || nonces.booking || '');
+
+        fetch(ajaxUrl, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    activeBookingDetails = res.data;
+                    renderBookingDetailsBody(activeBookingDetails);
+                } else {
+                    mbdBody.innerHTML = '<p style="text-align:center; color:#ef4444; padding:20px;">Errore: ' + (res.data || 'Impossibile caricare') + '</p>';
+                }
+            })
+            .catch(() => {
+                mbdBody.innerHTML = '<p style="text-align:center; color:#ef4444; padding:20px;">Errore di connessione.</p>';
+            });
+    }
+
+    function renderBookingDetailsBody(b) {
+        document.getElementById('dfn-mbd-title').textContent = 'Gestione Prenotazione #' + b.id;
+
+        const isCancelled = b.status === 'cancelled';
+        const statusBadgeClass = isCancelled ? 'danger' : (b.checked_in ? 'success' : 'pending');
+
+        let html = `
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:14px; border-radius:10px; margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <h4 style="margin:0; font-size:16px; color:#0f172a;">${b.customer_name}</h4>
+                    <span class="dfn-event-status-pill ${statusBadgeClass}">${b.status_label}</span>
+                </div>
+                <p style="margin:3px 0; font-size:13px; color:#475569;">📧 <strong>Email:</strong> ${b.customer_email}</p>
+                <p style="margin:3px 0; font-size:13px; color:#475569;">📞 <strong>Telefono:</strong> ${b.customer_phone}</p>
+                <p style="margin:3px 0; font-size:13px; color:#475569;">🧾 <strong>Ordine WC:</strong> #${b.order_id || 'N/D'} (${b.created_at})</p>
+                <p style="margin:3px 0; font-size:13px; color:#475569;">💳 <strong>Pagamento:</strong> ${b.payment_status} <small>(${b.payment_method})</small></p>
+                <p style="margin:3px 0; font-size:13px; color:#475569;">👥 <strong>Persone:</strong> ${b.total_persons} (Interi: ${b.persons_std}, FAI: ${b.persons_fai})</p>
+                <p style="margin:3px 0; font-size:13px; color:#2563eb;">📅 <strong>Turno Assegnato:</strong> ${b.current_slot_info}</p>
+                ${b.notes && b.notes !== 'Nessuna nota richiesta.' ? '<div style="margin-top:8px; padding:8px; background:#fffbeb; border:1px solid #fef3c7; border-radius:6px; font-size:12px; color:#92400e;">💬 <strong>Note:</strong> ' + b.notes + '</div>' : ''}
+            </div>
+
+            <!-- GRIGLIA AZIONI OPERATIVE -->
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                ${! isCancelled ? `
+                    <button type="button" class="dfn-mobile-btn primary large" id="dfn-btn-mbd-move" style="justify-content:center; text-align:center;">
+                        ✏️ Sposta Turno / Data
+                    </button>
+                ` : ''}
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                    <button type="button" class="dfn-mobile-btn secondary" id="dfn-btn-mbd-resend">
+                        📧 Reinvia Email
+                    </button>
+                    <button type="button" class="dfn-mobile-btn secondary" id="dfn-btn-mbd-log">
+                        📜 Log Storico
+                    </button>
+                </div>
+
+                ${! isCancelled ? `
+                    <button type="button" class="dfn-mobile-btn danger large" id="dfn-btn-mbd-cancel" style="margin-top:6px; justify-content:center; text-align:center;">
+                        ❌ Annulla Prenotazione
+                    </button>
+                ` : ''}
+            </div>
+        `;
+
+        mbdBody.innerHTML = html;
+
+        // Listener Sposta Turno
+        const moveBtn = document.getElementById('dfn-btn-mbd-move');
+        if (moveBtn) {
+            moveBtn.addEventListener('click', () => {
+                openMoveSlotModal(b);
+            });
+        }
+
+        // Listener Reinvia Email
+        const resendBtn = document.getElementById('dfn-btn-mbd-resend');
+        if (resendBtn) {
+            resendBtn.addEventListener('click', () => {
+                resendBtn.disabled = true;
+                resendBtn.textContent = 'Invio...';
+                const fd = new FormData();
+                fd.append('action', 'dfn_mobile_resend_ticket_email');
+                fd.append('booking_id', b.id);
+                fd.append('nonce', nonces.booking || '');
+                fetch(ajaxUrl, { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(res => {
+                        resendBtn.disabled = false;
+                        resendBtn.textContent = '📧 Reinvia Email';
+                        if (res.success) { showToast('✉️ Email inviata!', 'success'); }
+                        else { showToast('⚠️ Errore: ' + (res.data || 'Impossibile inviare'), 'error'); }
+                    });
+            });
+        }
+
+        // Listener Log Storico
+        const logBtn = document.getElementById('dfn-btn-mbd-log');
+        if (logBtn && window.cvOpenHistoryModal) {
+            logBtn.addEventListener('click', () => {
+                window.cvOpenHistoryModal(b.order_id);
+            });
+        }
+
+        // Listener Annulla Prenotazione
+        const cancelBtn = document.getElementById('dfn-btn-mbd-cancel');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                if (! confirm(`Sei sicuro di voler ANNULLARE la prenotazione #${b.id} di ${b.customer_name}?\nI posti verranno subito liberati.`)) {
+                    return;
+                }
+                cancelBtn.disabled = true;
+                cancelBtn.textContent = '⏳ Annullamento...';
+                const fd = new FormData();
+                fd.append('action', 'dfn_mobile_cancel_booking');
+                fd.append('booking_id', b.id);
+                fd.append('nonce', nonces.admin || nonces.quick || '');
+                fetch(ajaxUrl, { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(res => {
+                        cancelBtn.disabled = false;
+                        if (res.success) {
+                            showToast('✅ Prenotazione annullata.', 'success');
+                            if (mbdModal) mbdModal.style.display = 'none';
+                            if (mciCurrentEventId && mciDateSelect) {
+                                openEventCheckinModal(mciCurrentEventId, mciDateSelect.value);
+                            }
+                        } else {
+                            showToast('⚠️ Errore: ' + (res.data || 'Impossibile annullare'), 'error');
+                            cancelBtn.textContent = '❌ Annulla Prenotazione';
+                        }
+                    });
+            });
+        }
+    }
+
+    function openMoveSlotModal(b) {
+        if (! moveSlotModal) return;
+        document.getElementById('dfn-move-booking-id').value = b.id;
+        document.getElementById('dfn-move-customer-name').textContent = b.customer_name;
+        document.getElementById('dfn-move-current-slot').textContent = b.current_slot_info;
+
+        const selectEl = document.getElementById('dfn-move-target-slot-select');
+        let optionsHtml = '';
+
+        if (Array.isArray(b.available_slots) && b.available_slots.length > 0) {
+            b.available_slots.forEach(s => {
+                const isSel = s.is_current ? 'disabled' : '';
+                const tag = s.is_current ? ' (Turno Attuale)' : '';
+                optionsHtml += `<option value="${s.id}" ${isSel}>${s.label}${tag}</option>`;
+            });
+        } else {
+            optionsHtml = '<option value="">Nessun altro turno disponibile per questo evento</option>';
+        }
+        selectEl.innerHTML = optionsHtml;
+        moveSlotModal.style.display = 'flex';
+    }
+
+    if (moveSlotForm) {
+        moveSlotForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const bookingId = document.getElementById('dfn-move-booking-id').value;
+            const toSlotId  = document.getElementById('dfn-move-target-slot-select').value;
+            const notify    = document.getElementById('dfn-move-notify-customer').checked ? '1' : '0';
+            const submitBtn = moveSlotForm.querySelector('button[type="submit"]');
+
+            if (! toSlotId) {
+                showToast('⚠️ Seleziona un turno di destinazione valido.', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Spostamento...';
+
+            const fd = new FormData();
+            fd.append('action', 'dfn_mobile_move_booking');
+            fd.append('booking_id', bookingId);
+            fd.append('to_slot_id', toSlotId);
+            fd.append('notify', notify);
+            fd.append('nonce', nonces.admin || nonces.quick || '');
+
+            fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '💾 Conferma Spostamento';
+                    if (res.success) {
+                        showToast('✅ Turno spostato con successo!', 'success');
+                        if (moveSlotModal) moveSlotModal.style.display = 'none';
+                        if (mbdModal) mbdModal.style.display = 'none';
+                        if (mciCurrentEventId && mciDateSelect) {
+                            openEventCheckinModal(mciCurrentEventId, mciDateSelect.value);
+                        }
+                    } else {
+                        showToast('⚠️ Errore: ' + (res.data || 'Impossibile spostare'), 'error');
+                    }
+                })
+                .catch(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '💾 Conferma Spostamento';
+                    showToast('⚠️ Errore di rete', 'error');
+                });
+        });
+    }
+
         let html = '';
         filtered.forEach(b => {
             const statusClass = b.checked_in ? 'success' : 'pending';
@@ -514,12 +746,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         ${b.customer_phone ? '<p>📞 ' + b.customer_phone + '</p>' : ''}
                         <p>👥 <strong>${b.total_persons} Persone</strong> (Interi: ${b.persons_std}, FAI: ${b.persons_fai})</p>
                     </div>
-                    <div class="dfn-booking-actions 2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top:10px;">
+                    <div class="dfn-booking-actions three-col" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top:10px;">
                         <button type="button" class="dfn-mobile-btn ${b.checked_in ? 'secondary' : 'success'} btn-mci-do-checkin" data-booking-id="${b.id}" data-token="${b.qr_token}">
-                            ${b.checked_in ? '✓ Già Entrato' : '✅ Check-in'}
+                            ${b.checked_in ? '✓ Entrato' : '✅ Check-in'}
+                        </button>
+                        <button type="button" class="dfn-mobile-btn primary btn-mci-manage-details" data-booking-id="${b.id}">
+                            ⚙️ Gestisci
                         </button>
                         <button type="button" class="dfn-mobile-btn secondary btn-mci-resend-email" data-booking-id="${b.id}">
-                            ✉️ Invia Email
+                            ✉️ Email
                         </button>
                     </div>
                 </div>
@@ -527,6 +762,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         checkinBookingsList.innerHTML = html;
+
+        // Binding pulsante Gestisci
+        checkinBookingsList.querySelectorAll('.btn-mci-manage-details').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const bookingId = this.getAttribute('data-booking-id');
+                openBookingDetailsModal(bookingId);
+            });
+        });
 
         // Binding azioni della modale
         checkinBookingsList.querySelectorAll('.btn-mci-do-checkin').forEach(btn => {
@@ -549,7 +792,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (res.success) {
                             if (res.data.checked_in) {
                                 vibrate([100, 50, 100]);
-                                btn.textContent = '✓ Già Entrato (' + (res.data.checked_in_time || '') + ')';
+                                btn.textContent = '✓ Entrato (' + (res.data.checked_in_time || '') + ')';
                                 btn.className = 'dfn-mobile-btn secondary btn-mci-do-checkin';
                                 showToast('✅ Check-in confermato!', 'success');
                             } else {
@@ -559,7 +802,6 @@ document.addEventListener('DOMContentLoaded', function () {
                                 showToast('ℹ️ Check-in annullato', 'info');
                             }
 
-                            // Ricarica la lista per aggiornare le statistiche in tempo reale
                             if (mciCurrentEventId && mciDateSelect) {
                                 openEventCheckinModal(mciCurrentEventId, mciDateSelect.value);
                             }
@@ -597,12 +839,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             showToast('⚠️ Errore: ' + (res.data || 'Impossibile inviare'), 'error');
                         }
                         btn.disabled = false;
-                        btn.textContent = '✉️ Invia Email';
+                        btn.textContent = '✉️ Email';
                     })
                     .catch(() => {
                         showToast('⚠️ Errore di connessione', 'error');
                         btn.disabled = false;
-                        btn.textContent = '✉️ Invia Email';
+                        btn.textContent = '✉️ Email';
                     });
             });
         });

@@ -533,6 +533,17 @@ html {
     margin-top: 12px;
 }
 
+.dfn-booking-actions.three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+}
+
+.dfn-event-status-pill.danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
 /* PULSANTI MOBILE */
 .dfn-mobile-btn {
     width: 100%;

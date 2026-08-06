@@ -471,6 +471,260 @@ function dfn_ajax_mobile_resend_ticket_email(): void
 add_action('wp_ajax_dfn_mobile_resend_ticket_email', 'dfn_ajax_mobile_resend_ticket_email');
 
 /**
+ * AJAX Handler per Annullare una Prenotazione dall'App Mobile.
+ */
+function dfn_ajax_mobile_cancel_booking(): void
+{
+    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
+    ) {
+        if (! is_user_logged_in()) {
+            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
+        }
+    }
+
+    $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
+    $note       = isset($_POST['note']) ? sanitize_text_field(wp_unslash($_POST['note'])) : 'Annullata da operatore tramite App Mobile';
+
+    if (! $booking_id) {
+        wp_send_json_error(__('ID prenotazione non valido.', 'dfn-theme'));
+    }
+
+    if (function_exists('dfn_cancel_booking_by_id')) {
+        $res = dfn_cancel_booking_by_id($booking_id, $note);
+        if ($res) {
+            wp_send_json_success([
+                'message'    => __('Prenotazione annullata con successo! I posti sono stati liberati.', 'dfn-theme'),
+                'booking_id' => $booking_id,
+            ]);
+        } else {
+            wp_send_json_error(__('Impossibile annullare la prenotazione.', 'dfn-theme'));
+        }
+    } else {
+        wp_send_json_error(__('Funzione di annullamento non disponibile.', 'dfn-theme'));
+    }
+}
+add_action('wp_ajax_dfn_mobile_cancel_booking', 'dfn_ajax_mobile_cancel_booking');
+
+/**
+ * AJAX Handler per Spostare il Turno/Data di una Prenotazione dall'App Mobile.
+ */
+function dfn_ajax_mobile_move_booking(): void
+{
+    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
+    ) {
+        if (! is_user_logged_in()) {
+            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
+        }
+    }
+
+    $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
+    $to_slot_id = isset($_POST['to_slot_id']) ? absint($_POST['to_slot_id']) : 0;
+    $notify     = isset($_POST['notify']) && '1' === (string)$_POST['notify'];
+
+    if (! $booking_id || ! $to_slot_id) {
+        wp_send_json_error(__('Seleziona uno slot valido di destinazione.', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table_bookings      = $wpdb->prefix . 'dfn_bookings';
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+    $table_slots         = $wpdb->prefix . 'dfn_event_slots';
+
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_bookings} WHERE id = %d", $booking_id));
+    if (! $booking) {
+        wp_send_json_error(__('Prenotazione non trovata.', 'dfn-theme'));
+    }
+
+    $current_assoc = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_booking_slots} WHERE booking_id = %d LIMIT 1", $booking_id));
+    $from_slot_id  = $current_assoc ? intval($current_assoc->slot_id) : 0;
+
+    if ($from_slot_id === $to_slot_id) {
+        wp_send_json_error(__('La prenotazione è già assegnata a questo turno.', 'dfn-theme'));
+    }
+
+    $persons = intval($booking->total_persons);
+
+    $to_slot = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_slots} WHERE id = %d", $to_slot_id));
+    if (! $to_slot) {
+        wp_send_json_error(__('Slot di destinazione non trovato.', 'dfn-theme'));
+    }
+
+    if (intval($to_slot->is_locked) === 1) {
+        wp_send_json_error(__('Lo slot di destinazione è bloccato per le prenotazioni.', 'dfn-theme'));
+    }
+
+    $avail = (intval($to_slot->capacity) + intval($to_slot->bonus_capacity)) - intval($to_slot->booked_count);
+    if ($persons > $avail) {
+        wp_send_json_error(sprintf(__('Posti insufficienti nello slot scelto (Necessari: %d, Disponibili: %d).', 'dfn-theme'), $persons, max(0, $avail)));
+    }
+
+    $wpdb->query('START TRANSACTION');
+
+    if ($from_slot_id > 0) {
+        $wpdb->query($wpdb->prepare(
+            "UPDATE {$table_slots} SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
+            $persons,
+            $from_slot_id
+        ));
+        $wpdb->update(
+            $table_booking_slots,
+            [ 'slot_id' => $to_slot_id ],
+            [ 'booking_id' => $booking_id, 'slot_id' => $from_slot_id ],
+            [ '%d' ],
+            [ '%d', '%d' ]
+        );
+    } else {
+        $wpdb->insert(
+            $table_booking_slots,
+            [ 'booking_id' => $booking_id, 'slot_id' => $to_slot_id, 'persons' => $persons ],
+            [ '%d', '%d', '%d' ]
+        );
+    }
+
+    $wpdb->query($wpdb->prepare(
+        "UPDATE {$table_slots} SET booked_count = booked_count + %d WHERE id = %d",
+        $persons,
+        $to_slot_id
+    ));
+
+    $wpdb->query('COMMIT');
+
+    if (! empty($booking->order_id)) {
+        $order = wc_get_order($booking->order_id);
+        if ($order) {
+            foreach ($order->get_items() as $item) {
+                $item->update_meta_data('_dfn_booking_date', $to_slot->slot_date);
+                $item->update_meta_data('_dfn_booking_slot_id', $to_slot_id);
+                $item->save();
+            }
+            $order->add_order_note(sprintf(
+                __('Turno spostato al %s ore %s da App Mobile dall\'operatore.', 'dfn-theme'),
+                date('d/m/Y', strtotime($to_slot->slot_date)),
+                date('H:i', strtotime($to_slot->slot_time_start))
+            ));
+        }
+    }
+
+    if ($notify && function_exists('dfn_send_booking_confirmation')) {
+        dfn_send_booking_confirmation($booking_id);
+    }
+
+    $new_slot_info = date('d/m/Y', strtotime($to_slot->slot_date)) . ' • ⏰ ' . date('H:i', strtotime($to_slot->slot_time_start));
+
+    wp_send_json_success([
+        'message'       => __('Turno spostato con successo!', 'dfn-theme'),
+        'booking_id'    => $booking_id,
+        'new_slot_info' => $new_slot_info,
+    ]);
+}
+add_action('wp_ajax_dfn_mobile_move_booking', 'dfn_ajax_mobile_move_booking');
+
+/**
+ * AJAX Handler per recuperare i dettagli completi di una prenotazione per la Modale Mobile.
+ */
+function dfn_ajax_mobile_get_booking_details(): void
+{
+    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
+    ) {
+        if (! is_user_logged_in()) {
+            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
+        }
+    }
+
+    $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
+    if (! $booking_id) {
+        wp_send_json_error(__('ID prenotazione non valido.', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table_bookings      = $wpdb->prefix . 'dfn_bookings';
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+    $table_slots         = $wpdb->prefix . 'dfn_event_slots';
+
+    $b = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_bookings} WHERE id = %d", $booking_id));
+    if (! $b) {
+        wp_send_json_error(__('Prenotazione non trovata.', 'dfn-theme'));
+    }
+
+    $event = dfn_db_get_event($b->event_id);
+    $order = $b->order_id ? wc_get_order($b->order_id) : null;
+
+    $current_slot_info = 'Flusso Libero';
+    $current_slot_id   = 0;
+    $assoc = $wpdb->get_row($wpdb->prepare(
+        "SELECT s.* FROM {$table_booking_slots} bs JOIN {$table_slots} s ON bs.slot_id = s.id WHERE bs.booking_id = %d LIMIT 1",
+        $b->id
+    ));
+    if ($assoc) {
+        $current_slot_id   = intval($assoc->id);
+        $current_slot_info = date('d/m/Y', strtotime($assoc->slot_date)) . ' • ⏰ ' . date('H:i', strtotime($assoc->slot_time_start));
+    }
+
+    $all_slots = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM {$table_slots} WHERE event_id = %d AND is_locked = 0 ORDER BY slot_date ASC, slot_time_start ASC",
+        $b->event_id
+    ));
+
+    $available_slots_formatted = [];
+    foreach ($all_slots as $s) {
+        $free = (intval($s->capacity) + intval($s->bonus_capacity)) - intval($s->booked_count);
+        $available_slots_formatted[] = [
+            'id'         => intval($s->id),
+            'date'       => date('d/m/Y', strtotime($s->slot_date)),
+            'time'       => date('H:i', strtotime($s->slot_time_start)),
+            'label'      => date('d/m/Y', strtotime($s->slot_date)) . ' ore ' . date('H:i', strtotime($s->slot_time_start)) . ' (Disponibili: ' . max(0, $free) . ' posti)',
+            'free'       => max(0, $free),
+            'is_current' => intval($s->id) === $current_slot_id,
+        ];
+    }
+
+    $is_checked = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in';
+
+    $data = [
+        'id'                 => intval($b->id),
+        'order_id'           => intval($b->order_id),
+        'event_id'           => intval($b->event_id),
+        'customer_name'      => esc_html($b->customer_name),
+        'customer_email'     => esc_html($b->customer_email),
+        'customer_phone'     => esc_html($b->customer_phone ?: 'Non fornito'),
+        'status'             => $b->status,
+        'status_label'       => ('cancelled' === $b->status ? 'Annullata' : ($is_checked ? 'Validato / Entrato' : 'In Attesa')),
+        'payment_method'     => esc_html($b->payment_method ?: 'stripe'),
+        'payment_status'     => ($b->amount_due > 0 ? 'Da pagare in loco' : 'Pagato'),
+        'total_persons'      => intval($b->total_persons),
+        'persons_std'        => intval($b->persons_standard),
+        'persons_fai'        => intval($b->persons_fai),
+        'amount_due'         => floatval($b->amount_due),
+        'amount_paid'        => floatval($b->amount_paid),
+        'notes'              => esc_html($b->notes ?: 'Nessuna nota richiesta.'),
+        'created_at'         => date('d/m/Y H:i', strtotime($b->created_at)),
+        'checked_in'         => $is_checked,
+        'checked_in_time'    => ($is_checked && ! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') ? date('d/m/Y H:i', strtotime($b->checked_in_at)) : '',
+        'current_slot_info'  => $current_slot_info,
+        'current_slot_id'    => $current_slot_id,
+        'available_slots'    => $available_slots_formatted,
+    ];
+
+    wp_send_json_success($data);
+}
+add_action('wp_ajax_dfn_mobile_get_booking_details', 'dfn_ajax_mobile_get_booking_details');
+
+/**
  * Renderizza l'intera applicazione mobile o la schermata di login se non autenticato.
  *
  * @return void
@@ -1081,6 +1335,66 @@ function dfn_render_mobile_app(): void
 
                 <div id="dfn-mci-bookings-list" class="dfn-mobile-cards-list" style="margin-top:14px; max-height: 55vh; overflow-y: auto;">
                     <p style="text-align:center; padding:20px; color:#64748b;">Caricamento lista prenotazioni...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODALE 2: GESTIONE & DETTAGLI SINGOLA PRENOTAZIONE -->
+        <div id="dfn-mobile-booking-details-modal" class="dfn-mobile-modal" style="display:none; z-index: 100050;">
+            <div class="dfn-mobile-modal-content" style="max-width: 520px;">
+                <div class="dfn-mobile-modal-header">
+                    <h3 id="dfn-mbd-title">Gestione Prenotazione</h3>
+                    <button type="button" class="dfn-mobile-modal-close" id="dfn-btn-close-mbd-modal">&times;</button>
+                </div>
+                <div class="dfn-mobile-modal-body" id="dfn-mbd-body" style="padding: 16px;">
+                    <p style="text-align:center; padding:20px; color:#64748b;">Caricamento dettagli prenotazione...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODALE 3: SPOSTA TURNO / DATA PRENOTAZIONE -->
+        <div id="dfn-mobile-move-slot-modal" class="dfn-mobile-modal" style="display:none; z-index: 100060;">
+            <div class="dfn-mobile-modal-content" style="max-width: 480px;">
+                <div class="dfn-mobile-modal-header" style="background: #0f172a; color: #ffffff;">
+                    <h3>✏️ Sposta Turno / Data</h3>
+                    <button type="button" class="dfn-mobile-modal-close" id="dfn-btn-close-move-slot-modal" style="color:#ffffff;">&times;</button>
+                </div>
+                <div class="dfn-mobile-modal-body" style="padding: 16px;">
+                    <form id="dfn-mobile-move-slot-form">
+                        <input type="hidden" id="dfn-move-booking-id" name="booking_id" value="0" />
+                        
+                        <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px; border-radius:8px; margin-bottom:14px;">
+                            <p style="margin:0; font-size:13px; color:#475569;">
+                                Cliente: <strong id="dfn-move-customer-name" style="color:#0f172a;">-</strong><br>
+                                Turno Attuale: <strong id="dfn-move-current-slot" style="color:#2563eb;">-</strong>
+                            </p>
+                        </div>
+
+                        <div class="dfn-form-group">
+                            <label for="dfn-move-target-slot-select" style="font-size:13px; font-weight:700; color:#1e293b; display:block; margin-bottom:6px;">
+                                📅 Seleziona Nuovo Turno / Data Disponibile:
+                            </label>
+                            <select id="dfn-move-target-slot-select" name="to_slot_id" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; font-weight:600; background:#ffffff;">
+                                <option value="">Caricamento turni...</option>
+                            </select>
+                        </div>
+
+                        <div class="dfn-form-group" style="margin-top:12px;">
+                            <label style="display:flex; align-items:center; cursor:pointer; font-size:13px; color:#334155; font-weight:600;">
+                                <input type="checkbox" id="dfn-move-notify-customer" name="notify" value="1" checked style="width:18px; height:18px; margin-right:8px;" />
+                                📧 Invia email di conferma aggiornata al cliente
+                            </label>
+                        </div>
+
+                        <div style="margin-top:20px; display:flex; gap:10px;">
+                            <button type="button" id="dfn-btn-cancel-move-slot" class="dfn-mobile-btn secondary" style="flex:1;">
+                                Annulla
+                            </button>
+                            <button type="submit" class="dfn-mobile-btn success" style="flex:2;">
+                                💾 Conferma Spostamento
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
