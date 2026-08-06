@@ -177,14 +177,14 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
     }
 
     // 2. Filtra le prenotazioni in base alla data selezionata
-    if ('free_flow' === $event->access_type || count($raw_dates) <= 1 || 'all' === $selected_date) {
-        // Eventi Flusso Libero, data unica o "Tutte le date": mostra tutte le prenotazioni attive dell'evento
+    if ('all' === $selected_date) {
         $bookings = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
             $event_id
         ));
-    } elseif (! empty($selected_date) && in_array($selected_date, $raw_dates, true)) {
-        $b_ids_event_slots = $wpdb->get_col($wpdb->prepare(
+    } else {
+        // a) Cerca booking IDs legati a uno slot fisico in dfn_event_slots per quella data
+        $b_ids_slots = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT bs.booking_id 
              FROM {$wpdb->prefix}dfn_booking_slots bs 
              INNER JOIN {$table_event_slots} s ON bs.slot_id = s.id 
@@ -193,21 +193,35 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
             $selected_date
         ));
 
-        $b_ids_time_slots = [];
-        if ($wpdb->get_var("SHOW TABLES LIKE '{$table_slots}'") === $table_slots) {
-            $b_ids_time_slots = $wpdb->get_col($wpdb->prepare(
-                "SELECT DISTINCT bs.booking_id 
-                 FROM {$wpdb->prefix}dfn_booking_slots bs 
-                 INNER JOIN {$table_slots} ts ON bs.slot_id = ts.id 
-                 WHERE ts.event_id = %d AND ts.slot_date = %s",
-                $event_id,
-                $selected_date
+        // b) Cerca booking IDs dai metadati dell'ordine WooCommerce (_dfn_booking_date)
+        $table_oi  = $wpdb->prefix . 'woocommerce_order_items';
+        $table_oim = $wpdb->prefix . 'woocommerce_order_itemmeta';
+        $b_ids_meta = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT b.id 
+             FROM {$table_bookings} b
+             INNER JOIN {$table_oi} oi ON b.order_id = oi.order_id
+             INNER JOIN {$table_oim} oim ON oi.order_item_id = oim.order_item_id
+             WHERE b.event_id = %d 
+               AND oim.meta_key = '_dfn_booking_date' 
+               AND oim.meta_value = %s
+               AND b.status != 'cancelled'",
+            $event_id,
+            $selected_date
+        ));
+
+        // c) Per eventi a data unica o prive di metadati specifici, includi prenotazioni se la data selezionata è event_date_start
+        $b_ids_default = [];
+        if ($selected_date === $event->event_date_start) {
+            $b_ids_default = $wpdb->get_col($wpdb->prepare(
+                "SELECT id FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled'",
+                $event_id
             ));
         }
 
         $all_matching_b_ids = array_values(array_unique(array_filter(array_merge(
-            $b_ids_event_slots ?: [],
-            $b_ids_time_slots ?: []
+            $b_ids_slots ?: [],
+            $b_ids_meta ?: [],
+            $b_ids_default ?: []
         ))));
 
         if (! empty($all_matching_b_ids)) {
@@ -216,18 +230,8 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
                 "SELECT * FROM {$table_bookings} WHERE id IN ({$in_sql}) AND status != 'cancelled' ORDER BY customer_name ASC"
             );
         } else {
-            // Fallback: se la mappatura slot non restituisce id, mostra tutte le prenotazioni dell'evento
-            $bookings = $wpdb->get_results($wpdb->prepare(
-                "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
-                $event_id
-            ));
+            $bookings = [];
         }
-    } else {
-        // Fallback: mostra tutte le prenotazioni attive
-        $bookings = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
-            $event_id
-        ));
     }
 
     $total_capacity   = intval($event->total_capacity);
