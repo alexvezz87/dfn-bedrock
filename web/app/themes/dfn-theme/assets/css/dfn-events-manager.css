@@ -380,6 +380,105 @@
     text-decoration: underline !important;
 }
 
+/* Pulsanti Azione Tabella FAI */
+.dfn-table-btn-order {
+    background-color: #f0f9ff !important;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd !important;
+    border-radius: 6px !important;
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    text-decoration: none !important;
+    transition: all 0.2s ease-in-out !important;
+    line-height: 1.4 !important;
+}
+
+.dfn-table-btn-order:hover {
+    background-color: #e0f2fe !important;
+    border-color: #7dd3fc !important;
+    color: #0284c7 !important;
+    transform: translateY(-1px);
+}
+
+.dfn-table-btn-delete {
+    background-color: #fef2f2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fecaca !important;
+    border-radius: 6px !important;
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease-in-out !important;
+    line-height: 1.4 !important;
+}
+
+.dfn-table-btn-delete:hover {
+    background-color: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+    color: #991b1b !important;
+    transform: translateY(-1px);
+}
+
+/* Stili Tab Bar Principale FAI */
+.dfn-main-tabs-bar {
+    margin-bottom: 24px;
+    display: flex;
+    gap: 12px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0;
+}
+
+.dfn-main-tab-btn {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 3px solid transparent !important;
+    padding: 12px 18px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    color: #64748b !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    transition: all 0.2s ease !important;
+    border-radius: 6px 6px 0 0 !important;
+}
+
+.dfn-main-tab-btn:hover {
+    color: #0284c7 !important;
+    background: #f8fafc !important;
+}
+
+.dfn-main-tab-btn.active {
+    border-bottom-color: #0284c7 !important;
+    color: #0284c7 !important;
+    font-weight: 700 !important;
+    background: #ffffff !important;
+}
+
+.dfn-badge-count {
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.dfn-main-tab-btn.active .dfn-badge-count {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
 /* Layout Creatore / Editor */
 .dfn-layout-columns {
     display: flex;

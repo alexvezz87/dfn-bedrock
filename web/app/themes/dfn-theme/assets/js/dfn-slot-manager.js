@@ -164,11 +164,11 @@
                 html += '<td>' + statusBadge + '</td>';
                 html += '<td>' + escHtml(item.payment_method_title) + '</td>';
                 html += '<td>' + (item.persons ? item.persons + ' pers. — ' : '') + '<strong>' + item.total + '</strong></td>';
-                html += '<td style="text-align:right;">';
+                html += '<td style="text-align:right; white-space:nowrap;">';
                 if (item.order_id > 0) {
-                    html += '<a href="/wp/wp-admin/post.php?post=' + item.order_id + '&action=edit" target="_blank" class="button button-small" style="margin-right:4px;" title="Vedi Ordine WooCommerce"><span class="dashicons dashicons-visibility" style="margin-top:3px;"></span> Ordine</a>';
+                    html += '<a href="/wp/wp-admin/post.php?post=' + item.order_id + '&action=edit" target="_blank" class="dfn-table-btn-order" style="margin-right:6px;" title="Vedi Ordine WooCommerce"><span class="dashicons dashicons-visibility" style="font-size:14px; width:14px; height:14px;"></span> Ordine</a>';
                 }
-                html += '<button type="button" class="button button-small button-link-delete dfn-btn-delete-attempt" data-order-id="' + item.order_id + '" data-booking-id="' + item.booking_id + '" title="Elimina definitivamente"><span class="dashicons dashicons-trash" style="margin-top:3px;"></span> Elimina</button>';
+                html += '<button type="button" class="dfn-table-btn-delete dfn-btn-delete-attempt" data-order-id="' + item.order_id + '" data-booking-id="' + item.booking_id + '" title="Elimina definitivamente"><span class="dashicons dashicons-trash" style="font-size:14px; width:14px; height:14px;"></span> Elimina</button>';
                 html += '</td>';
                 html += '</tr>';
             });
