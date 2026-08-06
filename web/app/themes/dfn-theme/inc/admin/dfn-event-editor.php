@@ -239,6 +239,10 @@ function dfn_render_event_editor()
                 } else {
                     // Sincronizza la giacenza ed il magazzino sul prodotto WooCommerce associato
                     if ($product_id > 0) {
+                        update_post_meta($product_id, '_regular_price', $price_standard);
+                        update_post_meta($product_id, '_price', $price_standard);
+                        wc_delete_product_transients($product_id);
+
                         if ('free_flow' === $access_type) {
                             $total_booked = (int) $wpdb->get_var($wpdb->prepare(
                                 "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
