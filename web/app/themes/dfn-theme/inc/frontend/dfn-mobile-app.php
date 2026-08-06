@@ -176,10 +176,10 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
         }
     }
 
-    // 2. Filtra le prenotazioni in base alla data selezionata
+    // 2. Filtra le prenotazioni in base alla data selezionata (Ordinate dalla più recente alla meno recente)
     if ('all' === $selected_date) {
         $bookings = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY customer_name ASC",
+            "SELECT * FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' ORDER BY created_at DESC, id DESC",
             $event_id
         ));
     } else {
@@ -227,7 +227,7 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
         if (! empty($all_matching_b_ids)) {
             $in_sql = implode(',', array_map('absint', $all_matching_b_ids));
             $bookings = $wpdb->get_results(
-                "SELECT * FROM {$table_bookings} WHERE id IN ({$in_sql}) AND status != 'cancelled' ORDER BY customer_name ASC"
+                "SELECT * FROM {$table_bookings} WHERE id IN ({$in_sql}) AND status != 'cancelled' ORDER BY created_at DESC, id DESC"
             );
         } else {
             $bookings = [];
