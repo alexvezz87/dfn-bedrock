@@ -105,9 +105,21 @@ function dfn_render_slot_manager()
         </div>
         <?php endif; ?>
 
-        <!-- Dashboard Operativa -->
-        <!-- Per free_flow sempre visibile; per time_slots nascosta finché non ci sono slot -->
-        <div id="dfn-sm-dashboard" style="<?php echo (! $is_free_flow && $slots_count === 0) ? 'display:none;' : ''; ?>">
+        <!-- Main Tab Navigation -->
+        <div class="dfn-main-tabs-bar" style="margin-bottom: 20px; display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+            <button type="button" class="dfn-main-tab-btn active" data-tab="active-bookings" style="background: none; border: none; border-bottom: 3px solid #0284c7; padding: 10px 16px; font-weight: 700; font-size: 15px; color: #0284c7; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                <span class="dashicons dashicons-tickets-alt"></span>
+                <?php esc_html_e('Prenotazioni Attive & Confermate', 'dfn-theme'); ?>
+            </button>
+            <button type="button" class="dfn-main-tab-btn" data-tab="unsuccessful-attempts" style="background: none; border: none; border-bottom: 3px solid transparent; padding: 10px 16px; font-weight: 600; font-size: 15px; color: #64748b; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                <span class="dashicons dashicons-warning" style="color:#eab308;"></span>
+                <?php esc_html_e('Storico Movimenti & Tentativi (Incompleti / Annullati)', 'dfn-theme'); ?>
+                <span class="dfn-badge-count" id="dfn-badge-failed-count" style="background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">0</span>
+            </button>
+        </div>
+
+        <!-- Dashboard Operativa (TAB 1: Prenotazioni Attive) -->
+        <div id="dfn-sm-dashboard" class="dfn-tab-view" data-view="active-bookings" style="<?php echo (! $is_free_flow && $slots_count === 0) ? 'display:none;' : ''; ?>">
             
             <!-- Riepilogo Statistico -->
             <div class="dfn-stats-row">
@@ -169,6 +181,33 @@ function dfn_render_slot_manager()
                 </div>
             </div>
 
+        </div>
+
+        <!-- Dashboard Movimenti & Tentativi (TAB 2) -->
+        <div id="dfn-sm-attempts-dashboard" class="dfn-tab-view" data-view="unsuccessful-attempts" style="display:none; margin-top:20px;">
+            <div class="dfn-card" style="background:#fff; border-radius:8px; border:1px solid #e2e8f0; padding:20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <div>
+                        <h3 style="margin:0; font-size:18px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
+                            <span class="dashicons dashicons-warning" style="color:#eab308;"></span>
+                            <?php esc_html_e('Storico Movimenti & Tentativi Non Completati / Annullati', 'dfn-theme'); ?>
+                        </h3>
+                        <p style="margin:4px 0 0 0; color:#64748b; font-size:13px;">
+                            <?php esc_html_e('Qui trovi l\'elenco di tutti i tentativi di pagamento falliti, in sospeso o cancellati per questo evento.', 'dfn-theme'); ?>
+                        </p>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="text" id="dfn-sm-attempts-search" placeholder="<?php esc_html_e('Cerca nei tentativi...', 'dfn-theme'); ?>" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; width:220px;">
+                        <button type="button" id="dfn-btn-refresh-attempts" class="dfn-btn dfn-btn-outline" style="padding:6px 12px; font-size:13px; cursor:pointer;">
+                            <span class="dashicons dashicons-update"></span> <?php esc_html_e('Aggiorna', 'dfn-theme'); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="dfn-sm-attempts-table-wrapper">
+                    <!-- Popolato via JS -->
+                </div>
+            </div>
         </div>
     </div>
 

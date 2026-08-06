@@ -24,6 +24,8 @@ add_action('wp_ajax_dfn_admin_add_booking', 'dfn_ajax_admin_add_booking');
 add_action('wp_ajax_dfn_admin_move_booking', 'dfn_ajax_admin_move_booking');
 add_action('wp_ajax_dfn_admin_delete_booking', 'dfn_ajax_admin_delete_booking');
 add_action('wp_ajax_dfn_admin_save_fai_cards', 'dfn_ajax_admin_save_fai_cards');
+add_action('wp_ajax_dfn_admin_get_failed_attempts', 'dfn_ajax_admin_get_failed_attempts');
+add_action('wp_ajax_dfn_admin_delete_failed_attempt', 'dfn_ajax_admin_delete_failed_attempt');
 
 // Hook AJAX per la pagina Quick Booking (Inserimento Rapido Segreteria)
 add_action('wp_ajax_dfn_quick_get_events', 'dfn_ajax_quick_get_events');
@@ -1821,4 +1823,164 @@ function cv_send_single_reminder_ajax(): void
     } else {
         wp_send_json_error(__('Impossibile inviare il promemoria email.', 'dfn-theme'));
     }
+}
+
+/**
+ * Recupera lo storico dei movimenti non completati / falliti / cancellati per un determinato evento.
+ */
+function dfn_ajax_admin_get_failed_attempts()
+{
+    if (! current_user_can('dfn_manage_events')) {
+        wp_send_json_error(['message' => __('Permessi non sufficienti.', 'dfn-theme')]);
+    }
+
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+    if (! wp_verify_nonce($nonce, 'dfn_admin_events_nonce')) {
+        wp_send_json_error(['message' => __('Verifica di sicurezza fallita.', 'dfn-theme')]);
+    }
+
+    $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+    if ($event_id <= 0) {
+        wp_send_json_error(['message' => __('ID Evento non valido.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $event = dfn_db_get_event($event_id);
+    if (! $event || ! $event->product_id) {
+        wp_send_json_error(['message' => __('Evento o prodotto non trovato.', 'dfn-theme')]);
+    }
+
+    $table_items = $wpdb->prefix . 'woocommerce_order_items';
+    $table_itemmeta = $wpdb->prefix . 'woocommerce_order_itemmeta';
+
+    // Cerca gli ID ordini contenenti il prodotto dell'evento
+    $order_ids = $wpdb->get_col($wpdb->prepare(
+        "SELECT DISTINCT order_id FROM {$table_items} WHERE order_id > 0 AND order_item_id IN (
+            SELECT order_item_id FROM {$table_itemmeta} WHERE meta_key = '_product_id' AND meta_value = %d
+        )",
+        $event->product_id
+    ));
+
+    $attempts = [];
+
+    if (! empty($order_ids)) {
+        foreach ($order_ids as $oid) {
+            $order = wc_get_order($oid);
+            if (! $order) {
+                continue;
+            }
+
+            $status = $order->get_status();
+            $is_in_loco = ($order->get_meta('_dfn_payment_in_loco') === 'yes');
+
+            $booking = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE order_id = %d LIMIT 1",
+                $oid
+            ));
+
+            $booking_status = $booking ? $booking->status : '';
+
+            // Se l'ordine è completato e il booking è attivo, NON fa parte dei tentativi falliti
+            if ($status === 'completed' && $booking_status !== 'cancelled') {
+                continue;
+            }
+
+            // Se è un pagamento in loco in sospeso attivo, fa parte delle prenotazioni attive
+            if ($status === 'pending' && $is_in_loco && $booking_status !== 'cancelled') {
+                continue;
+            }
+
+            $notes = wc_get_order_notes(['order_id' => $oid]);
+            $note_texts = [];
+            foreach ($notes as $n) {
+                if (strpos($n->content, 'Payment failed') !== false || strpos($n->content, 'rifiutata') !== false || strpos($n->content, 'fallito') !== false) {
+                    $note_texts[] = strip_tags($n->content);
+                }
+            }
+            $reason = ! empty($note_texts) ? implode(' | ', $note_texts) : '';
+
+            $attempts[] = [
+                'id'                   => $order->get_id(),
+                'order_id'             => $order->get_id(),
+                'booking_id'           => $booking ? intval($booking->id) : 0,
+                'date_created'         => $order->get_date_created() ? $order->get_date_created()->date('d/m/Y H:i') : '',
+                'status'               => $status,
+                'booking_status'       => $booking_status,
+                'total'                => wc_price($order->get_total()),
+                'raw_total'            => floatval($order->get_total()),
+                'payment_method_title' => $order->get_payment_method_title() ?: __('In sospeso / Non selezionato', 'dfn-theme'),
+                'customer_name'        => trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()) ?: __('Anonimo', 'dfn-theme'),
+                'customer_email'       => $order->get_billing_email(),
+                'customer_phone'       => $order->get_billing_phone(),
+                'persons'              => $booking ? intval($booking->total_persons) : 0,
+                'reason'               => $reason,
+            ];
+        }
+    }
+
+    // Aggiungi anche eventuali booking cancellati
+    $cancelled_bookings = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status IN ('cancelled', 'failed') AND (order_id IS NULL OR order_id = 0)",
+        $event_id
+    ));
+    foreach ($cancelled_bookings as $cb) {
+        $attempts[] = [
+            'id'                   => intval($cb->id),
+            'order_id'             => 0,
+            'booking_id'           => intval($cb->id),
+            'date_created'         => date('d/m/Y H:i', strtotime($cb->created_at)),
+            'status'               => $cb->status,
+            'booking_status'       => $cb->status,
+            'total'                => wc_price(floatval($cb->amount_paid)),
+            'raw_total'            => floatval($cb->amount_paid),
+            'payment_method_title' => __('Diretto / Manuale', 'dfn-theme'),
+            'customer_name'        => trim($cb->first_name . ' ' . $cb->last_name),
+            'customer_email'       => $cb->email,
+            'customer_phone'       => $cb->phone,
+            'persons'              => intval($cb->total_persons),
+            'reason'               => $cb->notes ?: __('Annullato da admin/utente', 'dfn-theme'),
+        ];
+    }
+
+    // Ordinamento dal più recente al meno recente
+    usort($attempts, function ($a, $b) {
+        return strtotime($b['date_created']) <=> strtotime($a['date_created']);
+    });
+
+    wp_send_json_success([
+        'attempts' => $attempts,
+        'count'    => count($attempts),
+    ]);
+}
+
+/**
+ * Elimina definitivamente un tentativo fallito / annullato.
+ */
+function dfn_ajax_admin_delete_failed_attempt()
+{
+    if (! current_user_can('dfn_manage_events')) {
+        wp_send_json_error(['message' => __('Permessi non sufficienti.', 'dfn-theme')]);
+    }
+
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+    if (! wp_verify_nonce($nonce, 'dfn_admin_events_nonce')) {
+        wp_send_json_error(['message' => __('Verifica di sicurezza fallita.', 'dfn-theme')]);
+    }
+
+    $order_id   = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+    $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+
+    global $wpdb;
+    if ($booking_id > 0) {
+        $wpdb->delete($wpdb->prefix . 'dfn_bookings', ['id' => $booking_id]);
+    }
+    if ($order_id > 0) {
+        $wpdb->delete($wpdb->prefix . 'dfn_bookings', ['order_id' => $order_id]);
+        $order = wc_get_order($order_id);
+        if ($order) {
+            $order->delete(true);
+        }
+    }
+
+    wp_send_json_success(['message' => __('Tentativo rimosso con successo.', 'dfn-theme')]);
 }

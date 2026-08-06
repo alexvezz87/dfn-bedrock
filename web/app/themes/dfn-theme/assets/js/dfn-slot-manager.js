@@ -42,6 +42,175 @@
         }
 
         // ========================================================================
+        // TAB SWITCHING & GESTIONE STORICO MOVIMENTI / TENTATIVI NON COMPLETATI
+        // ========================================================================
+        var cachedAttempts = [];
+
+        $(document).on('click', '.dfn-main-tab-btn', function() {
+            var targetTab = $(this).data('tab');
+            $('.dfn-main-tab-btn').removeClass('active').css({'border-bottom-color': 'transparent', 'color': '#64748b', 'font-weight': '600'});
+            $(this).addClass('active').css({'border-bottom-color': '#0284c7', 'color': '#0284c7', 'font-weight': '700'});
+
+            $('.dfn-tab-view').hide();
+            $('[data-view="' + targetTab + '"]').show();
+
+            if (targetTab === 'unsuccessful-attempts') {
+                loadFailedAttempts(false);
+            }
+        });
+
+        // Carica contatore tentativi all'avvio
+        loadFailedAttempts(true);
+
+        function loadFailedAttempts(silentCountOnly) {
+            var $wrapper = $('#dfn-sm-attempts-table-wrapper');
+            if (!silentCountOnly) {
+                $wrapper.html('<div class="dfn-loading" style="padding:20px; text-align:center;"><span class="dashicons dashicons-update spin"></span> Caricamento storico tentativi...</div>');
+            }
+
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'dfn_admin_get_failed_attempts',
+                    event_id: eventId,
+                    nonce: nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        cachedAttempts = response.data.attempts || [];
+                        $('#dfn-badge-failed-count').text(response.data.count || 0);
+                        if (!silentCountOnly) {
+                            renderAttemptsTable(cachedAttempts);
+                        }
+                    } else {
+                        if (!silentCountOnly) {
+                            $wrapper.html('<div class="notice notice-error"><p>' + (response.data ? response.data.message : 'Errore') + '</p></div>');
+                        }
+                    }
+                },
+                error: function() {
+                    if (!silentCountOnly) {
+                        $wrapper.html('<div class="notice notice-error"><p>Errore durante il caricamento dello storico tentativi.</p></div>');
+                    }
+                }
+            });
+        }
+
+        $(document).on('click', '#dfn-btn-refresh-attempts', function() {
+            loadFailedAttempts(false);
+        });
+
+        $(document).on('keyup input', '#dfn-sm-attempts-search', function() {
+            var query = $(this).val().toLowerCase().trim();
+            if (!query) {
+                renderAttemptsTable(cachedAttempts);
+                return;
+            }
+            var filtered = cachedAttempts.filter(function(item) {
+                return (item.customer_name && item.customer_name.toLowerCase().indexOf(query) !== -1) ||
+                       (item.customer_email && item.customer_email.toLowerCase().indexOf(query) !== -1) ||
+                       (item.customer_phone && item.customer_phone.toLowerCase().indexOf(query) !== -1) ||
+                       (item.id && item.id.toString().indexOf(query) !== -1) ||
+                       (item.status && item.status.toLowerCase().indexOf(query) !== -1);
+            });
+            renderAttemptsTable(filtered);
+        });
+
+        function renderAttemptsTable(items) {
+            var $wrapper = $('#dfn-sm-attempts-table-wrapper');
+            $wrapper.empty();
+
+            if (!items || items.length === 0) {
+                $wrapper.html('<div style="text-align:center; padding:40px; color:#64748b;"><span class="dashicons dashicons-yes-alt" style="font-size:36px; width:36px; height:36px; color:#10b981;"></span><p style="margin-top:10px; font-weight:600;">Nessun movimento non completato o fallito registrato per questo evento.</p></div>');
+                return;
+            }
+
+            var html = '<table class="wp-list-table widefat fixed striped" style="border:1px solid #e2e8f0; border-radius:6px; overflow:hidden;">';
+            html += '<thead><tr>';
+            html += '<th style="font-weight:700; width:90px;">Rif. / ID</th>';
+            html += '<th style="font-weight:700;">Data e Ora</th>';
+            html += '<th style="font-weight:700;">Cliente</th>';
+            html += '<th style="font-weight:700;">Stato Movimento</th>';
+            html += '<th style="font-weight:700;">Metodo Pagamento</th>';
+            html += '<th style="font-weight:700;">Posti / Importo</th>';
+            html += '<th style="font-weight:700; text-align:right;">Azioni</th>';
+            html += '</tr></thead><tbody>';
+
+            $.each(items, function(i, item) {
+                var statusBadge = '';
+                if (item.status === 'pending') {
+                    statusBadge = '<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700;">In Attesa di Pagamento</span>';
+                } else if (item.status === 'failed') {
+                    statusBadge = '<span style="background:#fee2e2; color:#b91c1c; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700;">Pagamento Fallito</span>';
+                } else if (item.status === 'cancelled' || item.booking_status === 'cancelled') {
+                    statusBadge = '<span style="background:#f1f5f9; color:#64748b; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700;">Annullato</span>';
+                } else {
+                    statusBadge = '<span style="background:#e2e8f0; color:#475569; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700;">' + escHtml(item.status) + '</span>';
+                }
+
+                html += '<tr>';
+                html += '<td><strong>#' + escHtml(item.id) + '</strong></td>';
+                html += '<td>' + escHtml(item.date_created) + '</td>';
+                html += '<td>';
+                html += '<strong>' + escHtml(item.customer_name) + '</strong>';
+                if (item.customer_email) {
+                    html += '<br><small style="color:#64748b;">' + escHtml(item.customer_email) + '</small>';
+                }
+                if (item.customer_phone) {
+                    html += ' <small style="color:#64748b;">(' + escHtml(item.customer_phone) + ')</small>';
+                }
+                html += '</td>';
+                html += '<td>' + statusBadge + '</td>';
+                html += '<td>' + escHtml(item.payment_method_title) + '</td>';
+                html += '<td>' + (item.persons ? item.persons + ' pers. — ' : '') + '<strong>' + item.total + '</strong></td>';
+                html += '<td style="text-align:right;">';
+                if (item.order_id > 0) {
+                    html += '<a href="/wp/wp-admin/post.php?post=' + item.order_id + '&action=edit" target="_blank" class="button button-small" style="margin-right:4px;" title="Vedi Ordine WooCommerce"><span class="dashicons dashicons-visibility" style="margin-top:3px;"></span> Ordine</a>';
+                }
+                html += '<button type="button" class="button button-small button-link-delete dfn-btn-delete-attempt" data-order-id="' + item.order_id + '" data-booking-id="' + item.booking_id + '" title="Elimina definitivamente"><span class="dashicons dashicons-trash" style="margin-top:3px;"></span> Elimina</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            $wrapper.html(html);
+        }
+
+        $(document).on('click', '.dfn-btn-delete-attempt', function() {
+            var orderId = $(this).data('order-id');
+            var bookingId = $(this).data('booking-id');
+
+            if (!confirm('Sei sicuro di voler eliminare definitivamente questo tentativo dal database?')) {
+                return;
+            }
+
+            var $btn = $(this);
+            $btn.prop('disabled', true).text('Eliminazione...');
+
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'dfn_admin_delete_failed_attempt',
+                    order_id: orderId,
+                    booking_id: bookingId,
+                    nonce: nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        loadFailedAttempts(false);
+                    } else {
+                        alert(response.data ? response.data.message : 'Errore durante l\'eliminazione');
+                    }
+                },
+                error: function() {
+                    alert('Errore di rete durante l\'eliminazione del tentativo.');
+                }
+            });
+        });
+
+        // ========================================================================
         // 1. CARICAMENTO DATI SLOT
         // ========================================================================
         function loadSlots(date) {
