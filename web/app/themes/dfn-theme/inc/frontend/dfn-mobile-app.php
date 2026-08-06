@@ -743,6 +743,142 @@ function dfn_ajax_mobile_get_booking_details(): void
 add_action('wp_ajax_dfn_mobile_get_booking_details', 'dfn_ajax_mobile_get_booking_details');
 
 /**
+ * Upload foto avatar dell'utente corrente per la web app mobile.
+ */
+function dfn_ajax_mobile_upload_avatar(): void
+{
+    if (! is_user_logged_in()) {
+        wp_send_json_error(__('Sessione scaduta, effettua nuovamente il login.', 'dfn-theme'));
+    }
+
+    $nonce = $_POST['nonce'] ?? '';
+    if (! wp_verify_nonce($nonce, 'dfn_admin_events_nonce') && ! wp_verify_nonce($nonce, 'dfn_booking_nonce')) {
+        wp_send_json_error(__('Token di sicurezza non valido.', 'dfn-theme'));
+    }
+
+    if (empty($_FILES['avatar']) || empty($_FILES['avatar']['name'])) {
+        wp_send_json_error(__('Nessun file immagine selezionato.', 'dfn-theme'));
+    }
+
+    $file = $_FILES['avatar'];
+
+    // Controllo dimensione max (5 MB)
+    if ($file['size'] > 5 * 1024 * 1024) {
+        wp_send_json_error(__('L\'immagine supera la dimensione massima di 5 MB.', 'dfn-theme'));
+    }
+
+    // Controllo estensione / MIME type
+    $allowed_mimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    $file_type     = wp_check_filetype($file['name']);
+
+    if (! in_array($file['type'], $allowed_mimes, true) && ! in_array($file_type['type'], $allowed_mimes, true)) {
+        wp_send_json_error(__('Formato file non supportato. Usa JPG, PNG, WEBP o GIF.', 'dfn-theme'));
+    }
+
+    if (! function_exists('wp_handle_upload')) {
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+    }
+
+    $upload = wp_handle_upload($file, ['test_form' => false]);
+    if (isset($upload['error'])) {
+        wp_send_json_error($upload['error']);
+    }
+
+    $user_id    = get_current_user_id();
+    $avatar_url = $upload['url'];
+
+    update_user_meta($user_id, 'dfn_user_avatar', $avatar_url);
+
+    wp_send_json_success([
+        'avatar_url' => $avatar_url,
+        'message'    => __('Avatar aggiornato con successo!', 'dfn-theme'),
+    ]);
+}
+add_action('wp_ajax_dfn_mobile_upload_avatar', 'dfn_ajax_mobile_upload_avatar');
+
+/**
+ * Rimuove l'avatar personalizzato dell'utente corrente.
+ */
+function dfn_ajax_mobile_remove_avatar(): void
+{
+    if (! is_user_logged_in()) {
+        wp_send_json_error(__('Sessione scaduta, effettua nuovamente il login.', 'dfn-theme'));
+    }
+
+    $nonce = $_POST['nonce'] ?? '';
+    if (! wp_verify_nonce($nonce, 'dfn_admin_events_nonce') && ! wp_verify_nonce($nonce, 'dfn_booking_nonce')) {
+        wp_send_json_error(__('Token di sicurezza non valido.', 'dfn-theme'));
+    }
+
+    $user_id = get_current_user_id();
+    delete_user_meta($user_id, 'dfn_user_avatar');
+
+    wp_send_json_success([
+        'message' => __('Avatar rimosso con successo.', 'dfn-theme'),
+    ]);
+}
+add_action('wp_ajax_dfn_mobile_remove_avatar', 'dfn_ajax_mobile_remove_avatar');
+
+/**
+ * Aggiorna le informazioni del profilo utente (Nome visualizzato, Email, Password).
+ */
+function dfn_ajax_mobile_update_profile(): void
+{
+    if (! is_user_logged_in()) {
+        wp_send_json_error(__('Sessione scaduta, effettua nuovamente il login.', 'dfn-theme'));
+    }
+
+    $nonce = $_POST['nonce'] ?? '';
+    if (! wp_verify_nonce($nonce, 'dfn_admin_events_nonce') && ! wp_verify_nonce($nonce, 'dfn_booking_nonce')) {
+        wp_send_json_error(__('Token di sicurezza non valido.', 'dfn-theme'));
+    }
+
+    $user_id      = get_current_user_id();
+    $display_name = sanitize_text_field($_POST['display_name'] ?? '');
+    $user_email   = sanitize_email($_POST['user_email'] ?? '');
+    $new_password = $_POST['new_password'] ?? '';
+
+    if (empty($display_name)) {
+        wp_send_json_error(__('Il nome visualizzato è obbligatorio.', 'dfn-theme'));
+    }
+
+    if (empty($user_email) || ! is_email($user_email)) {
+        wp_send_json_error(__('Inserisci un indirizzo email valido.', 'dfn-theme'));
+    }
+
+    // Verifica se l'email è usata da un altro utente
+    $existing_user = get_user_by('email', $user_email);
+    if ($existing_user && intval($existing_user->ID) !== intval($user_id)) {
+        wp_send_json_error(__('L\'indirizzo email è già utilizzato da un altro account.', 'dfn-theme'));
+    }
+
+    $userdata = [
+        'ID'           => $user_id,
+        'display_name' => $display_name,
+        'user_email'   => $user_email,
+    ];
+
+    if (! empty($new_password)) {
+        if (strlen($new_password) < 6) {
+            wp_send_json_error(__('La password deve contenere almeno 6 caratteri.', 'dfn-theme'));
+        }
+        $userdata['user_pass'] = $new_password;
+    }
+
+    $updated = wp_update_user($userdata);
+    if (is_wp_error($updated)) {
+        wp_send_json_error($updated->get_error_message());
+    }
+
+    wp_send_json_success([
+        'message'      => __('Profilo aggiornato con successo!', 'dfn-theme'),
+        'display_name' => $display_name,
+        'user_email'   => $user_email,
+    ]);
+}
+add_action('wp_ajax_dfn_mobile_update_profile', 'dfn_ajax_mobile_update_profile');
+
+/**
  * Renderizza l'intera applicazione mobile o la schermata di login se non autenticato.
  *
  * @return void
@@ -1234,11 +1370,30 @@ function dfn_render_mobile_app(): void
             <section id="dfn-tab-profile" class="dfn-mobile-tab-pane">
                 <div class="dfn-mobile-card">
                     <div class="dfn-profile-card-header">
-                        <div class="dfn-user-avatar large">
-                            <?php echo esc_html($user_initials); ?>
+                        <div class="dfn-profile-avatar-wrapper">
+                            <div class="dfn-user-avatar large" id="dfn-profile-avatar-display" title="Clicca per scegliere o scattare una foto avatar">
+                                <?php if (! empty($user_avatar_url)) : ?>
+                                    <img src="<?php echo esc_url($user_avatar_url); ?>" alt="Avatar" id="dfn-avatar-img-preview" class="dfn-user-avatar-img" />
+                                    <span id="dfn-avatar-initials-preview" style="display:none;"><?php echo esc_html($user_initials); ?></span>
+                                <?php else : ?>
+                                    <img src="" alt="Avatar" id="dfn-avatar-img-preview" class="dfn-user-avatar-img" style="display:none;" />
+                                    <span id="dfn-avatar-initials-preview"><?php echo esc_html($user_initials); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <button type="button" id="dfn-btn-trigger-avatar" class="dfn-avatar-edit-badge" title="Cambia foto avatar">
+                                📷
+                            </button>
+                            <input type="file" id="dfn-avatar-file-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;" />
                         </div>
-                        <h3><?php echo esc_html($user_display_name); ?></h3>
-                        <p class="dfn-user-email">📧 <?php echo esc_html($current_user->user_email); ?></p>
+
+                        <div id="dfn-avatar-actions-area" style="margin-bottom:12px; display:<?php echo ! empty($user_avatar_url) ? 'block' : 'none'; ?>;">
+                            <button type="button" id="dfn-btn-remove-avatar" style="background:transparent; border:none; color:#ef4444; font-size:12px; font-weight:600; cursor:pointer; text-decoration:underline;">
+                                🗑️ Rimuovi foto profilo
+                            </button>
+                        </div>
+
+                        <h3 id="dfn-profile-display-name"><?php echo esc_html($user_display_name); ?></h3>
+                        <p class="dfn-user-email" id="dfn-profile-display-email">📧 <?php echo esc_html($current_user->user_email); ?></p>
                         <span class="dfn-role-name-tag"><?php echo esc_html($primary_role_name); ?></span>
                     </div>
 
@@ -1268,7 +1423,7 @@ function dfn_render_mobile_app(): void
                             </select>
                         </div>
 
-                        <button type="submit" class="dfn-mobile-btn primary">
+                        <button type="submit" id="dfn-btn-save-profile" class="dfn-mobile-btn primary">
                             Salva Profilo
                         </button>
                     </form>

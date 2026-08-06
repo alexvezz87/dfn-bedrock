@@ -1466,4 +1466,162 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         });
     }
+
+    // ==========================================
+    // 📷 GESTIONE AVATAR & PROFILO UTENTE
+    // ==========================================
+    const avatarWrapper   = document.getElementById('dfn-profile-avatar-display');
+    const avatarBadgeBtn  = document.getElementById('dfn-btn-trigger-avatar');
+    const avatarFileInput = document.getElementById('dfn-avatar-file-input');
+    const avatarImgPre    = document.getElementById('dfn-avatar-img-preview');
+    const avatarInitPre   = document.getElementById('dfn-avatar-initials-preview');
+    const avatarActions   = document.getElementById('dfn-avatar-actions-area');
+    const removeAvatarBtn = document.getElementById('dfn-btn-remove-avatar');
+    const profileForm     = document.getElementById('dfn-mobile-profile-form');
+
+    function triggerAvatarSelect() {
+        if (avatarFileInput) avatarFileInput.click();
+    }
+
+    if (avatarWrapper) {
+        avatarWrapper.addEventListener('click', triggerAvatarSelect);
+    }
+    if (avatarBadgeBtn) {
+        avatarBadgeBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            triggerAvatarSelect();
+        });
+    }
+
+    if (avatarFileInput) {
+        avatarFileInput.addEventListener('change', function () {
+            const file = this.files && this.files[0];
+            if (! file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('⚠️ L\'immagine non può superare i 5 MB.', 'error');
+                return;
+            }
+
+            // Preview istantanea con FileReader
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                if (avatarImgPre) {
+                    avatarImgPre.src = e.target.result;
+                    avatarImgPre.style.display = 'block';
+                }
+                if (avatarInitPre) {
+                    avatarInitPre.style.display = 'none';
+                }
+            };
+            reader.readAsDataURL(file);
+
+            // Caricamento AJAX immediato dell'avatar
+            showToast('⏳ Caricamento foto profilo in corso...', 'info');
+            const fd = new FormData();
+            fd.append('action', 'dfn_mobile_upload_avatar');
+            fd.append('avatar', file);
+            fd.append('nonce', nonces.admin || nonces.booking || '');
+
+            fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        vibrate([100, 50, 100]);
+                        showToast('✅ Foto profilo aggiornata!', 'success');
+                        if (avatarActions) avatarActions.style.display = 'block';
+                        if (res.data && res.data.avatar_url && avatarImgPre) {
+                            avatarImgPre.src = res.data.avatar_url;
+                        }
+                    } else {
+                        showToast('⚠️ Errore upload: ' + (res.data || 'Impossibile caricare'), 'error');
+                    }
+                })
+                .catch(() => {
+                    showToast('⚠️ Errore di connessione durante l\'upload', 'error');
+                });
+        });
+    }
+
+    if (removeAvatarBtn) {
+        removeAvatarBtn.addEventListener('click', function () {
+            if (! confirm('Sei sicuro di voler rimuovere la foto profilo?')) return;
+
+            showToast('⏳ Rimozione foto in corso...', 'info');
+            const fd = new FormData();
+            fd.append('action', 'dfn_mobile_remove_avatar');
+            fd.append('nonce', nonces.admin || nonces.booking || '');
+
+            fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        showToast('🗑️ Foto profilo rimossa.', 'success');
+                        if (avatarImgPre) {
+                            avatarImgPre.src = '';
+                            avatarImgPre.style.display = 'none';
+                        }
+                        if (avatarInitPre) {
+                            avatarInitPre.style.display = 'block';
+                        }
+                        if (avatarActions) avatarActions.style.display = 'none';
+                        if (avatarFileInput) avatarFileInput.value = '';
+                    } else {
+                        showToast('⚠️ Errore: ' + (res.data || 'Impossibile rimuovere'), 'error');
+                    }
+                });
+        });
+    }
+
+    if (profileForm) {
+        profileForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('dfn-btn-save-profile');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Salvataggio in corso...';
+            }
+
+            const fd = new FormData(this);
+            fd.append('action', 'dfn_mobile_update_profile');
+            fd.append('nonce', nonces.admin || nonces.booking || '');
+
+            fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Salva Profilo';
+                    }
+
+                    if (res.success) {
+                        vibrate([100, 50, 100]);
+                        showToast('✅ Profilo aggiornato con successo!', 'success');
+
+                        if (res.data && res.data.display_name) {
+                            const dispNameEl = document.getElementById('dfn-profile-display-name');
+                            if (dispNameEl) dispNameEl.textContent = res.data.display_name;
+                        }
+                        if (res.data && res.data.user_email) {
+                            const dispEmailEl = document.getElementById('dfn-profile-display-email');
+                            if (dispEmailEl) dispEmailEl.textContent = '📧 ' + res.data.user_email;
+                        }
+
+                        // Reset campo nuova password
+                        const passInput = document.getElementById('dfn-prof-pass');
+                        if (passInput) passInput.value = '';
+                    } else {
+                        showToast('⚠️ Errore: ' + (res.data || 'Impossibile salvare il profilo'), 'error');
+                    }
+                })
+                .catch(() => {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Salva Profilo';
+                    }
+                    showToast('⚠️ Errore di connessione', 'error');
+                });
+        });
+    }
 });
