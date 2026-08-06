@@ -152,7 +152,7 @@ add_action('woocommerce_new_order', 'dfn_allocate_slots_on_checkout', 20, 1);
  * @param array         $posted_data Dati inviati.
  * @param WC_Order|null $order Oggetto ordine WooCommerce.
  */
-function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
+function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order = null)
 {
     global $wpdb;
 
