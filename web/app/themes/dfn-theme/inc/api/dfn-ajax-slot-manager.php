@@ -1551,7 +1551,7 @@ function dfn_enrich_booking_data($b, $order) {
     $reminder_sent = false;
     $feedback_sent = false;
     $html_bottoni_popup = '';
-    $html_history_popup = '<p style="color:#666; font-style:italic;">Nessuna interazione registrata.</p>';
+    $html_history_popup = '<div class="cv-history-data-container" style="display:none;"><p style="color:#666; font-style:italic; padding:10px 0; text-align:center;">Nessuna interazione registrata per questo ordine.</p></div>';
 
     if ($order) {
         $status = $order->get_status();
@@ -1611,18 +1611,20 @@ function dfn_enrich_booking_data($b, $order) {
             }
         }
 
-        // Calcola log storico
+        // Calcola log storico dell'ordine
         $history_meta = $order->get_meta('_cv_ticket_history');
+        $html_history_popup = '<div class="cv-history-data-container" style="display:none;">';
         if (! empty($history_meta) && is_array($history_meta)) {
             usort($history_meta, function ($a, $b) {
                 return strtotime($b['time']) - strtotime($a['time']);
             });
-            $html_history_popup = '<div class="cv-history-data-container" style="display:none;">';
             foreach ($history_meta as $log) {
                 $html_history_popup .= '<div class="cv-history-item" style="border-bottom:1px solid #e2e8f0; padding:8px 0; white-space:nowrap;"><span style="color:#64748b; margin-right:12px;">🕒 ' . date_i18n('d/m/Y - H:i:s', strtotime($log['time'])) . '</span> <strong>' . esc_html($log['action']) . '</strong></div>';
             }
-            $html_history_popup .= '</div>';
+        } else {
+            $html_history_popup .= '<p style="color:#666; font-style:italic; padding:10px 0; text-align:center;">Nessuna interazione registrata per questo ordine.</p>';
         }
+        $html_history_popup .= '</div>';
     }
 
     if (empty($first_name) && empty($last_name)) {

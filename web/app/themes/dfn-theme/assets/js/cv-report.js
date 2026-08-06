@@ -61,7 +61,12 @@ jQuery(document).ready(function($) {
     $(document).on("click", ".cv-open-history-btn", function(e) {
         e.preventDefault();
         $("#cv-history-cliente-name").text($(this).data("cliente"));
-        $("#cv-history-content-area").html($(this).siblings(".cv-history-data-container").html());
+        var container = $(this).parent().find(".cv-history-data-container");
+        if (container.length > 0 && container.html().trim() !== "") {
+            $("#cv-history-content-area").html(container.html());
+        } else {
+            $("#cv-history-content-area").html('<p style="color:#666; font-style:italic; padding:10px; text-align:center;">Nessuna interazione registrata per questo ordine.</p>');
+        }
         $("#cv-history-modal").css("display", "flex");
     });
 
