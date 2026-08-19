@@ -238,10 +238,10 @@ function dfn_log_get_client_ip(): string
 }
 
 /**
- * Risolve l'etichetta amichevole del ruolo o dei ruoli assegnati a un utente WP_User.
+ * Risolve l'etichetta amichevole del ruolo o dei ruoli assegnati a un utente WP_User (compresi i ruoli delegazione FAI).
  *
  * @param WP_User|int|null $user Istanza utente o ID utente.
- * @return string Etichetta/e del ruolo separate da virgola (es. 'Segreteria FAI', 'Cliente', 'Amministratore').
+ * @return string Etichetta/e del ruolo separate da virgola (es. 'Cliente, Segreteria FAI').
  */
 function dfn_log_get_user_roles_label($user): string
 {
@@ -249,12 +249,24 @@ function dfn_log_get_user_roles_label($user): string
         $user = get_userdata((int) $user);
     }
 
-    if (! ($user instanceof WP_User) || empty($user->roles)) {
+    if (! ($user instanceof WP_User)) {
         return __('Ospite / Non registrato', 'dfn-theme');
     }
 
-    // Se esiste la configurazione dei ruoli FAI, usiamo le etichette amichevoli
-    $custom_roles = function_exists('dfn_get_custom_roles_list') ? dfn_get_custom_roles_list() : [];
+    $all_role_slugs = (array) ($user->roles ?? []);
+
+    // Recupera anche tutti i ruoli FAI assegnati nello user_meta
+    $assigned_fai_roles = get_user_meta($user->ID, '_dfn_assigned_fai_roles', true);
+    if (is_array($assigned_fai_roles) && ! empty($assigned_fai_roles)) {
+        $all_role_slugs = array_unique(array_merge($all_role_slugs, $assigned_fai_roles));
+    }
+
+    if (empty($all_role_slugs)) {
+        return __('Ospite / Non registrato', 'dfn-theme');
+    }
+
+    // Se esiste la configurazione dei ruoli FAI, recuperiamo le definizioni
+    $stored_fai_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
     
     // Mappa dei ruoli WP nativi in italiano
     $native_role_names = [
@@ -268,9 +280,9 @@ function dfn_log_get_user_roles_label($user): string
     ];
 
     $labels = [];
-    foreach ($user->roles as $role_key) {
-        if (isset($custom_roles[$role_key]['name'])) {
-            $labels[] = $custom_roles[$role_key]['name'];
+    foreach ($all_role_slugs as $role_key) {
+        if (isset($stored_fai_roles[$role_key]['label'])) {
+            $labels[] = $stored_fai_roles[$role_key]['label'];
         } elseif (isset($native_role_names[$role_key])) {
             $labels[] = $native_role_names[$role_key];
         } else {
@@ -278,7 +290,7 @@ function dfn_log_get_user_roles_label($user): string
         }
     }
 
-    return implode(', ', $labels);
+    return ! empty($labels) ? implode(', ', array_unique($labels)) : __('Cliente', 'dfn-theme');
 }
 
 /**
