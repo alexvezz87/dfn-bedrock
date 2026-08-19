@@ -118,6 +118,21 @@ add_action('woocommerce_before_customer_login_form', 'dfn_show_activation_welcom
 add_action('woocommerce_before_my_account', 'dfn_show_activation_welcome_banner', 5);
 add_action('woocommerce_account_content', 'dfn_show_activation_welcome_banner', 5);
 
+function dfn_is_local_environment(): bool
+{
+    // Verifica se siamo in ambiente locale / development
+    if (defined('WP_ENV') && WP_ENV === 'development') {
+        return true;
+    }
+
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if (strpos($host, 'dfn-bedrock.local') !== false || strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false) {
+        return true;
+    }
+
+    return false;
+}
+
 /**
  * Verifica un token Google reCAPTCHA v3 tramite API HTTPS.
  *
@@ -127,6 +142,11 @@ add_action('woocommerce_account_content', 'dfn_show_activation_welcome_banner', 
  */
 function dfn_verify_recaptcha(string $token, string $action = ''): bool
 {
+    // Disattivato in ambiente locale/sviluppo
+    if (dfn_is_local_environment()) {
+        return true;
+    }
+
     if (empty($token)) {
         return false;
     }
@@ -159,7 +179,7 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
  */
 function dfn_enqueue_recaptcha_scripts(): void
 {
-    if (is_admin()) {
+    if (is_admin() || dfn_is_local_environment()) {
         return;
     }
 

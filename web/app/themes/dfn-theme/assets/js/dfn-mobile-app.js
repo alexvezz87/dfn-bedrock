@@ -183,6 +183,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Se all'avvio la scheda attiva è lo scanner, avvia subito la fotocamera
+    const initialActiveTab = document.querySelector('.dfn-mobile-tab-pane.active');
+    if (initialActiveTab && initialActiveTab.id === 'dfn-tab-scanner') {
+        setTimeout(startHtml5Scanner, 300);
+    }
+
     tabBtns.forEach(btn => {
         btn.addEventListener('click', function () {
             const targetTab = this.getAttribute('data-tab');
@@ -972,27 +978,160 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // C. Collegamento Evento → Inserimento Rapido & Botteghino
-    document.querySelectorAll('.btn-quick-book-event').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const eventId = this.getAttribute('data-event-id');
+    // C. Collegamento Evento → Inserimento Rapido & Botteghino (con event delegation per elementi dinamici)
+    document.addEventListener('click', function (e) {
+        const quickBtn = e.target.closest('.btn-quick-book-event');
+        if (quickBtn) {
+            const eventId = quickBtn.getAttribute('data-event-id');
             const select = document.getElementById('dfn-m-qb-event') || document.getElementById('dfn-qb-event');
             if (select) {
                 select.value = eventId;
                 select.dispatchEvent(new Event('change'));
             }
             switchTab('quick');
-        });
+            return;
+        }
+
+        const botBtn = e.target.closest('.btn-botteghino-event');
+        if (botBtn) {
+            const eventId = botBtn.getAttribute('data-event-id');
+            const select = document.getElementById('dfn-bot-event');
+            if (select) {
+                select.value = eventId;
+                select.dispatchEvent(new Event('change'));
+            }
+            switchTab('botteghino');
+            return;
+        }
+
+        const checkinBtn = e.target.closest('.btn-open-checkin-event');
+        if (checkinBtn) {
+            const eventId = checkinBtn.getAttribute('data-event-id');
+            openEventCheckinModal(eventId, '');
+            return;
+        }
     });
 
-    document.querySelectorAll('.btn-botteghino-event').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const eventId = this.getAttribute('data-event-id');
-            const select = document.getElementById('dfn-bot-event');
-            if (select) select.value = eventId;
-            switchTab('botteghino');
+    // -------------------------------------------------------------------
+    // 6.1 RICERCA LIVE EVENTI VIA AJAX
+    // -------------------------------------------------------------------
+    const eventsSearchInput = document.getElementById('dfn-events-search-input');
+    const eventsSearchClear = document.getElementById('dfn-events-search-clear');
+    const eventsCardsList   = document.getElementById('dfn-mobile-events-cards-list');
+    const eventsBadgeCount  = document.getElementById('dfn-events-badge-count');
+
+    let eventsSearchTimeout = null;
+
+    if (eventsSearchInput && eventsCardsList) {
+        eventsSearchInput.addEventListener('input', function () {
+            const query = this.value.trim();
+
+            if (eventsSearchClear) {
+                eventsSearchClear.style.display = query.length > 0 ? 'block' : 'none';
+            }
+
+            clearTimeout(eventsSearchTimeout);
+            eventsSearchTimeout = setTimeout(() => {
+                performEventsSearch(query);
+            }, 250);
         });
-    });
+
+        if (eventsSearchClear) {
+            eventsSearchClear.addEventListener('click', function () {
+                eventsSearchInput.value = '';
+                eventsSearchClear.style.display = 'none';
+                performEventsSearch('');
+                eventsSearchInput.focus();
+            });
+        }
+    }
+
+    function performEventsSearch(query) {
+        if (! eventsCardsList) return;
+
+        // Feedback visivo immediato di ricerca in corso
+        eventsCardsList.style.opacity = '0.5';
+
+        const fd = new FormData();
+        fd.append('action', 'dfn_mobile_search_events');
+        fd.append('query', query);
+        fd.append('nonce', nonces.admin || nonces.quick || nonces.booking || '');
+
+        fetch(ajaxUrl, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(res => {
+                eventsCardsList.style.opacity = '1';
+                if (res.success && res.data) {
+                    renderEventsCards(res.data.events || []);
+                    if (eventsBadgeCount) {
+                        eventsBadgeCount.textContent = res.data.count || 0;
+                    }
+                }
+            })
+            .catch(() => {
+                eventsCardsList.style.opacity = '1';
+            });
+    }
+
+    function renderEventsCards(events) {
+        if (! eventsCardsList) return;
+
+        if (! events || events.length === 0) {
+            eventsCardsList.innerHTML = `
+                <div class="dfn-mobile-empty-state" style="padding: 24px 16px; text-align: center; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px;">
+                    <p style="margin: 0; font-size: 14px;">🔍 Nessun evento trovato con questo termine di ricerca.</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        events.forEach(ev => {
+            const hasButtons = ev.can_quick || ev.can_botteghino || ev.can_checkin;
+            html += `
+                <div class="dfn-mobile-card dfn-event-card-item">
+                    <div class="dfn-event-card-top">
+                        <span class="dfn-event-date-badge">📅 ${ev.date_formatted} • ⏰ ${ev.time_formatted}</span>
+                        ${ev.is_test ? '<span class="dfn-event-status-pill test" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:bold;">🧪 TEST</span>' : '<span class="dfn-event-status-pill open">Aperto</span>'}
+                    </div>
+                    <h4 class="dfn-event-title">${escapeHtml(ev.title)}</h4>
+                    <p class="dfn-event-location">📍 ${escapeHtml(ev.location)}</p>
+                    
+                    ${hasButtons ? `
+                        <div class="dfn-event-card-actions" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
+                            ${ev.can_quick ? `
+                                <button type="button" class="dfn-mobile-btn primary btn-quick-book-event" data-event-id="${ev.id}" style="flex: 1; min-width: 100px;">
+                                    ⚡ Prenota
+                                </button>
+                            ` : ''}
+                            ${ev.can_botteghino ? `
+                                <button type="button" class="dfn-mobile-btn secondary btn-botteghino-event" data-event-id="${ev.id}" style="flex: 1; min-width: 100px;">
+                                    🎟️ Botteghino
+                                </button>
+                            ` : ''}
+                            ${ev.can_checkin ? `
+                                <button type="button" class="dfn-mobile-btn success btn-open-checkin-event" data-event-id="${ev.id}" style="flex: 1; min-width: 100px;">
+                                    📋 Check-in
+                                </button>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        eventsCardsList.innerHTML = html;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 
     // -------------------------------------------------------------------
     // 7. INSERIMENTO RAPIDO (MOBILE APP) — CASCADE & SUBMIT

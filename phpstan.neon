@@ -1,0 +1,13 @@
+parameters:
+    level: 5
+    paths:
+        - web/app/themes/dfn-theme/inc/core/dfn-roles-manager.php
+        - web/app/themes/dfn-theme/inc/admin/dfn-roles-admin.php
+        - web/app/themes/dfn-theme/inc/core/dfn-security.php
+    scanFiles:
+        - web/app/themes/dfn-theme/functions.php
+    ignoreErrors:
+        - '#Constant DFN_PRIVACY_POLICY_URL not found#'
+        - '#Function wc_get_page_permalink not found#'
+        - '#Left side of && is always true#'
+    reportUnmatchedIgnoredErrors: false

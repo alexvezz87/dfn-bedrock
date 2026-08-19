@@ -25,7 +25,7 @@ function dfn_settings_register_menu(): void
         'dfn-events',
         esc_html__('Impostazioni FAI Prenotazioni', 'dfn-theme'),
         esc_html__('Impostazioni', 'dfn-theme'),
-        'dfn_manage_events',
+        'dfn_act_settings',
         'dfn-settings',
         'dfn_render_settings_page',
     );
@@ -857,48 +857,23 @@ function dfn_render_settings_page(): void
                         </table>
 
                     <?php elseif ($active_tab === 'ruoli') : ?>
-                        <!-- TAB RUOLI & AZIONI -->
-                        <h2 style="color:#004b23; border-bottom:1px solid #eee; padding-bottom:10px; margin-top:0;">&#128100; Ruoli &amp; Azioni</h2>
-                        <p class="description" style="margin-bottom:25px;">Configura i ruoli utente e le azioni che ciascun ruolo può eseguire all'interno del sistema FAI Prenotazioni.</p>
+                        <!-- TAB RUOLI & AZIONI -> REDIRECT / LINK AL NUOVO MENU CENTRALIZZATO -->
+                        <h2 style="color:#004b23; border-bottom:1px solid #eee; padding-bottom:10px; margin-top:0;">🛡️ FAI — Ruoli &amp; Permessi</h2>
+                        <p class="description" style="margin-bottom:25px;">La gestione dei ruoli e dei permessi è ora centralizzata in un modulo dedicato di primo livello per supportare FAI Prenotazioni, FAI Convenzioni e tutte le future estensioni.</p>
 
-                        <div style="background:#f0f9ff; border:1px solid #bfdbfe; border-radius:6px; padding:20px; margin-bottom:25px;">
-                            <strong style="color:#1e40af;">&#128274; Funzionalità in arrivo</strong>
-                            <p style="margin:8px 0 0; color:#1e3a8a;">Questa sezione permetterà di gestire <strong>dinamicamente</strong> i permessi per ruolo. Ad esempio:</p>
-                            <ul style="margin:10px 0 0 20px; color:#1e3a8a; line-height:1.8;">
-                                <li>Definire chi può accedere alla <strong>Gestione Prenotazioni</strong> (annullamento, spostamento turno)</li>
-                                <li>Definire chi può accedere al <strong>Check-in Banchetto</strong> (validazione biglietti, reminder)</li>
-                                <li>Assegnare ruoli personalizzati agli utenti WordPress direttamente da qui</li>
-                                <li>Gestire la visibilità delle singole azioni per utenti scanner, cassa, segreteria, ecc.</li>
-                            </ul>
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:24px; margin-bottom:25px; display:flex; align-items:center; justify-content:space-between;">
+                            <div>
+                                <h3 style="margin:0 0 8px; color:#166534; font-size:16px;">✨ Nuovo Modulo Centralizzato Attivo</h3>
+                                <p style="margin:0; color:#15803d; font-size:14px; line-height:1.5;">
+                                    Puoi configurare la matrice dinamica dei permessi per ogni attività, creare nuovi ruoli personalizzati e visualizzare gli utenti associati nel menu dedicato.
+                                </p>
+                            </div>
+                            <div style="margin-left:20px; flex-shrink:0;">
+                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles')); ?>" class="button button-primary button-large" style="background:#004b23; border-color:#003318; font-weight:700; padding:6px 18px; height:auto;">
+                                    🛡️ Apri FAI Ruoli &amp; Permessi &rarr;
+                                </a>
+                            </div>
                         </div>
-
-                        <h3 style="color:#004b23;">Ruoli attuali registrati</h3>
-                        <table class="wp-list-table widefat fixed striped" style="max-width:700px;">
-                            <thead><tr>
-                                <th style="padding:10px; width:200px;">Ruolo</th>
-                                <th style="padding:10px;">Permessi attuali</th>
-                            </tr></thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding:10px; font-weight:700;">dfn_admin</td>
-                                    <td style="padding:10px;">Accesso completo a tutte le funzioni: Gestione Prenotazioni, Check-in, Impostazioni, Scanner</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:10px; font-weight:700;">dfn_event_manager</td>
-                                    <td style="padding:10px;">Gestione Prenotazioni + Check-in Banchetto (identico a dfn_admin per ora)</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:10px; font-weight:700;">dfn_secretary</td>
-                                    <td style="padding:10px;">Inserimento Rapido prenotazioni + lista ordini WooCommerce</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:10px; font-weight:700;">dfn_scanner</td>
-                                    <td style="padding:10px;">Solo accesso allo Scanner Live (validazione QR in ingresso)</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <p style="margin-top:20px; color:#64748b; font-size:12px;">&#128221; I permessi sopra elencati sono attualmente hardcoded nel tema. La gestione dinamica sarà disponibile in una versione futura.</p>
 
                     <?php endif; ?>
 

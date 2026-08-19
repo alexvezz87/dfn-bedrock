@@ -17,7 +17,7 @@ function cv_aggiungi_pagina_recensioni()
         'dfn-events',
         'Recensioni Eventi',
         'Recensioni Eventi',
-        'manage_woocommerce',
+        'dfn_act_reviews',
         'cv-recensioni-eventi',
         'cv_render_pagina_recensioni',
     );
@@ -25,7 +25,7 @@ function cv_aggiungi_pagina_recensioni()
 
 function cv_render_pagina_recensioni()
 {
-    if (! current_user_can('manage_woocommerce')) {
+    if (! current_user_can('dfn_act_reviews')) {
         return;
     }
 

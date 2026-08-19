@@ -16,7 +16,7 @@ function cv_aggiungi_pagina_bilancio()
         'dfn-events',
         'Bilancio Eventi',
         'Bilancio Eventi',
-        'manage_woocommerce',
+        'dfn_act_financials',
         'cv-bilancio-eventi',
         'cv_render_pagina_bilancio',
     );

@@ -24,7 +24,7 @@ function dfn_logs_register_admin_menu(): void
         'dfn-events',
         __('Log di Sistema', 'dfn-theme'),
         __('Log di Sistema', 'dfn-theme'),
-        'read',
+        'dfn_act_system_logs',
         'dfn-logs',
         'dfn_render_logs_page'
     );

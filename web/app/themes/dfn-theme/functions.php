@@ -19,6 +19,7 @@ if (!defined('ABSPATH')) {
 
 // Core e Database
 require_once get_stylesheet_directory() . '/inc/core/dfn-database.php';
+require_once get_stylesheet_directory() . '/inc/core/dfn-roles-manager.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-setup.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-helpers.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-security.php';
@@ -39,6 +40,7 @@ require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-mobile-app.php';
 
 // Admin / Gestione
+require_once get_stylesheet_directory() . '/inc/admin/dfn-roles-admin.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-events-manager.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-settings.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-event-editor.php';

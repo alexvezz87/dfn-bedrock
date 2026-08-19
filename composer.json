@@ -70,17 +70,22 @@
                     "wp-theme/twentytwentyfive":  "^1.0"
                 },
     "require-dev":  {
-                        "laravel/pint":  "^1.0",
-                        "pestphp/pest":  "4.7.2"
-                    },
+        "brain/monkey": "*",
+        "laravel/pint": "^1.0",
+        "pestphp/pest": "4.7.2",
+        "phpstan/extension-installer": "*",
+        "phpstan/phpstan": "*",
+        "szepeviktor/phpstan-wordpress": "*"
+    },
     "config":  {
                    "optimize-autoloader":  true,
                    "preferred-install":  "dist",
                    "allow-plugins":  {
-                                         "composer/installers":  true,
-                                         "roots/wordpress-core-installer":  true,
-                                         "pestphp/pest-plugin":  true
-                                     },
+            "composer/installers": true,
+            "roots/wordpress-core-installer": true,
+            "pestphp/pest-plugin": true,
+            "phpstan/extension-installer": true
+        },
                    "sort-packages":  true
                },
     "minimum-stability":  "dev",

@@ -148,26 +148,3 @@ function cv_track_access_tickets()
         }
     }
 }
-
-add_action('show_user_profile', 'cv_mostra_log_nel_profilo');
-add_action('edit_user_profile', 'cv_mostra_log_nel_profilo');
-function cv_mostra_log_nel_profilo($user)
-{
-    $log = get_user_meta($user->ID, '_cv_user_activity_log', true);
-    ?>
-    <div style="margin-top: 30px; background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 5px;">
-        <h3>📜 Log Attività CandleVibes</h3>
-        <?php if (empty($log)) : echo '<p>Nessuna attività.</p>';
-        else : $log = array_reverse($log); ?>
-            <table class="wp-list-table widefat fixed striped">
-                <thead><tr><th style="width:180px;">Data e Ora</th><th>Azione</th><th style="width:120px;">Indirizzo IP</th></tr></thead>
-                <tbody>
-                    <?php foreach ($log as $entry) : ?>
-                        <tr><td><strong><?php echo date_i18n('d/m/Y - H:i:s', strtotime($entry['data'])); ?></strong></td><td><?php echo esc_html($entry['azione']); ?></td><td><small><?php echo esc_html($entry['ip']); ?></small></td></tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php endif; ?>
-    </div>
-    <?php
-}

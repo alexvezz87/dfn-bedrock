@@ -82,6 +82,93 @@ function dfn_auto_create_mobile_app_page(): void
 add_action('init', 'dfn_auto_create_mobile_app_page');
 
 /**
+ * AJAX Handler per la ricerca in tempo reale degli eventi nella Dashboard Mobile.
+ */
+function dfn_ajax_mobile_search_events(): void
+{
+    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_booking_nonce')
+    ) {
+        if (! is_user_logged_in()) {
+            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
+        }
+    }
+
+    $current_user = wp_get_current_user();
+    if (! dfn_user_has_module_access('prenotazioni', $current_user->ID)) {
+        wp_send_json_error(__('Accesso non autorizzato.', 'dfn-theme'), 403);
+    }
+
+    $query = isset($_POST['query']) ? sanitize_text_field(wp_unslash($_POST['query'])) : '';
+
+    global $wpdb;
+    $table_events = $wpdb->prefix . 'dfn_events';
+    $table_posts  = $wpdb->prefix . 'posts';
+    $today        = date('Y-m-d');
+
+    if (! empty($query)) {
+        $like = '%' . $wpdb->esc_like($query) . '%';
+        $sql = $wpdb->prepare(
+            "SELECT e.*, p.post_title 
+             FROM {$table_events} e 
+             INNER JOIN {$table_posts} p ON e.product_id = p.ID 
+             WHERE e.status = 'published' 
+               AND e.event_date_start >= %s 
+               AND (p.post_title LIKE %s OR e.location LIKE %s)
+             ORDER BY e.event_date_start ASC, e.event_time_start ASC 
+             LIMIT 20",
+            $today,
+            $like,
+            $like
+        );
+    } else {
+        $sql = $wpdb->prepare(
+            "SELECT e.*, p.post_title 
+             FROM {$table_events} e 
+             INNER JOIN {$table_posts} p ON e.product_id = p.ID 
+             WHERE e.status = 'published' 
+               AND e.event_date_start >= %s 
+             ORDER BY e.event_date_start ASC, e.event_time_start ASC 
+             LIMIT 10",
+            $today
+        );
+    }
+
+    $events = $wpdb->get_results($sql);
+
+    $can_see_quick      = dfn_user_can('dfn_act_quick_booking', $current_user->ID);
+    $can_see_botteghino = dfn_user_can('dfn_act_boxoffice', $current_user->ID);
+    $can_do_checkin     = dfn_user_can('dfn_act_checkin', $current_user->ID) || dfn_user_can('dfn_act_events_manage', $current_user->ID);
+
+    $results = [];
+    foreach ($events as $ev) {
+        $date_formatted = date_i18n('d M Y', strtotime($ev->event_date_start));
+        $time_formatted = date('H:i', strtotime($ev->event_time_start));
+
+        $results[] = [
+            'id'             => intval($ev->id),
+            'title'          => $ev->post_title ?: get_the_title($ev->product_id),
+            'location'       => $ev->location ?: 'Novara',
+            'date_formatted' => $date_formatted,
+            'time_formatted' => $time_formatted,
+            'is_test'        => ! empty($ev->is_test_event),
+            'can_quick'      => $can_see_quick,
+            'can_botteghino' => $can_see_botteghino,
+            'can_checkin'    => $can_do_checkin,
+        ];
+    }
+
+    wp_send_json_success([
+        'events' => $results,
+        'count'  => count($results),
+    ]);
+}
+add_action('wp_ajax_dfn_mobile_search_events', 'dfn_ajax_mobile_search_events');
+
+/**
  * AJAX Handler per recuperare i dettagli del check-in mobile di un evento.
  */
 function dfn_ajax_mobile_get_event_checkin_list(): void
@@ -892,15 +979,32 @@ function dfn_render_mobile_app(): void
 
     $current_user = wp_get_current_user();
 
-    $has_access = current_user_can('manage_options') 
-               || current_user_can('dfn_manage_events') 
-               || current_user_can('dfn_quick_booking') 
-               || current_user_can('dfn_use_scanner')
-               || current_user_can('dfn_checkin_and_collect');
+    // Verifica se l'utente ha diritto di accedere al modulo FAI Prenotazioni
+    $has_access = dfn_user_has_module_access('prenotazioni', $current_user->ID);
 
     if (! $has_access) {
         dfn_render_mobile_access_denied($current_user);
         return;
+    }
+
+    // Capability specifiche per l'interfaccia mobile
+    $can_see_home      = dfn_user_can('dfn_act_events_manage') || dfn_user_can('dfn_act_checkin') || dfn_user_can('dfn_act_verify_bookings');
+    $can_see_scanner   = dfn_user_can('dfn_act_scanner');
+    $can_see_quick     = dfn_user_can('dfn_act_quick_booking');
+    $can_see_botteghino= dfn_user_can('dfn_act_boxoffice');
+
+    // Determina il tab attivo iniziale
+    $default_tab = 'home';
+    if (! $can_see_home) {
+        if ($can_see_scanner) {
+            $default_tab = 'scanner';
+        } elseif ($can_see_botteghino) {
+            $default_tab = 'botteghino';
+        } elseif ($can_see_quick) {
+            $default_tab = 'quick';
+        } else {
+            $default_tab = 'profile';
+        }
     }
 
     global $wpdb;
@@ -941,14 +1045,26 @@ function dfn_render_mobile_app(): void
     }
     
     $user_roles = (array) $current_user->roles;
-    $primary_role_name = 'Operatore Staff';
-    if (in_array('administrator', $user_roles, true)) {
-        $primary_role_name = 'Amministratore';
-    } elseif (in_array('dfn_manager', $user_roles, true)) {
-        $primary_role_name = 'Gestore Eventi';
-    } elseif (in_array('dfn_volunteer', $user_roles, true)) {
-        $primary_role_name = 'Volontario FAI';
+    $assigned_fai_roles = get_user_meta($current_user->ID, '_dfn_assigned_fai_roles', true);
+    if (is_array($assigned_fai_roles) && ! empty($assigned_fai_roles)) {
+        $user_roles = array_unique(array_merge($user_roles, $assigned_fai_roles));
     }
+
+    $stored_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
+    $primary_role_name = 'Operatore Staff';
+    $role_labels = [];
+    foreach ($user_roles as $u_role) {
+        if (isset($stored_roles[$u_role])) {
+            $role_labels[] = $stored_roles[$u_role]['label'];
+        }
+    }
+    if (! empty($role_labels)) {
+        $primary_role_name = implode(', ', $role_labels);
+    }
+
+    $can_manage_bookings = dfn_user_can('dfn_act_verify_bookings') || dfn_user_can('dfn_act_events_manage');
+    $can_manage_fai_members = dfn_user_can('dfn_act_fai_members');
+    $can_do_checkin = dfn_user_can('dfn_act_checkin') || dfn_user_can('dfn_act_events_manage');
 
     $nonces = [
         'booking' => wp_create_nonce('dfn_booking_nonce'),
@@ -984,7 +1100,7 @@ function dfn_render_mobile_app(): void
         <main class="dfn-mobile-app-main">
 
             <!-- TAB 1: DASHBOARD HOME -->
-            <section id="dfn-tab-home" class="dfn-mobile-tab-pane active">
+            <section id="dfn-tab-home" class="dfn-mobile-tab-pane <?php echo $default_tab === 'home' ? 'active' : ''; ?>">
                 
                 <div class="dfn-mobile-card dfn-user-summary-card">
                     <div class="dfn-user-avatar">
@@ -1007,25 +1123,48 @@ function dfn_render_mobile_app(): void
                         <span class="dfn-stat-val"><?php echo intval($count_events); ?></span>
                         <span class="dfn-stat-lbl">Eventi In Arrivo</span>
                     </div>
-                    <div class="dfn-stat-pill <?php echo $count_pending_bookings > 0 ? 'warning' : ''; ?>" data-target-tab="home" data-scroll-to="sec-bookings">
-                        <span class="dfn-stat-val"><?php echo intval($count_pending_bookings); ?></span>
-                        <span class="dfn-stat-lbl">Da Confermare</span>
-                    </div>
-                    <div class="dfn-stat-pill <?php echo $count_pending_fai > 0 ? 'info' : ''; ?>" data-target-tab="home" data-scroll-to="sec-fai">
-                        <span class="dfn-stat-val"><?php echo intval($count_pending_fai); ?></span>
-                        <span class="dfn-stat-lbl">Tessere FAI</span>
-                    </div>
+                    <?php if ($can_manage_bookings) : ?>
+                        <div class="dfn-stat-pill <?php echo $count_pending_bookings > 0 ? 'warning' : ''; ?>" data-target-tab="home" data-scroll-to="sec-bookings">
+                            <span class="dfn-stat-val"><?php echo intval($count_pending_bookings); ?></span>
+                            <span class="dfn-stat-lbl">Da Confermare</span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($can_manage_fai_members) : ?>
+                        <div class="dfn-stat-pill <?php echo $count_pending_fai > 0 ? 'info' : ''; ?>" data-target-tab="home" data-scroll-to="sec-fai">
+                            <span class="dfn-stat-val"><?php echo intval($count_pending_fai); ?></span>
+                            <span class="dfn-stat-lbl">Tessere FAI</span>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- SEZIONE 1: EVENTI IN ARRIVO -->
                 <div id="sec-upcoming" class="dfn-mobile-section">
-                    <div class="dfn-section-title">
+                    <div class="dfn-section-title" style="display: flex; justify-content: space-between; align-items: center;">
                         <h3>📅 Prossimi Eventi</h3>
-                        <span class="dfn-badge-count"><?php echo intval($count_events); ?></span>
+                        <span id="dfn-events-badge-count" class="dfn-badge-count"><?php echo intval($count_events); ?></span>
                     </div>
 
-                    <?php if (! empty($events)) : ?>
-                        <div class="dfn-mobile-cards-list">
+                    <!-- BARRA DI RICERCA LIVE EVENTI -->
+                    <div class="dfn-events-search-bar" style="margin: 10px 0 16px 0; position: relative;">
+                        <input 
+                            type="text" 
+                            id="dfn-events-search-input" 
+                            placeholder="🔍 Cerca evento per titolo o luogo..." 
+                            autocomplete="off"
+                            style="width: 100%; height: 44px; padding: 0 38px 0 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 14px; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: border-color 0.2s;"
+                        />
+                        <button 
+                            type="button" 
+                            id="dfn-events-search-clear" 
+                            style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 16px; color: #94a3b8; cursor: pointer; padding: 4px;"
+                            title="Cancella ricerca"
+                        >
+                            ✖
+                        </button>
+                    </div>
+
+                    <div id="dfn-mobile-events-cards-list" class="dfn-mobile-cards-list">
+                        <?php if (! empty($events)) : ?>
                             <?php foreach ($events as $ev) : 
                                 $date_formatted = date_i18n('d M Y', strtotime($ev->event_date_start));
                                 $time_formatted = date('H:i', strtotime($ev->event_time_start));
@@ -1041,104 +1180,120 @@ function dfn_render_mobile_app(): void
                                     </div>
                                     <h4 class="dfn-event-title"><?php echo esc_html(get_the_title($ev->product_id)); ?></h4>
                                     <p class="dfn-event-location">📍 <?php echo esc_html($ev->location ?: 'Novara'); ?></p>
-                                    <div class="dfn-event-card-actions three-col">
-                                        <button type="button" class="dfn-mobile-btn primary btn-quick-book-event" data-event-id="<?php echo absint($ev->id); ?>">
-                                            ⚡ Prenota
-                                        </button>
-                                        <button type="button" class="dfn-mobile-btn secondary btn-botteghino-event" data-event-id="<?php echo absint($ev->id); ?>">
-                                            🎟️ Botteghino
-                                        </button>
-                                        <button type="button" class="dfn-mobile-btn success btn-open-checkin-event" data-event-id="<?php echo absint($ev->id); ?>">
-                                            📋 Check-in
-                                        </button>
-                                    </div>
+                                    
+                                    <?php 
+                                    $has_any_event_btn = $can_see_quick || $can_see_botteghino || $can_do_checkin;
+                                    if ($has_any_event_btn) :
+                                    ?>
+                                        <div class="dfn-event-card-actions" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
+                                            <?php if ($can_see_quick) : ?>
+                                                <button type="button" class="dfn-mobile-btn primary btn-quick-book-event" data-event-id="<?php echo absint($ev->id); ?>" style="flex: 1; min-width: 100px;">
+                                                    ⚡ Prenota
+                                                </button>
+                                            <?php endif; ?>
+                                            <?php if ($can_see_botteghino) : ?>
+                                                <button type="button" class="dfn-mobile-btn secondary btn-botteghino-event" data-event-id="<?php echo absint($ev->id); ?>" style="flex: 1; min-width: 100px;">
+                                                    🎟️ Botteghino
+                                                </button>
+                                            <?php endif; ?>
+                                            <?php if ($can_do_checkin) : ?>
+                                                <button type="button" class="dfn-mobile-btn success btn-open-checkin-event" data-event-id="<?php echo absint($ev->id); ?>" style="flex: 1; min-width: 100px;">
+                                                    📋 Check-in
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
-                        </div>
-                    <?php else : ?>
-                        <div class="dfn-mobile-empty-state">
-                            <p>Nessun evento in arrivo registrato.</p>
-                        </div>
-                    <?php endif; ?>
-                </div>
-
-                <!-- SEZIONE 2: PRENOTAZIONI DA CONFERMARE -->
-                <div id="sec-bookings" class="dfn-mobile-section">
-                    <div class="dfn-section-title">
-                        <h3>📋 Prenotazioni da Confermare</h3>
-                        <?php if ($count_pending_bookings > 0) : ?>
-                            <span class="dfn-badge-count warning"><?php echo intval($count_pending_bookings); ?></span>
+                        <?php else : ?>
+                            <div class="dfn-mobile-empty-state">
+                                <p>Nessun evento in arrivo registrato.</p>
+                            </div>
                         <?php endif; ?>
                     </div>
-
-                    <?php if (! empty($pending_bookings)) : ?>
-                        <div class="dfn-mobile-cards-list">
-                            <?php foreach ($pending_bookings as $b) : ?>
-                                <div class="dfn-mobile-card dfn-booking-card-item" id="dfn-booking-card-<?php echo absint($b->id); ?>">
-                                    <div class="dfn-booking-card-header">
-                                        <strong class="dfn-customer-name"><?php echo esc_html($b->customer_name); ?></strong>
-                                        <span class="dfn-booking-status-tag pending">In Attesa</span>
-                                    </div>
-                                    <div class="dfn-booking-details">
-                                        <p>📧 <?php echo esc_html($b->customer_email); ?></p>
-                                        <?php if ($b->customer_phone) : ?><p>📞 <?php echo esc_html($b->customer_phone); ?></p><?php endif; ?>
-                                        <p>👥 <strong><?php echo intval($b->total_persons); ?> Persone</strong> (Intero: <?php echo intval($b->persons_standard); ?>, FAI: <?php echo intval($b->persons_fai); ?>)</p>
-                                    </div>
-                                    <div class="dfn-booking-actions">
-                                        <button type="button" class="dfn-mobile-btn success btn-confirm-booking" data-booking-id="<?php echo absint($b->id); ?>">
-                                            ✅ Conferma subito
-                                        </button>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else : ?>
-                        <div class="dfn-mobile-empty-state">
-                            <p>🎉 Nessuna prenotazione in attesa di conferma.</p>
-                        </div>
-                    <?php endif; ?>
                 </div>
 
-                <!-- SEZIONE 3: SOCI FAI DA VALIDARE -->
-                <div id="sec-fai" class="dfn-mobile-section">
-                    <div class="dfn-section-title">
-                        <h3>🪪 Tessere FAI da Validare</h3>
-                        <?php if ($count_pending_fai > 0) : ?>
-                            <span class="dfn-badge-count info"><?php echo intval($count_pending_fai); ?></span>
+                <?php if ($can_manage_bookings) : ?>
+                    <!-- SEZIONE 2: PRENOTAZIONI DA CONFERMARE -->
+                    <div id="sec-bookings" class="dfn-mobile-section">
+                        <div class="dfn-section-title">
+                            <h3>📋 Prenotazioni da Confermare</h3>
+                            <?php if ($count_pending_bookings > 0) : ?>
+                                <span class="dfn-badge-count warning"><?php echo intval($count_pending_bookings); ?></span>
+                            <?php endif; ?>
+                        </div>
+
+                        <?php if (! empty($pending_bookings)) : ?>
+                            <div class="dfn-mobile-cards-list">
+                                <?php foreach ($pending_bookings as $b) : ?>
+                                    <div class="dfn-mobile-card dfn-booking-card-item" id="dfn-booking-card-<?php echo absint($b->id); ?>">
+                                        <div class="dfn-booking-card-header">
+                                            <strong class="dfn-customer-name"><?php echo esc_html($b->customer_name); ?></strong>
+                                            <span class="dfn-booking-status-tag pending">In Attesa</span>
+                                        </div>
+                                        <div class="dfn-booking-details">
+                                            <p>📧 <?php echo esc_html($b->customer_email); ?></p>
+                                            <?php if ($b->customer_phone) : ?><p>📞 <?php echo esc_html($b->customer_phone); ?></p><?php endif; ?>
+                                            <p>👥 <strong><?php echo intval($b->total_persons); ?> Persone</strong> (Intero: <?php echo intval($b->persons_standard); ?>, FAI: <?php echo intval($b->persons_fai); ?>)</p>
+                                        </div>
+                                        <div class="dfn-booking-actions">
+                                            <button type="button" class="dfn-mobile-btn success btn-confirm-booking" data-booking-id="<?php echo absint($b->id); ?>">
+                                                ✅ Conferma subito
+                                            </button>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else : ?>
+                            <div class="dfn-mobile-empty-state">
+                                <p>🎉 Nessuna prenotazione in attesa di conferma.</p>
+                            </div>
                         <?php endif; ?>
                     </div>
+                <?php endif; ?>
 
-                    <?php if (! empty($pending_fai)) : ?>
-                        <div class="dfn-mobile-cards-list">
-                            <?php foreach ($pending_fai as $f) : ?>
-                                <div class="dfn-mobile-card dfn-fai-card-item" id="dfn-fai-card-<?php echo absint($f->id); ?>">
-                                    <div class="dfn-fai-card-header">
-                                        <strong><?php echo esc_html($f->first_name . ' ' . $f->last_name); ?></strong>
-                                        <span class="dfn-card-number">N° <?php echo esc_html($f->card_number); ?></span>
-                                    </div>
-                                    <div class="dfn-fai-details">
-                                        <?php if ($f->email) : ?><p>📧 <?php echo esc_html($f->email); ?></p><?php endif; ?>
-                                    </div>
-                                    <div class="dfn-fai-actions">
-                                        <button type="button" class="dfn-mobile-btn success btn-validate-fai" data-fai-id="<?php echo absint($f->id); ?>">
-                                            🪪 Valida Tessera
-                                        </button>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
+                <?php if ($can_manage_fai_members) : ?>
+                    <!-- SEZIONE 3: SOCI FAI DA VALIDARE -->
+                    <div id="sec-fai" class="dfn-mobile-section">
+                        <div class="dfn-section-title">
+                            <h3>🪪 Tessere FAI da Validare</h3>
+                            <?php if ($count_pending_fai > 0) : ?>
+                                <span class="dfn-badge-count info"><?php echo intval($count_pending_fai); ?></span>
+                            <?php endif; ?>
                         </div>
-                    <?php else : ?>
-                        <div class="dfn-mobile-empty-state">
-                            <p>Tutte le tessere FAI risultano verificate.</p>
-                        </div>
-                    <?php endif; ?>
-                </div>
+
+                        <?php if (! empty($pending_fai)) : ?>
+                            <div class="dfn-mobile-cards-list">
+                                <?php foreach ($pending_fai as $f) : ?>
+                                    <div class="dfn-mobile-card dfn-fai-card-item" id="dfn-fai-card-<?php echo absint($f->id); ?>">
+                                        <div class="dfn-fai-card-header">
+                                            <strong><?php echo esc_html($f->first_name . ' ' . $f->last_name); ?></strong>
+                                            <span class="dfn-card-number">N° <?php echo esc_html($f->card_number); ?></span>
+                                        </div>
+                                        <div class="dfn-fai-details">
+                                            <?php if ($f->email) : ?><p>📧 <?php echo esc_html($f->email); ?></p><?php endif; ?>
+                                        </div>
+                                        <div class="dfn-fai-actions">
+                                            <button type="button" class="dfn-mobile-btn success btn-validate-fai" data-fai-id="<?php echo absint($f->id); ?>">
+                                                🪪 Valida Tessera
+                                            </button>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else : ?>
+                            <div class="dfn-mobile-empty-state">
+                                <p>Tutte le tessere FAI risultano verificate.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
 
             </section>
 
 
             <!-- TAB 2: SCANNER LIVE (Html5Qrcode Engine) -->
-            <section id="dfn-tab-scanner" class="dfn-mobile-tab-pane">
+            <section id="dfn-tab-scanner" class="dfn-mobile-tab-pane <?php echo $default_tab === 'scanner' ? 'active' : ''; ?>">
                 <div class="dfn-mobile-card dfn-scanner-card">
                     <div class="dfn-scanner-header">
                         <h3>🔍 Scanner QR Code Live</h3>
@@ -1155,7 +1310,7 @@ function dfn_render_mobile_app(): void
 
 
             <!-- TAB 3: INSERIMENTO RAPIDO PRENOTAZIONE -->
-            <section id="dfn-tab-quick" class="dfn-mobile-tab-pane">
+            <section id="dfn-tab-quick" class="dfn-mobile-tab-pane <?php echo $default_tab === 'quick' ? 'active' : ''; ?>">
                 <div class="dfn-mobile-card">
                     <h3>⚡ Inserimento Rapido Prenotazione</h3>
                     <p class="dfn-subtitle">Registra una nuova prenotazione prima o durante l'evento.</p>
@@ -1249,7 +1404,7 @@ function dfn_render_mobile_app(): void
 
 
             <!-- TAB 4: BOTTEGHINO LIVE -->
-            <section id="dfn-tab-botteghino" class="dfn-mobile-tab-pane">
+            <section id="dfn-tab-botteghino" class="dfn-mobile-tab-pane <?php echo $default_tab === 'botteghino' ? 'active' : ''; ?>">
                 <div class="dfn-mobile-card">
                     <h3>🎟️ Botteghino Live</h3>
                     <p class="dfn-subtitle">Gestisci le prenotazioni in sede: incassa in contanti, invia link di pagamento, riserva posti o registra l'incasso.</p>
@@ -1367,7 +1522,7 @@ function dfn_render_mobile_app(): void
 
 
             <!-- TAB 5: AREA PERSONALE -->
-            <section id="dfn-tab-profile" class="dfn-mobile-tab-pane">
+            <section id="dfn-tab-profile" class="dfn-mobile-tab-pane <?php echo $default_tab === 'profile' ? 'active' : ''; ?>">
                 <div class="dfn-mobile-card">
                     <div class="dfn-profile-card-header">
                         <div class="dfn-profile-avatar-wrapper">
@@ -1440,23 +1595,35 @@ function dfn_render_mobile_app(): void
 
         <!-- BOTTOM TAB BAR NAVIGATION -->
         <nav class="dfn-mobile-tab-bar">
-            <button type="button" class="dfn-tab-btn active" data-tab="home">
-                <span class="dashicons dashicons-dashboard"></span>
-                <span class="dfn-tab-lbl">Home</span>
-            </button>
-            <button type="button" class="dfn-tab-btn" data-tab="scanner">
-                <span class="dashicons dashicons-camera"></span>
-                <span class="dfn-tab-lbl">Scanner</span>
-            </button>
-            <button type="button" class="dfn-tab-btn" data-tab="quick">
-                <span class="dashicons dashicons-plus-alt2"></span>
-                <span class="dfn-tab-lbl">Rapido</span>
-            </button>
-            <button type="button" class="dfn-tab-btn" data-tab="botteghino">
-                <span class="dashicons dashicons-tickets-alt"></span>
-                <span class="dfn-tab-lbl">Botteghino</span>
-            </button>
-            <button type="button" class="dfn-tab-btn" data-tab="profile">
+            <?php if ($can_see_home) : ?>
+                <button type="button" class="dfn-tab-btn <?php echo $default_tab === 'home' ? 'active' : ''; ?>" data-tab="home">
+                    <span class="dashicons dashicons-dashboard"></span>
+                    <span class="dfn-tab-lbl">Home</span>
+                </button>
+            <?php endif; ?>
+
+            <?php if ($can_see_scanner) : ?>
+                <button type="button" class="dfn-tab-btn <?php echo $default_tab === 'scanner' ? 'active' : ''; ?>" data-tab="scanner">
+                    <span class="dashicons dashicons-camera"></span>
+                    <span class="dfn-tab-lbl">Scanner</span>
+                </button>
+            <?php endif; ?>
+
+            <?php if ($can_see_quick) : ?>
+                <button type="button" class="dfn-tab-btn <?php echo $default_tab === 'quick' ? 'active' : ''; ?>" data-tab="quick">
+                    <span class="dashicons dashicons-plus-alt2"></span>
+                    <span class="dfn-tab-lbl">Rapido</span>
+                </button>
+            <?php endif; ?>
+
+            <?php if ($can_see_botteghino) : ?>
+                <button type="button" class="dfn-tab-btn <?php echo $default_tab === 'botteghino' ? 'active' : ''; ?>" data-tab="botteghino">
+                    <span class="dashicons dashicons-tickets-alt"></span>
+                    <span class="dfn-tab-lbl">Botteghino</span>
+                </button>
+            <?php endif; ?>
+
+            <button type="button" class="dfn-tab-btn <?php echo $default_tab === 'profile' ? 'active' : ''; ?>" data-tab="profile">
                 <span class="dashicons dashicons-admin-users"></span>
                 <span class="dfn-tab-lbl">Profilo</span>
             </button>
@@ -1646,15 +1813,19 @@ function dfn_handle_mobile_login_submit(): void
 
     if (is_wp_error($user)) {
         $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-        set_transient('dfn_mobile_login_err_' . md5($ip), $user->get_error_message(), 60);
-        $target = add_query_arg('login_error', '1', wp_get_referer() ?: get_permalink());
+        $err_text = wp_strip_all_tags($user->get_error_message());
+        if (empty($err_text)) {
+            $err_text = 'Credenziali non corrette. Riprova.';
+        }
+        set_transient('dfn_mobile_login_err_' . md5($ip), $err_text, 120);
+        $target = add_query_arg('login_error', '1', get_permalink());
         nocache_headers();
         wp_safe_redirect($target);
         exit;
     }
 
     nocache_headers();
-    $target = remove_query_arg('login_error', wp_get_referer() ?: get_permalink());
+    $target = remove_query_arg('login_error', get_permalink());
     wp_safe_redirect($target);
     exit;
 }
@@ -1679,11 +1850,11 @@ function dfn_render_mobile_login(): void
         $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
         $transient_key = 'dfn_mobile_login_err_' . md5($ip);
         $err_msg = get_transient($transient_key);
-        if ($err_msg) {
-            $login_error = 'Credenziali non corrette. Riprova.';
+        if (! empty($err_msg)) {
+            $login_error = $err_msg;
             delete_transient($transient_key);
         } else {
-            $login_error = 'Credenziali non corrette. Riprova.';
+            $login_error = 'Nome utente o password non corretti.';
         }
     }
     ?>
@@ -1737,7 +1908,12 @@ function dfn_render_mobile_access_denied(WP_User $user): void
             <div class="dfn-login-header">
                 <span class="dfn-login-logo">⛔</span>
                 <h2>Accesso Riservato</h2>
-                <p>L'account <strong><?php echo esc_html($user->user_login); ?></strong> non dispone delle autorizzazioni necessarie per accedere all'App di gestione eventi.</p>
+                <p style="color: #dc2626; font-weight: 600; margin-top: 8px;">
+                    Spiacente, non hai il permesso di visualizzare questa pagina.
+                </p>
+                <p style="font-size: 13px; color: #64748b; margin-top: 6px;">
+                    L'account <strong><?php echo esc_html($user->user_login); ?></strong> non ha ruoli o incarichi attivi per questo modulo.
+                </p>
             </div>
             <div style="margin-top:20px;">
                 <a href="<?php echo esc_url(wp_logout_url(get_permalink())); ?>" class="dfn-mobile-btn secondary large" style="text-align:center; display:block; text-decoration:none;">

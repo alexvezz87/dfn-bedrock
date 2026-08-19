@@ -24,7 +24,7 @@ function cv_aggiungi_generatore_fai()
         'dfn-events',
         'Botteghino Live',
         'Botteghino Live',
-        'manage_woocommerce',
+        'dfn_act_boxoffice',
         'cv-generatore-fai',
         'cv_render_generatore_fai',
     );
