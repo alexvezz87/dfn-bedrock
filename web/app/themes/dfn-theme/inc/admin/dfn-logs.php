@@ -155,8 +155,19 @@ function dfn_render_logs_page(): void
                     <label class="dfn-filter-label">Tipologia
                         <select name="filter_type" class="dfn-select-input">
                             <option value="">— Tutte —</option>
-                            <?php foreach ($types as $t) : ?>
-                                <option value="<?php echo esc_attr($t); ?>" <?php selected($filter_type, $t); ?>><?php echo esc_html(ucfirst($t)); ?></option>
+                            <?php 
+                            $type_labels = [
+                                'email'     => '📧 Email',
+                                'login'     => '🔐 Login',
+                                'logout'    => '🚪 Logout',
+                                'sicurezza' => '🛡️ Sicurezza & Password',
+                                'profilo'   => '👤 Profilo Utente',
+                                'sistema'   => '⚙️ Sistema',
+                            ];
+                            foreach ($types as $t) : 
+                                $lbl = $type_labels[$t] ?? ucfirst($t);
+                            ?>
+                                <option value="<?php echo esc_attr($t); ?>" <?php selected($filter_type, $t); ?>><?php echo esc_html($lbl); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </label>
@@ -202,14 +213,16 @@ function dfn_render_logs_page(): void
                     <thead>
                         <tr>
                             <th style="width:145px; font-weight:700;">Data &amp; Ora</th>
-                            <th style="width:90px; font-weight:700;">Tipo</th>
-                            <th style="width:140px; font-weight:700;">Esecutore</th>
+                            <th style="width:105px; font-weight:700;">Tipo</th>
+                            <th style="width:145px; font-weight:700;">Esecutore</th>
                             <th style="font-weight:700;">Descrizione Dettagliata</th>
                             <th style="width:110px; font-weight:700; text-align:center;">Esito</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($logs as $log) : ?>
+                        <?php foreach ($logs as $log) : 
+                            $badge_class = 'dfn-log-badge--' . sanitize_html_class($log->type);
+                        ?>
                             <tr <?php if ($log->outcome === 'failure') echo 'style="background:#fef2f2 !important;"'; ?>>
                                 <td>
                                     <code style="font-size:11px; background:#f1f5f9; color:#334155; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0;">
@@ -217,7 +230,7 @@ function dfn_render_logs_page(): void
                                     </code>
                                 </td>
                                 <td>
-                                    <span class="dfn-log-badge dfn-log-badge--<?php echo esc_attr($log->type); ?>">
+                                    <span class="dfn-log-badge <?php echo esc_attr($badge_class); ?>">
                                         <?php echo esc_html(strtoupper($log->type)); ?>
                                     </span>
                                 </td>
@@ -335,8 +348,13 @@ function dfn_render_logs_page(): void
         .dfn-filter-actions { display: flex; gap: 6px; align-items: flex-end; }
 
         /* Badge Tipologia Log */
-        .dfn-log-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; }
+        .dfn-log-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-align: center; }
         .dfn-log-badge--email { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
+        .dfn-log-badge--login { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
+        .dfn-log-badge--logout { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+        .dfn-log-badge--sicurezza { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+        .dfn-log-badge--profilo { background: #ecfdf5; color: #047857; border: 1px solid #6ee7b7; }
+        .dfn-log-badge--sistema { background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; }
         .dfn-log-badge--generic { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e0; }
 
         /* Badge Esito (Status Pill) */

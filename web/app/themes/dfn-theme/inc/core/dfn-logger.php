@@ -207,6 +207,253 @@ function dfn_log_detect_executor(): string
 
 
 /**
+ * Recupera l'indirizzo IP del client in modo sicuro, tenendo conto di eventuali proxy o Cloudflare.
+ *
+ * @return string Indirizzo IP anonimizzato/valido o '127.0.0.1'.
+ */
+function dfn_log_get_client_ip(): string
+{
+    $keys = [
+        'HTTP_CF_CONNECTING_IP',
+        'HTTP_CLIENT_IP',
+        'HTTP_X_FORWARDED_FOR',
+        'HTTP_X_FORWARDED',
+        'HTTP_X_CLUSTER_CLIENT_IP',
+        'HTTP_FORWARDED_FOR',
+        'HTTP_FORWARDED',
+        'REMOTE_ADDR'
+    ];
+
+    foreach ($keys as $key) {
+        if (! empty($_SERVER[$key])) {
+            $ip_list = explode(',', (string) $_SERVER[$key]);
+            $ip      = trim($ip_list[0]);
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+    }
+
+    return '127.0.0.1';
+}
+
+/**
+ * Risolve l'etichetta amichevole del ruolo o dei ruoli assegnati a un utente WP_User.
+ *
+ * @param WP_User|int|null $user Istanza utente o ID utente.
+ * @return string Etichetta/e del ruolo separate da virgola (es. 'Segreteria FAI', 'Cliente', 'Amministratore').
+ */
+function dfn_log_get_user_roles_label($user): string
+{
+    if (is_numeric($user)) {
+        $user = get_userdata((int) $user);
+    }
+
+    if (! ($user instanceof WP_User) || empty($user->roles)) {
+        return __('Ospite / Non registrato', 'dfn-theme');
+    }
+
+    // Se esiste la configurazione dei ruoli FAI, usiamo le etichette amichevoli
+    $custom_roles = function_exists('dfn_get_custom_roles_list') ? dfn_get_custom_roles_list() : [];
+    
+    // Mappa dei ruoli WP nativi in italiano
+    $native_role_names = [
+        'administrator' => __('Amministratore', 'dfn-theme'),
+        'editor'        => __('Editor', 'dfn-theme'),
+        'author'        => __('Autore', 'dfn-theme'),
+        'contributor'   => __('Collaboratore', 'dfn-theme'),
+        'subscriber'    => __('Sottoscrittore', 'dfn-theme'),
+        'customer'      => __('Cliente', 'dfn-theme'),
+        'shop_manager'  => __('Gestore Negozio', 'dfn-theme'),
+    ];
+
+    $labels = [];
+    foreach ($user->roles as $role_key) {
+        if (isset($custom_roles[$role_key]['name'])) {
+            $labels[] = $custom_roles[$role_key]['name'];
+        } elseif (isset($native_role_names[$role_key])) {
+            $labels[] = $native_role_names[$role_key];
+        } else {
+            $labels[] = ucfirst(str_replace(['_', '-'], ' ', $role_key));
+        }
+    }
+
+    return implode(', ', $labels);
+}
+
+/**
+ * Hook automatico su 'wp_login' — registra gli accessi riusciti al sito.
+ *
+ * @param string  $user_login Nome utente con cui è avvenuto il login.
+ * @param WP_User $user       Oggetto WP_User dell'utente autenticato.
+ */
+add_action('wp_login', 'dfn_log_wp_login', 20, 2);
+function dfn_log_wp_login(string $user_login, WP_User $user): void
+{
+    $roles_label  = dfn_log_get_user_roles_label($user);
+    $ip           = dfn_log_get_client_ip();
+    $display_name = ! empty($user->display_name) ? $user->display_name : $user_login;
+    $email        = ! empty($user->user_email) ? $user->user_email : 'N/A';
+
+    $description = sprintf(
+        "Accesso riuscito al sistema | Utente: %s (%s) | Ruolo: %s | Email: %s | IP: %s",
+        $display_name,
+        $user_login,
+        $roles_label,
+        $email,
+        $ip
+    );
+
+    dfn_log_write(
+        'login',
+        $display_name,
+        $description,
+        'success'
+    );
+}
+
+/**
+ * Hook automatico su 'wp_login_failed' — registra i tentativi di accesso falliti.
+ *
+ * @param string $username Username inserito durante il tentativo di login.
+ */
+add_action('wp_login_failed', 'dfn_log_wp_login_failed', 20, 1);
+function dfn_log_wp_login_failed(string $username): void
+{
+    $ip          = dfn_log_get_client_ip();
+    $attempted   = ! empty($username) ? sanitize_text_field($username) : 'Sconosciuto / Vuoto';
+    $description = sprintf(
+        "Tentativo di accesso fallito (credenziali non valide) | Username inserito: %s | IP: %s",
+        $attempted,
+        $ip
+    );
+
+    dfn_log_write(
+        'login',
+        $attempted,
+        $description,
+        'failure'
+    );
+}
+
+/**
+ * Hook automatico su 'wp_logout' — registra la disconnessione degli utenti.
+ *
+ * @param int $user_id ID dell'utente che si sta disconnettendo.
+ */
+add_action('wp_logout', 'dfn_log_wp_logout', 20, 1);
+function dfn_log_wp_logout(int $user_id = 0): void
+{
+    $current_user = $user_id ? get_userdata($user_id) : wp_get_current_user();
+    $ip           = dfn_log_get_client_ip();
+
+    if ($current_user && $current_user->exists()) {
+        $display_name = ! empty($current_user->display_name) ? $current_user->display_name : $current_user->user_login;
+        $roles_label  = dfn_log_get_user_roles_label($current_user);
+
+        $description = sprintf(
+            "Disconnessione (logout) dal sito | Utente: %s (%s) | Ruolo: %s | IP: %s",
+            $display_name,
+            $current_user->user_login,
+            $roles_label,
+            $ip
+        );
+        $executor = $display_name;
+    } else {
+        $executor    = 'Ospite / Sessione';
+        $description = sprintf("Disconnessione (logout) sessione utente | IP: %s", $ip);
+    }
+
+    dfn_log_write(
+        'logout',
+        $executor,
+        $description,
+        'success'
+    );
+}
+
+/**
+ * Hook automatico su 'password_reset' — registra il cambio/reimpostazione password.
+ *
+ * @param WP_User $user Oggetto WP_User dell'utente che ha reimpostato la password.
+ */
+add_action('password_reset', 'dfn_log_password_reset', 20, 1);
+function dfn_log_password_reset(WP_User $user): void
+{
+    $ip           = dfn_log_get_client_ip();
+    $display_name = ! empty($user->display_name) ? $user->display_name : $user->user_login;
+    $roles_label  = dfn_log_get_user_roles_label($user);
+
+    $description = sprintf(
+        "Reimpostazione password completata con successo | Utente: %s (%s) | Ruolo: %s | IP: %s",
+        $display_name,
+        $user->user_login,
+        $roles_label,
+        $ip
+    );
+
+    dfn_log_write(
+        'sicurezza',
+        $display_name,
+        $description,
+        'success'
+    );
+}
+
+/**
+ * Hook automatico su 'profile_update' — registra la modifica dei dati del profilo utente.
+ *
+ * @param int     $user_id       ID dell'utente modificato.
+ * @param WP_User $old_user_data Dati utente precedenti alla modifica.
+ */
+add_action('profile_update', 'dfn_log_profile_update', 20, 2);
+function dfn_log_profile_update(int $user_id, WP_User $old_user_data): void
+{
+    $new_user = get_userdata($user_id);
+    if (! ($new_user instanceof WP_User)) {
+        return;
+    }
+
+    // Identifica chi ha effettuato la modifica (l'utente stesso o un amministratore)
+    $modifier_id   = get_current_user_id();
+    $modifier_user = $modifier_id ? get_userdata($modifier_id) : null;
+    $modifier_name = ($modifier_user instanceof WP_User) ? $modifier_user->display_name : $new_user->display_name;
+
+    $ip          = dfn_log_get_client_ip();
+    $roles_label = dfn_log_get_user_roles_label($new_user);
+
+    $changes = [];
+    if ($old_user_data->user_email !== $new_user->user_email) {
+        $changes[] = sprintf("Email modificata (%s -> %s)", $old_user_data->user_email, $new_user->user_email);
+    }
+    if ($old_user_data->display_name !== $new_user->display_name) {
+        $changes[] = sprintf("Nome visualizzato modificato (%s -> %s)", $old_user_data->display_name, $new_user->display_name);
+    }
+    if ($old_user_data->user_pass !== $new_user->user_pass) {
+        $changes[] = "Password aggiornata dal profilo";
+    }
+
+    $change_str = ! empty($changes) ? implode('; ', $changes) : 'Aggiornamento anagrafica / impostazioni account';
+
+    $description = sprintf(
+        "Modifica dati profilo | Utente target: %s (%s) | Ruolo: %s | Modificato da: %s | Dettagli: %s | IP: %s",
+        $new_user->display_name,
+        $new_user->user_login,
+        $roles_label,
+        $modifier_name,
+        $change_str,
+        $ip
+    );
+
+    dfn_log_write(
+        'profilo',
+        $modifier_name,
+        $description,
+        'success'
+    );
+}
+
+/**
  * Elimina automaticamente i log più vecchi di N giorni.
  *
  * @param int $days Numero di giorni di retention (default: 90).
@@ -232,3 +479,4 @@ add_action('dfn_cron_log_purge', function () {
     $retention = (int) dfn_get_setting('log_retention_days', 90);
     dfn_log_purge_old($retention ?: 90);
 });
+
