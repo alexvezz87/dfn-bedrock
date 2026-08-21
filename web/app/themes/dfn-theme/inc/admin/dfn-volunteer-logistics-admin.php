@@ -557,6 +557,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
     $places = $selected_day_id > 0 ? dfn_get_volunteer_event_places($selected_day_id) : [];
     $all_volunteers = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}dfn_fai_members WHERE is_volunteer = 1 AND volunteer_status = 'active' ORDER BY first_name ASC, last_name ASC");
+    $survey = dfn_get_volunteer_survey_by_event($event_id);
 
     // Se l'evento è locale e non ha ancora un luogo creato, lo creiamo in automatico
     if ($event->event_type === 'local' && empty($places) && $selected_day_id > 0) {
@@ -591,7 +592,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 </h1>
             </div>
             <div style="display:flex; gap:10px;">
-                <?php if ($event->event_type === 'giornata_fai') : ?>
+                <?php if ($survey) : ?>
                     <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e ai requisiti (Corso Sicurezza, Guide, Responsabili). Continuare?');">
                         <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
                         <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
@@ -599,6 +600,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                         </button>
                     </form>
                 <?php endif; ?>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=survey&event_id=' . $event_id)); ?>" class="button" style="font-weight:700;">
+                    📊 Risposte Sondaggio
+                </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=print&event_id=' . $event_id)); ?>" target="_blank" class="button" style="font-weight:700;">
                     🖨️ Stampa / Esporta PDF
                 </a>
@@ -820,25 +824,28 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
     }
 
     $assigned_count = 0;
-    $time_slots = [
-        'mattina'    => '09:00:00',
-        'pomeriggio' => '14:00:00',
-    ];
 
-    foreach ($time_slots as $slot_key => $time_start) {
-        // Recupera tutti gli shift aperti per questo orario
-        $shifts = $wpdb->get_results($wpdb->prepare(
-            "SELECT s.*, p.place_name FROM {$table_shifts} s
-             JOIN {$table_places} p ON s.place_id = p.id
-             WHERE s.day_id = %d AND s.time_start = %s",
-            $day_id,
-            $time_start
-        ));
+    // Recupera tutti gli shift configurati per questo giorno
+    $shifts_in_day = $wpdb->get_results($wpdb->prepare(
+        "SELECT s.*, p.place_name FROM {$table_shifts} s
+         JOIN {$table_places} p ON s.place_id = p.id
+         WHERE s.day_id = %d
+         ORDER BY s.time_start ASC, s.id ASC",
+        $day_id
+    ));
 
-        if (empty($shifts)) {
-            continue;
-        }
+    if (empty($shifts_in_day)) {
+        return 0;
+    }
 
+    // Raggruppa gli shift per fascia oraria/chiave
+    $shifts_by_slot = [];
+    foreach ($shifts_in_day as $sh) {
+        $slot_k = sanitize_key($sh->shift_label . '_' . substr($sh->time_start, 0, 5));
+        $shifts_by_slot[$slot_k][] = $sh;
+    }
+
+    foreach ($shifts_by_slot as $slot_key => $shifts) {
         // Recupera i volontari che hanno dato disponibilità per questo giorno e slot
         $available_responses = $wpdb->get_results($wpdb->prepare(
             "SELECT r.*, f.is_guide, f.has_safety_course 
@@ -849,6 +856,20 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
             $day_id,
             $slot_key
         ));
+
+        // Fallback: se per legacy era salvato solo "mattina" o "pomeriggio"
+        if (empty($available_responses)) {
+            $fallback_key = (strpos($slot_key, 'pomeriggio') !== false || strpos($slot_key, '14:') !== false || strpos($slot_key, '15:') !== false) ? 'pomeriggio' : 'mattina';
+            $available_responses = $wpdb->get_results($wpdb->prepare(
+                "SELECT r.*, f.is_guide, f.has_safety_course 
+                 FROM {$table_resp} r
+                 LEFT JOIN {$table_fai} f ON r.volunteer_id = f.id
+                 WHERE r.survey_id = %d AND r.day_id = %d AND r.time_slot_key = %s AND r.is_available = 1",
+                $survey->id,
+                $day_id,
+                $fallback_key
+            ));
+        }
 
         if (empty($available_responses)) {
             continue;
@@ -871,7 +892,6 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
 
         // 1. Assegna 1 Responsabile Scuola (S) con corso sicurezza per ogni luogo
         foreach ($shifts as $shift) {
-            // Controlla se ha già un resp_scuola
             $has_scuola = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_ass} WHERE shift_id = %d AND role_assigned = 'resp_scuola'", $shift->id));
             if (! $has_scuola && ! empty($safety_volunteers)) {
                 $picked = array_shift($safety_volunteers);
