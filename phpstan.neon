@@ -4,6 +4,7 @@ parameters:
         - web/app/themes/dfn-theme/inc/core/dfn-roles-manager.php
         - web/app/themes/dfn-theme/inc/admin/dfn-roles-admin.php
         - web/app/themes/dfn-theme/inc/core/dfn-security.php
+        - web/app/themes/dfn-theme/inc/admin/dfn-volunteers-admin.php
     scanFiles:
         - web/app/themes/dfn-theme/functions.php
     ignoreErrors:

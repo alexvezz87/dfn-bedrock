@@ -249,20 +249,21 @@ function dfn_add_group_tickets_action_button(array $actions, $order): array
  * ========================================================================
  */
 
-// Registra l'endpoint custom per le tessere FAI
+// Registra l'endpoint custom per le tessere FAI e per le Riunioni Volontari
 add_action('init', 'dfn_fai_cards_endpoint_init');
 /**
- * Registra il nuovo endpoint rewrite di WooCommerce per le tessere FAI.
+ * Registra i nuovi endpoint rewrite di WooCommerce per le tessere FAI e riunioni volontari.
  */
 function dfn_fai_cards_endpoint_init(): void
 {
     add_rewrite_endpoint('tessere-fai', EP_PAGES);
+    add_rewrite_endpoint('riunioni-fai', EP_PAGES);
 }
 
-// Aggiunge la query var consentita da WooCommerce
+// Aggiunge le query var consentite da WooCommerce
 add_filter('query_vars', 'dfn_fai_cards_query_vars', 0);
 /**
- * Registra la variabile di query per l'endpoint tessere-fai.
+ * Registra le variabili di query per gli endpoint tessere-fai e riunioni-fai.
  *
  * @param array $vars Variabili di query esistenti.
  * @return array Variabili di query aggiornate.
@@ -270,12 +271,13 @@ add_filter('query_vars', 'dfn_fai_cards_query_vars', 0);
 function dfn_fai_cards_query_vars(array $vars): array
 {
     $vars[] = 'tessere-fai';
+    $vars[] = 'riunioni-fai';
     return $vars;
 }
 
-// Inserisce la voce nel menu Mio Account di WooCommerce
+// Inserisce le voci nel menu Mio Account di WooCommerce
 /**
- * Aggiunge la voce "Tessere FAI", rinomina "Account" e rimuove "Esci" dalla bottom bar.
+ * Aggiunge la voce "Tessere FAI" e, se l'utente è un volontario, "Prossime Riunioni".
  *
  * @param array<string, string> $items Voci del menu account.
  * @return array<string, string> Menu modificato.
@@ -284,10 +286,15 @@ function dfn_add_fai_cards_to_menu(array $items): array
 {
     unset($items['customer-logout'], $items['downloads'], $items['edit-address']);
 
+    $is_volunteer = function_exists('dfn_is_user_volunteer') ? dfn_is_user_volunteer() : false;
+
     $new_items = [];
     foreach ($items as $key => $value) {
         if ('edit-account' === $key) {
-            $new_items['tessere-fai']  = esc_html__('Tessere FAI', 'dfn-theme');
+            $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
+            if ($is_volunteer) {
+                $new_items['riunioni-fai'] = esc_html__('Prossime Riunioni', 'dfn-theme');
+            }
             $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
         } else {
             $new_items[ $key ] = $value;
@@ -295,6 +302,9 @@ function dfn_add_fai_cards_to_menu(array $items): array
     }
     if (! isset($new_items['tessere-fai'])) {
         $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
+    }
+    if ($is_volunteer && ! isset($new_items['riunioni-fai'])) {
+        $new_items['riunioni-fai'] = esc_html__('Prossime Riunioni', 'dfn-theme');
     }
     if (isset($new_items['edit-account'])) {
         $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
@@ -330,10 +340,10 @@ add_action('init', 'dfn_fai_cards_flush_rules', 999);
  */
 function dfn_fai_cards_flush_rules(): void
 {
-    if ('yes' !== get_option('dfn_fai_permalink_flushed')) {
+    if ('yes' !== get_option('dfn_fai_permalink_flushed_v230')) {
         dfn_fai_cards_endpoint_init();
         flush_rewrite_rules();
-        update_option('dfn_fai_permalink_flushed', 'yes');
+        update_option('dfn_fai_permalink_flushed_v230', 'yes');
     }
 }
 
@@ -412,10 +422,12 @@ function dfn_fai_cards_endpoint_content(): void
         }
     }
 
-    // Recupera le tessere verificate (verified = 1)
+    // Recupera le tessere verificate (verified = 1 da wp_dfn_fai_members)
     $verified_cards = $wpdb->get_results(
         $wpdb->prepare(
-            "SELECT * FROM {$table_fai} WHERE (user_id = %d OR (email IS NOT NULL AND email != '' AND LOWER(email) = LOWER(%s))) AND verified = 1 ORDER BY card_expiry DESC, created_at DESC",
+            "SELECT * FROM {$table_fai} 
+             WHERE (user_id = %d OR (email IS NOT NULL AND email != '' AND LOWER(email) = LOWER(%s))) AND verified = 1
+             ORDER BY card_expiry DESC, created_at DESC",
             $current_user_id,
             $current_user->user_email
         )
@@ -596,6 +608,97 @@ function dfn_fai_cards_endpoint_content(): void
                 <div class="dfn-fai-empty-icon">🪪</div>
                 <h4><?php esc_html_e('Nessuna tessera FAI verificata', 'dfn-theme'); ?></h4>
                 <p><?php esc_html_e('Non risultano ancora tessere FAI verificate associate a questo account.', 'dfn-theme'); ?></p>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
+// Rendering del contenuto della sezione "Prossime Riunioni" per i Volontari
+add_action('woocommerce_account_riunioni-fai_endpoint', 'dfn_volunteer_meetings_endpoint_content');
+/**
+ * Renderizza la bacheca delle riunioni di delegazione riservata ai volontari.
+ */
+function dfn_volunteer_meetings_endpoint_content(): void
+{
+    $current_user_id = get_current_user_id();
+    if (! $current_user_id) {
+        return;
+    }
+
+    if (function_exists('dfn_is_user_volunteer') && ! dfn_is_user_volunteer($current_user_id)) {
+        ?>
+        <div class="dfn-account-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('Accesso Riservato', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Questa sezione è riservata esclusivamente ai volontari attivi della Delegazione FAI.', 'dfn-theme'); ?></p>
+        </div>
+        <?php
+        return;
+    }
+
+    $meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 50) : [];
+    ?>
+    <div class="dfn-volunteer-meetings-section" id="dfn-meetings-section">
+        <div class="dfn-account-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('📅 Riunioni di Delegazione', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Consulta il calendario delle prossime riunioni dei volontari FAI, gli orari, le sedi e gli ordini del giorno programmati.', 'dfn-theme'); ?></p>
+        </div>
+
+        <?php if (! empty($meetings)) : ?>
+            <div class="dfn-meetings-grid" style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
+                <?php foreach ($meetings as $m) : 
+                    $m_date = strtotime($m->meeting_date);
+                    $day_name = date_i18n('l', $m_date);
+                    $day_num  = date_i18n('d', $m_date);
+                    $month    = date_i18n('F Y', $m_date);
+                ?>
+                    <div class="dfn-meeting-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #004b23; border-radius: 12px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+                        <!-- Date Box Badge -->
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 18px; text-align: center; min-width: 90px; flex-shrink: 0;">
+                            <span style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase; display: block;"><?php echo esc_html($day_name); ?></span>
+                            <span style="font-size: 26px; font-weight: 800; color: #004b23; line-height: 1.1; display: block;"><?php echo esc_html($day_num); ?></span>
+                            <span style="font-size: 11px; font-weight: 600; color: #475569; display: block;"><?php echo esc_html($month); ?></span>
+                        </div>
+
+                        <!-- Details -->
+                        <div style="flex: 1; min-width: 250px;">
+                            <h3 style="margin: 0 0 8px 0; font-size: 17px; font-weight: 700; color: #0f172a;">
+                                <?php echo esc_html($m->title); ?>
+                            </h3>
+
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; font-size: 13px; color: #334155;">
+                                <div>
+                                    <strong style="color: #004b23;">⏰ Orario:</strong> <?php echo esc_html(substr($m->meeting_time_start, 0, 5)); ?>
+                                    <?php if ($m->meeting_time_end) echo ' - ' . esc_html(substr($m->meeting_time_end, 0, 5)); ?>
+                                </div>
+                                <div>
+                                    <strong style="color: #004b23;">📍 Sede:</strong> <?php echo esc_html($m->location); ?>
+                                </div>
+                            </div>
+
+                            <?php if (! empty($m->agenda)) : ?>
+                                <div style="background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 12px 14px; font-size: 13px; color: #334155; line-height: 1.5; margin-bottom: 12px;">
+                                    <strong style="color: #1e293b; display: block; margin-bottom: 4px;">📝 Ordine del giorno:</strong>
+                                    <?php echo nl2br(esc_html($m->agenda)); ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if (! empty($m->meeting_link)) : ?>
+                                <div style="margin-top: 10px;">
+                                    <a href="<?php echo esc_url($m->meeting_link); ?>" target="_blank" class="button" style="background: #004b23; color: #ffffff; border-radius: 8px; font-weight: 700; padding: 6px 16px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                                        <span>🔗 Partecipa alla Riunione Online</span>
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php else : ?>
+            <div class="dfn-fai-empty-state" style="background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 40px 20px; text-align: center; margin-top: 20px;">
+                <div style="font-size: 36px; margin-bottom: 10px;">📅</div>
+                <h4 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 700; color: #1e293b;"><?php esc_html_e('Nessuna riunione programmata al momento', 'dfn-theme'); ?></h4>
+                <p style="margin: 0; font-size: 13.5px; color: #64748b;"><?php esc_html_e('Le prossime convocazioni e date di delegazione verranno pubblicate qui.', 'dfn-theme'); ?></p>
             </div>
         <?php endif; ?>
     </div>
@@ -1455,6 +1558,46 @@ function dfn_custom_myaccount_dashboard_content(): void
                 </div>
             </div>
         <?php endif; ?>
+
+        <?php 
+        // 2B. BOX RIUNIONI VOLONTARI IN ARRIVO (Visibile solo ai volontari attivi)
+        $is_volunteer = function_exists('dfn_is_user_volunteer') && dfn_is_user_volunteer($current_user_id);
+        if ($is_volunteer) :
+            $upcoming_meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 2) : [];
+            if (! empty($upcoming_meetings)) : ?>
+                <div style="background: #ffffff; border: 1px solid #bbf7d0; border-left: 5px solid #004b23; border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 12px rgba(0,75,35,0.04);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
+                            <span>📅</span> <?php esc_html_e('Prossime Riunioni di Delegazione (Volontari)', 'dfn-theme'); ?>
+                        </h3>
+                        <a href="<?php echo esc_url(wc_get_endpoint_url('riunioni-fai', '', wc_get_page_permalink('myaccount'))); ?>" style="font-size: 12px; font-weight: 700; color: #004b23; text-decoration: none;">
+                            <?php esc_html_e('Vedi tutte →', 'dfn-theme'); ?>
+                        </a>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <?php foreach ($upcoming_meetings as $m_item) :
+                            $m_d = strtotime($m_item->meeting_date);
+                            $date_text = date_i18n('l d F Y', $m_d);
+                            $time_text = substr($m_item->meeting_time_start, 0, 5);
+                            ?>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f0fdf4; border-radius: 10px; border: 1px solid #dcfce7; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <h4 style="margin: 0 0 2px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;"><?php echo esc_html($m_item->title); ?></h4>
+                                    <div style="font-size: 12px; color: #334155;">
+                                        🗓️ <strong><?php echo esc_html(ucfirst($date_text)); ?></strong> alle <strong><?php echo esc_html($time_text); ?></strong> • 📍 <?php echo esc_html($m_item->location); ?>
+                                    </div>
+                                </div>
+                                <?php if (! empty($m_item->meeting_link)) : ?>
+                                    <a href="<?php echo esc_url($m_item->meeting_link); ?>" target="_blank" class="button" style="background: #004b23; color: #ffffff; border-radius: 20px; font-size: 11.5px; font-weight: 700; padding: 4px 14px; text-decoration: none;">
+                                        🔗 Link Online
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif;
+        endif; ?>
 
         <!-- 3. Box Sottostanti colonna intera, stessa larghezza del box verde -->
         <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box;">

@@ -521,4 +521,44 @@ function dfn_mobile_pwa_head_tags(): void
 }
 add_action('wp_head', 'dfn_mobile_pwa_head_tags', 2);
 
+/**
+ * ========================================================================
+ * ORDINAMENTO CENTRALIZZATO DEL MENU ADMIN FAI
+ * Raggruppa tutte le voci FAI consecutive subito sotto Commenti
+ * ========================================================================
+ */
+add_filter('custom_menu_order', '__return_true');
+add_filter('menu_order', 'dfn_custom_admin_menu_order', 999);
+
+function dfn_custom_admin_menu_order(array $menu_order): array
+{
+    // Raccoglie e rimuove le voci FAI dalla loro posizione originale
+    $fai_items = [
+        'dfn-events',           // FAI Prenotazioni
+        'cv-scanner-live',      // 🔴 Scanner Live
+        'dfn-volunteers',       // Volontari FAI
+        'dfn-roles',            // FAI Ruoli & Permessi
+    ];
+
+    $clean_menu = [];
+    foreach ($menu_order as $item) {
+        if (! in_array($item, $fai_items, true)) {
+            $clean_menu[] = $item;
+        }
+    }
+
+    // Trova la posizione dopo i commenti (edit-comments.php) per inserire il blocco FAI compatto
+    $comments_pos = array_search('edit-comments.php', $clean_menu, true);
+    if ($comments_pos !== false) {
+        $insert_index = $comments_pos + 1;
+    } else {
+        $insert_index = 3;
+    }
+
+    array_splice($clean_menu, $insert_index, 0, $fai_items);
+
+    return $clean_menu;
+}
+
+
 

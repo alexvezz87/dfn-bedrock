@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.2.0');
+define('DFN_DB_VERSION', '2.3.0');
 
 /**
  * ========================================================================
@@ -180,7 +180,7 @@ function dfn_db_install(): void
     ) {$charset_collate};";
 
     // -------------------------------------------------------------------
-    // TABELLA 5: Anagrafica Iscritti FAI
+    // TABELLA 5: Anagrafica Iscritti FAI (Soci e Volontari)
     // -------------------------------------------------------------------
     $table_fai = $wpdb->prefix . 'dfn_fai_members';
     $sql_fai = "CREATE TABLE {$table_fai} (
@@ -196,13 +196,18 @@ function dfn_db_install(): void
         verified_by bigint(20) unsigned DEFAULT NULL,
         verified_at datetime DEFAULT NULL,
         user_id bigint(20) unsigned DEFAULT NULL,
+        is_volunteer tinyint(1) NOT NULL DEFAULT 0,
+        volunteer_status varchar(20) NOT NULL DEFAULT 'active',
+        volunteer_notes text DEFAULT NULL,
+        joined_date date DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY idx_email (email),
         KEY idx_card (card_number),
         KEY idx_user (user_id),
-        KEY idx_expiry (card_expiry)
+        KEY idx_expiry (card_expiry),
+        KEY idx_volunteer (is_volunteer)
     ) {$charset_collate};";
 
     // -------------------------------------------------------------------
@@ -262,6 +267,28 @@ function dfn_db_install(): void
         KEY idx_logged_at (logged_at)
     ) {$charset_collate};";
 
+    // -------------------------------------------------------------------
+    // TABELLA 9: Riunioni Volontari di Delegazione
+    // -------------------------------------------------------------------
+    $table_meetings = $wpdb->prefix . 'dfn_volunteer_meetings';
+    $sql_meetings = "CREATE TABLE {$table_meetings} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        title varchar(255) NOT NULL,
+        meeting_date date NOT NULL,
+        meeting_time_start time NOT NULL,
+        meeting_time_end time DEFAULT NULL,
+        location varchar(500) NOT NULL,
+        meeting_link varchar(500) DEFAULT NULL,
+        agenda text DEFAULT NULL,
+        notes text DEFAULT NULL,
+        status varchar(20) NOT NULL DEFAULT 'scheduled',
+        created_by bigint(20) unsigned DEFAULT NULL,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY idx_date (meeting_date),
+        KEY idx_status (status)
+    ) {$charset_collate};";
+
     // Esecuzione idempotente di tutte le tabelle
     dbDelta($sql_events);
     dbDelta($sql_slots);
@@ -271,6 +298,7 @@ function dfn_db_install(): void
     dbDelta($sql_waitlist);
     dbDelta($sql_pending);
     dbDelta($sql_logs);
+    dbDelta($sql_meetings);
 
     // Forza la creazione della colonna description se manca (dbDelta a volte fallisce l'alter)
     $row = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'description'");
@@ -286,6 +314,16 @@ function dfn_db_install(): void
 
     // Forza la nullabilità di card_expiry nella tabella fai_members (dbDelta a volte fallisce l'alter)
     $wpdb->query("ALTER TABLE {$table_fai} MODIFY COLUMN card_expiry date DEFAULT NULL");
+
+    // Garantisce che le colonne del modulo Volontari siano create in wp_dfn_fai_members
+    $row_vol = $wpdb->get_results("SHOW COLUMNS FROM {$table_fai} LIKE 'is_volunteer'");
+    if (empty($row_vol)) {
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN is_volunteer tinyint(1) NOT NULL DEFAULT 0");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN volunteer_status varchar(20) NOT NULL DEFAULT 'active'");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN volunteer_notes text DEFAULT NULL");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN joined_date date DEFAULT NULL");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_volunteer (is_volunteer)");
+    }
 
     // Migra dati legacy dalla waitlist su wp_options (one-shot)
     dfn_migrate_waitlist_from_options();
@@ -844,3 +882,85 @@ function dfn_restrict_test_events_access(): void
     }
 }
 add_action('template_redirect', 'dfn_restrict_test_events_access', 1);
+
+/**
+ * ========================================================================
+ * HELPER VOLONTARI FAI & RIUNIONI DI DELEGAZIONE
+ * ========================================================================
+ */
+
+/**
+ * Verifica se un determinato utente è registrato come Volontario FAI attivo
+ * oppure se possiede ruoli FAI assegnati.
+ *
+ * @param int|null $user_id ID dell'utente (se null, usa l'utente corrente).
+ * @return bool True se è un volontario attivo, false altrimenti.
+ */
+function dfn_is_user_volunteer(?int $user_id = null): bool
+{
+    $uid = $user_id ?: get_current_user_id();
+    if (! $uid) {
+        return false;
+    }
+
+    // Se è amministratore o ha ruoli di gestione
+    if (user_can($uid, 'manage_options')) {
+        return true;
+    }
+
+    // Controlla se ha ruoli FAI operativi assegnati
+    $assigned_fai_roles = get_user_meta($uid, '_dfn_assigned_fai_roles', true);
+    if (is_array($assigned_fai_roles) && ! empty($assigned_fai_roles)) {
+        return true;
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_fai_members';
+
+    // Controlla se esiste nella tabella iscritti FAI come volontario attivo
+    $is_vol = (bool) $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM {$table} WHERE user_id = %d AND is_volunteer = 1 AND volunteer_status = 'active'",
+        $uid
+    ));
+
+    return $is_vol;
+}
+
+/**
+ * Recupera il record del volontario associato a un determinato user_id.
+ *
+ * @param int $user_id ID utente WordPress.
+ * @return object|null Record del volontario o null.
+ */
+function dfn_get_volunteer_by_user(int $user_id)
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_fai_members';
+    return $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table} WHERE user_id = %d AND is_volunteer = 1 LIMIT 1",
+        $user_id
+    ));
+}
+
+/**
+ * Recupera l'elenco delle prossime riunioni di delegazione programmate.
+ *
+ * @param bool $upcoming_only Se true, restituisce solo le riunioni da oggi in poi.
+ * @param int  $limit         Numero massimo di riunioni da restituire.
+ * @return array<object>
+ */
+function dfn_get_volunteer_meetings(bool $upcoming_only = true, int $limit = 20): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_meetings';
+
+    $where = "status != 'cancelled'";
+    if ($upcoming_only) {
+        $where .= " AND meeting_date >= CURDATE()";
+    }
+
+    $sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY meeting_date ASC, meeting_time_start ASC LIMIT %d";
+    $results = $wpdb->get_results($wpdb->prepare($sql, $limit));
+
+    return is_array($results) ? $results : [];
+}

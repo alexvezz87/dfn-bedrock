@@ -53,6 +53,7 @@ require_once get_stylesheet_directory() . '/inc/admin/dfn-waitlist.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-quick-booking.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-pending-bookings.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-logs.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteers-admin.php';
 
 // API / Router
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slots.php';
