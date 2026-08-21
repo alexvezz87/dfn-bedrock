@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!root) return;
 
     // -------------------------------------------------------------------
-    // 00. RIMOZIONE FORZATA RECAPTCHA & COOKIE BADGE SU MOBILE GESTIONE EVENTI
+    // 00. NASCONDIMENTO BADGE GRAFICI SU MOBILE GESTIONE EVENTI (Senza bloccare reCAPTCHA)
     // -------------------------------------------------------------------
     function hideIntrusiveBadges() {
         const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -24,20 +24,13 @@ document.addEventListener('DOMContentLoaded', function () {
             '.grecaptcha-badge',
             '#dfn-cookie-manage-link',
             '#dfn-cookie-banner-overlay',
-            '#dfn-cookie-banner',
-            'iframe[src*="recaptcha"]',
-            'div[style*="grecaptcha"]'
+            '#dfn-cookie-banner'
         ];
 
         selectors.forEach(function (sel) {
             const els = document.querySelectorAll(sel);
             els.forEach(function (el) {
                 el.style.setProperty('display', 'none', 'important');
-                el.style.setProperty('visibility', 'hidden', 'important');
-                el.style.setProperty('opacity', '0', 'important');
-                el.style.setProperty('pointer-events', 'none', 'important');
-                el.style.setProperty('top', '-9999px', 'important');
-                el.style.setProperty('left', '-9999px', 'important');
             });
         });
     }

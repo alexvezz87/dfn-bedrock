@@ -167,13 +167,8 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
 
     $body = json_decode(wp_remote_retrieve_body($response), true);
     if (! empty($body['success'])) {
-        // Se Google valida il token con successo:
-        // Sui dispositivi mobili (4G/5G o assenza di mouse) lo score può attestarsi intorno a 0.1-0.2
-        // Accettiamo lo score fino a 0.1 purché il token sia valido
-        $score = floatval($body['score'] ?? 0.5);
-        if ($score >= 0.1) {
-            return true;
-        }
+        // Il token è autentico, emesso da Google per il nostro dominio.
+        return true;
     } else {
         // Logga l'errore specifico restituito da Google per diagnostica
         $err_codes = isset($body['error-codes']) ? implode(', ', (array) $body['error-codes']) : 'unknown';
