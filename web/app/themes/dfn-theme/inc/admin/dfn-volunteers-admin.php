@@ -180,12 +180,12 @@ function dfn_render_volunteers_list_page(): void
             <table class="wp-list-table widefat fixed striped table-view-list" style="border:none;">
                 <thead>
                     <tr>
-                        <th style="width:200px; font-weight:700;">Volontario</th>
-                        <th style="width:140px; font-weight:700;">Tessera FAI</th>
-                        <th style="width:180px; font-weight:700;">Contatti</th>
-                        <th style="font-weight:700;">Ruoli Operativi / Disponibilità</th>
-                        <th style="width:110px; font-weight:700; text-align:center;">Stato</th>
-                        <th style="width:130px; font-weight:700; text-align:right;">Azioni</th>
+                        <th style="width:180px; font-weight:700;">Volontario</th>
+                        <th style="width:130px; font-weight:700;">Tessera FAI</th>
+                        <th style="width:200px; font-weight:700;">Contatti</th>
+                        <th style="font-weight:700;">Ruoli Operativi / Competenze</th>
+                        <th style="width:90px; font-weight:700; text-align:center;">Stato</th>
+                        <th style="width:230px; font-weight:700; text-align:right;">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -199,39 +199,39 @@ function dfn_render_volunteers_list_page(): void
                         ?>
                             <tr>
                                 <td>
-                                    <strong style="color:#0f172a; font-size:13.5px; display:block;">
+                                    <strong style="color:#0f172a; font-size:13.5px; display:block; white-space:nowrap;">
                                         <?php echo esc_html($v->first_name . ' ' . $v->last_name); ?>
                                     </strong>
                                     <?php if ($user) : ?>
                                         <span style="font-size:11.5px; color:#64748b;">Utente: <code><?php echo esc_html($user->user_login); ?></code></span>
                                     <?php else : ?>
-                                        <span style="font-size:11.5px; color:#94a3b8; font-style:italic;">(Nessun account WP collegato)</span>
+                                        <span style="font-size:11.5px; color:#94a3b8; font-style:italic;">(Nessun account WP)</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155;">
+                                    <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;">
                                         💳 <?php echo esc_html($v->card_number); ?>
                                     </code>
                                     <?php if ($v->card_expiry) : ?>
-                                        <div style="font-size:11px; color:#64748b; margin-top:2px;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
+                                        <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div style="font-size:12px; color:#334155;">✉️ <?php echo esc_html($v->email); ?></div>
+                                    <div style="font-size:12px; color:#334155; word-break:break-all;">✉️ <?php echo esc_html($v->email); ?></div>
                                     <?php if ($v->phone) : ?>
-                                        <div style="font-size:11.5px; color:#64748b;">📞 <?php echo esc_html($v->phone); ?></div>
+                                        <div style="font-size:11.5px; color:#64748b; margin-top:2px; white-space:nowrap;">📞 <?php echo esc_html($v->phone); ?></div>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <span style="font-size:12px; color:#334155;"><?php echo esc_html($roles_label); ?></span>
                                     <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
                                         <?php if (! empty($v->is_guide)) : ?>
-                                            <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:10px; font-size:10.5px; font-weight:700; padding:1px 7px;">
+                                            <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:10px; font-size:10.5px; font-weight:700; padding:1px 7px; white-space:nowrap;">
                                                 🏛️ Guida
                                             </span>
                                         <?php endif; ?>
                                         <?php if (! empty($v->has_safety_course)) : ?>
-                                            <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:10px; font-size:10.5px; font-weight:700; padding:1px 7px;">
+                                            <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:10px; font-size:10.5px; font-weight:700; padding:1px 7px; white-space:nowrap;">
                                                 🦺 Sicurezza
                                             </span>
                                         <?php endif; ?>
@@ -240,32 +240,34 @@ function dfn_render_volunteers_list_page(): void
                                         <div style="font-size:11.5px; color:#64748b; font-style:italic; margin-top:3px;">📝 <?php echo esc_html($v->volunteer_notes); ?></div>
                                     <?php endif; ?>
                                 </td>
-                                <td style="text-align:center;">
+                                <td style="text-align:center; vertical-align:middle;">
                                     <?php if ($v->volunteer_status === 'active') : ?>
-                                        <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">
+                                        <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac; white-space:nowrap;">
                                             Attivo
                                         </span>
                                     <?php else : ?>
-                                        <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;">
+                                        <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; white-space:nowrap;">
                                             Inattivo
                                         </span>
                                     <?php endif; ?>
                                 </td>
-                                <td style="text-align:right;">
-                                    <?php 
-                                    $edit_url   = admin_url('admin.php?page=dfn-volunteer-add&volunteer_id=' . $v->id);
-                                    $toggle_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=toggle_status&volunteer_id=' . $v->id), 'dfn_vol_action_' . $v->id);
-                                    $delete_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=delete&volunteer_id=' . $v->id), 'dfn_vol_action_' . $v->id);
-                                    ?>
-                                    <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="Modifica dati e ruoli" style="margin-right:4px;">
-                                        ✏️ Modifica
-                                    </a>
-                                    <a href="<?php echo esc_url($toggle_url); ?>" class="button button-small" title="Attiva/Disattiva" style="margin-right:4px;">
-                                        <?php echo ($v->volunteer_status === 'active') ? 'Disattiva' : 'Attiva'; ?>
-                                    </a>
-                                    <a href="<?php echo esc_url($delete_url); ?>" class="button button-small" style="color:#b91c1c;" onclick="return confirm('Confermi la rimozione del volontario?');">
-                                        Rimuovi
-                                    </a>
+                                <td style="text-align:right; vertical-align:middle;">
+                                    <div style="display:flex; justify-content:flex-end; align-items:center; gap:6px; flex-wrap:nowrap;">
+                                        <?php 
+                                        $edit_url   = admin_url('admin.php?page=dfn-volunteer-add&volunteer_id=' . $v->id);
+                                        $toggle_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=toggle_status&volunteer_id=' . $v->id), 'dfn_vol_action_' . $v->id);
+                                        $delete_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=delete&volunteer_id=' . $v->id), 'dfn_vol_action_' . $v->id);
+                                        ?>
+                                        <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="Modifica dati e ruoli" style="white-space:nowrap; padding:0 8px;">
+                                            ✏️ Modifica
+                                        </a>
+                                        <a href="<?php echo esc_url($toggle_url); ?>" class="button button-small" title="Attiva/Disattiva" style="white-space:nowrap; padding:0 8px;">
+                                            <?php echo ($v->volunteer_status === 'active') ? 'Disattiva' : 'Attiva'; ?>
+                                        </a>
+                                        <a href="<?php echo esc_url($delete_url); ?>" class="button button-small" style="color:#b91c1c; white-space:nowrap; padding:0 8px;" onclick="return confirm('Confermi la rimozione del volontario?');">
+                                            Rimuovi
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
