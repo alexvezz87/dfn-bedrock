@@ -157,18 +157,27 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
             'response' => $token,
             'remoteip' => $_SERVER['REMOTE_ADDR'] ?? '',
         ],
-        'timeout' => 10,
+        'timeout' => 8,
     ]);
 
     if (is_wp_error($response)) {
         error_log('DFN reCAPTCHA Error: ' . $response->get_error_message());
-        return true; // In caso di timeout temporaneo di Google, non blocchiamo l'utente
+        return true; // In caso di timeout o errore temporaneo di rete verso Google, non blocchiamo l'utente
     }
 
     $body = json_decode(wp_remote_retrieve_body($response), true);
     if (! empty($body['success'])) {
+        // Se Google valida il token con successo:
+        // Sui dispositivi mobili (4G/5G o assenza di mouse) lo score può attestarsi intorno a 0.1-0.2
+        // Accettiamo lo score fino a 0.1 purché il token sia valido
         $score = floatval($body['score'] ?? 0.5);
-        return $score >= 0.3;
+        if ($score >= 0.1) {
+            return true;
+        }
+    } else {
+        // Logga l'errore specifico restituito da Google per diagnostica
+        $err_codes = isset($body['error-codes']) ? implode(', ', (array) $body['error-codes']) : 'unknown';
+        error_log('DFN reCAPTCHA verification failed: ' . $err_codes);
     }
 
     return false;
@@ -205,10 +214,17 @@ function dfn_enqueue_recaptcha_scripts(): void
             if (form.getAttribute('data-recaptcha-bypassed') === 'true') return;
 
             var input = form.querySelector('input[name="g-recaptcha-response"]');
-            if (input && input.value) return;
 
             e.preventDefault();
             e.stopPropagation();
+
+            // Determina l'azione appropriata (login, register o submit)
+            var actionName = 'submit';
+            if (form.classList.contains('login') || form.id === 'loginform' || form.querySelector('input[name="pwd"]') || form.querySelector('input[name="log"]')) {
+                actionName = 'login';
+            } else if (form.classList.contains('register') || form.id === 'registerform' || form.querySelector('input[name="password_confirm"]')) {
+                actionName = 'register';
+            }
 
             // Preserva il valore del pulsante di submit che ha scatenato l'invio (es. name="register" o name="login")
             var submitter = e.submitter || document.activeElement;
@@ -221,7 +237,7 @@ function dfn_enqueue_recaptcha_scripts(): void
             }
 
             grecaptcha.ready(function() {
-                grecaptcha.execute(siteKey, { action: 'submit' }).then(function(token) {
+                grecaptcha.execute(siteKey, { action: actionName }).then(function(token) {
                     if (!input) {
                         input = document.createElement('input');
                         input.type = 'hidden';
