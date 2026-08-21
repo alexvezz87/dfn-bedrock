@@ -28,7 +28,21 @@ function dfn_handle_volunteer_survey_page_rewrite(): void
     $path = trim(parse_url($request_uri, PHP_URL_PATH) ?? '', '/');
 
     if ($path === 'sondaggio-volontari' || strpos($path, 'sondaggio-volontari') !== false) {
+        global $wp_query;
+        if ($wp_query) {
+            $wp_query->is_404 = false;
+            $wp_query->is_page = true;
+        }
         status_header(200);
+
+        // Titolo dinamico del documento per evitare "Pagina non trovata"
+        add_filter('pre_get_document_title', function() {
+            return 'Sondaggio Disponibilità Volontari — FAI Novara';
+        }, 99);
+        add_filter('wp_title', function() {
+            return 'Sondaggio Disponibilità Volontari — FAI Novara';
+        }, 99);
+
         get_header();
         echo '<div class="site-main dfn-survey-page-wrapper" style="min-height:70vh; padding: 40px 16px; background:#f8fafc;">';
         echo do_shortcode('[dfn_sondaggio_volontari]');
@@ -157,10 +171,23 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
 
                 // Inserisci le disponibilità per ciascun giorno e fascia
                 foreach ($days as $day) {
-                    $day_slots = [ 'mattina' => 'Mattina', 'pomeriggio' => 'Pomeriggio' ];
-                    foreach ($day_slots as $slot_k => $slot_lbl) {
+                    // Recupera gli slot orari reali definiti per questo giorno
+                    $day_shifts = $wpdb->get_results($wpdb->prepare(
+                        "SELECT DISTINCT shift_label, time_start, time_end FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d ORDER BY time_start ASC",
+                        $day->id
+                    ));
+
+                    if (empty($day_shifts)) {
+                        $day_shifts = [
+                            (object) ['shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00'],
+                            (object) ['shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00'],
+                        ];
+                    }
+
+                    foreach ($day_shifts as $sh) {
+                        $slot_k = sanitize_key($sh->shift_label . '_' . substr($sh->time_start, 0, 5));
                         $compound_key = $day->id . '_' . $slot_k;
-                        $is_avail = isset($slots_selected[$compound_key]) ? 1 : 0;
+                        $is_avail = ! empty($slots_selected[$compound_key]) ? 1 : 0;
 
                         $wpdb->insert(
                             $table_resp,
@@ -264,49 +291,53 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                     </div>
                 </div>
 
-                <!-- Sezione Selezione Slot per Giorno -->
+                <!-- Sezione Selezione Slot per Giorno Dinamici -->
                 <div style="margin-bottom: 24px;">
                     <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">
                         📅 Seleziona le tue disponibilità
                     </h3>
                     <p style="font-size: 13px; color: #64748b; margin: 0 0 16px 0;">
-                        Indica gli slot orari in cui sei disponibile. Il luogo a cui verrai assegnato sarà stabilito dalla Delegazione.
+                        Indica i turni orari in cui sei disponibile. Il luogo e l'incarico a cui verrai assegnato saranno stabiliti dalla Delegazione.
                     </p>
 
                     <div style="display: flex; flex-direction: column; gap: 14px;">
                         <?php foreach ($days as $day) : 
                             $d_time = strtotime($day->event_date);
                             $d_title = date_i18n('l d F Y', $d_time);
+
+                            // Recupera i turni definiti per questo giorno
+                            $day_shifts = $wpdb->get_results($wpdb->prepare(
+                                "SELECT DISTINCT shift_label, time_start, time_end FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d ORDER BY time_start ASC",
+                                $day->id
+                            ));
+
+                            if (empty($day_shifts)) {
+                                $day_shifts = [
+                                    (object) ['shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00'],
+                                    (object) ['shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00'],
+                                ];
+                            }
                         ?>
                             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
                                 <div style="font-size: 14px; font-weight: 800; color: #004b23; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
                                     <span>🗓️</span> <?php echo esc_html(ucfirst($d_title)); ?>
                                 </div>
 
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                    <?php 
-                                    $morning_key = $day->id . '_mattina';
-                                    $afternoon_key = $day->id . '_pomeriggio';
-                                    $is_m_checked = ! empty($saved_responses[$morning_key]);
-                                    $is_a_checked = ! empty($saved_responses[$afternoon_key]);
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                                    <?php foreach ($day_shifts as $sh) : 
+                                        $slot_k = sanitize_key($sh->shift_label . '_' . substr($sh->time_start, 0, 5));
+                                        $compound_key = $day->id . '_' . $slot_k;
+                                        $is_checked = ! empty($saved_responses[$compound_key]);
+                                        $time_range = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
                                     ?>
-                                    <!-- Mattina -->
-                                    <label style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1.5px solid <?php echo $is_m_checked ? '#004b23' : '#cbd5e1'; ?>; padding: 12px 14px; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
-                                        <input type="checkbox" name="slots[<?php echo esc_attr($morning_key); ?>]" value="1" <?php checked($is_m_checked, true); ?> style="width: 18px; height: 18px;">
-                                        <div>
-                                            <strong style="font-size: 13.5px; color: #0f172a; display: block;">Mattina</strong>
-                                            <span style="font-size: 12px; color: #64748b;">(es. 09:00 - 12:30)</span>
-                                        </div>
-                                    </label>
-
-                                    <!-- Pomeriggio -->
-                                    <label style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1.5px solid <?php echo $is_a_checked ? '#004b23' : '#cbd5e1'; ?>; padding: 12px 14px; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
-                                        <input type="checkbox" name="slots[<?php echo esc_attr($afternoon_key); ?>]" value="1" <?php checked($is_a_checked, true); ?> style="width: 18px; height: 18px;">
-                                        <div>
-                                            <strong style="font-size: 13.5px; color: #0f172a; display: block;">Pomeriggio</strong>
-                                            <span style="font-size: 12px; color: #64748b;">(es. 14:00 - 18:00)</span>
-                                        </div>
-                                    </label>
+                                        <label style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1.5px solid <?php echo $is_checked ? '#004b23' : '#cbd5e1'; ?>; padding: 12px 14px; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+                                            <input type="checkbox" name="slots[<?php echo esc_attr($compound_key); ?>]" value="1" <?php checked($is_checked, true); ?> style="width: 18px; height: 18px;">
+                                            <div>
+                                                <strong style="font-size: 13.5px; color: #0f172a; display: block;"><?php echo esc_html($sh->shift_label); ?></strong>
+                                                <span style="font-size: 12px; color: #64748b;">(<?php echo esc_html($time_range); ?>)</span>
+                                            </div>
+                                        </label>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -316,7 +347,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                 <!-- Note / Preferenze aggiuntive -->
                 <div style="margin-bottom: 24px;">
                     <label style="display:block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 4px;">Note o preferenze speciali (Opzionale)</label>
-                    <textarea name="notes" rows="3" placeholder="Es. Preferenza per luogo specifico, disponibilità solo fino alle 17:00, in coppia con..." style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; padding: 10px; font-size: 13.5px;"></textarea>
+                    <textarea name="notes" rows="3" placeholder="Es. Preferenza per luogo specifico, disponibilità solo fino alle 17:00, in coppia con..." style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; padding: 10px; font-size: 13.5px;"><?php echo esc_textarea($user_notes); ?></textarea>
                 </div>
 
                 <!-- Pulsante Submit -->
