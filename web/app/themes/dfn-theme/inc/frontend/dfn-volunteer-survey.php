@@ -16,6 +16,28 @@ if (! defined('ABSPATH')) {
 // Registrazione shortcode per il sondaggio pubblico
 add_shortcode('dfn_sondaggio_volontari', 'dfn_render_volunteer_survey_shortcode');
 
+// Intercetta l'URL virtuale /sondaggio-volontari/
+add_action('template_redirect', 'dfn_handle_volunteer_survey_page_rewrite');
+
+/**
+ * Intercetta le richieste dirette a /sondaggio-volontari/ e renderizza il template FAI.
+ */
+function dfn_handle_volunteer_survey_page_rewrite(): void
+{
+    $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+    $path = trim(parse_url($request_uri, PHP_URL_PATH) ?? '', '/');
+
+    if ($path === 'sondaggio-volontari' || strpos($path, 'sondaggio-volontari') !== false) {
+        status_header(200);
+        get_header();
+        echo '<div class="site-main dfn-survey-page-wrapper" style="min-height:70vh; padding: 40px 16px; background:#f8fafc;">';
+        echo do_shortcode('[dfn_sondaggio_volontari]');
+        echo '</div>';
+        get_footer();
+        exit;
+    }
+}
+
 /**
  * Renderizza il form di sondaggio disponibilità.
  *
