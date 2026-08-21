@@ -288,8 +288,15 @@ function dfn_render_volunteer_event_form(int $event_id): void
         }
     }
 
-    // Lista eventi FAI Prenotazioni per associazione opzionale
-    $fai_events = function_exists('dfn_db_get_events') ? dfn_db_get_events('all') : [];
+    // Lista eventi FAI Prenotazioni futuri per associazione opzionale
+    $fai_events = $wpdb->get_results(
+        "SELECT e.*, p.post_title 
+         FROM {$wpdb->prefix}dfn_events e
+         LEFT JOIN {$wpdb->posts} p ON e.product_id = p.ID
+         WHERE (e.event_date_end >= CURDATE() OR (e.event_date_end IS NULL AND e.event_date_start >= CURDATE()))
+           AND e.status != 'archived'
+         ORDER BY e.event_date_start ASC"
+    );
 
     ?>
     <div class="wrap dfn-admin-wrap">
@@ -319,12 +326,18 @@ function dfn_render_volunteer_event_form(int $event_id): void
                     </div>
 
                     <div id="linked_event_wrapper" style="display: <?php echo ($event && $event->event_type === 'local') ? 'block' : 'none'; ?>;">
-                        <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">Associa ad Evento FAI Prenotazioni (Opzionale)</label>
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">Associa ad Evento FAI Prenotazioni (Solo Futuri)</label>
                         <select name="linked_event_id" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px;">
-                            <option value="">-- Nessun evento collegato --</option>
-                            <?php foreach ($fai_events as $fe) : ?>
-                                <option value="<?php echo esc_attr($fe->id); ?>" <?php selected($event ? $event->linked_event_id : 0, $fe->id); ?>>
-                                    <?php echo esc_html($fe->title . ' (' . date_i18n('d/m/Y', strtotime($fe->event_date_start)) . ')'); ?>
+                            <option value="">-- Seleziona un evento futuro --</option>
+                            <?php foreach ($fai_events as $fe) : 
+                                $ev_name = ! empty($fe->post_title) ? $fe->post_title : ($fe->title ?: 'Evento #' . $fe->id);
+                                $date_label = date_i18n('d/m/Y', strtotime($fe->event_date_start));
+                                if (! empty($fe->event_date_end) && $fe->event_date_end !== $fe->event_date_start) {
+                                    $date_label .= ' - ' . date_i18n('d/m/Y', strtotime($fe->event_date_end));
+                                }
+                            ?>
+                                <option value="<?php echo esc_attr($fe->id); ?>" <?php selected($event ? (int) $event->linked_event_id : 0, (int) $fe->id); ?>>
+                                    <?php echo esc_html($ev_name . ' (' . $date_label . ')'); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
