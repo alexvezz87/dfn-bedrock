@@ -327,16 +327,21 @@ function dfn_render_volunteer_event_form(int $event_id): void
 
                     <div id="linked_event_wrapper" style="display: <?php echo ($event && $event->event_type === 'local') ? 'block' : 'none'; ?>;">
                         <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">Associa ad Evento FAI Prenotazioni (Solo Futuri)</label>
-                        <select name="linked_event_id" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px;">
-                            <option value="">-- Seleziona un evento futuro --</option>
+                        <select name="linked_event_id" id="dfn_linked_event_select" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px;" onchange="onLinkedEventChange(this)">
+                            <option value="" data-start="" data-end="">-- Seleziona un evento futuro --</option>
                             <?php foreach ($fai_events as $fe) : 
                                 $ev_name = ! empty($fe->post_title) ? $fe->post_title : ($fe->title ?: 'Evento #' . $fe->id);
                                 $date_label = date_i18n('d/m/Y', strtotime($fe->event_date_start));
+                                $fe_end = ! empty($fe->event_date_end) ? $fe->event_date_end : $fe->event_date_start;
                                 if (! empty($fe->event_date_end) && $fe->event_date_end !== $fe->event_date_start) {
                                     $date_label .= ' - ' . date_i18n('d/m/Y', strtotime($fe->event_date_end));
                                 }
                             ?>
-                                <option value="<?php echo esc_attr($fe->id); ?>" <?php selected($event ? (int) $event->linked_event_id : 0, (int) $fe->id); ?>>
+                                <option value="<?php echo esc_attr($fe->id); ?>" 
+                                        data-start="<?php echo esc_attr($fe->event_date_start); ?>" 
+                                        data-end="<?php echo esc_attr($fe_end); ?>" 
+                                        data-title="<?php echo esc_attr($ev_name); ?>"
+                                        <?php selected($event ? (int) $event->linked_event_id : 0, (int) $fe->id); ?>>
                                     <?php echo esc_html($ev_name . ' (' . $date_label . ')'); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -347,11 +352,11 @@ function dfn_render_volunteer_event_form(int $event_id): void
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px;">
                     <div>
                         <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">Data Inizio <span style="color:#ef4444;">*</span></label>
-                        <input type="date" name="date_start" required value="<?php echo esc_attr($event ? $event->date_start : date('Y-m-d')); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px;">
+                        <input type="date" name="date_start" id="dfn_date_start" required value="<?php echo esc_attr($event ? $event->date_start : date('Y-m-d')); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px;">
                     </div>
                     <div>
                         <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">Data Fine</label>
-                        <input type="date" name="date_end" value="<?php echo esc_attr($event ? $event->date_end : date('Y-m-d', strtotime('+1 day'))); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px;">
+                        <input type="date" name="date_end" id="dfn_date_end" value="<?php echo esc_attr($event ? $event->date_end : date('Y-m-d', strtotime('+1 day'))); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px;">
                     </div>
                 </div>
 
@@ -385,6 +390,19 @@ function dfn_render_volunteer_event_form(int $event_id): void
         var type = document.getElementById('dfn_event_type_select').value;
         var wrap = document.getElementById('linked_event_wrapper');
         wrap.style.display = (type === 'local') ? 'block' : 'none';
+    }
+
+    function onLinkedEventChange(selectElem) {
+        var selectedOption = selectElem.options[selectElem.selectedIndex];
+        var startDate = selectedOption.getAttribute('data-start');
+        var endDate = selectedOption.getAttribute('data-end');
+
+        if (startDate) {
+            document.getElementById('dfn_date_start').value = startDate;
+        }
+        if (endDate) {
+            document.getElementById('dfn_date_end').value = endDate;
+        }
     }
     </script>
     <?php
