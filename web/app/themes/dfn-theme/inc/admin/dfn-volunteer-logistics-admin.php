@@ -263,18 +263,44 @@ function dfn_render_volunteer_event_form(int $event_id): void
                     );
                     $day_id = $wpdb->insert_id;
 
-                    // Se è un evento locale, inseriamo un luogo di default
+                    // Se è un evento locale, inseriamo un unico luogo (ereditato dall'evento collegato se presente)
                     if ($event_type === 'local') {
+                        $place_name = 'Sede Evento';
+                        $slot_start = '15:00:00';
+                        $slot_end   = '18:00:00';
+
+                        if ($linked_event_id > 0) {
+                            $fe = function_exists('dfn_db_get_event') ? dfn_db_get_event($linked_event_id) : null;
+                            if ($fe) {
+                                if (! empty($fe->location)) {
+                                    $place_name = $fe->location;
+                                }
+                                if (! empty($fe->event_time_start)) {
+                                    $slot_start = $fe->event_time_start;
+                                }
+                                if (! empty($fe->event_time_end)) {
+                                    $slot_end = $fe->event_time_end;
+                                }
+                            }
+                        }
+
                         $wpdb->insert(
                             $table_places,
-                            [ 'event_id' => $saved_id, 'day_id' => $day_id, 'place_name' => 'Sede Evento', 'order_num' => 1 ],
+                            [ 'event_id' => $saved_id, 'day_id' => $day_id, 'place_name' => $place_name, 'order_num' => 1 ],
                             [ '%d', '%d', '%s', '%d' ]
                         );
                         $place_id = $wpdb->insert_id;
 
-                        // Genera due slot standard: Mattina e Pomeriggio
-                        $wpdb->insert($table_shifts, [ 'event_id' => $saved_id, 'day_id' => $day_id, 'place_id' => $place_id, 'shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00', 'order_num' => 1 ], [ '%d', '%d', '%d', '%s', '%s', '%s', '%d' ]);
-                        $wpdb->insert($table_shifts, [ 'event_id' => $saved_id, 'day_id' => $day_id, 'place_id' => $place_id, 'shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00', 'order_num' => 2 ], [ '%d', '%d', '%d', '%s', '%s', '%s', '%d' ]);
+                        // Per gli eventi locali si crea un solo slot con la durata dell'evento
+                        $wpdb->insert($table_shifts, [
+                            'event_id'    => $saved_id,
+                            'day_id'      => $day_id,
+                            'place_id'    => $place_id,
+                            'shift_label' => 'Turno Unico',
+                            'time_start'  => $slot_start,
+                            'time_end'    => $slot_end,
+                            'order_num'   => 1,
+                        ], [ '%d', '%d', '%d', '%s', '%s', '%s', '%d' ]);
                     }
 
                     $cur = strtotime('+1 day', $cur);
@@ -494,8 +520,104 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
         echo '<div class="notice notice-success is-dismissible"><p>🤖 <strong>Assegnazione automatica completata!</strong> Assegnati ' . intval($assigned_count) . ' volontari ai turni nel rispetto dei vincoli di ruolo (Responsabili Scuola, Banchetto e Guide).</p></div>';
     }
 
+    // Gestione Aggiunta Nuovo Slot Orario (Eventi Locali o Personalizzati)
+    if (isset($_POST['dfn_add_shift']) && wp_verify_nonce($_POST['dfn_shift_nonce'] ?? '', 'dfn_add_shift_action')) {
+        $shift_label = sanitize_text_field($_POST['shift_label'] ?? 'Turno');
+        $time_start  = sanitize_text_field($_POST['time_start'] ?? '');
+        $time_end    = sanitize_text_field($_POST['time_end'] ?? '');
+        $target_place_id = (int) ($_POST['place_id'] ?? 0);
+
+        if (! empty($time_start) && ! empty($time_end) && $target_place_id > 0 && $selected_day_id > 0) {
+            $wpdb->insert(
+                $wpdb->prefix . 'dfn_volunteer_event_shifts',
+                [
+                    'event_id'    => $event_id,
+                    'day_id'      => $selected_day_id,
+                    'place_id'    => $target_place_id,
+                    'shift_label' => $shift_label,
+                    'time_start'  => $time_start . (strlen($time_start) === 5 ? ':00' : ''),
+                    'time_end'    => $time_end . (strlen($time_end) === 5 ? ':00' : ''),
+                    'order_num'   => 10,
+                ],
+                [ '%d', '%d', '%d', '%s', '%s', '%s', '%d' ]
+            );
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Nuovo slot orario aggiunto con successo!</p></div>';
+        }
+    }
+
+    // Gestione Eliminazione Slot Orario
+    if (isset($_GET['delete_shift'], $_GET['_wpnonce'])) {
+        $del_sh_id = (int) $_GET['delete_shift'];
+        if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_del_shift_' . $del_sh_id)) {
+            $wpdb->delete($wpdb->prefix . 'dfn_volunteer_event_shifts', ['id' => $del_sh_id], ['%d']);
+            $wpdb->delete($wpdb->prefix . 'dfn_volunteer_shift_assignments', ['shift_id' => $del_sh_id], ['%d']);
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Slot orario rimosso.</p></div>';
+        }
+    }
+
+    // Gestione Modifica Orari Slot Orario
+    if (isset($_POST['dfn_edit_shift']) && wp_verify_nonce($_POST['dfn_edit_shift_nonce'] ?? '', 'dfn_edit_shift_action')) {
+        $edit_sh_id   = (int) $_POST['shift_id'];
+        $edit_label   = sanitize_text_field($_POST['shift_label'] ?? '');
+        $edit_start   = sanitize_text_field($_POST['time_start'] ?? '');
+        $edit_end     = sanitize_text_field($_POST['time_end'] ?? '');
+
+        if ($edit_sh_id > 0 && ! empty($edit_start) && ! empty($edit_end)) {
+            $wpdb->update(
+                $wpdb->prefix . 'dfn_volunteer_event_shifts',
+                [
+                    'shift_label' => $edit_label,
+                    'time_start'  => $edit_start . (strlen($edit_start) === 5 ? ':00' : ''),
+                    'time_end'    => $edit_end . (strlen($edit_end) === 5 ? ':00' : ''),
+                ],
+                [ 'id' => $edit_sh_id ],
+                [ '%s', '%s', '%s' ],
+                [ '%d' ]
+            );
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Orari slot aggiornati con successo!</p></div>';
+        }
+    }
+
     $places = $selected_day_id > 0 ? dfn_get_volunteer_event_places($selected_day_id) : [];
     $all_volunteers = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}dfn_fai_members WHERE is_volunteer = 1 AND volunteer_status = 'active' ORDER BY first_name ASC, last_name ASC");
+
+    // Se l'evento è locale e non ha ancora un luogo creato, lo creiamo in automatico
+    if ($event->event_type === 'local' && empty($places) && $selected_day_id > 0) {
+        $place_name = 'Sede Evento';
+        $slot_start = '15:00:00';
+        $slot_end   = '18:00:00';
+
+        if ($event->linked_event_id > 0) {
+            $fe = function_exists('dfn_db_get_event') ? dfn_db_get_event((int) $event->linked_event_id) : null;
+            if ($fe) {
+                if (! empty($fe->location)) $place_name = $fe->location;
+                if (! empty($fe->event_time_start)) $slot_start = $fe->event_time_start;
+                if (! empty($fe->event_time_end)) $slot_end = $fe->event_time_end;
+            }
+        }
+
+        $wpdb->insert(
+            $wpdb->prefix . 'dfn_volunteer_event_places',
+            [ 'event_id' => $event_id, 'day_id' => $selected_day_id, 'place_name' => $place_name, 'order_num' => 1 ],
+            [ '%d', '%d', '%s', '%d' ]
+        );
+        $new_pl_id = $wpdb->insert_id;
+
+        $wpdb->insert(
+            $wpdb->prefix . 'dfn_volunteer_event_shifts',
+            [
+                'event_id'    => $event_id,
+                'day_id'      => $selected_day_id,
+                'place_id'    => $new_pl_id,
+                'shift_label' => 'Turno Unico',
+                'time_start'  => $slot_start,
+                'time_end'    => $slot_end,
+                'order_num'   => 1,
+            ],
+            [ '%d', '%d', '%d', '%s', '%s', '%s', '%d' ]
+        );
+        $places = dfn_get_volunteer_event_places($selected_day_id);
+    }
 
     ?>
     <div class="wrap dfn-admin-wrap">
@@ -507,12 +629,14 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 </h1>
             </div>
             <div style="display:flex; gap:10px;">
-                <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e ai requisiti (Corso Sicurezza, Guide, Responsabili). Continuare?');">
-                    <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
-                    <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
-                        🤖 Assegna Automaticamente i Turni
-                    </button>
-                </form>
+                <?php if ($event->event_type === 'giornata_fai') : ?>
+                    <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e ai requisiti (Corso Sicurezza, Guide, Responsabili). Continuare?');">
+                        <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
+                        <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
+                            🤖 Assegna Automaticamente i Turni
+                        </button>
+                    </form>
+                <?php endif; ?>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=print&event_id=' . $event_id)); ?>" target="_blank" class="button" style="font-weight:700;">
                     🖨️ Stampa / Esporta PDF
                 </a>
@@ -531,128 +655,172 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             <?php endforeach; ?>
         </div>
 
-        <!-- FORM AGGIUNGI NUOVO LUOGO -->
-        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 18px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:13px; font-weight:700; color:#334155;">📍 Luoghi aperti per questo giorno:</span>
-            <form method="post" action="" style="display:flex; gap:10px;">
-                <?php wp_nonce_field('dfn_add_place_action', 'dfn_place_nonce'); ?>
-                <input type="text" name="place_name" required placeholder="Nome nuovo luogo (es. Casa Shalom, Chiesa S. Pietro...)" style="width:320px; border-radius:6px; border:1px solid #cbd5e1; height:32px; padding:0 10px;">
-                <button type="submit" name="dfn_add_place" class="button button-secondary">➕ Aggiungi Luogo</button>
-            </form>
-        </div>
-
-        <!-- GRIGLIA MATRICE (STILE GOOGLE SHEETS) -->
-        <?php if (! empty($places)) : 
-            $time_slots = [
-                'mattina'    => ['Mattina (09:00 - 12:30)', '09:00:00'],
-                'pomeriggio' => ['Pomeriggio (14:00 - 18:00)', '14:00:00'],
-            ];
+        <?php if ($event->event_type === 'giornata_fai') : ?>
+            <!-- FORM AGGIUNGI NUOVO LUOGO (SOLO PER GIORNATA FAI) -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 18px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:13px; font-weight:700; color:#334155;">📍 Luoghi aperti per questa Giornata FAI:</span>
+                <form method="post" action="" style="display:flex; gap:10px;">
+                    <?php wp_nonce_field('dfn_add_place_action', 'dfn_place_nonce'); ?>
+                    <input type="text" name="place_name" required placeholder="Nome luogo (es. Casa Shalom, Chiesa S. Pietro...)" style="width:320px; border-radius:6px; border:1px solid #cbd5e1; height:32px; padding:0 10px;">
+                    <button type="submit" name="dfn_add_place" class="button button-secondary">➕ Aggiungi Luogo</button>
+                </form>
+            </div>
+        <?php else : 
+            $single_place = ! empty($places) ? $places[0] : null;
         ?>
-            <?php foreach ($time_slots as $slot_key => $slot_info) : ?>
-                <div style="margin-bottom:30px; background:#fff; border-radius:8px; border:1px solid #cbd5e1; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                    <div style="background:#004b23; color:#fff; padding:10px 16px; font-size:15px; font-weight:800; display:flex; justify-content:space-between; align-items:center;">
-                        <span>⏰ <?php echo esc_html($slot_info[0]); ?></span>
-                        <span style="font-size:12px; font-weight:600; opacity:0.9;">Presidio Luoghi &amp; Volontari Assegnati</span>
-                    </div>
+            <!-- INFO BOX EVENTO LOCALE (SINGOLO LUOGO) -->
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 18px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-size:13px; font-weight:700; color:#166534;">📍 Luogo Evento Locale:</span>
+                    <strong style="font-size:14px; color:#0f172a; margin-left:6px;"><?php echo esc_html($single_place ? $single_place->place_name : 'Sede Evento'); ?></strong>
+                </div>
 
-                    <div style="display:grid; grid-template-columns: repeat(<?php echo max(1, count($places)); ?>, minmax(240px, 1fr)); gap:1px; background:#e2e8f0; overflow-x:auto;">
-                        <?php foreach ($places as $place) : 
-                            // Trova lo shift corrispondente a questo orario
-                            $shifts = $wpdb->get_results($wpdb->prepare(
-                                "SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d AND time_start = %s LIMIT 1",
-                                $place->id,
-                                $slot_info[1]
-                            ));
-                            $current_shift = ! empty($shifts) ? $shifts[0] : null;
-                            $assignments = $current_shift ? dfn_get_volunteer_shift_assignments((int) $current_shift->id) : [];
-                        ?>
-                            <div style="background:#fff; padding:14px; min-height:220px; display:flex; flex-direction:column; justify-content:space-between;">
-                                <div>
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
-                                        <strong style="font-size:14px; color:#0f172a;"><?php echo esc_html($place->place_name); ?></strong>
-                                        <?php 
-                                        $del_pl_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $selected_day_id . '&delete_place=' . $place->id), 'dfn_del_place_' . $place->id);
-                                        ?>
-                                        <a href="<?php echo esc_url($del_pl_url); ?>" style="color:#ef4444; text-decoration:none; font-size:12px;" onclick="return confirm('Rimuovere questo luogo dal giorno?');" title="Rimuovi luogo">✕</a>
-                                    </div>
+                <!-- Form Aggiungi Altro Slot Orario per Evento Locale -->
+                <?php if ($single_place) : ?>
+                    <form method="post" action="" style="display:flex; align-items:center; gap:8px;">
+                        <?php wp_nonce_field('dfn_add_shift_action', 'dfn_shift_nonce'); ?>
+                        <input type="hidden" name="place_id" value="<?php echo esc_attr($single_place->id); ?>">
+                        <input type="text" name="shift_label" placeholder="Etichetta (es. Turno 2)" style="width:130px; border-radius:6px; border:1px solid #cbd5e1; height:30px; padding:0 8px; font-size:12px;">
+                        <input type="time" name="time_start" required style="border-radius:6px; border:1px solid #cbd5e1; height:30px; padding:0 6px; font-size:12px;">
+                        <span>-</span>
+                        <input type="time" name="time_end" required style="border-radius:6px; border:1px solid #cbd5e1; height:30px; padding:0 6px; font-size:12px;">
+                        <button type="submit" name="dfn_add_shift" class="button button-secondary button-small" style="font-weight:700;">
+                            ➕ Aggiungi Fascia Oraria
+                        </button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
 
-                                    <!-- Elenco Volontari Assegnati -->
-                                    <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                                        <?php if (! empty($assignments)) : ?>
-                                            <?php foreach ($assignments as $a) : 
-                                                $role_tags = [
-                                                    'resp_scuola'   => ['(S) Resp. Scuola', '#fef3c7', '#92400e'],
-                                                    'resp_banchetto'=> ['(R) Resp. Banchetto', '#fee2e2', '#991b1b'],
-                                                    'guida'         => ['(G) Guida', '#e0f2fe', '#0369a1'],
-                                                    'accoglienza'   => ['Accoglienza', '#f0fdf4', '#166534'],
-                                                    'banchetto'     => ['Banchetto', '#f1f5f9', '#475569'],
-                                                ];
-                                                $rt = $role_tags[$a->role_assigned] ?? ['Volontario', '#f1f5f9', '#475569'];
-                                                $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
-                                                $del_ass_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $selected_day_id . '&remove_assignment=' . $a->id), 'dfn_del_ass_' . $a->id);
-                                            ?>
-                                                <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:4px 8px;">
-                                                    <div>
-                                                        <span style="font-size:12.5px; font-weight:700; color:#1e293b;"><?php echo esc_html($v_name); ?></span>
-                                                        <span style="display:inline-block; font-size:10px; font-weight:800; background:<?php echo $rt[1]; ?>; color:<?php echo $rt[2]; ?>; padding:1px 5px; border-radius:4px; margin-left:4px;">
-                                                            <?php echo esc_html($rt[0]); ?>
-                                                        </span>
-                                                    </div>
-                                                    <a href="<?php echo esc_url($del_ass_url); ?>" style="color:#94a3b8; text-decoration:none; font-size:11px; padding:2px;" title="Rimuovi">✕</a>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        <?php else : ?>
-                                            <div style="font-size:12px; color:#94a3b8; font-style:italic; padding:6px 0;">
-                                                Nessun volontario assegnato.
+        <!-- RENDERING SLOTS ORARI E TURNI -->
+        <?php 
+        if (! empty($places)) : 
+            // Raccogliamo tutti gli slot orari univoci definiti per i luoghi di questa giornata
+            $shifts_in_day = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d ORDER BY time_start ASC, id ASC",
+                $selected_day_id
+            ));
+
+            if (! empty($shifts_in_day)) :
+                foreach ($shifts_in_day as $shift) :
+                    $current_place = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_places WHERE id = %d", $shift->place_id));
+                    $assignments   = dfn_get_volunteer_shift_assignments((int) $shift->id);
+                    $del_shift_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $selected_day_id . '&delete_shift=' . $shift->id), 'dfn_del_shift_' . $shift->id);
+                ?>
+                    <div style="margin-bottom:24px; background:#fff; border-radius:8px; border:1px solid #cbd5e1; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+                        <!-- Header Slot con orari modificabili -->
+                        <div style="background:#004b23; color:#fff; padding:10px 16px; font-size:14.5px; font-weight:800; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span>⏰ <?php echo esc_html($shift->shift_label); ?> (<?php echo esc_html(substr($shift->time_start, 0, 5) . ' - ' . substr($shift->time_end, 0, 5)); ?>)</span>
+                                <?php if ($event->event_type === 'giornata_fai' && $current_place) : ?>
+                                    <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600;">
+                                        📍 <?php echo esc_html($current_place->place_name); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Modifica rapida orari slot o rimozione -->
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <form method="post" action="" style="display:inline-flex; align-items:center; gap:4px;">
+                                    <?php wp_nonce_field('dfn_edit_shift_action', 'dfn_edit_shift_nonce'); ?>
+                                    <input type="hidden" name="shift_id" value="<?php echo esc_attr($shift->id); ?>">
+                                    <input type="hidden" name="shift_label" value="<?php echo esc_attr($shift->shift_label); ?>">
+                                    <input type="time" name="time_start" value="<?php echo esc_attr(substr($shift->time_start, 0, 5)); ?>" style="height:26px; font-size:11px; padding:0 4px; border-radius:4px; border:none;">
+                                    <input type="time" name="time_end" value="<?php echo esc_attr(substr($shift->time_end, 0, 5)); ?>" style="height:26px; font-size:11px; padding:0 4px; border-radius:4px; border:none;">
+                                    <button type="submit" name="dfn_edit_shift" class="button button-small" style="font-size:11px; height:26px; line-height:24px; padding:0 6px;">
+                                        💾 Salva Orari
+                                    </button>
+                                </form>
+
+                                <?php if (count($shifts_in_day) > 1) : ?>
+                                    <a href="<?php echo esc_url($del_shift_url); ?>" class="button button-small" style="color:#fee2e2; background:rgba(239,68,68,0.3); border:none; height:26px; line-height:24px;" onclick="return confirm('Eliminare questo slot orario?');" title="Elimina slot">
+                                        🗑️
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Corpo Slot: Assegnazioni e Aggiunta -->
+                        <div style="padding:16px;">
+                            <!-- Elenco Volontari Assegnati -->
+                            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px; margin-bottom:16px;">
+                                <?php if (! empty($assignments)) : ?>
+                                    <?php foreach ($assignments as $a) : 
+                                        $role_tags = [
+                                            'resp_scuola'   => ['(S) Resp. Scuola', '#fef3c7', '#92400e'],
+                                            'resp_banchetto'=> ['(R) Resp. Banchetto', '#fee2e2', '#991b1b'],
+                                            'guida'         => ['(G) Guida', '#e0f2fe', '#0369a1'],
+                                            'accoglienza'   => ['Accoglienza', '#f0fdf4', '#166534'],
+                                            'banchetto'     => ['Banchetto', '#f1f5f9', '#475569'],
+                                        ];
+                                        $rt = $role_tags[$a->role_assigned] ?? ['Volontario', '#f1f5f9', '#475569'];
+                                        $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
+                                        $del_ass_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $selected_day_id . '&remove_assignment=' . $a->id), 'dfn_del_ass_' . $a->id);
+                                    ?>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px;">
+                                            <div>
+                                                <strong style="font-size:13px; color:#1e293b; display:block;"><?php echo esc_html($v_name); ?></strong>
+                                                <span style="display:inline-block; font-size:10.5px; font-weight:800; background:<?php echo $rt[1]; ?>; color:<?php echo $rt[2]; ?>; padding:1px 6px; border-radius:4px; margin-top:2px;">
+                                                    <?php echo esc_html($rt[0]); ?>
+                                                </span>
                                             </div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-
-                                <!-- Form Rapido Aggiunta Volontario allo Shift -->
-                                <?php if ($current_shift) : ?>
-                                    <div style="border-top:1px dashed #cbd5e1; padding-top:8px; margin-top:8px;">
-                                        <form method="post" action="" style="display:flex; flex-direction:column; gap:6px;">
-                                            <?php wp_nonce_field('dfn_assign_action', 'dfn_assign_nonce'); ?>
-                                            <input type="hidden" name="shift_id" value="<?php echo esc_attr($current_shift->id); ?>">
-
-                                            <select name="volunteer_id" style="width:100%; font-size:11.5px; border-radius:4px; border:1px solid #cbd5e1; height:28px;">
-                                                <option value="">-- Seleziona Volontario --</option>
-                                                <?php foreach ($all_volunteers as $av) : 
-                                                    $extra_label = '';
-                                                    if (! empty($av->has_safety_course)) $extra_label .= ' [🦺 Sicurezza]';
-                                                    if (! empty($av->is_guide)) $extra_label .= ' [🏛️ Guida]';
-                                                ?>
-                                                    <option value="<?php echo esc_attr($av->id); ?>">
-                                                        <?php echo esc_html($av->first_name . ' ' . $av->last_name . $extra_label); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-
-                                            <div style="display:flex; gap:4px;">
-                                                <select name="role_assigned" style="width:65%; font-size:11px; border-radius:4px; border:1px solid #cbd5e1; height:28px;">
-                                                    <option value="banchetto">Banchetto</option>
-                                                    <option value="resp_banchetto">👑 Resp. Banchetto (R)</option>
-                                                    <option value="resp_scuola">🦺 Resp. Scuola (S)</option>
-                                                    <option value="accoglienza">Accoglienza / Validatore</option>
-                                                    <option value="guida">🏛️ Guida</option>
-                                                </select>
-                                                <button type="submit" name="dfn_assign_volunteer" class="button button-small button-secondary" style="width:35%; font-size:11px;">
-                                                    ➕ Assegna
-                                                </button>
-                                            </div>
-                                        </form>
+                                            <a href="<?php echo esc_url($del_ass_url); ?>" style="color:#ef4444; text-decoration:none; font-size:13px; font-weight:700; padding:4px;" title="Rimuovi dal turno">✕</a>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else : ?>
+                                    <div style="grid-column: 1 / -1; color:#94a3b8; font-style:italic; padding:8px 0;">
+                                        Nessun volontario assegnato a questo slot orario.
                                     </div>
                                 <?php endif; ?>
                             </div>
-                        <?php endforeach; ?>
+
+                            <!-- Form Assegnazione Volontario allo Slot -->
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px;">
+                                <form method="post" action="" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                                    <?php wp_nonce_field('dfn_assign_action', 'dfn_assign_nonce'); ?>
+                                    <input type="hidden" name="shift_id" value="<?php echo esc_attr($shift->id); ?>">
+
+                                    <div style="flex:1; min-width:220px;">
+                                        <select name="volunteer_id" style="width:100%; font-size:12px; border-radius:6px; border:1px solid #cbd5e1; height:32px;">
+                                            <option value="">-- Seleziona Volontario da Assegnare --</option>
+                                            <?php foreach ($all_volunteers as $av) : 
+                                                $extra_label = '';
+                                                if (! empty($av->has_safety_course)) $extra_label .= ' [🦺 Sicurezza]';
+                                                if (! empty($av->is_guide)) $extra_label .= ' [🏛️ Guida]';
+                                            ?>
+                                                <option value="<?php echo esc_attr($av->id); ?>">
+                                                    <?php echo esc_html($av->first_name . ' ' . $av->last_name . $extra_label); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+                                    <div style="width:200px;">
+                                        <select name="role_assigned" style="width:100%; font-size:12px; border-radius:6px; border:1px solid #cbd5e1; height:32px;">
+                                            <option value="banchetto">Banchetto</option>
+                                            <option value="resp_banchetto">👑 Resp. Banchetto (R)</option>
+                                            <option value="resp_scuola">🦺 Resp. Scuola (S)</option>
+                                            <option value="accoglienza">Accoglienza / Validatore</option>
+                                            <option value="guida">🏛️ Guida</option>
+                                        </select>
+                                    </div>
+
+                                    <button type="submit" name="dfn_assign_volunteer" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700; height:32px;">
+                                        ➕ Assegna al Turno
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
+                <?php endforeach;
+            else : ?>
+                <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:30px; text-align:center; color:#64748b;">
+                    Nessun turno orario presente. Usa il modulo in alto per aggiungere uno slot.
                 </div>
-            <?php endforeach; ?>
-        <?php else : ?>
+            <?php endif;
+        else : ?>
             <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:40px; text-align:center; color:#64748b;">
-                <p>Nessun luogo configurato per questo giorno.</p>
-                <p>Usa il campo in alto per aggiungere il primo luogo (es. <em>Castello, Chiesa, Villa Storica</em>).</p>
+                <p>Nessun luogo o slot configurato per questo giorno.</p>
             </div>
         <?php endif; ?>
     </div>
