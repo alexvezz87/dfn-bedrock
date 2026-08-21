@@ -1160,72 +1160,118 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
         <meta charset="UTF-8">
         <title>Tabellone Turni - <?php echo esc_html($event->title); ?></title>
         <style>
-            @page { size: A4 landscape; margin: 10mm; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 11px; color: #111827; background: #fff; margin: 0; padding: 15px; }
-            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #004b23; padding-bottom: 10px; }
-            .header h1 { font-size: 20px; margin: 0 0 5px 0; color: #004b23; text-transform: uppercase; }
-            .header p { margin: 0; color: #4b5563; font-size: 13px; font-weight: 600; }
-            .day-section { margin-bottom: 25px; page-break-inside: avoid; }
-            .day-title { font-size: 15px; font-weight: 800; color: #004b23; background: #e8f5e9; padding: 6px 10px; border-left: 5px solid #004b23; margin-bottom: 10px; }
-            .turni-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; table-layout: fixed; }
-            .turni-table th, .turni-table td { border: 1px solid #9ca3af; padding: 6px 8px; vertical-align: top; font-size: 11px; }
-            .turni-table th { background: #f3f4f6; font-weight: 700; text-align: center; color: #1f2937; }
+            @page { size: A4 landscape; margin: 8mm; }
+            * { box-sizing: border-box; }
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+                font-size: 11.5px; 
+                color: #0f172a; 
+                background: #f8fafc; 
+                margin: 0; 
+                padding: 20px; 
+            }
+            .print-wrapper {
+                max-width: 960px;
+                margin: 0 auto;
+                background: #fff;
+                padding: 24px 28px;
+                border-radius: 8px;
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            }
+            .header { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #004b23; padding-bottom: 10px; }
+            .header h1 { font-size: 18px; margin: 0 0 4px 0; color: #004b23; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+            .header p { margin: 0; color: #475569; font-size: 13px; font-weight: 600; }
+            .day-section { margin-bottom: 20px; page-break-inside: avoid; }
+            .day-title { font-size: 13.5px; font-weight: 800; color: #004b23; background: #e8f5e9; padding: 6px 12px; border-radius: 4px; border-left: 4px solid #004b23; margin-bottom: 10px; }
+            .turni-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+            .turni-table th, .turni-table td { border: 1px solid #cbd5e1; padding: 7px 10px; vertical-align: middle; font-size: 12px; }
+            .turni-table th { background: #f1f5f9; font-weight: 700; color: #1e293b; text-align: left; }
             .role-s { font-weight: 700; color: #92400e; }
             .role-r { font-weight: 700; color: #991b1b; }
             .role-g { font-weight: 700; color: #0369a1; }
-            .print-btn { display: inline-block; background: #004b23; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-bottom: 15px; }
-            @media print { .no-print { display: none !important; } body { padding: 0; } }
+            .print-btn { 
+                display: inline-flex; 
+                align-items: center; 
+                gap: 6px; 
+                background: #004b23; 
+                color: #fff; 
+                border: none; 
+                padding: 8px 18px; 
+                border-radius: 6px; 
+                font-weight: 700; 
+                font-size: 13px; 
+                cursor: pointer; 
+                margin-bottom: 15px; 
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            }
+            .print-btn:hover { background: #003b1c; }
+            .vol-pill {
+                display: inline-block;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                padding: 2px 8px;
+                margin: 2px 4px 2px 0;
+                font-size: 11.5px;
+            }
+            @media print { 
+                .no-print { display: none !important; } 
+                body { padding: 0; background: #fff; } 
+                .print-wrapper { max-width: 100%; padding: 0; border: none; box-shadow: none; }
+            }
         </style>
     </head>
     <body>
-        <div class="no-print" style="text-align:right;">
-            <button onclick="window.print();" class="print-btn">🖨️ Stampa Foglio Turni</button>
-        </div>
+        <div class="print-wrapper">
+            <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #e2e8f0; padding-bottom:10px;">
+                <a href="javascript:window.close();" style="text-decoration:none; color:#64748b; font-weight:700; font-size:13px;">← Chiudi Scheda</a>
+                <button onclick="window.print();" class="print-btn">🖨️ Stampa Foglio Turni (PDF)</button>
+            </div>
 
-        <div class="header">
-            <h1>FONDO PER L'AMBIENTE ITALIANO — DELEGAZIONE DI NOVARA</h1>
-            <p><?php echo esc_html($event->title); ?> • Piano Assegnazione Turni &amp; Presidi</p>
-        </div>
+            <div class="header">
+                <h1>FONDO PER L'AMBIENTE ITALIANO — DELEGAZIONE DI NOVARA</h1>
+                <p><?php echo esc_html($event->title); ?> • Piano Assegnazione Turni &amp; Presidi</p>
+            </div>
 
-        <?php foreach ($days as $day) : 
-            $places = dfn_get_volunteer_event_places((int) $day->id);
-            if (empty($places)) continue;
+            <?php foreach ($days as $day) : 
+                $places = dfn_get_volunteer_event_places((int) $day->id);
+                if (empty($places)) continue;
 
-            // Recupera tutti gli shift unici o configurati per questo giorno
-            $shifts_in_day = $wpdb->get_results($wpdb->prepare(
-                "SELECT DISTINCT shift_label, time_start, time_end FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d ORDER BY time_start ASC",
-                $day->id
-            ));
+                // Recupera tutti gli shift configurati per questo giorno
+                $shifts_in_day = $wpdb->get_results($wpdb->prepare(
+                    "SELECT DISTINCT shift_label, time_start, time_end FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d ORDER BY time_start ASC",
+                    $day->id
+                ));
 
-            if (empty($shifts_in_day)) {
-                $shifts_in_day = [
-                    (object) ['shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00'],
-                    (object) ['shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00'],
-                ];
-            }
-        ?>
-            <div class="day-section">
-                <div class="day-title">🗓️ <?php echo esc_html(strtoupper($day->day_label)); ?></div>
+                if (empty($shifts_in_day)) {
+                    $shifts_in_day = [
+                        (object) ['shift_label' => 'Turno Unico', 'time_start' => '09:00:00', 'time_end' => '18:00:00'],
+                    ];
+                }
 
-                <?php foreach ($shifts_in_day as $sh) : 
-                    $time_lbl = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
-                ?>
-                    <h4 style="margin: 12px 0 6px 0; color: #1e293b; font-size: 12.5px; font-weight: 800;">
-                        ⏰ <?php echo esc_html(strtoupper($sh->shift_label)); ?> (<?php echo esc_html($time_lbl); ?>)
-                    </h4>
-                    <table class="turni-table">
-                        <thead>
-                            <tr>
-                                <?php foreach ($places as $p) : ?>
-                                    <th style="width: <?php echo floor(100 / max(1, count($places))); ?>%;">
-                                        <?php echo esc_html($p->place_name); ?>
-                                    </th>
-                                <?php endforeach; ?>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <?php foreach ($places as $p) : 
+                $is_single_place = (count($places) === 1);
+            ?>
+                <div class="day-section">
+                    <div class="day-title">🗓️ <?php echo esc_html(strtoupper($day->day_label)); ?></div>
+
+                    <?php if ($is_single_place) : 
+                        $p = $places[0];
+                    ?>
+                        <!-- Tabella Compatta per Evento Locale a Singolo Luogo -->
+                        <div style="margin-bottom:6px; font-size:12px; font-weight:700; color:#334155;">
+                            📍 Luogo: <strong><?php echo esc_html($p->place_name); ?></strong>
+                        </div>
+                        <table class="turni-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 220px;">Fascia Oraria / Turno</th>
+                                    <th>Volontari Assegnati &amp; Incarichi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($shifts_in_day as $sh) : 
+                                    $time_lbl = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
                                     $shifts = $wpdb->get_results($wpdb->prepare(
                                         "SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d AND time_start = %s",
                                         $p->id,
@@ -1233,39 +1279,99 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                                     ));
                                     $ass = ! empty($shifts) ? dfn_get_volunteer_shift_assignments((int) $shifts[0]->id) : [];
                                 ?>
-                                    <td>
-                                        <?php if (! empty($ass)) : ?>
-                                            <?php foreach ($ass as $a) : 
-                                                $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
-                                                $role_code = '';
-                                                $role_class = '';
-                                                if ($a->role_assigned === 'resp_scuola') { $role_code = ' (S)'; $role_class = 'role-s'; }
-                                                elseif ($a->role_assigned === 'resp_banchetto') { $role_code = ' (R)'; $role_class = 'role-r'; }
-                                                elseif ($a->role_assigned === 'guida') { $role_code = ' (G)'; $role_class = 'role-g'; }
-                                                elseif ($a->role_assigned === 'accoglienza') { $role_code = ' [Accoglienza]'; }
-                                            ?>
-                                                <div style="margin-bottom: 4px;" class="<?php echo esc_attr($role_class); ?>">
-                                                    • <strong><?php echo esc_html($v_name); ?></strong><?php echo esc_html($role_code); ?>
+                                    <tr>
+                                        <td style="font-weight:700; color:#0f172a; background:#fafafa;">
+                                            ⏰ <?php echo esc_html($sh->shift_label); ?>
+                                            <div style="font-size:11px; font-weight:normal; color:#64748b; margin-top:2px;">(<?php echo esc_html($time_lbl); ?>)</div>
+                                        </td>
+                                        <td>
+                                            <?php if (! empty($ass)) : ?>
+                                                <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                                                    <?php foreach ($ass as $a) : 
+                                                        $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
+                                                        $role_code = '';
+                                                        $role_class = '';
+                                                        if ($a->role_assigned === 'resp_scuola') { $role_code = ' (S)'; $role_class = 'role-s'; }
+                                                        elseif ($a->role_assigned === 'resp_banchetto') { $role_code = ' (R)'; $role_class = 'role-r'; }
+                                                        elseif ($a->role_assigned === 'guida') { $role_code = ' (G)'; $role_class = 'role-g'; }
+                                                        elseif ($a->role_assigned === 'accoglienza') { $role_code = ' [Accoglienza]'; }
+                                                    ?>
+                                                        <span class="vol-pill <?php echo esc_attr($role_class); ?>">
+                                                            • <strong><?php echo esc_html($v_name); ?></strong><?php echo esc_html($role_code); ?>
+                                                        </span>
+                                                    <?php endforeach; ?>
                                                 </div>
-                                            <?php endforeach; ?>
-                                        <?php else : ?>
-                                            <span style="color:#9ca3af; font-style:italic;">— Nessun volontario assegnato —</span>
-                                        <?php endif; ?>
-                                    </td>
+                                            <?php else : ?>
+                                                <span style="color:#94a3b8; font-style:italic; font-size:11.5px;">— Nessun volontario assegnato —</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
                                 <?php endforeach; ?>
-                            </tr>
-                        </tbody>
-                    </table>
-                <?php endforeach; ?>
-            </div>
-        <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else : ?>
+                        <!-- Tabella Matrice per Giornate FAI Multi-Luogo -->
+                        <?php foreach ($shifts_in_day as $sh) : 
+                            $time_lbl = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
+                        ?>
+                            <h4 style="margin: 10px 0 4px 0; color: #1e293b; font-size: 12px; font-weight: 800;">
+                                ⏰ <?php echo esc_html(strtoupper($sh->shift_label)); ?> (<?php echo esc_html($time_lbl); ?>)
+                            </h4>
+                            <table class="turni-table">
+                                <thead>
+                                    <tr>
+                                        <?php foreach ($places as $p) : ?>
+                                            <th style="width: <?php echo floor(100 / max(1, count($places))); ?>%;">
+                                                <?php echo esc_html($p->place_name); ?>
+                                            </th>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <?php foreach ($places as $p) : 
+                                            $shifts = $wpdb->get_results($wpdb->prepare(
+                                                "SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d AND time_start = %s",
+                                                $p->id,
+                                                $sh->time_start
+                                            ));
+                                            $ass = ! empty($shifts) ? dfn_get_volunteer_shift_assignments((int) $shifts[0]->id) : [];
+                                        ?>
+                                            <td>
+                                                <?php if (! empty($ass)) : ?>
+                                                    <?php foreach ($ass as $a) : 
+                                                        $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
+                                                        $role_code = '';
+                                                        $role_class = '';
+                                                        if ($a->role_assigned === 'resp_scuola') { $role_code = ' (S)'; $role_class = 'role-s'; }
+                                                        elseif ($a->role_assigned === 'resp_banchetto') { $role_code = ' (R)'; $role_class = 'role-r'; }
+                                                        elseif ($a->role_assigned === 'guida') { $role_code = ' (G)'; $role_class = 'role-g'; }
+                                                        elseif ($a->role_assigned === 'accoglienza') { $role_code = ' [Accoglienza]'; }
+                                                    ?>
+                                                        <div style="margin-bottom: 3px;" class="<?php echo esc_attr($role_class); ?>">
+                                                            • <strong><?php echo esc_html($v_name); ?></strong><?php echo esc_html($role_code); ?>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                <?php else : ?>
+                                                    <span style="color:#94a3b8; font-style:italic;">— Nessun volontario —</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
 
-        <div style="margin-top: 20px; font-size: 10.5px; color: #4b5563; border-top: 1px solid #e5e7eb; padding-top: 8px;">
-            <strong>Legenda Ruoli:</strong> 
-            <span class="role-s">(S) = Responsabile Scuola (Apprendisti Ciceroni)</span> • 
-            <span class="role-r">(R) = Responsabile Banchetto</span> • 
-            <span class="role-g">(G) = Guida</span> •
-            <span>Accoglienza / Banchetto</span>
+            <div style="margin-top: 16px; font-size: 10.5px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 8px;">
+                <strong>Legenda Ruoli:</strong> 
+                <span class="role-s">(S) = Responsabile Scuola (Apprendisti Ciceroni)</span> • 
+                <span class="role-r">(R) = Responsabile Banchetto</span> • 
+                <span class="role-g">(G) = Guida</span> •
+                <span>Accoglienza / Banchetto</span>
+            </div>
         </div>
     </body>
     </html>
