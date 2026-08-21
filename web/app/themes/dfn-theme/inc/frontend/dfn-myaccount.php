@@ -1560,11 +1560,78 @@ function dfn_custom_myaccount_dashboard_content(): void
         <?php endif; ?>
 
         <?php 
-        // 2B. BOX RIUNIONI VOLONTARI IN ARRIVO (Visibile solo ai volontari attivi)
+        // 2B. BOX VOLONTARI: SONDAGGI APERTI, TURNI ASSEGNATI E RIUNIONI
         $is_volunteer = function_exists('dfn_is_user_volunteer') && dfn_is_user_volunteer($current_user_id);
         if ($is_volunteer) :
+            // Turni assegnati al volontario
+            $my_shifts = function_exists('dfn_get_volunteer_assigned_shifts_for_user') ? dfn_get_volunteer_assigned_shifts_for_user($current_user_id) : [];
+            
+            // Sondaggi aperti a cui non ha ancora risposto
+            global $wpdb;
+            $table_surveys = $wpdb->prefix . 'dfn_volunteer_surveys';
+            $open_surveys = $wpdb->get_results("SELECT s.*, e.title as event_title FROM {$table_surveys} s JOIN {$wpdb->prefix}dfn_volunteer_events e ON s.event_id = e.id WHERE s.status = 'open' AND s.deadline_at >= NOW() ORDER BY s.deadline_at ASC LIMIT 1");
+
+            // Prossime riunioni
             $upcoming_meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 2) : [];
-            if (! empty($upcoming_meetings)) : ?>
+            ?>
+
+            <?php if (! empty($open_surveys)) : 
+                $surv = $open_surveys[0];
+            ?>
+                <!-- Box Sondaggio Aperto -->
+                <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-left: 5px solid #2563eb; border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 12px rgba(37,99,235,0.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1d4ed8; margin-bottom: 2px;">
+                            📋 Disponibilità Richiesta
+                        </div>
+                        <h3 style="margin: 0 0 4px 0; font-size: 15.5px; font-weight: 800; color: #0f172a;">
+                            <?php echo esc_html($surv->title); ?>
+                        </h3>
+                        <p style="margin: 0; font-size: 12.5px; color: #475569;">
+                            Indica le tue preferenze orarie entro il <strong><?php echo esc_html(date_i18n('d/m/Y \a\l\l\e H:i', strtotime($surv->deadline_at))); ?></strong>.
+                        </p>
+                    </div>
+                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $surv->token_public)); ?>" class="button" style="background: #2563eb; color: #ffffff; border-radius: 50px; font-weight: 800; padding: 9px 22px; font-size: 13px; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                        ✍️ Compila Sondaggio
+                    </a>
+                </div>
+            <?php endif; ?>
+
+            <?php if (! empty($my_shifts)) : ?>
+                <!-- Box I Miei Turni Assegnati -->
+                <div style="background: #ffffff; border: 1px solid #fed7aa; border-left: 5px solid #ea580c; border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 12px rgba(234,88,12,0.04);">
+                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 800; color: #9a3412; display: flex; align-items: center; gap: 8px;">
+                        <span>📍</span> <?php esc_html_e('I Tuoi Turni & Incarichi Assegnati', 'dfn-theme'); ?>
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <?php foreach ($my_shifts as $shift_item) : 
+                            $role_lbl = 'Banchetto';
+                            if ($shift_item->role_assigned === 'resp_scuola') $role_lbl = '🦺 Responsabile Scuola (S)';
+                            elseif ($shift_item->role_assigned === 'resp_banchetto') $role_lbl = '👑 Responsabile Banchetto (R)';
+                            elseif ($shift_item->role_assigned === 'guida') $role_lbl = '🏛️ Guida';
+                            elseif ($shift_item->role_assigned === 'accoglienza') $role_lbl = 'Accoglienza / Validatore';
+                        ?>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fff7ed; border-radius: 10px; border: 1px solid #ffedd5; flex-wrap: wrap; gap: 8px;">
+                                <div>
+                                    <strong style="font-size: 13.5px; color: #0f172a; display: block;">
+                                        🏛️ <?php echo esc_html($shift_item->place_name); ?>
+                                    </strong>
+                                    <div style="font-size: 12px; color: #475569; margin-top: 2px;">
+                                        🗓️ <strong><?php echo esc_html(ucfirst(date_i18n('l d F Y', strtotime($shift_item->event_date)))); ?></strong> • ⏰ <?php echo esc_html(substr($shift_item->time_start, 0, 5) . ' - ' . substr($shift_item->time_end, 0, 5)); ?> (<?php echo esc_html($shift_item->shift_label); ?>)
+                                    </div>
+                                </div>
+                                <div>
+                                    <span style="display: inline-block; background: #ea580c; color: #ffffff; font-size: 11.5px; font-weight: 800; padding: 4px 12px; border-radius: 20px;">
+                                        <?php echo esc_html($role_lbl); ?>
+                                    </span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if (! empty($upcoming_meetings)) : ?>
                 <div style="background: #ffffff; border: 1px solid #bbf7d0; border-left: 5px solid #004b23; border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 12px rgba(0,75,35,0.04);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
