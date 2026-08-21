@@ -14,6 +14,25 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
+// Intercetta la richiesta di stampa/export PDF isolata dall'interfaccia di WordPress
+add_action('admin_init', 'dfn_handle_volunteer_event_print_intercept');
+
+function dfn_handle_volunteer_event_print_intercept(): void
+{
+    if (isset($_GET['page'], $_GET['action'], $_GET['event_id']) && 
+        $_GET['page'] === 'dfn-volunteer-logistics' && 
+        $_GET['action'] === 'print') {
+        
+        if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+            wp_die(__('Permessi insufficienti.', 'dfn-theme'));
+        }
+
+        $event_id = (int) $_GET['event_id'];
+        dfn_render_volunteer_event_print_view($event_id);
+        exit;
+    }
+}
+
 /**
  * Renderizza la pagina amministrativa Turni & Logistica Eventi.
  */
@@ -36,9 +55,6 @@ function dfn_render_volunteer_logistics_page(): void
             break;
         case 'survey':
             dfn_render_volunteer_event_survey_admin($event_id);
-            break;
-        case 'print':
-            dfn_render_volunteer_event_print_view($event_id);
             break;
         default:
             dfn_render_volunteer_events_list();
@@ -1174,87 +1190,73 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
         <?php foreach ($days as $day) : 
             $places = dfn_get_volunteer_event_places((int) $day->id);
             if (empty($places)) continue;
+
+            // Recupera tutti gli shift unici o configurati per questo giorno
+            $shifts_in_day = $wpdb->get_results($wpdb->prepare(
+                "SELECT DISTINCT shift_label, time_start, time_end FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d ORDER BY time_start ASC",
+                $day->id
+            ));
+
+            if (empty($shifts_in_day)) {
+                $shifts_in_day = [
+                    (object) ['shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00'],
+                    (object) ['shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00'],
+                ];
+            }
         ?>
             <div class="day-section">
                 <div class="day-title">🗓️ <?php echo esc_html(strtoupper($day->day_label)); ?></div>
 
-                <!-- Mattina -->
-                <h4 style="margin: 8px 0 4px 0; color: #374151; font-size: 12px;">⏰ MATTINA (09:00 - 12:30)</h4>
-                <table class="turni-table">
-                    <thead>
-                        <tr>
-                            <?php foreach ($places as $p) : ?>
-                                <th><?php echo esc_html($p->place_name); ?></th>
-                            <?php endforeach; ?>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <?php foreach ($places as $p) : 
-                                $shifts = $wpdb->get_results($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d AND time_start = '09:00:00'", $p->id));
-                                $ass = ! empty($shifts) ? dfn_get_volunteer_shift_assignments((int) $shifts[0]->id) : [];
-                            ?>
-                                <td>
-                                    <?php if (! empty($ass)) : ?>
-                                        <?php foreach ($ass as $a) : 
-                                            $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
-                                            $role_code = '';
-                                            $role_class = '';
-                                            if ($a->role_assigned === 'resp_scuola') { $role_code = ' (S)'; $role_class = 'role-s'; }
-                                            elseif ($a->role_assigned === 'resp_banchetto') { $role_code = ' (R)'; $role_class = 'role-r'; }
-                                            elseif ($a->role_assigned === 'guida') { $role_code = ' (G)'; $role_class = 'role-g'; }
-                                        ?>
-                                            <div style="margin-bottom: 3px;" class="<?php echo esc_attr($role_class); ?>">
-                                                • <?php echo esc_html($v_name . $role_code); ?>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    <?php else : ?>
-                                        <span style="color:#9ca3af; font-style:italic;">—</span>
-                                    <?php endif; ?>
-                                </td>
-                            <?php endforeach; ?>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <!-- Pomeriggio -->
-                <h4 style="margin: 12px 0 4px 0; color: #374151; font-size: 12px;">⏰ POMERIGGIO (14:00 - 18:00)</h4>
-                <table class="turni-table">
-                    <thead>
-                        <tr>
-                            <?php foreach ($places as $p) : ?>
-                                <th><?php echo esc_html($p->place_name); ?></th>
-                            <?php endforeach; ?>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <?php foreach ($places as $p) : 
-                                $shifts = $wpdb->get_results($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d AND time_start = '14:00:00'", $p->id));
-                                $ass = ! empty($shifts) ? dfn_get_volunteer_shift_assignments((int) $shifts[0]->id) : [];
-                            ?>
-                                <td>
-                                    <?php if (! empty($ass)) : ?>
-                                        <?php foreach ($ass as $a) : 
-                                            $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
-                                            $role_code = '';
-                                            $role_class = '';
-                                            if ($a->role_assigned === 'resp_scuola') { $role_code = ' (S)'; $role_class = 'role-s'; }
-                                            elseif ($a->role_assigned === 'resp_banchetto') { $role_code = ' (R)'; $role_class = 'role-r'; }
-                                            elseif ($a->role_assigned === 'guida') { $role_code = ' (G)'; $role_class = 'role-g'; }
-                                        ?>
-                                            <div style="margin-bottom: 3px;" class="<?php echo esc_attr($role_class); ?>">
-                                                • <?php echo esc_html($v_name . $role_code); ?>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    <?php else : ?>
-                                        <span style="color:#9ca3af; font-style:italic;">—</span>
-                                    <?php endif; ?>
-                                </td>
-                            <?php endforeach; ?>
-                        </tr>
-                    </tbody>
-                </table>
+                <?php foreach ($shifts_in_day as $sh) : 
+                    $time_lbl = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
+                ?>
+                    <h4 style="margin: 12px 0 6px 0; color: #1e293b; font-size: 12.5px; font-weight: 800;">
+                        ⏰ <?php echo esc_html(strtoupper($sh->shift_label)); ?> (<?php echo esc_html($time_lbl); ?>)
+                    </h4>
+                    <table class="turni-table">
+                        <thead>
+                            <tr>
+                                <?php foreach ($places as $p) : ?>
+                                    <th style="width: <?php echo floor(100 / max(1, count($places))); ?>%;">
+                                        <?php echo esc_html($p->place_name); ?>
+                                    </th>
+                                <?php endforeach; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <?php foreach ($places as $p) : 
+                                    $shifts = $wpdb->get_results($wpdb->prepare(
+                                        "SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d AND time_start = %s",
+                                        $p->id,
+                                        $sh->time_start
+                                    ));
+                                    $ass = ! empty($shifts) ? dfn_get_volunteer_shift_assignments((int) $shifts[0]->id) : [];
+                                ?>
+                                    <td>
+                                        <?php if (! empty($ass)) : ?>
+                                            <?php foreach ($ass as $a) : 
+                                                $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
+                                                $role_code = '';
+                                                $role_class = '';
+                                                if ($a->role_assigned === 'resp_scuola') { $role_code = ' (S)'; $role_class = 'role-s'; }
+                                                elseif ($a->role_assigned === 'resp_banchetto') { $role_code = ' (R)'; $role_class = 'role-r'; }
+                                                elseif ($a->role_assigned === 'guida') { $role_code = ' (G)'; $role_class = 'role-g'; }
+                                                elseif ($a->role_assigned === 'accoglienza') { $role_code = ' [Accoglienza]'; }
+                                            ?>
+                                                <div style="margin-bottom: 4px;" class="<?php echo esc_attr($role_class); ?>">
+                                                    • <strong><?php echo esc_html($v_name); ?></strong><?php echo esc_html($role_code); ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php else : ?>
+                                            <span style="color:#9ca3af; font-style:italic;">— Nessun volontario assegnato —</span>
+                                        <?php endif; ?>
+                                    </td>
+                                <?php endforeach; ?>
+                            </tr>
+                        </tbody>
+                    </table>
+                <?php endforeach; ?>
             </div>
         <?php endforeach; ?>
 
@@ -1262,7 +1264,8 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
             <strong>Legenda Ruoli:</strong> 
             <span class="role-s">(S) = Responsabile Scuola (Apprendisti Ciceroni)</span> • 
             <span class="role-r">(R) = Responsabile Banchetto</span> • 
-            <span class="role-g">(G) = Guida</span>
+            <span class="role-g">(G) = Guida</span> •
+            <span>Accoglienza / Banchetto</span>
         </div>
     </body>
     </html>
