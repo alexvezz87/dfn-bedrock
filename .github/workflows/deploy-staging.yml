@@ -1,0 +1,60 @@
+name: ?? Deploy Remoto Staging via Direct HTTP Sync
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  staging-deploy:
+    name: ?? Deploy Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: ?? Get latest code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3'
+        extensions: gd, zip, mysqli, mbstring, xml, curl
+
+    - name: ?? Sync Theme Files to Staging
+      run: |
+        python3 -c "
+        import os, sys, base64, urllib.request, json
+
+        base_dir = os.path.join(os.getcwd(), 'web', 'app', 'themes', 'dfn-theme')
+        target_url = 'https://staging.dfnprenotazioni.it/deploy_file.php?t=202605300020'
+
+        count = 0
+        for root, dirs, files in os.walk(base_dir):
+            for f in files:
+                if f.startswith('.'):
+                    continue
+                abs_path = os.path.join(root, f)
+                rel_path = os.path.relpath(abs_path, os.path.join(os.getcwd(), 'web'))
+                rel_path_posix = rel_path.replace('\\\\', '/')
+                
+                with open(abs_path, 'rb') as fp:
+                    content = fp.read()
+                
+                b64 = base64.b64encode(content).decode('utf-8')
+                payload = json.dumps({'filepath': rel_path_posix, 'content_b64': b64}).encode('utf-8')
+                
+                try:
+                    req = urllib.request.Request(
+                        target_url,
+                        data=payload,
+                        headers={'Content-Type': 'application/json'},
+                        method='POST'
+                    )
+                    with urllib.request.urlopen(req, timeout=30) as res:
+                        count += 1
+                except Exception as e:
+                    print(f'ERROR uploading {rel_path_posix}: {e}')
+
+        print(f'? Total files synced directly to staging: {count}')
+        "
