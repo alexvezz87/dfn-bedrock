@@ -1065,12 +1065,23 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                         <input type="datetime-local" name="deadline_at" required value="<?php echo esc_attr($survey ? date('Y-m-d\TH:i', strtotime($survey->deadline_at)) : date('Y-m-d\T20:00', strtotime('+7 days'))); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px;">
                     </div>
 
+                    <?php 
+                        $now = current_time('mysql');
+                        $is_time_expired = ($survey && ! empty($survey->deadline_at) && $survey->deadline_at < $now);
+                        $effective_status = ($survey && ($survey->status === 'closed' || $is_time_expired)) ? 'closed' : 'open';
+                    ?>
+
                     <div style="margin-bottom:18px;">
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Stato Sondaggio</label>
                         <select name="status" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px;">
-                            <option value="open" <?php selected($survey ? $survey->status : 'open', 'open'); ?>>🟢 Aperto alle risposte</option>
-                            <option value="closed" <?php selected($survey ? $survey->status : '', 'closed'); ?>>🔴 Chiuso (Blocca modifiche)</option>
+                            <option value="open" <?php selected($effective_status, 'open'); ?>>🟢 Aperto alle risposte</option>
+                            <option value="closed" <?php selected($effective_status, 'closed'); ?>>🔴 Chiuso (Blocca modifiche o Scaduto)</option>
                         </select>
+                        <?php if ($is_time_expired) : ?>
+                            <div style="margin-top:6px; font-size:11.5px; color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:6px 8px;">
+                                ⏳ <strong>Sondaggio Scaduto:</strong> la data limite è passata. I volontari non possono più inviare risposte. Per riaprirlo, sposta la data in avanti e seleziona 'Aperto'.
+                            </div>
+                        <?php endif; ?>
                     </div>
 
                     <button type="submit" name="dfn_save_survey" class="button button-primary" style="background:#004b23; border-color:#003b1c; width:100%; font-weight:700; padding:4px;">
