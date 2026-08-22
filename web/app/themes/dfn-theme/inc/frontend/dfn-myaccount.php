@@ -682,7 +682,7 @@ function dfn_volunteer_meetings_endpoint_content(): void
                     $day_num  = date_i18n('d', $m_date);
                     $month    = date_i18n('F Y', $m_date);
                 ?>
-                    <div class="dfn-meeting-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #004b23; border-radius: 12px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+                    <div class="dfn-meeting-list-card">
                         <!-- Date Box Badge -->
                         <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 18px; text-align: center; min-width: 90px; flex-shrink: 0;">
                             <span style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase; display: block;"><?php echo esc_html($day_name); ?></span>
@@ -778,12 +778,10 @@ function dfn_volunteer_surveys_endpoint_content(): void
                     $deadline_str = date_i18n('d/m/Y \a\l\l\e H:i', strtotime($s->deadline_at));
                     $survey_url = home_url('/sondaggio-volontari/?token=' . $s->token_public);
                 ?>
-                    <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-left: 6px solid #2563eb; border-radius: 14px; padding: 20px; box-shadow: 0 4px 14px rgba(37,99,235,0.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                    <div class="dfn-survey-list-card">
                         <div style="flex: 1; min-width: 260px;">
                             <div style="margin-bottom: 6px;">
-                                <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
-                                    ⏳ Aperto alle risposte
-                                </span>
+                                <span class="dfn-badge-pill pill-status-open">⏳ Aperto alle risposte</span>
                             </div>
                             <h3 style="margin: 4px 0; font-size: 17px; font-weight: 800; color: #0f172a;">
                                 <?php echo esc_html($s->title); ?>
@@ -1890,7 +1888,7 @@ function dfn_custom_myaccount_dashboard_content(): void
                 $surv = $open_surveys[0];
             ?>
                 <!-- Box Sondaggio Aperto -->
-                <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-left: 5px solid #2563eb; border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 12px rgba(37,99,235,0.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div class="dfn-dash-vol-box-survey">
                     <div>
                         <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1d4ed8; margin-bottom: 2px;">
                             📋 Disponibilità Richiesta
@@ -1910,31 +1908,36 @@ function dfn_custom_myaccount_dashboard_content(): void
 
             <?php if (! empty($my_shifts)) : ?>
                 <!-- Box I Miei Turni Assegnati -->
-                <div style="background: #ffffff; border: 1px solid #fed7aa; border-left: 5px solid #ea580c; border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 12px rgba(234,88,12,0.04);">
+                <div class="dfn-dash-vol-box-shifts">
                     <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 800; color: #9a3412; display: flex; align-items: center; gap: 8px;">
                         <span>📍</span> <?php esc_html_e('I Tuoi Turni & Incarichi Assegnati', 'dfn-theme'); ?>
                     </h3>
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         <?php foreach ($my_shifts as $shift_item) : 
-                            $role_lbl = 'Banchetto';
-                            if ($shift_item->role_assigned === 'resp_scuola') $role_lbl = '🦺 Responsabile Scuola (S)';
-                            elseif ($shift_item->role_assigned === 'resp_banchetto') $role_lbl = '👑 Responsabile Banchetto (R)';
-                            elseif ($shift_item->role_assigned === 'guida') $role_lbl = '🏛️ Guida';
-                            elseif ($shift_item->role_assigned === 'accoglienza') $role_lbl = 'Accoglienza / Validatore';
+                            $r_obj = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($shift_item->role_assigned) : null;
+                            if ($r_obj) {
+                                $b_code = trim((string) $r_obj->badge_code);
+                                $r_lbl = $r_obj->role_name;
+                                if (! empty($b_code) && stripos($r_lbl, $b_code) === false) {
+                                    $r_lbl .= ' ' . $b_code;
+                                }
+                            } else {
+                                $r_lbl = ucfirst(str_replace('_', ' ', $shift_item->role_assigned));
+                            }
+                            $r_bg  = $r_obj ? $r_obj->badge_bg : '#ea580c';
+                            $r_col = $r_obj ? $r_obj->badge_color : '#ffffff';
                         ?>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fff7ed; border-radius: 10px; border: 1px solid #ffedd5; flex-wrap: wrap; gap: 8px;">
+                            <div class="dfn-dash-vol-shift-row">
                                 <div>
-                                    <strong style="font-size: 13.5px; color: #0f172a; display: block;">
+                                    <strong style="font-size: 13.5px; color: #0f172a; display: block; margin-bottom: 2px;">
                                         🏛️ <?php echo esc_html($shift_item->place_name); ?>
                                     </strong>
-                                    <div style="font-size: 12px; color: #475569; margin-top: 2px;">
+                                    <div style="font-size: 12px; color: #475569;">
                                         🗓️ <strong><?php echo esc_html(ucfirst(date_i18n('l d F Y', strtotime($shift_item->event_date)))); ?></strong> • ⏰ <?php echo esc_html(substr($shift_item->time_start, 0, 5) . ' - ' . substr($shift_item->time_end, 0, 5)); ?> (<?php echo esc_html($shift_item->shift_label); ?>)
                                     </div>
                                 </div>
                                 <div>
-                                    <span style="display: inline-block; background: #ea580c; color: #ffffff; font-size: 11.5px; font-weight: 800; padding: 4px 12px; border-radius: 20px;">
-                                        <?php echo esc_html($role_lbl); ?>
-                                    </span>
+                                    <span class="dfn-vol-role-badge" style="background: <?php echo esc_attr($r_bg); ?> !important; color: <?php echo esc_attr($r_col); ?> !important;"><?php echo esc_html($r_lbl); ?></span>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -1943,7 +1946,7 @@ function dfn_custom_myaccount_dashboard_content(): void
             <?php endif; ?>
 
             <?php if (! empty($upcoming_meetings)) : ?>
-                <div style="background: #ffffff; border: 1px solid #bbf7d0; border-left: 5px solid #004b23; border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 12px rgba(0,75,35,0.04);">
+                <div class="dfn-dash-vol-box-meetings">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
                             <span>📅</span> <?php esc_html_e('Prossime Riunioni di Delegazione (Volontari)', 'dfn-theme'); ?>
@@ -1958,7 +1961,7 @@ function dfn_custom_myaccount_dashboard_content(): void
                             $date_text = date_i18n('l d F Y', $m_d);
                             $time_text = substr($m_item->meeting_time_start, 0, 5);
                             ?>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f0fdf4; border-radius: 10px; border: 1px solid #dcfce7; flex-wrap: wrap; gap: 10px;">
+                            <div class="dfn-dash-vol-meeting-row">
                                 <div>
                                     <h4 style="margin: 0 0 2px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;"><?php echo esc_html($m_item->title); ?></h4>
                                     <div style="font-size: 12px; color: #334155;">
