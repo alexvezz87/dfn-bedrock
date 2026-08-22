@@ -780,10 +780,12 @@ function dfn_volunteer_surveys_endpoint_content(): void
                 ?>
                     <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-left: 6px solid #2563eb; border-radius: 14px; padding: 20px; box-shadow: 0 4px 14px rgba(37,99,235,0.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                         <div style="flex: 1; min-width: 260px;">
-                            <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #1d4ed8; background: #eff6ff; padding: 3px 10px; border-radius: 20px;">
-                                ⏳ Aperto alle risposte
-                            </span>
-                            <h3 style="margin: 8px 0 4px 0; font-size: 17px; font-weight: 800; color: #0f172a;">
+                            <div style="margin-bottom: 6px;">
+                                <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
+                                    ⏳ Aperto alle risposte
+                                </span>
+                            </div>
+                            <h3 style="margin: 4px 0; font-size: 17px; font-weight: 800; color: #0f172a;">
                                 <?php echo esc_html($s->title); ?>
                             </h3>
                             <div style="font-size: 13px; color: #475569; margin-top: 4px;">
@@ -816,7 +818,7 @@ function dfn_volunteer_surveys_endpoint_content(): void
 // Rendering del contenuto della sezione "Eventi Volontari" per i Volontari
 add_action('woocommerce_account_eventi-fai_endpoint', 'dfn_volunteer_events_endpoint_content');
 /**
- * Renderizza la bacheca degli eventi e istruzioni per i volontari.
+ * Renderizza la bacheca degli eventi, stato sondaggio, istruzioni e matrice turni per i volontari.
  */
 function dfn_volunteer_events_endpoint_content(): void
 {
@@ -843,40 +845,75 @@ function dfn_volunteer_events_endpoint_content(): void
     <div class="dfn-volunteer-events-section">
         <div class="dfn-account-header-card">
             <h2 class="dfn-dashboard-title"><?php esc_html_e('🏛️ Eventi &amp; Istruzioni Volontari', 'dfn-theme'); ?></h2>
-            <p class="dfn-dashboard-desc"><?php esc_html_e('Consulta i dettagli organizzativi, le note logistiche e le istruzioni operative per i volontari relative ai prossimi eventi.', 'dfn-theme'); ?></p>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Consulta i dettagli organizzativi, le note logistiche, lo stato del sondaggio e i turni assegnati per i prossimi eventi.', 'dfn-theme'); ?></p>
         </div>
 
         <?php if (! empty($events)) : ?>
-            <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 24px; margin-top: 20px;">
                 <?php foreach ($events as $ev) : 
                     $date_start_str = date_i18n('l d F Y', strtotime($ev->date_start));
                     $date_end_str   = date_i18n('l d F Y', strtotime($ev->date_end));
                     $is_giornata_fai = ($ev->event_type === 'giornata_fai');
 
-                    // Filtra turni assegnati per questo specifico evento
+                    // Recupera sondaggio associato
+                    $survey = function_exists('dfn_get_volunteer_survey_by_event') ? dfn_get_volunteer_survey_by_event((int) $ev->id) : null;
+                    $now = current_time('mysql');
+                    $is_survey_open = ($survey && $survey->status === 'open' && $survey->deadline_at >= $now);
+                    $is_survey_closed = ($survey && ($survey->status === 'closed' || $survey->deadline_at < $now));
+                    $are_shifts_published = ($ev->status === 'published' || $ev->status === 'completed');
+
+                    // Filtra turni assegnati a questo specifico volontario per questo evento
                     $ev_my_shifts = array_filter($my_shifts, function($s) use ($ev) {
-                        return (int)$s->event_id === (int)$ev->id;
+                        return (int) $s->event_id === (int) $ev->id;
                     });
                 ?>
                     <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-left: 6px solid #004b23; border-radius: 14px; padding: 22px; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
+                        
+                        <!-- Header Evento & Badges di Stato -->
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
                             <div>
-                                <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #004b23; background: #e8f5e9; padding: 3px 10px; border-radius: 20px;">
-                                    <?php echo $is_giornata_fai ? '🏰 Giornata FAI (Nazionale)' : '📍 Evento Locale / Visita'; ?>
-                                </span>
-                                <h3 style="margin: 8px 0 4px 0; font-size: 18px; font-weight: 800; color: #0f172a;">
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                    <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #004b23; background: #e8f5e9; border: 1px solid #c8e6c9; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
+                                        <?php echo $is_giornata_fai ? '🏰 Giornata FAI (Nazionale)' : '📍 Evento Locale / Visita'; ?>
+                                    </span>
+
+                                    <!-- Badge Stato Sondaggio / Turni -->
+                                    <?php if ($are_shifts_published) : ?>
+                                        <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #15803d; background: #dcfce7; border: 1px solid #86efac; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
+                                            ✅ Turni Pubblicati
+                                        </span>
+                                    <?php elseif ($is_survey_open) : ?>
+                                        <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
+                                            🟢 Sondaggio aperto
+                                        </span>
+                                    <?php elseif ($is_survey_closed) : ?>
+                                        <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #b45309; background: #fef3c7; border: 1px solid #fde68a; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
+                                            🟡 Sondaggio chiuso in attesa dei turni
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+
+                                <h3 style="margin: 4px 0 6px 0; font-size: 18px; font-weight: 800; color: #0f172a;">
                                     <?php echo esc_html($ev->title); ?>
                                 </h3>
-                                <div style="font-size: 13px; color: #475569; margin-top: 4px;">
+                                <div style="font-size: 13px; color: #475569;">
                                     🗓️ <strong><?php echo esc_html(ucfirst($date_start_str)); ?></strong><?php echo $ev->date_start !== $ev->date_end ? ' — <strong>' . esc_html(ucfirst($date_end_str)) . '</strong>' : ''; ?>
                                 </div>
                             </div>
+
+                            <?php if ($is_survey_open && $survey) : ?>
+                                <div>
+                                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $survey->token_public)); ?>" class="button" style="background: #2563eb; color: #ffffff; border-radius: 30px; font-weight: 700; padding: 8px 18px; font-size: 12.5px; text-decoration: none; border: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 8px rgba(37,99,235,0.2);">
+                                        ✍️ Compila Sondaggio
+                                    </a>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Istruzioni & Note per i Volontari -->
                         <?php if (! empty($ev->description)) : ?>
                             <div style="background: #f8fafc; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0; margin-top: 14px;">
-                                <strong style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #004b23; text-transform: uppercase; margin-bottom: 8px;">
+                                <strong style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: #004b23; text-transform: uppercase; margin-bottom: 8px;">
                                     <span>📝</span> Note e Istruzioni per i Volontari:
                                 </strong>
                                 <div style="font-size: 13.5px; color: #1e293b; line-height: 1.6; white-space: pre-line;">
@@ -885,26 +922,104 @@ function dfn_volunteer_events_endpoint_content(): void
                             </div>
                         <?php endif; ?>
 
-                        <!-- I Tuoi Turni per Questo Evento (se assegnati) -->
-                        <?php if (! empty($ev_my_shifts)) : ?>
-                            <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 14px;">
-                                <strong style="font-size: 12.5px; color: #9a3412; display: block; margin-bottom: 8px;">
-                                    📍 I Tuoi Turni Assegnati per questo evento:
-                                </strong>
-                                <div style="display: flex; flex-direction: column; gap: 8px;">
-                                    <?php foreach ($ev_my_shifts as $sh_item) : ?>
-                                        <div style="background: #fff7ed; border: 1px solid #ffedd5; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 12.5px;">
+                        <!-- Sezione 1: Il Tuo Turno Assegnato (Dettaglio: Giorno, Luogo, Slot Orario) -->
+                        <?php if ($are_shifts_published && ! empty($ev_my_shifts)) : ?>
+                            <div style="margin-top: 18px; background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 10px; padding: 16px;">
+                                <div style="font-size: 12.5px; font-weight: 800; color: #9a3412; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                                    <span>📍</span> Il Tuo Turno &amp; Incarico Assegnato:
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <?php foreach ($ev_my_shifts as $sh_item) : 
+                                        $role_lbl = 'Banchetto';
+                                        if ($sh_item->role_assigned === 'resp_scuola') $role_lbl = '🦺 Resp. Scuola (S)';
+                                        elseif ($sh_item->role_assigned === 'resp_banchetto') $role_lbl = '👑 Resp. Banchetto (R)';
+                                        elseif ($sh_item->role_assigned === 'guida') $role_lbl = '🏛️ Guida';
+                                        elseif ($sh_item->role_assigned === 'accoglienza') $role_lbl = 'Accoglienza';
+                                    ?>
+                                        <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                             <div>
-                                                <strong>🏛️ <?php echo esc_html($sh_item->place_name); ?></strong> — ⏰ <?php echo esc_html(substr($sh_item->time_start, 0, 5) . ' - ' . substr($sh_item->time_end, 0, 5)); ?> (<?php echo esc_html($sh_item->shift_label); ?>)
+                                                <div style="font-size: 13.5px; font-weight: 700; color: #0f172a;">
+                                                    🗓️ <strong>Giorno:</strong> <?php echo esc_html(ucfirst(date_i18n('l d/m/Y', strtotime($sh_item->event_date)))); ?>
+                                                </div>
+                                                <div style="font-size: 13px; color: #334155; margin-top: 3px;">
+                                                    📍 <strong>Luogo:</strong> <?php echo esc_html($sh_item->place_name); ?>
+                                                </div>
+                                                <div style="font-size: 13px; color: #334155; margin-top: 3px;">
+                                                    ⏰ <strong>Slot Orario:</strong> <?php echo esc_html(substr($sh_item->time_start, 0, 5) . ' - ' . substr($sh_item->time_end, 0, 5)); ?> (<?php echo esc_html($sh_item->shift_label); ?>)
+                                                </div>
                                             </div>
-                                            <span style="background: #ea580c; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">
-                                                <?php echo esc_html(ucfirst(str_replace('_', ' ', $sh_item->role_assigned))); ?>
-                                            </span>
+                                            <div>
+                                                <span style="background: #ea580c; color: #ffffff; font-size: 11.5px; font-weight: 800; padding: 5px 14px; border-radius: 20px; display: inline-block;">
+                                                    <?php echo esc_html($role_lbl); ?>
+                                                </span>
+                                            </div>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
                             </div>
                         <?php endif; ?>
+
+                        <!-- Sezione 2: Visualizzazione Turni Generali dell'Evento (quando pubblicati) -->
+                        <?php if ($are_shifts_published) : 
+                            $ev_days = dfn_get_volunteer_event_days((int) $ev->id);
+                        ?>
+                            <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 14px;">
+                                <details style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px;">
+                                    <summary style="cursor: pointer; font-size: 13px; font-weight: 700; color: #004b23; display: flex; align-items: center; gap: 6px; user-select: none;">
+                                        <span>📋</span> Visualizza Piano Turni Generale dell'Evento (Tutti i Luoghi e Orari)
+                                    </summary>
+                                    <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 14px;">
+                                        <?php foreach ($ev_days as $eday) : 
+                                            $eplaces = dfn_get_volunteer_event_places((int) $eday->id);
+                                        ?>
+                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                                                <div style="font-size: 12.5px; font-weight: 800; color: #004b23; margin-bottom: 8px;">
+                                                    🗓️ <?php echo esc_html(strtoupper($eday->day_label)); ?>
+                                                </div>
+                                                <?php foreach ($eplaces as $eplc) : 
+                                                    $eshifts = $wpdb->get_results($wpdb->prepare(
+                                                        "SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d ORDER BY time_start ASC",
+                                                        $eplc->id
+                                                    ));
+                                                ?>
+                                                    <div style="margin-bottom: 8px;">
+                                                        <div style="font-size: 12px; font-weight: 700; color: #1e293b;">
+                                                            🏛️ <?php echo esc_html($eplc->place_name); ?>
+                                                        </div>
+                                                        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+                                                            <?php foreach ($eshifts as $esh) : 
+                                                                $eass = dfn_get_volunteer_shift_assignments((int) $esh->id);
+                                                                $time_str = substr($esh->time_start, 0, 5) . ' - ' . substr($esh->time_end, 0, 5);
+                                                            ?>
+                                                                <div style="font-size: 11.5px; color: #475569; background: #f1f5f9; border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                                                                    <span>⏰ <strong><?php echo esc_html($esh->shift_label); ?> (<?php echo esc_html($time_str); ?>):</strong></span>
+                                                                    <span>
+                                                                        <?php if (! empty($eass)) : 
+                                                                            $names = [];
+                                                                            foreach ($eass as $asgn) {
+                                                                                $tag = '';
+                                                                                if ($asgn->role_assigned === 'resp_scuola') $tag = ' (S)';
+                                                                                elseif ($asgn->role_assigned === 'resp_banchetto') $tag = ' (R)';
+                                                                                elseif ($asgn->role_assigned === 'guida') $tag = ' (G)';
+                                                                                $names[] = esc_html($asgn->first_name . ' ' . $asgn->last_name . $tag);
+                                                                            }
+                                                                            echo implode(', ', $names);
+                                                                        else : ?>
+                                                                            <em>Nessun volontario assegnato</em>
+                                                                        <?php endif; ?>
+                                                                    </span>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </details>
+                            </div>
+                        <?php endif; ?>
+
                     </div>
                 <?php endforeach; ?>
             </div>

@@ -1268,7 +1268,7 @@ function dfn_get_volunteer_assigned_shifts_for_user(int $user_id): array
         return [];
     }
 
-    $sql = "SELECT a.*, s.shift_label, s.time_start, s.time_end, p.place_name, p.address as place_address, d.event_date, d.day_label, e.title as event_title, e.event_type
+    $sql = "SELECT a.*, s.event_id, s.shift_label, s.time_start, s.time_end, p.place_name, p.address as place_address, d.event_date, d.day_label, e.title as event_title, e.event_type
             FROM {$table_ass} a
             INNER JOIN {$table_shifts} s ON a.shift_id = s.id
             INNER JOIN {$table_places} p ON s.place_id = p.id
