@@ -930,11 +930,10 @@ function dfn_volunteer_events_endpoint_content(): void
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 10px;">
                                     <?php foreach ($ev_my_shifts as $sh_item) : 
-                                        $role_lbl = 'Banchetto';
-                                        if ($sh_item->role_assigned === 'resp_scuola') $role_lbl = '🦺 Resp. Scuola (S)';
-                                        elseif ($sh_item->role_assigned === 'resp_banchetto') $role_lbl = '👑 Resp. Banchetto (R)';
-                                        elseif ($sh_item->role_assigned === 'guida') $role_lbl = '🏛️ Guida';
-                                        elseif ($sh_item->role_assigned === 'accoglienza') $role_lbl = 'Accoglienza';
+                                        $r_obj = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($sh_item->role_assigned) : null;
+                                        $r_lbl = $r_obj ? ($r_obj->role_name . ($r_obj->badge_code ? ' ' . $r_obj->badge_code : '')) : ucfirst(str_replace('_', ' ', $sh_item->role_assigned));
+                                        $r_bg  = $r_obj ? $r_obj->badge_bg : '#ea580c';
+                                        $r_col = $r_obj ? $r_obj->badge_color : '#ffffff';
                                     ?>
                                         <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                             <div>
@@ -949,8 +948,8 @@ function dfn_volunteer_events_endpoint_content(): void
                                                 </div>
                                             </div>
                                             <div>
-                                                <span style="background: #ea580c; color: #ffffff; font-size: 11.5px; font-weight: 800; padding: 5px 14px; border-radius: 20px; display: inline-block;">
-                                                    <?php echo esc_html($role_lbl); ?>
+                                                <span style="background: <?php echo esc_attr($r_bg); ?>; color: <?php echo esc_attr($r_col); ?>; font-size: 11.5px; font-weight: 800; padding: 5px 14px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0,0,0,0.05);">
+                                                    <?php echo esc_html($r_lbl); ?>
                                                 </span>
                                             </div>
                                         </div>
@@ -997,8 +996,11 @@ function dfn_volunteer_events_endpoint_content(): void
                                                                         <?php if (! empty($eass)) : 
                                                                             $names = [];
                                                                             foreach ($eass as $asgn) {
+                                                                                $asgn_r = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($asgn->role_assigned) : null;
                                                                                 $tag = '';
-                                                                                if ($asgn->role_assigned === 'resp_scuola') $tag = ' (S)';
+                                                                                if ($asgn_r && ! empty($asgn_r->badge_code)) {
+                                                                                    $tag = ' ' . $asgn_r->badge_code;
+                                                                                } elseif ($asgn->role_assigned === 'resp_scuola') $tag = ' (S)';
                                                                                 elseif ($asgn->role_assigned === 'resp_banchetto') $tag = ' (R)';
                                                                                 elseif ($asgn->role_assigned === 'guida') $tag = ' (G)';
                                                                                 $names[] = esc_html($asgn->first_name . ' ' . $asgn->last_name . $tag);

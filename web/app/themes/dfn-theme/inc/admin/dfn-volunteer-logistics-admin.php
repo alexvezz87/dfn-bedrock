@@ -228,6 +228,7 @@ function dfn_render_volunteer_event_form(int $event_id): void
         $linked_event_id= ! empty($_POST['linked_event_id']) ? (int) $_POST['linked_event_id'] : null;
         $description    = sanitize_textarea_field($_POST['description'] ?? '');
         $status         = sanitize_text_field($_POST['status'] ?? 'draft');
+        $selected_roles = isset($_POST['role_ids']) && is_array($_POST['role_ids']) ? array_map('intval', $_POST['role_ids']) : [];
 
         if (! empty($title) && ! empty($date_start)) {
             if ($event) {
@@ -301,13 +302,18 @@ function dfn_render_volunteer_event_form(int $event_id): void
                 }
             }
 
+            // Salvataggio associazione mansioni
+            if (function_exists('dfn_set_volunteer_event_roles')) {
+                dfn_set_volunteer_event_roles((int) $saved_id, $selected_roles);
+            }
+
             echo '<div class="notice notice-success is-dismissible"><p>✅ Evento logistica salvato con successo!</p></div>';
             echo '<script>window.location.href="' . esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $saved_id)) . '";</script>';
             return;
         }
     }
 
-    // Lista eventi FAI Prenotazioni futuri per associazione opzionale
+    // Caricamento eventi FAI futuri
     $fai_events = $wpdb->get_results(
         "SELECT e.*, p.post_title 
          FROM {$wpdb->prefix}dfn_events e
@@ -316,6 +322,20 @@ function dfn_render_volunteer_event_form(int $event_id): void
            AND e.status != 'archived'
          ORDER BY e.event_date_start ASC"
     );
+
+    // Recupera mansioni per il form
+    $all_available_roles = function_exists('dfn_get_all_volunteer_roles') ? dfn_get_all_volunteer_roles() : [];
+    $assigned_role_ids = [];
+    if ($event) {
+        $ev_roles = function_exists('dfn_get_volunteer_event_roles') ? dfn_get_volunteer_event_roles((int) $event->id) : [];
+        $assigned_role_ids = array_map(function($r) { return (int) $r->id; }, $ev_roles);
+    } else {
+        foreach ($all_available_roles as $ar) {
+            if (! empty($ar->is_default)) {
+                $assigned_role_ids[] = (int) $ar->id;
+            }
+        }
+    }
 
     ?>
     <div class="wrap dfn-admin-wrap">
@@ -388,6 +408,34 @@ function dfn_render_volunteer_event_form(int $event_id): void
                         <option value="published" <?php selected($event ? $event->status : '', 'published'); ?>>Turni Pubblicati (Visibili in Area Personale)</option>
                         <option value="completed" <?php selected($event ? $event->status : '', 'completed'); ?>>Evento Concluso</option>
                     </select>
+                </div>
+
+                <!-- SEZIONE: SELEZIONE MANSIONI -->
+                <div style="margin-bottom:20px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <label style="font-size:13px; font-weight:800; color:#004b23; text-transform:uppercase;">🏷️ Mansioni Volontari per questo Evento</label>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-roles')); ?>" target="_blank" style="font-size:12px; color:#2563eb; text-decoration:none; font-weight:700;">➕ Gestisci o Aggiungi Nuove Mansioni ↗</a>
+                    </div>
+                    <?php if (! empty($all_available_roles)) : ?>
+                        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:10px;">
+                            <?php foreach ($all_available_roles as $r_item) : 
+                                $is_checked = in_array((int) $r_item->id, $assigned_role_ids, true);
+                            ?>
+                                <label style="display:flex; align-items:center; gap:8px; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px; cursor:pointer; font-size:12.5px;">
+                                    <input type="checkbox" name="role_ids[]" value="<?php echo esc_attr($r_item->id); ?>" <?php checked($is_checked); ?>>
+                                    <div style="flex:1;">
+                                        <div style="font-weight:700; color:#1e293b;"><?php echo esc_html($r_item->role_name); ?></div>
+                                        <span style="display:inline-block; font-size:10px; font-weight:800; background:<?php echo esc_attr($r_item->badge_bg); ?>; color:<?php echo esc_attr($r_item->badge_color); ?>; padding:1px 6px; border-radius:10px; margin-top:2px;">
+                                            <?php echo esc_html($r_item->badge_code ?: $r_item->role_name); ?>
+                                        </span>
+                                        <?php if (! empty($r_item->requires_safety_course)) : ?>
+                                            <span style="font-size:10px; color:#92400e; font-weight:700; margin-left:4px;">[🦺 Sicurezza]</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div style="margin-bottom:24px;">
@@ -585,6 +633,16 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
     $all_volunteers = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}dfn_fai_members WHERE is_volunteer = 1 AND volunteer_status = 'active' ORDER BY first_name ASC, last_name ASC");
     $survey = dfn_get_volunteer_survey_by_event($event_id);
 
+    // Recupera mansioni configurate per questo evento (o fallback su tutte)
+    $event_roles = function_exists('dfn_get_volunteer_event_roles') ? dfn_get_volunteer_event_roles($event_id) : [];
+    if (empty($event_roles)) {
+        $event_roles = function_exists('dfn_get_all_volunteer_roles') ? dfn_get_all_volunteer_roles() : [];
+    }
+    $roles_by_key = [];
+    foreach ($event_roles as $er) {
+        $roles_by_key[$er->role_key] = $er;
+    }
+
     // Se l'evento è locale e non ha ancora un luogo creato, lo creiamo in automatico
     if ($event->event_type === 'local' && empty($places) && $selected_day_id > 0) {
         $place_name = 'Sede Evento';
@@ -744,14 +802,15 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px; margin-bottom:16px;">
                                 <?php if (! empty($assignments)) : ?>
                                     <?php foreach ($assignments as $a) : 
-                                        $role_tags = [
-                                            'resp_scuola'   => ['(S) Resp. Scuola', '#fef3c7', '#92400e'],
-                                            'resp_banchetto'=> ['(R) Resp. Banchetto', '#fee2e2', '#991b1b'],
-                                            'guida'         => ['(G) Guida', '#e0f2fe', '#0369a1'],
-                                            'accoglienza'   => ['Accoglienza', '#f0fdf4', '#166534'],
-                                            'banchetto'     => ['Banchetto', '#f1f5f9', '#475569'],
-                                        ];
-                                        $rt = $role_tags[$a->role_assigned] ?? ['Volontario', '#f1f5f9', '#475569'];
+                                        $r_obj = $roles_by_key[$a->role_assigned] ?? null;
+                                        if (! $r_obj) {
+                                            // Fallback lookup nel caso il ruolo non fosse nella lista evento
+                                            $r_obj = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($a->role_assigned) : null;
+                                        }
+                                        $r_name  = $r_obj ? ($r_obj->badge_code ?: $r_obj->role_name) : ucfirst(str_replace('_', ' ', $a->role_assigned));
+                                        $r_color = $r_obj ? $r_obj->badge_color : '#475569';
+                                        $r_bg    = $r_obj ? $r_obj->badge_bg : '#f1f5f9';
+
                                         $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
                                         $del_ass_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $selected_day_id . '&remove_assignment=' . $a->id), 'dfn_del_ass_' . $a->id);
                                     ?>
@@ -763,8 +822,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                         <span style="font-size:10.5px; color:#64748b; font-weight:normal; font-style:italic;">(Manuale)</span>
                                                     <?php endif; ?>
                                                 </strong>
-                                                <span style="display:inline-block; font-size:10.5px; font-weight:800; background:<?php echo $rt[1]; ?>; color:<?php echo $rt[2]; ?>; padding:1px 6px; border-radius:4px; margin-top:2px;">
-                                                    <?php echo esc_html($rt[0]); ?>
+                                                <span style="display:inline-block; font-size:10.5px; font-weight:800; background:<?php echo esc_attr($r_bg); ?>; color:<?php echo esc_attr($r_color); ?>; padding:1px 6px; border-radius:4px; margin-top:2px;">
+                                                    <?php echo esc_html($r_name); ?>
                                                 </span>
                                             </div>
                                             <a href="<?php echo esc_url($del_ass_url); ?>" style="color:#ef4444; text-decoration:none; font-size:13px; font-weight:700; padding:4px;" title="Rimuovi dal turno">✕</a>
@@ -808,11 +867,15 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
                                     <div style="width:190px;">
                                         <select name="role_assigned" style="width:100%; font-size:12px; border-radius:6px; border:1px solid #cbd5e1; height:32px;">
-                                            <option value="banchetto">Banchetto</option>
-                                            <option value="resp_banchetto">👑 Resp. Banchetto (R)</option>
-                                            <option value="resp_scuola">🦺 Resp. Scuola (S)</option>
-                                            <option value="accoglienza">Accoglienza / Validatore</option>
-                                            <option value="guida">🏛️ Guida</option>
+                                            <?php if (! empty($event_roles)) : ?>
+                                                <?php foreach ($event_roles as $er_opt) : ?>
+                                                    <option value="<?php echo esc_attr($er_opt->role_key); ?>">
+                                                        <?php echo esc_html($er_opt->role_name . ($er_opt->badge_code ? ' ' . $er_opt->badge_code : '')); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            <?php else : ?>
+                                                <option value="banchetto">Volontario</option>
+                                            <?php endif; ?>
                                         </select>
                                     </div>
 

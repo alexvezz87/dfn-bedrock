@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.4.0');
+define('DFN_DB_VERSION', '2.4.1');
 
 /**
  * ========================================================================
@@ -408,29 +408,58 @@ function dfn_db_install(): void
     // -------------------------------------------------------------------
     // TABELLA 16: Risposte ai Sondaggi Disponibilità
     // -------------------------------------------------------------------
-    $table_vol_responses = $wpdb->prefix . 'dfn_volunteer_survey_responses';
-    $sql_vol_responses = "CREATE TABLE {$table_vol_responses} (
+    $table_vol_survey_responses = $wpdb->prefix . 'dfn_volunteer_survey_responses';
+    $sql_vol_survey_responses = "CREATE TABLE {$table_vol_survey_responses} (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         survey_id bigint(20) unsigned NOT NULL,
         volunteer_id bigint(20) unsigned DEFAULT NULL,
-        first_name varchar(100) NOT NULL,
-        last_name varchar(100) NOT NULL,
-        email varchar(255) DEFAULT NULL,
-        phone varchar(50) DEFAULT NULL,
         day_id bigint(20) unsigned NOT NULL,
         time_slot_key varchar(50) NOT NULL,
         is_available tinyint(1) NOT NULL DEFAULT 1,
         notes text DEFAULT NULL,
         submitted_at datetime DEFAULT CURRENT_TIMESTAMP,
-        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY idx_survey (survey_id),
         KEY idx_vol (volunteer_id),
-        KEY idx_day (day_id),
-        KEY idx_slot (time_slot_key)
+        KEY idx_slot (day_id, time_slot_key)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 17: Anagrafica Mansioni / Ruoli Volontari
+    // -------------------------------------------------------------------
+    $table_roles = $wpdb->prefix . 'dfn_volunteer_roles';
+    $sql_roles = "CREATE TABLE {$table_roles} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        role_key varchar(50) NOT NULL,
+        role_name varchar(100) NOT NULL,
+        badge_code varchar(20) DEFAULT NULL,
+        badge_color varchar(20) NOT NULL DEFAULT '#475569',
+        badge_bg varchar(20) NOT NULL DEFAULT '#f1f5f9',
+        requires_safety_course tinyint(1) NOT NULL DEFAULT 0,
+        requires_guide tinyint(1) NOT NULL DEFAULT 0,
+        is_default tinyint(1) NOT NULL DEFAULT 0,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY uk_role_key (role_key)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 18: Associazione Mansioni Abilitate per Singolo Evento
+    // -------------------------------------------------------------------
+    $table_event_roles = $wpdb->prefix . 'dfn_volunteer_event_roles';
+    $sql_event_roles = "CREATE TABLE {$table_event_roles} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        event_id bigint(20) unsigned NOT NULL,
+        role_id bigint(20) unsigned NOT NULL,
+        order_num int(10) unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY  (id),
+        KEY idx_event (event_id),
+        KEY idx_role (role_id),
+        UNIQUE KEY uk_event_role (event_id, role_id)
     ) {$charset_collate};";
 
     // Esecuzione idempotente di tutte le tabelle
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta($sql_events);
     dbDelta($sql_slots);
     dbDelta($sql_bookings);
@@ -446,7 +475,34 @@ function dfn_db_install(): void
     dbDelta($sql_vol_shifts);
     dbDelta($sql_vol_assignments);
     dbDelta($sql_vol_surveys);
-    dbDelta($sql_vol_responses);
+    dbDelta($sql_vol_survey_responses);
+    dbDelta($sql_roles);
+    dbDelta($sql_event_roles);
+
+    // Popolamento ruoli predefiniti se la tabella è vuota
+    $table_roles = $wpdb->prefix . 'dfn_volunteer_roles';
+    $roles_count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_roles}");
+    if ($roles_count === 0) {
+        $default_roles = [
+            ['resp_scuola', 'Responsabile Scuola', '(S)', '#92400e', '#fef3c7', 1, 0, 1],
+            ['resp_banchetto', 'Responsabile Banchetto', '(R)', '#991b1b', '#fee2e2', 0, 0, 1],
+            ['guida', 'Guida Culturale', '(G)', '#0369a1', '#e0f2fe', 0, 1, 1],
+            ['accoglienza', 'Accoglienza / Validatore', 'Accoglienza', '#166534', '#f0fdf4', 0, 0, 1],
+            ['banchetto', 'Volontario Banchetto', 'Banchetto', '#475569', '#f1f5f9', 0, 0, 1],
+        ];
+        foreach ($default_roles as $dr) {
+            $wpdb->insert($table_roles, [
+                'role_key'              => $dr[0],
+                'role_name'             => $dr[1],
+                'badge_code'            => $dr[2],
+                'badge_color'           => $dr[3],
+                'badge_bg'              => $dr[4],
+                'requires_safety_course'=> $dr[5],
+                'requires_guide'        => $dr[6],
+                'is_default'            => $dr[7],
+            ]);
+        }
+    }
 
     // Forza la creazione della colonna description se manca (dbDelta a volte fallisce l'alter)
     $row = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'description'");
@@ -1306,4 +1362,80 @@ function dfn_get_volunteer_survey_by_token(string $token)
     $table = $wpdb->prefix . 'dfn_volunteer_surveys';
     return $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE token_public = %s LIMIT 1", $token));
 }
+
+/**
+ * Recupera tutte le mansioni/ruoli registrati a database.
+ *
+ * @return array<object>
+ */
+function dfn_get_all_volunteer_roles(): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_roles';
+    $res = $wpdb->get_results("SELECT * FROM {$table} ORDER BY is_default DESC, role_name ASC");
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Recupera le mansioni associate a uno specifico evento.
+ *
+ * @param int $event_id ID dell'evento logistica.
+ * @return array<object>
+ */
+function dfn_get_volunteer_event_roles(int $event_id): array
+{
+    global $wpdb;
+    $table_er = $wpdb->prefix . 'dfn_volunteer_event_roles';
+    $table_r  = $wpdb->prefix . 'dfn_volunteer_roles';
+    $sql = "SELECT r.* 
+            FROM {$table_r} r 
+            INNER JOIN {$table_er} er ON r.id = er.role_id 
+            WHERE er.event_id = %d 
+            ORDER BY er.order_num ASC, r.role_name ASC";
+    $res = $wpdb->get_results($wpdb->prepare($sql, $event_id));
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Associa un insieme di mansioni a un evento.
+ *
+ * @param int $event_id ID dell'evento.
+ * @param array<int> $role_ids Array di ID mansione da associare.
+ * @return void
+ */
+function dfn_set_volunteer_event_roles(int $event_id, array $role_ids): void
+{
+    global $wpdb;
+    $table_er = $wpdb->prefix . 'dfn_volunteer_event_roles';
+    
+    // Rimuovi associazioni precedenti
+    $wpdb->delete($table_er, ['event_id' => $event_id], ['%d']);
+
+    $order = 1;
+    foreach ($role_ids as $r_id) {
+        $r_id = (int) $r_id;
+        if ($r_id > 0) {
+            $wpdb->insert($table_er, [
+                'event_id'  => $event_id,
+                'role_id'   => $r_id,
+                'order_num' => $order,
+            ], ['%d', '%d', '%d']);
+            $order++;
+        }
+    }
+}
+
+/**
+ * Recupera un ruolo dalla sua role_key.
+ *
+ * @param string $role_key Chiave identificativa ruolo.
+ * @return object|null
+ */
+function dfn_get_volunteer_role_by_key(string $role_key)
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_roles';
+    return $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE role_key = %s LIMIT 1", $role_key));
+}
+
 

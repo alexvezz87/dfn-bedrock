@@ -71,6 +71,16 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteer-logistics',
         'dfn_render_volunteer_logistics_page'
     );
+
+    // Sottomenu: Mansioni & Ruoli
+    add_submenu_page(
+        'dfn-volunteers',
+        __('Mansioni & Ruoli', 'dfn-theme'),
+        __('Mansioni & Ruoli', 'dfn-theme'),
+        'dfn_act_fai_members',
+        'dfn-volunteer-roles',
+        'dfn_render_volunteer_roles_admin_page'
+    );
 }
 
 /**
@@ -732,3 +742,218 @@ function dfn_render_volunteer_meetings_admin_page(): void
     </div>
     <?php
 }
+
+/**
+ * Renderizza la schermata di gestione "Mansioni & Ruoli Volontari".
+ */
+function dfn_render_volunteer_roles_admin_page(): void
+{
+    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+        wp_die(__('Permessi insufficienti per accedere a questa sezione.', 'dfn-theme'));
+    }
+
+    global $wpdb;
+    $table_roles = $wpdb->prefix . 'dfn_volunteer_roles';
+
+    // Gestione Eliminazione
+    if (isset($_GET['action'], $_GET['role_id'], $_GET['_wpnonce']) && $_GET['action'] === 'delete') {
+        $role_id = (int) $_GET['role_id'];
+        if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_del_role_' . $role_id)) {
+            $wpdb->delete($table_roles, ['id' => $role_id], ['%d']);
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Mansione eliminata con successo.</p></div>';
+        }
+    }
+
+    // Gestione Salvataggio (Nuovo / Modifica)
+    if (isset($_POST['dfn_save_role']) && check_admin_referer('dfn_save_role_action', 'dfn_save_role_nonce')) {
+        $role_id   = ! empty($_POST['role_id']) ? (int) $_POST['role_id'] : 0;
+        $role_name = sanitize_text_field($_POST['role_name'] ?? '');
+        $role_key  = ! empty($_POST['role_key']) ? sanitize_title($_POST['role_key']) : sanitize_title($role_name);
+        $badge_code= sanitize_text_field($_POST['badge_code'] ?? '');
+        $badge_color = sanitize_hex_color($_POST['badge_color'] ?? '#475569') ?: '#475569';
+        $badge_bg    = sanitize_hex_color($_POST['badge_bg'] ?? '#f1f5f9') ?: '#f1f5f9';
+        $req_safety  = ! empty($_POST['requires_safety_course']) ? 1 : 0;
+        $req_guide   = ! empty($_POST['requires_guide']) ? 1 : 0;
+        $is_default  = ! empty($_POST['is_default']) ? 1 : 0;
+
+        if (! empty($role_name) && ! empty($role_key)) {
+            if ($role_id > 0) {
+                $wpdb->update(
+                    $table_roles,
+                    [
+                        'role_key'              => $role_key,
+                        'role_name'             => $role_name,
+                        'badge_code'            => $badge_code,
+                        'badge_color'           => $badge_color,
+                        'badge_bg'              => $badge_bg,
+                        'requires_safety_course'=> $req_safety,
+                        'requires_guide'        => $req_guide,
+                        'is_default'            => $is_default,
+                    ],
+                    ['id' => $role_id],
+                    ['%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d'],
+                    ['%d']
+                );
+                echo '<div class="notice notice-success is-dismissible"><p>✅ Mansione aggiornata con successo.</p></div>';
+            } else {
+                $wpdb->insert(
+                    $table_roles,
+                    [
+                        'role_key'              => $role_key,
+                        'role_name'             => $role_name,
+                        'badge_code'            => $badge_code,
+                        'badge_color'           => $badge_color,
+                        'badge_bg'              => $badge_bg,
+                        'requires_safety_course'=> $req_safety,
+                        'requires_guide'        => $req_guide,
+                        'is_default'            => $is_default,
+                    ],
+                    ['%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d']
+                );
+                echo '<div class="notice notice-success is-dismissible"><p>✅ Nuova mansione creata con successo.</p></div>';
+            }
+        }
+    }
+
+    $edit_role = null;
+    if (isset($_GET['action'], $_GET['role_id']) && $_GET['action'] === 'edit') {
+        $edit_role = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_roles} WHERE id = %d", (int) $_GET['role_id']));
+    }
+
+    $all_roles = $wpdb->get_results("SELECT * FROM {$table_roles} ORDER BY is_default DESC, role_name ASC");
+
+    ?>
+    <div class="wrap dfn-admin-wrap">
+        <header class="dfn-admin-header" style="margin-bottom:20px;">
+            <h1 style="font-size:24px; font-weight:700; color:#1d2327;">🏷️ Gestione Mansioni &amp; Ruoli Volontari</h1>
+            <p style="color:#64748b; margin-top:4px;">Crea e personalizza le mansioni operative da associare agli eventi della delegazione (standard o personalizzate per singoli eventi).</p>
+        </header>
+
+        <div style="display:grid; grid-template-columns:360px 1fr; gap:24px; align-items:start;">
+            <!-- Form Creazione / Modifica Ruolo -->
+            <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                <h3 style="margin-top:0; font-size:16px; color:#004b23; font-weight:700;">
+                    <?php echo $edit_role ? '✏️ Modifica Mansione' : '➕ Nuova Mansione'; ?>
+                </h3>
+
+                <form method="post" action="">
+                    <?php wp_nonce_field('dfn_save_role_action', 'dfn_save_role_nonce'); ?>
+                    <input type="hidden" name="role_id" value="<?php echo esc_attr($edit_role ? $edit_role->id : 0); ?>">
+
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Nome Mansione <span style="color:#ef4444;">*</span></label>
+                        <input type="text" name="role_name" required value="<?php echo esc_attr($edit_role ? $edit_role->role_name : ''); ?>" placeholder="Es. Addetto Bar, Controllo Braccialetti..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px; font-size:13px;">
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Codice Chiave (Slug univoco)</label>
+                        <input type="text" name="role_key" value="<?php echo esc_attr($edit_role ? $edit_role->role_key : ''); ?>" placeholder="Es. addetto_bar, controllo_braccialetti" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px; font-size:13px;">
+                        <span style="font-size:11px; color:#94a3b8;">Lascia vuoto per generarlo automaticamente dal nome.</span>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Etichetta Badge / Sigla Sintetica</label>
+                        <input type="text" name="badge_code" value="<?php echo esc_attr($edit_role ? $edit_role->badge_code : ''); ?>" placeholder="Es. (S), (R), (G), 🍹 Bar, 🎟️ Pass" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px; font-size:13px;">
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Colore Testo Badge</label>
+                            <input type="color" name="badge_color" value="<?php echo esc_attr($edit_role ? $edit_role->badge_color : '#1e293b'); ?>" style="width:100%; height:34px; border-radius:6px; border:1px solid #cbd5e1; padding:2px; cursor:pointer;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Colore Sfondo Badge</label>
+                            <input type="color" name="badge_bg" value="<?php echo esc_attr($edit_role ? $edit_role->badge_bg : '#f1f5f9'); ?>" style="width:100%; height:34px; border-radius:6px; border:1px solid #cbd5e1; padding:2px; cursor:pointer;">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px;">
+                        <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#334155; font-weight:600; cursor:pointer; margin-bottom:6px;">
+                            <input type="checkbox" name="requires_safety_course" value="1" <?php checked($edit_role && ! empty($edit_role->requires_safety_course)); ?>>
+                            🦺 Richiede Corso Sicurezza
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#334155; font-weight:600; cursor:pointer; margin-bottom:6px;">
+                            <input type="checkbox" name="requires_guide" value="1" <?php checked($edit_role && ! empty($edit_role->requires_guide)); ?>>
+                            🏛️ Profilo Guida Culturale
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#334155; font-weight:600; cursor:pointer;">
+                            <input type="checkbox" name="is_default" value="1" <?php checked($edit_role && ! empty($edit_role->is_default)); ?>>
+                            ⭐ Selezionata di default nei nuovi eventi
+                        </label>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+                        <?php if ($edit_role) : ?>
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-roles')); ?>" class="button">Annulla</a>
+                        <?php else : ?>
+                            <span></span>
+                        <?php endif; ?>
+                        <button type="submit" name="dfn_save_role" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700;">
+                            <?php echo $edit_role ? '💾 Aggiorna Mansione' : '➕ Salva Mansione'; ?>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tabella Mansioni Esistenti -->
+            <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th style="font-weight:700; color:#1d2327;">Mansione</th>
+                            <th style="font-weight:700; color:#1d2327;">Chiave (Slug)</th>
+                            <th style="font-weight:700; color:#1d2327;">Anteprima Badge</th>
+                            <th style="font-weight:700; color:#1d2327;">Requisiti &amp; Default</th>
+                            <th style="width:120px; text-align:right; font-weight:700; color:#1d2327;">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (! empty($all_roles)) : ?>
+                            <?php foreach ($all_roles as $r) : 
+                                $edit_url = admin_url('admin.php?page=dfn-volunteer-roles&action=edit&role_id=' . $r->id);
+                                $del_url  = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-roles&action=delete&role_id=' . $r->id), 'dfn_del_role_' . $r->id);
+                            ?>
+                                <tr>
+                                    <td>
+                                        <strong style="font-size:13.5px; color:#0f172a;"><?php echo esc_html($r->role_name); ?></strong>
+                                    </td>
+                                    <td>
+                                        <code style="font-size:11.5px; color:#475569;"><?php echo esc_html($r->role_key); ?></code>
+                                    </td>
+                                    <td>
+                                        <span style="display:inline-block; font-size:11px; font-weight:800; background:<?php echo esc_attr($r->badge_bg); ?>; color:<?php echo esc_attr($r->badge_color); ?>; padding:3px 10px; border-radius:14px;">
+                                            <?php echo esc_html($r->badge_code ?: $r->role_name); ?>
+                                        </span>
+                                    </td>
+                                    <td style="font-size:12px;">
+                                        <?php if (! empty($r->requires_safety_course)) : ?>
+                                            <span style="display:inline-block; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:4px; font-weight:700; margin-right:4px;">🦺 Sicurezza</span>
+                                        <?php endif; ?>
+                                        <?php if (! empty($r->requires_guide)) : ?>
+                                            <span style="display:inline-block; background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-weight:700; margin-right:4px;">🏛️ Guida</span>
+                                        <?php endif; ?>
+                                        <?php if (! empty($r->is_default)) : ?>
+                                            <span style="display:inline-block; background:#dcfce7; color:#15803d; padding:1px 6px; border-radius:4px; font-weight:700;">⭐ Default</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td style="text-align:right;">
+                                        <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" style="margin-right:4px;">Modifica</a>
+                                        <a href="<?php echo esc_url($del_url); ?>" class="button button-small" style="color:#b91c1c;" onclick="return confirm('Eliminare questa mansione?');">Elimina</a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else : ?>
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding:20px; color:#94a3b8;">
+                                    Nessuna mansione configurata.
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php
+}
+
