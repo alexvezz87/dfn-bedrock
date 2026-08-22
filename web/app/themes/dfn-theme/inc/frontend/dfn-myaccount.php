@@ -256,8 +256,14 @@ add_action('init', 'dfn_fai_cards_endpoint_init');
  */
 function dfn_fai_cards_endpoint_init(): void
 {
-    add_rewrite_endpoint('tessere-fai', EP_PAGES);
-    add_rewrite_endpoint('riunioni-fai', EP_PAGES);
+    add_rewrite_endpoint('tessere-fai', EP_PAGES | EP_ROOT);
+    add_rewrite_endpoint('riunioni-fai', EP_PAGES | EP_ROOT);
+
+    // Auto-flush se la regola di rewrite non è ancora presente
+    $rules = get_option('rewrite_rules');
+    if (! isset($rules['(.?.+?)/riunioni-fai(/(.*))?/?$']) && ! isset($rules['mio-account/riunioni-fai/?$'])) {
+        flush_rewrite_rules(false);
+    }
 }
 
 // Aggiunge le query var consentite da WooCommerce
