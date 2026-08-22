@@ -440,6 +440,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
         wp_die(__('Evento non trovato.', 'dfn-theme'));
     }
 
+    $survey = dfn_get_volunteer_survey_by_event($event_id);
     $days = dfn_get_volunteer_event_days($event_id);
     $selected_day_id = isset($_GET['day_id']) ? (int) $_GET['day_id'] : (! empty($days) ? (int) $days[0]->id : 0);
 
@@ -509,8 +510,17 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
     // Gestione Algoritmo Assegnazione Automatica
     if (isset($_POST['dfn_auto_assign']) && wp_verify_nonce($_POST['dfn_auto_nonce'] ?? '', 'dfn_auto_assign_action')) {
-        $assigned_count = dfn_run_volunteer_auto_assignment($event_id, $selected_day_id);
-        echo '<div class="notice notice-success is-dismissible"><p>🤖 <strong>Assegnazione automatica completata!</strong> Assegnati ' . intval($assigned_count) . ' volontari ai turni nel rispetto dei vincoli di ruolo (Responsabili Scuola, Banchetto e Guide).</p></div>';
+        $now = current_time('mysql');
+        $is_survey_closed = ($survey && ($survey->status === 'closed' || (! empty($survey->deadline_at) && $survey->deadline_at < $now)));
+
+        if (! $survey) {
+            echo '<div class="notice notice-error is-dismissible"><p>⚠️ <strong>Nessun sondaggio trovato</strong> per questo evento. Crea prima un sondaggio per raccogliere le disponibilità.</p></div>';
+        } elseif (! $is_survey_closed) {
+            echo '<div class="notice notice-warning is-dismissible"><p>⚠️ <strong>Sondaggio ancora aperto:</strong> l\'assegnazione automatica può essere eseguita solo dopo la chiusura o la scadenza del sondaggio, per evitare assegnazioni parziali prima che tutti i volontari abbiano risposto.</p></div>';
+        } else {
+            $assigned_count = dfn_run_volunteer_auto_assignment($event_id, $selected_day_id);
+            echo '<div class="notice notice-success is-dismissible"><p>🤖 <strong>Assegnazione automatica completata!</strong> Assegnati ' . intval($assigned_count) . ' volontari ai turni nel rispetto dei vincoli di ruolo (Responsabili Scuola, Banchetto e Guide).</p></div>';
+        }
     }
 
     // Gestione Aggiunta Nuovo Slot Orario (Eventi Locali o Personalizzati)
@@ -607,14 +617,22 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     📋 Matrice Turni: <?php echo esc_html($event->title); ?>
                 </h1>
             </div>
-            <div style="display:flex; gap:10px;">
-                <?php if ($survey) : ?>
+            <?php 
+                $now = current_time('mysql');
+                $is_survey_closed = ($survey && ($survey->status === 'closed' || (! empty($survey->deadline_at) && $survey->deadline_at < $now)));
+            ?>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <?php if ($survey && $is_survey_closed) : ?>
                     <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e ai requisiti (Corso Sicurezza, Guide, Responsabili). Continuare?');">
                         <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
                         <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
                             🤖 Assegna Automaticamente i Turni
                         </button>
                     </form>
+                <?php elseif ($survey && ! $is_survey_closed) : ?>
+                    <button type="button" class="button" disabled style="opacity:0.65; cursor:not-allowed; background:#f1f5f9; color:#64748b; font-weight:700; border:1px solid #cbd5e1;" title="L'assegnazione automatica sarà sbloccata non appena il sondaggio sarà chiuso o scaduto.">
+                        ⏳ In attesa chiusura sondaggio
+                    </button>
                 <?php endif; ?>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=survey&event_id=' . $event_id)); ?>" class="button" style="font-weight:700;">
                     📊 Risposte Sondaggio
