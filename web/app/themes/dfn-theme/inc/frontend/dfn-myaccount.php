@@ -872,12 +872,19 @@ function dfn_volunteer_events_endpoint_content(): void
                         <!-- Header Evento & Badges di Stato -->
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
                             <div>
-                                <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                <h3 style="margin: 0 0 6px 0; font-size: 19px; font-weight: 800; color: #0f172a; line-height: 1.3;">
+                                    <?php echo esc_html($ev->title); ?>
+                                </h3>
+                                <div style="font-size: 13.5px; color: #475569;">
+                                    🗓️ <strong><?php echo esc_html(ucfirst($date_start_str)); ?></strong><?php echo $ev->date_start !== $ev->date_end ? ' — <strong>' . esc_html(ucfirst($date_end_str)) . '</strong>' : ''; ?>
+                                </div>
+
+                                <!-- Badge Tipologia & Stato Sondaggio / Turni Sotto Titolo e Data -->
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px;">
                                     <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #004b23; background: #e8f5e9; border: 1px solid #c8e6c9; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
                                         <?php echo $is_giornata_fai ? '🏰 Giornata FAI (Nazionale)' : '📍 Evento Locale / Visita'; ?>
                                     </span>
 
-                                    <!-- Badge Stato Sondaggio / Turni -->
                                     <?php if ($are_shifts_published) : ?>
                                         <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #15803d; background: #dcfce7; border: 1px solid #86efac; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
                                             ✅ Turni Pubblicati
@@ -891,13 +898,6 @@ function dfn_volunteer_events_endpoint_content(): void
                                             🟡 Sondaggio chiuso in attesa dei turni
                                         </span>
                                     <?php endif; ?>
-                                </div>
-
-                                <h3 style="margin: 4px 0 6px 0; font-size: 18px; font-weight: 800; color: #0f172a;">
-                                    <?php echo esc_html($ev->title); ?>
-                                </h3>
-                                <div style="font-size: 13px; color: #475569;">
-                                    🗓️ <strong><?php echo esc_html(ucfirst($date_start_str)); ?></strong><?php echo $ev->date_start !== $ev->date_end ? ' — <strong>' . esc_html(ucfirst($date_end_str)) . '</strong>' : ''; ?>
                                 </div>
                             </div>
 
