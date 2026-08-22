@@ -1019,7 +1019,23 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
     }
 
     $survey_link = $survey ? home_url('/sondaggio-volontari/?token=' . $survey->token_public) : '';
-    $responses = $survey ? $wpdb->get_results($wpdb->prepare("SELECT * FROM {$table_resp} WHERE survey_id = %d ORDER BY submitted_at DESC", $survey->id)) : [];
+    $days = dfn_get_volunteer_event_days($event_id);
+
+    // Recupera solo le disponibilità positive (is_available = 1)
+    $available_responses = $survey ? $wpdb->get_results($wpdb->prepare(
+        "SELECT r.*, f.is_guide, f.has_safety_course, f.card_number 
+         FROM {$table_resp} r
+         LEFT JOIN {$wpdb->prefix}dfn_fai_members f ON r.volunteer_id = f.id
+         WHERE r.survey_id = %d AND r.is_available = 1 
+         ORDER BY r.submitted_at DESC", 
+        $survey->id
+    )) : [];
+
+    // Raggruppa le risposte disponibili per day_id e time_slot_key
+    $grouped_responses = [];
+    foreach ($available_responses as $r) {
+        $grouped_responses[$r->day_id][$r->time_slot_key][] = $r;
+    }
 
     ?>
     <div class="wrap dfn-admin-wrap">
@@ -1030,7 +1046,7 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
             </h1>
         </header>
 
-        <div style="display:grid; grid-template-columns: 380px 1fr; gap:24px; align-items:flex-start;">
+        <div style="display:grid; grid-template-columns: 340px 1fr; gap:24px; align-items:flex-start;">
             <!-- Configurazione Sondaggio -->
             <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:20px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
                 <h3 style="font-size:15px; font-weight:700; color:#0f172a; margin-top:0; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
@@ -1071,67 +1087,133 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                 <?php endif; ?>
             </div>
 
-            <!-- Tabella Risposte Ricevute -->
-            <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
-                <div style="padding:14px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
-                    <strong style="font-size:14px; color:#0f172a;">Risposte Registrate (<?php echo count($responses); ?>)</strong>
+            <!-- Sezione Disponibilità Volontari Divisa per Giorno e Fascia Oraria -->
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <h2 style="font-size:17px; font-weight:800; color:#0f172a; margin:0;">
+                        ✅ Disponibilità Registrate (<?php echo count($available_responses); ?>)
+                    </h2>
+                    <span style="font-size:12px; color:#64748b; background:#f1f5f9; padding:4px 10px; border-radius:12px;">
+                        I 'Non Disponibili' sono stati filtrati
+                    </span>
                 </div>
-                <table class="wp-list-table widefat fixed striped table-view-list" style="border:none;">
-                    <thead>
-                        <tr>
-                            <th style="width:180px; font-weight:700;">Volontario</th>
-                            <th style="width:140px; font-weight:700;">Giorno &amp; Fascia</th>
-                            <th style="width:110px; font-weight:700; text-align:center;">Disponibilità</th>
-                            <th style="font-weight:700;">Note</th>
-                            <th style="width:120px; font-weight:700;">Inviato il</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (! empty($responses)) : ?>
-                            <?php foreach ($responses as $r) : 
-                                $day = $wpdb->get_row($wpdb->prepare("SELECT day_label FROM {$wpdb->prefix}dfn_volunteer_event_days WHERE id = %d", $r->day_id));
-                            ?>
-                                <tr>
-                                    <td>
-                                        <strong style="color:#0f172a; font-size:13px; display:block;">
-                                            <?php echo esc_html($r->first_name . ' ' . $r->last_name); ?>
-                                        </strong>
-                                        <?php if ($r->phone) : ?>
-                                            <span style="font-size:11px; color:#64748b;">📞 <?php echo esc_html($r->phone); ?></span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <div style="font-size:12px; font-weight:600; color:#334155;"><?php echo esc_html($day ? $day->day_label : 'Giorno #' . $r->day_id); ?></div>
-                                        <div style="font-size:11px; color:#64748b;"><?php echo esc_html(ucfirst($r->time_slot_key)); ?></div>
-                                    </td>
-                                    <td style="text-align:center;">
-                                        <?php if (! empty($r->is_available)) : ?>
-                                            <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; border-radius:10px; font-size:11px; font-weight:700; padding:2px 8px;">
-                                                ✅ Disponibile
+
+                <?php if (! empty($days)) : ?>
+                    <?php foreach ($days as $day) : 
+                        // Recupera tutti gli shift configurati per questo giorno
+                        $shifts_in_day = $wpdb->get_results($wpdb->prepare(
+                            "SELECT DISTINCT shift_label, time_start, time_end FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d ORDER BY time_start ASC",
+                            $day->id
+                        ));
+
+                        if (empty($shifts_in_day)) {
+                            $shifts_in_day = [
+                                (object) ['shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00'],
+                                (object) ['shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00'],
+                            ];
+                        }
+                    ?>
+                        <!-- BLOCCO GIORNO EVENTO -->
+                        <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; overflow:hidden; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="padding:12px 18px; background:#004b23; color:#fff; display:flex; justify-content:space-between; align-items:center;">
+                                <strong style="font-size:14px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">
+                                    🗓️ <?php echo esc_html($day->day_label); ?>
+                                </strong>
+                            </div>
+
+                            <div style="padding:16px 18px;">
+                                <?php foreach ($shifts_in_day as $sh) : 
+                                    $time_lbl = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
+                                    $slot_key = sanitize_key($sh->shift_label . '_' . substr($sh->time_start, 0, 5));
+                                    
+                                    // Prendi risposte per questo slot (con fallback su mattina/pomeriggio)
+                                    $slot_resps = $grouped_responses[$day->id][$slot_key] ?? [];
+                                    if (empty($slot_resps)) {
+                                        $fallback_k = (strpos($slot_key, 'pomeriggio') !== false || strpos($slot_key, '14:') !== false || strpos($slot_key, '15:') !== false) ? 'pomeriggio' : 'mattina';
+                                        $slot_resps = $grouped_responses[$day->id][$fallback_k] ?? [];
+                                    }
+                                ?>
+                                    <!-- TABELLA SINGOLO SLOT ORARIO -->
+                                    <div style="margin-bottom:20px; border:1px solid #e2e8f0; border-radius:6px; overflow:hidden;">
+                                        <div style="padding:8px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="font-size:13px; font-weight:800; color:#1e293b;">
+                                                ⏰ <?php echo esc_html($sh->shift_label); ?> <span style="font-weight:normal; color:#64748b; font-size:12px;">(<?php echo esc_html($time_lbl); ?>)</span>
                                             </span>
-                                        <?php else : ?>
-                                            <span style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; border-radius:10px; font-size:11px; font-weight:700; padding:2px 8px;">
-                                                ❌ No
+                                            <span style="font-size:11.5px; font-weight:700; color:#15803d; background:#dcfce7; border:1px solid #86efac; border-radius:12px; padding:2px 8px;">
+                                                <?php echo count($slot_resps); ?> Volontari Disponibili
                                             </span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <span style="font-size:12px; color:#475569;"><?php echo esc_html($r->notes ?: '—'); ?></span>
-                                    </td>
-                                    <td>
-                                        <span style="font-size:11px; color:#64748b;"><?php echo esc_html(date_i18n('d/m/Y H:i', strtotime($r->submitted_at))); ?></span>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else : ?>
-                            <tr>
-                                <td colspan="5" style="padding:24px; text-align:center; color:#64748b;">
-                                    Nessuna risposta ricevuta finora. Condividi il link con i volontari!
-                                </td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                                        </div>
+
+                                        <table class="wp-list-table widefat fixed striped" style="border:none;">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width:230px; font-weight:700;">Volontario</th>
+                                                    <th style="width:170px; font-weight:700;">Competenze / Ruoli</th>
+                                                    <th style="font-weight:700;">Note &amp; Preferenze</th>
+                                                    <th style="width:130px; font-weight:700;">Inviato il</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php if (! empty($slot_resps)) : ?>
+                                                    <?php foreach ($slot_resps as $r) : ?>
+                                                        <tr>
+                                                            <td>
+                                                                <strong style="color:#0f172a; font-size:13px; display:block;">
+                                                                    <?php echo esc_html($r->first_name . ' ' . $r->last_name); ?>
+                                                                </strong>
+                                                                <?php if ($r->phone) : ?>
+                                                                    <span style="font-size:11px; color:#64748b;">📞 <?php echo esc_html($r->phone); ?></span>
+                                                                <?php endif; ?>
+                                                                <?php if ($r->email) : ?>
+                                                                    <div style="font-size:11px; color:#94a3b8;"><?php echo esc_html($r->email); ?></div>
+                                                                <?php endif; ?>
+                                                            </td>
+                                                            <td>
+                                                                <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                                                                    <?php if (! empty($r->has_safety_course)) : ?>
+                                                                        <span style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; border-radius:4px; font-size:10.5px; font-weight:700; padding:1px 6px;" title="Abilitato come Responsabile Sicurezza / Scuola">
+                                                                            🛡️ Corso Sicurezza
+                                                                        </span>
+                                                                    <?php endif; ?>
+                                                                    <?php if (! empty($r->is_guide)) : ?>
+                                                                        <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:4px; font-size:10.5px; font-weight:700; padding:1px 6px;" title="Abilitato come Guida Narrante">
+                                                                            🗣️ Guida
+                                                                        </span>
+                                                                    <?php endif; ?>
+                                                                    <?php if (empty($r->has_safety_course) && empty($r->is_guide)) : ?>
+                                                                        <span style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:4px; font-size:10.5px; padding:1px 6px;">
+                                                                            🏛️ Volontario
+                                                                        </span>
+                                                                    <?php endif; ?>
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <span style="font-size:12px; color:#334155;"><?php echo esc_html($r->notes ?: '—'); ?></span>
+                                                            </td>
+                                                            <td>
+                                                                <span style="font-size:11px; color:#64748b;"><?php echo esc_html(date_i18n('d/m/Y H:i', strtotime($r->submitted_at))); ?></span>
+                                                            </td>
+                                                        </tr>
+                                                    <?php endforeach; ?>
+                                                <?php else : ?>
+                                                    <tr>
+                                                        <td colspan="4" style="padding:14px; text-align:center; color:#94a3b8; font-style:italic;">
+                                                            Nessun volontario disponibile per questo turno.
+                                                        </td>
+                                                    </tr>
+                                                <?php endif; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <div style="background:#fff; padding:24px; border-radius:8px; border:1px solid #c3c4c7; text-align:center; color:#64748b;">
+                        Nessun giorno configurato per questo evento.
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
