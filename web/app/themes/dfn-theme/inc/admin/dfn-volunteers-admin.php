@@ -936,9 +936,15 @@ function dfn_render_volunteer_roles_admin_page(): void
                                             <span style="display:inline-block; background:#dcfce7; color:#15803d; padding:1px 6px; border-radius:4px; font-weight:700;">⭐ Default</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td style="text-align:right;">
-                                        <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" style="margin-right:4px;">Modifica</a>
-                                        <a href="<?php echo esc_url($del_url); ?>" class="button button-small" style="color:#b91c1c;" onclick="return confirm('Eliminare questa mansione?');">Elimina</a>
+                                    <td style="text-align:right; white-space:nowrap;">
+                                        <div style="display:inline-flex; align-items:center; justify-content:flex-end; gap:6px;">
+                                            <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" style="padding:0 7px; height:28px; line-height:26px; font-size:13px;" title="Modifica Mansione">
+                                                ✏️
+                                            </a>
+                                            <a href="<?php echo esc_url($del_url); ?>" class="button button-small" style="color:#b91c1c; padding:0 7px; height:28px; line-height:26px; font-size:13px;" onclick="return confirm('Eliminare questa mansione?');" title="Elimina Mansione">
+                                                🗑️
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
