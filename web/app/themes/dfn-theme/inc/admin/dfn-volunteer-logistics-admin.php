@@ -914,9 +914,15 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                     <div style="width:190px;">
                                         <select name="role_assigned" style="width:100%; font-size:12px; border-radius:6px; border:1px solid #cbd5e1; height:32px;">
                                             <?php if (! empty($event_roles)) : ?>
-                                                <?php foreach ($event_roles as $er_opt) : ?>
+                                                <?php foreach ($event_roles as $er_opt) : 
+                                                    $b_code = trim((string) $er_opt->badge_code);
+                                                    $r_title = $er_opt->role_name;
+                                                    if (! empty($b_code) && stripos($r_title, $b_code) === false) {
+                                                        $r_title .= ' ' . $b_code;
+                                                    }
+                                                ?>
                                                     <option value="<?php echo esc_attr($er_opt->role_key); ?>">
-                                                        <?php echo esc_html($er_opt->role_name . ($er_opt->badge_code ? ' ' . $er_opt->badge_code : '')); ?>
+                                                        <?php echo esc_html($r_title); ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             <?php else : ?>
