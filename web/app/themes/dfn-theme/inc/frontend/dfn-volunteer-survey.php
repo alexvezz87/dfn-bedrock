@@ -255,13 +255,26 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
         <?php echo $feedback_msg; ?>
 
         <?php if ($is_expired) : ?>
-            <div style="text-align:center; padding: 20px; color:#475569; font-size: 14.5px; line-height:1.6;">
-                <p>Le risposte per questo evento sono state chiuse per procedere con l'assegnazione finale dei turni e dei luoghi.</p>
-                <p>Se necessiti di variazioni urgenti, contatta direttamente la segreteria o il capodelegazione.</p>
+            <div style="background: #fef2f2; border: 1.5px solid #fecaca; border-left: 5px solid #dc2626; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;">
+                <div style="font-size: 14px; font-weight: 800; color: #991b1b; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                    <span>🔒</span> Sondaggio Chiuso
+                </div>
+                <div style="font-size: 13px; color: #7f1d1d; line-height: 1.5;">
+                    Le risposte per questo evento sono state chiuse per procedere con l'assegnazione dei turni.
+                    <?php if (! empty($saved_responses)) : ?>
+                        Di seguito puoi visualizzare il riepilogo delle disponibilità che hai inviato.
+                    <?php else : ?>
+                        Non risultano risposte registrate a tuo nome prima della chiusura del sondaggio.
+                    <?php endif; ?>
+                </div>
             </div>
-        <?php else : ?>
-            <form method="post" action="" class="dfn-survey-form">
-                <?php wp_nonce_field('dfn_survey_submit_action', 'dfn_survey_nonce'); ?>
+        <?php endif; ?>
+
+        <?php if (! $is_expired || ! empty($saved_responses)) : ?>
+            <form method="post" action="" class="dfn-survey-form" style="<?php echo $is_expired ? 'opacity: 0.85;' : ''; ?>">
+                <?php if (! $is_expired) : ?>
+                    <?php wp_nonce_field('dfn_survey_submit_action', 'dfn_survey_nonce'); ?>
+                <?php endif; ?>
 
                 <!-- Dati Anagrafici -->
                 <div style="margin-bottom: 24px;">
@@ -270,23 +283,23 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                     </h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
                         <div>
-                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Nome <span style="color:#ef4444;">*</span></label>
-                            <input type="text" name="first_name" required value="<?php echo esc_attr($user_first_name); ?>" placeholder="Es. Mario" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px;">
+                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Nome <?php echo ! $is_expired ? '<span style="color:#ef4444;">*</span>' : ''; ?></label>
+                            <input type="text" name="first_name" <?php echo $is_expired ? 'disabled readonly' : 'required'; ?> value="<?php echo esc_attr($user_first_name); ?>" placeholder="Es. Mario" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px; <?php echo $is_expired ? 'background:#f1f5f9; color:#475569; cursor:not-allowed;' : ''; ?>">
                         </div>
                         <div>
-                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Cognome <span style="color:#ef4444;">*</span></label>
-                            <input type="text" name="last_name" required value="<?php echo esc_attr($user_last_name); ?>" placeholder="Es. Rossi" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px;">
+                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Cognome <?php echo ! $is_expired ? '<span style="color:#ef4444;">*</span>' : ''; ?></label>
+                            <input type="text" name="last_name" <?php echo $is_expired ? 'disabled readonly' : 'required'; ?> value="<?php echo esc_attr($user_last_name); ?>" placeholder="Es. Rossi" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px; <?php echo $is_expired ? 'background:#f1f5f9; color:#475569; cursor:not-allowed;' : ''; ?>">
                         </div>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                         <div>
-                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Email (Opzionale)</label>
-                            <input type="email" name="email" value="<?php echo esc_attr($user_email); ?>" placeholder="mario.rossi@email.it" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px;">
+                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Email</label>
+                            <input type="email" name="email" <?php echo $is_expired ? 'disabled readonly' : ''; ?> value="<?php echo esc_attr($user_email); ?>" placeholder="mario.rossi@email.it" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px; <?php echo $is_expired ? 'background:#f1f5f9; color:#475569; cursor:not-allowed;' : ''; ?>">
                         </div>
                         <div>
-                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Telefono (Opzionale)</label>
-                            <input type="tel" name="phone" value="<?php echo esc_attr($user_phone); ?>" placeholder="333 1234567" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px;">
+                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Telefono</label>
+                            <input type="tel" name="phone" <?php echo $is_expired ? 'disabled readonly' : ''; ?> value="<?php echo esc_attr($user_phone); ?>" placeholder="333 1234567" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px; <?php echo $is_expired ? 'background:#f1f5f9; color:#475569; cursor:not-allowed;' : ''; ?>">
                         </div>
                     </div>
                 </div>
@@ -294,10 +307,10 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                 <!-- Sezione Selezione Slot per Giorno Dinamici -->
                 <div style="margin-bottom: 24px;">
                     <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">
-                        📅 Seleziona le tue disponibilità
+                        📅 <?php echo $is_expired ? 'Le tue disponibilità inviate' : 'Seleziona le tue disponibilità'; ?>
                     </h3>
                     <p style="font-size: 13px; color: #64748b; margin: 0 0 16px 0;">
-                        Indica i turni orari in cui sei disponibile. Il luogo e l'incarico a cui verrai assegnato saranno stabiliti dalla Delegazione.
+                        <?php echo $is_expired ? 'Riepilogo delle fasce orarie in cui hai indicato la tua disponibilità:' : 'Indica i turni orari in cui sei disponibile. Il luogo e l\'incarico a cui verrai assegnato saranno stabiliti dalla Delegazione.'; ?>
                     </p>
 
                     <div style="display: flex; flex-direction: column; gap: 14px;">
@@ -330,10 +343,15 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                                         $is_checked = ! empty($saved_responses[$compound_key]);
                                         $time_range = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
                                     ?>
-                                        <label style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1.5px solid <?php echo $is_checked ? '#004b23' : '#cbd5e1'; ?>; padding: 12px 14px; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
-                                            <input type="checkbox" name="slots[<?php echo esc_attr($compound_key); ?>]" value="1" <?php checked($is_checked, true); ?> style="width: 18px; height: 18px;">
+                                        <label style="display: flex; align-items: center; gap: 10px; background: <?php echo ($is_expired && $is_checked) ? '#e8f5e9' : '#ffffff'; ?>; border: 1.5px solid <?php echo $is_checked ? '#004b23' : '#cbd5e1'; ?>; padding: 12px 14px; border-radius: 10px; cursor: <?php echo $is_expired ? 'default' : 'pointer'; ?>; transition: all 0.2s;">
+                                            <input type="checkbox" name="slots[<?php echo esc_attr($compound_key); ?>]" value="1" <?php checked($is_checked, true); ?> <?php echo $is_expired ? 'disabled' : ''; ?> style="width: 18px; height: 18px; <?php echo $is_expired ? 'cursor:default;' : ''; ?>">
                                             <div>
-                                                <strong style="font-size: 13.5px; color: #0f172a; display: block;"><?php echo esc_html($sh->shift_label); ?></strong>
+                                                <strong style="font-size: 13.5px; color: <?php echo ($is_expired && $is_checked) ? '#004b23' : '#0f172a'; ?>; display: block;">
+                                                    <?php echo esc_html($sh->shift_label); ?>
+                                                    <?php if ($is_expired && $is_checked) : ?>
+                                                        <span style="font-size: 11px; color: #166534; font-weight: 800;">(Disponibile ✅)</span>
+                                                    <?php endif; ?>
+                                                </strong>
                                                 <span style="font-size: 12px; color: #64748b;">(<?php echo esc_html($time_range); ?>)</span>
                                             </div>
                                         </label>
@@ -346,14 +364,16 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
 
                 <!-- Note / Preferenze aggiuntive -->
                 <div style="margin-bottom: 24px;">
-                    <label style="display:block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 4px;">Note o preferenze speciali (Opzionale)</label>
-                    <textarea name="notes" rows="3" placeholder="Es. Preferenza per luogo specifico, disponibilità solo fino alle 17:00, in coppia con..." style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; padding: 10px; font-size: 13.5px;"><?php echo esc_textarea($user_notes); ?></textarea>
+                    <label style="display:block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 4px;">Note o preferenze speciali</label>
+                    <textarea name="notes" rows="3" <?php echo $is_expired ? 'disabled readonly' : ''; ?> placeholder="<?php echo $is_expired ? 'Nessuna nota specificata' : 'Es. Preferenza per luogo specifico, disponibilità solo fino alle 17:00, in coppia con...'; ?>" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; padding: 10px; font-size: 13.5px; <?php echo $is_expired ? 'background:#f1f5f9; color:#475569; cursor:not-allowed;' : ''; ?>"><?php echo esc_textarea($user_notes); ?></textarea>
                 </div>
 
-                <!-- Pulsante Submit -->
-                <button type="submit" name="dfn_submit_survey" class="button button-primary" style="background: #004b23; border: none; border-radius: 50px; color: #ffffff; font-weight: 800; font-size: 15px; width: 100%; padding: 14px 20px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,75,35,0.25);">
-                    💾 Invia la mia Disponibilità
-                </button>
+                <!-- Pulsante Submit (solo se sondaggio aperto) -->
+                <?php if (! $is_expired) : ?>
+                    <button type="submit" name="dfn_submit_survey" class="button button-primary" style="background: #004b23; border: none; border-radius: 50px; color: #ffffff; font-weight: 800; font-size: 15px; width: 100%; padding: 14px 20px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,75,35,0.25);">
+                        💾 Invia la mia Disponibilità
+                    </button>
+                <?php endif; ?>
             </form>
         <?php endif; ?>
     </div>
