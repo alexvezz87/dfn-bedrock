@@ -873,21 +873,21 @@ function dfn_volunteer_events_endpoint_content(): void
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
                             <div>
                                 <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px;">
-                                    <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #004b23; background: #e8f5e9; border: 1px solid #c8e6c9; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #004b23; background: #e8f5e9; border: 1px solid #c8e6c9; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
                                         <?php echo $is_giornata_fai ? '🏰 Giornata FAI (Nazionale)' : '📍 Evento Locale / Visita'; ?>
                                     </span>
 
                                     <!-- Badge Stato Sondaggio / Turni -->
                                     <?php if ($are_shifts_published) : ?>
-                                        <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #15803d; background: #dcfce7; border: 1px solid #86efac; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
+                                        <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #15803d; background: #dcfce7; border: 1px solid #86efac; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
                                             ✅ Turni Pubblicati
                                         </span>
                                     <?php elseif ($is_survey_open) : ?>
-                                        <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
+                                        <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
                                             🟢 Sondaggio aperto
                                         </span>
                                     <?php elseif ($is_survey_closed) : ?>
-                                        <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #b45309; background: #fef3c7; border: 1px solid #fde68a; padding: 4px 12px; border-radius: 20px; line-height: 1.2;">
+                                        <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #b45309; background: #fef3c7; border: 1px solid #fde68a; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
                                             🟡 Sondaggio chiuso in attesa dei turni
                                         </span>
                                     <?php endif; ?>
