@@ -867,37 +867,17 @@ function dfn_volunteer_events_endpoint_content(): void
                         return (int) $s->event_id === (int) $ev->id;
                     });
                 ?>
-                    <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-left: 6px solid #004b23; border-radius: 14px; padding: 22px; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
+                    <div class="dfn-vol-event-card">
                         
                         <!-- Header Evento & Badges di Stato -->
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+                        <div class="dfn-vol-header">
                             <div>
-                                <h3 style="margin: 0 0 6px 0; font-size: 19px; font-weight: 800; color: #0f172a; line-height: 1.3;">
-                                    <?php echo esc_html($ev->title); ?>
-                                </h3>
-                                <div style="font-size: 13.5px; color: #475569;">
-                                    🗓️ <strong><?php echo esc_html(ucfirst($date_start_str)); ?></strong><?php echo $ev->date_start !== $ev->date_end ? ' — <strong>' . esc_html(ucfirst($date_end_str)) . '</strong>' : ''; ?>
-                                </div>
+                                <h3 class="dfn-vol-title"><?php echo esc_html($ev->title); ?></h3>
+                                <div class="dfn-vol-date">🗓️ <strong><?php echo esc_html(ucfirst($date_start_str)); ?></strong><?php echo $ev->date_start !== $ev->date_end ? ' — <strong>' . esc_html(ucfirst($date_end_str)) . '</strong>' : ''; ?></div>
 
                                 <!-- Badge Tipologia & Stato Sondaggio / Turni Sotto Titolo e Data -->
-                                <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px;">
-                                    <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #004b23; background: #e8f5e9; border: 1px solid #c8e6c9; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
-                                        <?php echo $is_giornata_fai ? '🏰 Giornata FAI (Nazionale)' : '📍 Evento Locale / Visita'; ?>
-                                    </span>
-
-                                    <?php if ($are_shifts_published) : ?>
-                                        <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #15803d; background: #dcfce7; border: 1px solid #86efac; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
-                                            ✅ Turni Pubblicati
-                                        </span>
-                                    <?php elseif ($is_survey_open) : ?>
-                                        <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
-                                            🟢 Sondaggio aperto
-                                        </span>
-                                    <?php elseif ($is_survey_closed) : ?>
-                                        <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #b45309; background: #fef3c7; border: 1px solid #fde68a; padding: 5px 14px; border-radius: 20px; line-height: 1.2; box-sizing: border-box;">
-                                            🟡 Sondaggio chiuso in attesa dei turni
-                                        </span>
-                                    <?php endif; ?>
+                                <div class="dfn-vol-badges-row">
+                                    <span class="dfn-badge-pill pill-type-fai"><?php echo $is_giornata_fai ? '🏰 Giornata FAI (Nazionale)' : '📍 Evento Locale / Visita'; ?></span><?php if ($are_shifts_published) : ?><span class="dfn-badge-pill pill-status-published">✅ Turni Pubblicati</span><?php elseif ($is_survey_open) : ?><span class="dfn-badge-pill pill-status-open">🟢 Sondaggio aperto</span><?php elseif ($is_survey_closed) : ?><span class="dfn-badge-pill pill-status-closed">🟡 Sondaggio chiuso in attesa dei turni</span><?php endif; ?>
                                 </div>
                             </div>
 
@@ -912,22 +892,16 @@ function dfn_volunteer_events_endpoint_content(): void
 
                         <!-- Istruzioni & Note per i Volontari -->
                         <?php if (! empty($ev->description)) : ?>
-                            <div style="background: #f8fafc; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0; margin-top: 14px;">
-                                <strong style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: #004b23; text-transform: uppercase; margin-bottom: 8px;">
-                                    <span>📝</span> Note e Istruzioni per i Volontari:
-                                </strong>
-                                <div style="font-size: 13.5px; color: #1e293b; line-height: 1.6; white-space: pre-line;">
-                                    <?php echo esc_html($ev->description); ?>
-                                </div>
+                            <div class="dfn-vol-instructions">
+                                <strong class="dfn-vol-instructions-title"><span>📝</span> Note e Istruzioni per i Volontari:</strong>
+                                <div class="dfn-vol-instructions-body"><?php echo esc_html($ev->description); ?></div>
                             </div>
                         <?php endif; ?>
 
                         <!-- Sezione 1: Il Tuo Turno Assegnato (Dettaglio: Giorno, Luogo, Slot Orario) -->
                         <?php if ($are_shifts_published && ! empty($ev_my_shifts)) : ?>
-                            <div style="margin-top: 18px; background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 10px; padding: 16px;">
-                                <div style="font-size: 12.5px; font-weight: 800; color: #9a3412; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                                    <span>📍</span> Il Tuo Turno &amp; Incarico Assegnato:
-                                </div>
+                            <div class="dfn-vol-assigned-section">
+                                <div class="dfn-vol-assigned-heading"><span>📍</span> Il Tuo Turno &amp; Incarico Assegnato:</div>
                                 <div style="display: flex; flex-direction: column; gap: 10px;">
                                     <?php foreach ($ev_my_shifts as $sh_item) : 
                                         $r_obj = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($sh_item->role_assigned) : null;
@@ -943,22 +917,20 @@ function dfn_volunteer_events_endpoint_content(): void
                                         $r_bg  = $r_obj ? $r_obj->badge_bg : '#ea580c';
                                         $r_col = $r_obj ? $r_obj->badge_color : '#ffffff';
                                     ?>
-                                        <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                        <div class="dfn-vol-shift-item">
                                             <div>
-                                                <div style="font-size: 13.5px; font-weight: 700; color: #0f172a;">
+                                                <div style="font-size: 13.5px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">
                                                     🗓️ <strong>Giorno:</strong> <?php echo esc_html(ucfirst(date_i18n('l d/m/Y', strtotime($sh_item->event_date)))); ?>
                                                 </div>
-                                                <div style="font-size: 13px; color: #334155; margin-top: 3px;">
+                                                <div style="font-size: 13px; color: #334155; margin-bottom: 2px;">
                                                     📍 <strong>Luogo:</strong> <?php echo esc_html($sh_item->place_name); ?>
                                                 </div>
-                                                <div style="font-size: 13px; color: #334155; margin-top: 3px;">
+                                                <div style="font-size: 13px; color: #334155;">
                                                     ⏰ <strong>Slot Orario:</strong> <?php echo esc_html(substr($sh_item->time_start, 0, 5) . ' - ' . substr($sh_item->time_end, 0, 5)); ?> (<?php echo esc_html($sh_item->shift_label); ?>)
                                                 </div>
                                             </div>
                                             <div>
-                                                <span style="background: <?php echo esc_attr($r_bg); ?>; color: <?php echo esc_attr($r_col); ?>; font-size: 11.5px; font-weight: 800; padding: 6px 16px; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; text-align: center; line-height: 1.2; border: 1px solid rgba(0,0,0,0.05); box-sizing: border-box;">
-                                                    <?php echo esc_html($r_lbl); ?>
-                                                </span>
+                                                <span class="dfn-vol-role-badge" style="background: <?php echo esc_attr($r_bg); ?> !important; color: <?php echo esc_attr($r_col); ?> !important;"><?php echo esc_html($r_lbl); ?></span>
                                             </div>
                                         </div>
                                     <?php endforeach; ?>
