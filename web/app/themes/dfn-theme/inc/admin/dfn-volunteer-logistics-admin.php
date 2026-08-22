@@ -606,6 +606,32 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
         }
     }
 
+    // Gestione Pubblicazione Turni dell'Evento
+    if (isset($_POST['dfn_publish_shifts']) && wp_verify_nonce($_POST['dfn_publish_nonce'] ?? '', 'dfn_publish_shifts_action')) {
+        $wpdb->update(
+            $wpdb->prefix . 'dfn_volunteer_events',
+            [ 'status' => 'published' ],
+            [ 'id' => $event_id ],
+            [ '%s' ],
+            [ '%d' ]
+        );
+        $event = dfn_get_volunteer_event($event_id);
+        echo '<div class="notice notice-success is-dismissible"><p>🎉 <strong>Turni Pubblicati con successo!</strong> I volontari possono ora consultare i propri turni e la matrice generale nella loro area personale.</p></div>';
+    }
+
+    // Gestione Sospensione / Ritiro Pubblicazione Turni
+    if (isset($_POST['dfn_unpublish_shifts']) && wp_verify_nonce($_POST['dfn_publish_nonce'] ?? '', 'dfn_publish_shifts_action')) {
+        $wpdb->update(
+            $wpdb->prefix . 'dfn_volunteer_events',
+            [ 'status' => 'survey_closed' ],
+            [ 'id' => $event_id ],
+            [ '%s' ],
+            [ '%d' ]
+        );
+        $event = dfn_get_volunteer_event($event_id);
+        echo '<div class="notice notice-info is-dismissible"><p>ℹ️ <strong>Pubblicazione turni sospesa:</strong> l\'evento è tornato in stato di assegnazione turni (non visibile in area personale).</p></div>';
+    }
+
     // Gestione Modifica Orari Slot Orario
     if (isset($_POST['dfn_edit_shift']) && wp_verify_nonce($_POST['dfn_edit_shift_nonce'] ?? '', 'dfn_edit_shift_action')) {
         $edit_sh_id   = (int) $_POST['shift_id'];
@@ -679,9 +705,29 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 $now = current_time('mysql');
                 $is_survey_closed = ($survey && ($survey->status === 'closed' || (! empty($survey->deadline_at) && $survey->deadline_at < $now)));
             ?>
-            <div style="display:flex; gap:10px; align-items:center;">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <!-- Pulsante Pubblicazione Turni -->
+                <?php if ($event->status === 'published') : ?>
+                    <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:12.5px; font-weight:800; padding:5px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
+                        ✅ Turni Pubblicati
+                    </span>
+                    <form method="post" action="" onsubmit="return confirm('Vuoi sospendere la visibilità dei turni in area personale?');" style="margin:0;">
+                        <?php wp_nonce_field('dfn_publish_shifts_action', 'dfn_publish_nonce'); ?>
+                        <button type="submit" name="dfn_unpublish_shifts" class="button" style="color:#b91c1c; font-weight:700;">
+                            ⏸️ Sospendi Pubblicazione
+                        </button>
+                    </form>
+                <?php else : ?>
+                    <form method="post" action="" onsubmit="return confirm('Confermi la pubblicazione dei turni? I volontari potranno visualizzare i turni a loro assegnati nella propria area personale.');" style="margin:0;">
+                        <?php wp_nonce_field('dfn_publish_shifts_action', 'dfn_publish_nonce'); ?>
+                        <button type="submit" name="dfn_publish_shifts" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:4px 16px; box-shadow:0 2px 4px rgba(0,75,35,0.2);">
+                            📢 Pubblica Turni
+                        </button>
+                    </form>
+                <?php endif; ?>
+
                 <?php if ($survey && $is_survey_closed) : ?>
-                    <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e ai requisiti (Corso Sicurezza, Guide, Responsabili). Continuare?');">
+                    <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e ai requisiti (Corso Sicurezza, Guide, Responsabili). Continuare?');" style="margin:0;">
                         <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
                         <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
                             🤖 Assegna Automaticamente i Turni
@@ -1094,7 +1140,21 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                     [ '%d', '%s', '%s', '%s', '%s', '%s' ]
                 );
             }
-            echo '<div class="notice notice-success is-dismissible"><p>✅ Impostazioni sondaggio aggiornate con successo!</p></div>';
+
+            // Aggiornamento automatico stato dell'evento in base al sondaggio
+            $new_event_status = ($status === 'open') ? 'survey_open' : 'survey_closed';
+            if ($event->status !== 'published' && $event->status !== 'completed') {
+                $wpdb->update(
+                    $wpdb->prefix . 'dfn_volunteer_events',
+                    [ 'status' => $new_event_status ],
+                    [ 'id' => $event_id ],
+                    [ '%s' ],
+                    [ '%d' ]
+                );
+                $event = dfn_get_volunteer_event($event_id);
+            }
+
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Impostazioni sondaggio aggiornate con successo! Stato evento aggiornato a <strong>' . esc_html($new_event_status === 'survey_open' ? 'Sondaggio Aperto' : 'Sondaggio Chiuso') . '</strong>.</p></div>';
             $survey = dfn_get_volunteer_survey_by_event($event_id);
         }
     }
