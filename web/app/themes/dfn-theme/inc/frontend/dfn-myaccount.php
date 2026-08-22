@@ -931,7 +931,15 @@ function dfn_volunteer_events_endpoint_content(): void
                                 <div style="display: flex; flex-direction: column; gap: 10px;">
                                     <?php foreach ($ev_my_shifts as $sh_item) : 
                                         $r_obj = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($sh_item->role_assigned) : null;
-                                        $r_lbl = $r_obj ? ($r_obj->role_name . ($r_obj->badge_code ? ' ' . $r_obj->badge_code : '')) : ucfirst(str_replace('_', ' ', $sh_item->role_assigned));
+                                        if ($r_obj) {
+                                            $b_code = trim((string) $r_obj->badge_code);
+                                            $r_lbl = $r_obj->role_name;
+                                            if (! empty($b_code) && stripos($r_lbl, $b_code) === false) {
+                                                $r_lbl .= ' ' . $b_code;
+                                            }
+                                        } else {
+                                            $r_lbl = ucfirst(str_replace('_', ' ', $sh_item->role_assigned));
+                                        }
                                         $r_bg  = $r_obj ? $r_obj->badge_bg : '#ea580c';
                                         $r_col = $r_obj ? $r_obj->badge_color : '#ffffff';
                                     ?>
@@ -948,7 +956,7 @@ function dfn_volunteer_events_endpoint_content(): void
                                                 </div>
                                             </div>
                                             <div>
-                                                <span style="background: <?php echo esc_attr($r_bg); ?>; color: <?php echo esc_attr($r_col); ?>; font-size: 11.5px; font-weight: 800; padding: 5px 14px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0,0,0,0.05);">
+                                                <span style="background: <?php echo esc_attr($r_bg); ?>; color: <?php echo esc_attr($r_col); ?>; font-size: 11.5px; font-weight: 800; padding: 6px 16px; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; text-align: center; line-height: 1.2; border: 1px solid rgba(0,0,0,0.05); box-sizing: border-box;">
                                                     <?php echo esc_html($r_lbl); ?>
                                                 </span>
                                             </div>
