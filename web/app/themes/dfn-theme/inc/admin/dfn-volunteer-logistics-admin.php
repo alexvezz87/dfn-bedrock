@@ -1479,9 +1479,20 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                                     $time_lbl = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
                                     $slot_key = sanitize_key($sh->shift_label . '_' . substr($sh->time_start, 0, 5));
                                     
-                                    // Prendi risposte per questo slot (con fallback su mattina/pomeriggio)
+                                    // Ricerca risposte per questo slot con corrispondenza flessibile
                                     $slot_resps = $grouped_responses[$day->id][$slot_key] ?? [];
-                                    if (empty($slot_resps)) {
+                                    if (empty($slot_resps) && isset($grouped_responses[$day->id])) {
+                                        // Match flessibile ignorando separatori non alfanumerici
+                                        $clean_target = preg_replace('/[^a-z0-9]/', '', strtolower($sh->shift_label . substr($sh->time_start, 0, 5)));
+                                        foreach ($grouped_responses[$day->id] as $resp_k => $resps) {
+                                            $clean_k = preg_replace('/[^a-z0-9]/', '', strtolower($resp_k));
+                                            if ($clean_k === $clean_target) {
+                                                $slot_resps = $resps;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (empty($slot_resps) && isset($grouped_responses[$day->id])) {
                                         $fallback_k = (strpos($slot_key, 'pomeriggio') !== false || strpos($slot_key, '14:') !== false || strpos($slot_key, '15:') !== false) ? 'pomeriggio' : 'mattina';
                                         $slot_resps = $grouped_responses[$day->id][$fallback_k] ?? [];
                                     }
