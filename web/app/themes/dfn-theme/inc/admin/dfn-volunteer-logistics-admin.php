@@ -719,9 +719,19 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             <?php 
                 $now = current_time('mysql');
                 $is_survey_closed = ($survey && ($survey->status === 'closed' || (! empty($survey->deadline_at) && $survey->deadline_at < $now)));
+                $is_survey_published = ($survey && $survey->status !== 'draft');
+
+                // Conta turni ed assegnazioni totali dell'evento
+                $event_shift_ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE event_id = %d", $event_id));
+                $total_event_assignments = 0;
+                if (! empty($event_shift_ids)) {
+                    $in_ev_shifts = implode(',', array_map('intval', $event_shift_ids));
+                    $total_event_assignments = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE shift_id IN ($in_ev_shifts)");
+                }
             ?>
             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                <!-- Pulsante Pubblicazione Turni -->
+                
+                <!-- 1. Gestione Pubblicazione Turni (Mostrato solo se ci sono assegnazioni generate) -->
                 <?php if ($event->status === 'published') : ?>
                     <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:12.5px; font-weight:800; padding:5px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
                         ✅ Turni Pubblicati
@@ -732,7 +742,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             ⏸️ Sospendi Pubblicazione
                         </button>
                     </form>
-                <?php else : ?>
+                <?php elseif ($total_event_assignments > 0) : ?>
                     <form method="post" action="" onsubmit="return confirm('Confermi la pubblicazione dei turni? I volontari potranno visualizzare i turni a loro assegnati nella propria area personale.');" style="margin:0;">
                         <?php wp_nonce_field('dfn_publish_shifts_action', 'dfn_publish_nonce'); ?>
                         <button type="submit" name="dfn_publish_shifts" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:4px 16px; box-shadow:0 2px 4px rgba(0,75,35,0.2);">
@@ -741,24 +751,33 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     </form>
                 <?php endif; ?>
 
+                <!-- 2. Assegnazione Automatica (Disponibile solo dopo chiusura/scadenza sondaggio) -->
                 <?php if ($survey && $is_survey_closed) : ?>
-                    <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e ai requisiti (Corso Sicurezza, Guide, Responsabili). Continuare?');" style="margin:0;">
+                    <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e alle sole mansioni abilitate per l\'evento. Continuare?');" style="margin:0;">
                         <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
                         <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
                             🤖 Assegna Automaticamente i Turni
                         </button>
                     </form>
-                <?php elseif ($survey && ! $is_survey_closed) : ?>
-                    <button type="button" class="button" disabled style="opacity:0.65; cursor:not-allowed; background:#f1f5f9; color:#64748b; font-weight:700; border:1px solid #cbd5e1;" title="L'assegnazione automatica sarà sbloccata non appena il sondaggio sarà chiuso o scaduto.">
-                        ⏳ In attesa chiusura sondaggio
-                    </button>
                 <?php endif; ?>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=survey&event_id=' . $event_id)); ?>" class="button" style="font-weight:700;">
-                    📊 Risposte Sondaggio
-                </a>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=print&event_id=' . $event_id)); ?>" target="_blank" class="button" style="font-weight:700;">
-                    🖨️ Stampa / Esporta PDF
-                </a>
+
+                <!-- 3. Gestione / Risposte Sondaggio (Condizionale all'esistenza del sondaggio) -->
+                <?php if ($survey) : ?>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=survey&event_id=' . $event_id)); ?>" class="button" style="font-weight:700;">
+                        📊 Risposte Sondaggio
+                    </a>
+                <?php else : ?>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=survey&event_id=' . $event_id)); ?>" class="button button-secondary" style="font-weight:700; background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">
+                        📋 Crea Sondaggio
+                    </a>
+                <?php endif; ?>
+
+                <!-- 4. Stampa / Esporta PDF (Disponibile solo se ci sono turni o assegnazioni) -->
+                <?php if (! empty($event_shift_ids)) : ?>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=print&event_id=' . $event_id)); ?>" target="_blank" class="button" style="font-weight:700;">
+                        🖨️ Stampa / Esporta PDF
+                    </a>
+                <?php endif; ?>
             </div>
         </header>
 
