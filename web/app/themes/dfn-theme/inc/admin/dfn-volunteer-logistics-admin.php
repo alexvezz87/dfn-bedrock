@@ -1291,45 +1291,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             var draggedCard = null;
             var dragHoverTimer = null;
 
-            // Accordion Singola Finestra & Auto-open in hover durante Drag
+            // Accordion Multipli Indipendenti (puoi aprire più giorni contemporaneamente)
             var accordions = document.querySelectorAll('.dfn-day-accordion');
-            accordions.forEach(function(acc) {
-                acc.addEventListener('toggle', function() {
-                    if (this.open) {
-                        accordions.forEach(function(other) {
-                            if (other !== acc && other.open) {
-                                other.removeAttribute('open');
-                            }
-                        });
-                    }
-                });
-
-                // Auto-apertura giorno quando si trascina sopra la testata di un giorno chiuso
-                var summary = acc.querySelector('summary');
-                if (summary) {
-                    summary.addEventListener('dragover', function(e) {
-                        e.preventDefault();
-                        if (!acc.open && draggedCard) {
-                            if (!dragHoverTimer) {
-                                dragHoverTimer = setTimeout(function() {
-                                    acc.setAttribute('open', 'true');
-                                    accordions.forEach(function(other) {
-                                        if (other !== acc && other.open) {
-                                            other.removeAttribute('open');
-                                        }
-                                    });
-                                }, 400);
-                            }
-                        }
-                    });
-                    summary.addEventListener('dragleave', function() {
-                        if (dragHoverTimer) {
-                            clearTimeout(dragHoverTimer);
-                            dragHoverTimer = null;
-                        }
-                    });
-                }
-            });
 
             // DRAG & DROP DEI VOLONTARI SUI TURNI
             function attachDragListeners() {
