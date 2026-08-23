@@ -1189,7 +1189,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
                                                 <!-- Scelta da elenco registrati divisa tra disponibili e altri -->
                                                 <div style="flex:1; min-width:220px;">
-                                                    <select name="volunteer_id" style="width:100%; font-size:12px; border-radius:6px; border:1px solid #cbd5e1; height:32px;">
+                                                    <select name="volunteer_id" class="dfn-shift-volunteer-select" data-shift-id="<?php echo esc_attr($shift->id); ?>" style="width:100%; font-size:12px; border-radius:6px; border:1px solid #cbd5e1; height:32px;">
                                                         <option value="">-- Seleziona Volontario --</option>
                                                         
                                                         <?php 
@@ -1197,10 +1197,6 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                         $other_vols = [];
 
                                                         foreach ($all_volunteers as $av) {
-                                                            // Escludi volontari già assegnati a questo specifico turno
-                                                            if (in_array((int) $av->id, $assigned_vol_ids, true)) {
-                                                                continue;
-                                                            }
                                                             if (in_array((int) $av->id, $avail_vol_ids_for_shift, true)) {
                                                                 $avail_vols[] = $av;
                                                             } else {
@@ -1210,13 +1206,14 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                         ?>
 
                                                         <?php if (! empty($avail_vols)) : ?>
-                                                            <optgroup label="✅ Disponibili dal Sondaggio (<?php echo count($avail_vols); ?>)">
+                                                            <optgroup label="✅ Disponibili dal Sondaggio" class="dfn-optgroup-survey">
                                                                 <?php foreach ($avail_vols as $av) : 
+                                                                    $is_assigned = in_array((int) $av->id, $assigned_vol_ids, true);
                                                                     $extra_label = '';
                                                                     if (! empty($av->has_safety_course)) $extra_label .= ' [🦺 Sicurezza]';
                                                                     if (! empty($av->is_guide)) $extra_label .= ' [🏛️ Guida]';
                                                                 ?>
-                                                                    <option value="<?php echo esc_attr($av->id); ?>">
+                                                                    <option value="<?php echo esc_attr($av->id); ?>" data-volunteer-id="<?php echo esc_attr($av->id); ?>" <?php echo $is_assigned ? 'style="display:none;" disabled' : ''; ?>>
                                                                         <?php echo esc_html($av->first_name . ' ' . $av->last_name . $extra_label); ?>
                                                                     </option>
                                                                 <?php endforeach; ?>
@@ -1224,13 +1221,14 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                         <?php endif; ?>
 
                                                         <?php if (! empty($other_vols)) : ?>
-                                                            <optgroup label="👥 Altri Volontari Registrati (<?php echo count($other_vols); ?>)">
+                                                            <optgroup label="👥 Altri Volontari Registrati" class="dfn-optgroup-others">
                                                                 <?php foreach ($other_vols as $av) : 
+                                                                    $is_assigned = in_array((int) $av->id, $assigned_vol_ids, true);
                                                                     $extra_label = '';
                                                                     if (! empty($av->has_safety_course)) $extra_label .= ' [🦺 Sicurezza]';
                                                                     if (! empty($av->is_guide)) $extra_label .= ' [🏛️ Guida]';
                                                                 ?>
-                                                                    <option value="<?php echo esc_attr($av->id); ?>">
+                                                                    <option value="<?php echo esc_attr($av->id); ?>" data-volunteer-id="<?php echo esc_attr($av->id); ?>" <?php echo $is_assigned ? 'style="display:none;" disabled' : ''; ?>>
                                                                         <?php echo esc_html($av->first_name . ' ' . $av->last_name . $extra_label); ?>
                                                                     </option>
                                                                 <?php endforeach; ?>
@@ -1392,8 +1390,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
                         var targetZone = this;
                         var cardToMove = draggedCard;
+                        var oldZone = document.querySelector('.dfn-shift-dropzone[data-shift-id="' + oldShiftId + '"]');
 
-                        // Rimuovi eventuale messaggio 'Nessun volontario assegnato'
+                        // Rimuovi eventuale messaggio 'Nessun volontario assegnato' dalla dropzone di destinazione
                         var emptyMsg = targetZone.querySelector('.dfn-dropzone-empty-msg');
                         if (emptyMsg) {
                             emptyMsg.remove();
@@ -1402,6 +1401,43 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                         // Feedback visivo immediato (sposta card nel DOM)
                         targetZone.appendChild(cardToMove);
                         cardToMove.setAttribute('data-shift-id', newShiftId);
+
+                        // Se la dropzone di origine è rimasta vuota, reinserisci il messaggio placeholder
+                        if (oldZone && !oldZone.querySelector('.dfn-vol-draggable-card')) {
+                            var newEmptyMsg = document.createElement('div');
+                            newEmptyMsg.className = 'dfn-dropzone-empty-msg';
+                            newEmptyMsg.style.cssText = 'grid-column: 1 / -1; color:#94a3b8; font-style:italic; padding:12px; text-align:center; border:1px dashed #cbd5e1; border-radius:6px; background:#fff;';
+                            newEmptyMsg.textContent = 'Nessun volontario assegnato. Trascina qui un volontario o usa il modulo in basso.';
+                            oldZone.appendChild(newEmptyMsg);
+                        }
+
+                        // AGGIORNAMENTO DINAMICO DELLE SELECT BOX (SLOT DI PARTENZA E SLOT DI ARRIVO)
+                        if (volKey && volKey.indexOf('id_') === 0) {
+                            var volIdNum = volKey.replace('id_', '');
+
+                            // 1. Nello slot di partenza (oldShiftId): riabilita e mostra l'opzione del volontario
+                            var oldSelect = document.querySelector('.dfn-shift-volunteer-select[data-shift-id="' + oldShiftId + '"]');
+                            if (oldSelect) {
+                                var oldOpt = oldSelect.querySelector('option[data-volunteer-id="' + volIdNum + '"]');
+                                if (oldOpt) {
+                                    oldOpt.style.display = '';
+                                    oldOpt.removeAttribute('disabled');
+                                }
+                            }
+
+                            // 2. Nello slot di destinazione (newShiftId): disabilita e nascondi l'opzione del volontario
+                            var newSelect = document.querySelector('.dfn-shift-volunteer-select[data-shift-id="' + newShiftId + '"]');
+                            if (newSelect) {
+                                var newOpt = newSelect.querySelector('option[data-volunteer-id="' + volIdNum + '"]');
+                                if (newOpt) {
+                                    newOpt.style.display = 'none';
+                                    newOpt.setAttribute('disabled', 'disabled');
+                                    if (newSelect.value === volIdNum) {
+                                        newSelect.value = '';
+                                    }
+                                }
+                            }
+                        }
 
                         // Esegui chiamata AJAX
                         var formData = new FormData();
