@@ -783,21 +783,13 @@ function dfn_volunteer_surveys_endpoint_content(): void
                             <div style="margin-bottom: 6px;">
                                 <span class="dfn-badge-pill pill-status-open">⏳ Aperto alle risposte</span>
                             </div>
-                            <h3 style="margin: 4px 0; font-size: 17px; font-weight: 800; color: #0f172a;">
-                                <?php echo esc_html($s->title); ?>
-                            </h3>
-                            <div style="font-size: 13px; color: #475569; margin-top: 4px;">
-                                🗓️ Date Evento: <strong><?php echo esc_html(date_i18n('d/m/Y', strtotime($s->date_start))); ?></strong><?php echo $s->date_end !== $s->date_start ? ' - <strong>' . esc_html(date_i18n('d/m/Y', strtotime($s->date_end))) . '</strong>' : ''; ?>
-                            </div>
-                            <div style="font-size: 12.5px; color: #b91c1c; font-weight: 700; margin-top: 4px;">
-                                ⏰ Scadenza invio: <?php echo esc_html($deadline_str); ?>
-                            </div>
+                            <h3 style="margin: 0 0 6px 0; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.3;"><?php echo esc_html($s->title); ?></h3>
+                            <div style="font-size: 13px; color: #475569; margin-top: 4px;">🗓️ Date Evento: <strong><?php echo esc_html(date_i18n('d/m/Y', strtotime($s->date_start))); ?></strong><?php echo $s->date_end !== $s->date_start ? ' - <strong>' . esc_html(date_i18n('d/m/Y', strtotime($s->date_end))) . '</strong>' : ''; ?></div>
+                            <div style="font-size: 12.5px; color: #b91c1c; font-weight: 700; margin-top: 4px;">⏰ Scadenza invio: <?php echo esc_html($deadline_str); ?></div>
                         </div>
 
                         <div>
-                            <a href="<?php echo esc_url($survey_url); ?>" class="button" style="background: #2563eb; color: #ffffff; border-radius: 30px; font-weight: 700; padding: 10px 24px; font-size: 13.5px; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(37,99,235,0.2);">
-                                ✍️ Compila Sondaggio
-                            </a>
+                            <a href="<?php echo esc_url($survey_url); ?>" class="button dfn-btn-survey">✍️ Compila Sondaggio</a>
                         </div>
                     </div>
                 <?php endforeach; ?>
