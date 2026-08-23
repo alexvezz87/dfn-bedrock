@@ -1890,19 +1890,13 @@ function dfn_custom_myaccount_dashboard_content(): void
                 <!-- Box Sondaggio Aperto -->
                 <div class="dfn-dash-vol-box-survey">
                     <div>
-                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1d4ed8; margin-bottom: 2px;">
-                            📋 Disponibilità Richiesta
-                        </div>
-                        <h3 style="margin: 0 0 4px 0; font-size: 15.5px; font-weight: 800; color: #0f172a;">
-                            <?php echo esc_html($surv->title); ?>
-                        </h3>
-                        <p style="margin: 0; font-size: 12.5px; color: #475569;">
-                            Indica le tue preferenze orarie entro il <strong><?php echo esc_html(date_i18n('d/m/Y \a\l\l\e H:i', strtotime($surv->deadline_at))); ?></strong>.
-                        </p>
+                        <div class="dfn-dash-vol-survey-tag">📋 Disponibilità Richiesta</div>
+                        <h3 class="dfn-dash-vol-survey-title"><?php echo esc_html($surv->title); ?></h3>
+                        <p class="dfn-dash-vol-survey-desc">Indica le tue preferenze orarie entro il <strong><?php echo esc_html(date_i18n('d/m/Y \a\l\l\e H:i', strtotime($surv->deadline_at))); ?></strong>.</p>
                     </div>
-                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $surv->token_public)); ?>" class="button" style="background: #2563eb; color: #ffffff; border-radius: 50px; font-weight: 800; padding: 9px 22px; font-size: 13px; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-                        ✍️ Compila Sondaggio
-                    </a>
+                    <div>
+                        <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $surv->token_public)); ?>" class="button dfn-btn-survey">✍️ Compila Sondaggio</a>
+                    </div>
                 </div>
             <?php endif; ?>
 

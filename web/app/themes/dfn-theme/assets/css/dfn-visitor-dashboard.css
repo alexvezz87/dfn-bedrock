@@ -2262,7 +2262,67 @@
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 14px;
+}
+
+.dfn-dash-vol-survey-tag {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    color: #1d4ed8 !important;
+    line-height: 1 !important;
+    margin-bottom: 4px !important;
+}
+
+.dfn-dash-vol-survey-tag img.emoji {
+    height: 13px !important;
+    width: 13px !important;
+    margin: 0 !important;
+    vertical-align: middle !important;
+}
+
+.dfn-dash-vol-survey-title {
+    margin: 0 0 4px 0 !important;
+    font-size: 15.5px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    line-height: 1.3 !important;
+}
+
+.dfn-dash-vol-survey-desc {
+    margin: 0 !important;
+    font-size: 12.5px !important;
+    color: #475569 !important;
+    line-height: 1.4 !important;
+}
+
+.dfn-btn-survey {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border-radius: 50px !important;
+    font-weight: 800 !important;
+    padding: 9px 22px !important;
+    font-size: 13px !important;
+    border: none !important;
+    text-decoration: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    line-height: 1.2 !important;
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2) !important;
+    white-space: nowrap !important;
+}
+
+.dfn-btn-survey img.emoji {
+    height: 14px !important;
+    width: 14px !important;
+    margin: 0 !important;
+    vertical-align: -1px !important;
 }
 
 .dfn-dash-vol-box-shifts {
