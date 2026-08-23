@@ -17,6 +17,54 @@ if (! defined('ABSPATH')) {
 // Intercetta la richiesta di stampa/export PDF isolata dall'interfaccia di WordPress
 add_action('admin_init', 'dfn_handle_volunteer_event_print_intercept');
 
+// AJAX Handler per lo spostamento drag & drop del volontario tra slot/giorni
+add_action('wp_ajax_dfn_move_volunteer_shift', 'dfn_ajax_move_volunteer_shift');
+
+function dfn_ajax_move_volunteer_shift(): void
+{
+    check_ajax_referer('dfn_matrix_drag_drop_nonce', 'security');
+
+    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Permessi insufficienti.']);
+    }
+
+    global $wpdb;
+    $assignment_id   = (int) ($_POST['assignment_id'] ?? 0);
+    $target_shift_id = (int) ($_POST['target_shift_id'] ?? 0);
+
+    if ($assignment_id <= 0 || $target_shift_id <= 0) {
+        wp_send_json_error(['message' => 'Parametri non validi.']);
+    }
+
+    // Verifica che lo shift di destinazione esista
+    $target_shift = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE id = %d",
+        $target_shift_id
+    ));
+
+    if (! $target_shift) {
+        wp_send_json_error(['message' => 'Slot di destinazione non trovato.']);
+    }
+
+    // Aggiorna lo shift_id dell'assegnazione
+    $updated = $wpdb->update(
+        $wpdb->prefix . 'dfn_volunteer_shift_assignments',
+        [ 'shift_id' => $target_shift_id ],
+        [ 'id' => $assignment_id ],
+        [ '%d' ],
+        [ '%d' ]
+    );
+
+    if ($updated === false) {
+        wp_send_json_error(['message' => 'Errore nel salvataggio del database.']);
+    }
+
+    wp_send_json_success([
+        'message' => 'Volontario spostato con successo!',
+        'day_id'  => $target_shift->day_id,
+    ]);
+}
+
 function dfn_handle_volunteer_event_print_intercept(): void
 {
     if (isset($_GET['page'], $_GET['action'], $_GET['event_id']) && 
@@ -1040,8 +1088,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
                                     <!-- Corpo Slot: Assegnazioni e Aggiunta -->
                                     <div style="padding:16px;">
-                                        <!-- Elenco Volontari Assegnati -->
-                                        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap:10px; margin-bottom:16px;">
+                                        <!-- Elenco Volontari Assegnati (DROP TARGET) -->
+                                        <div class="dfn-shift-dropzone" data-shift-id="<?php echo esc_attr($shift->id); ?>" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap:10px; margin-bottom:16px; min-height:50px; padding:6px; border-radius:8px; transition:all 0.2s ease;">
                                             <?php if (! empty($assignments)) : ?>
                                                 <?php foreach ($assignments as $a) : 
                                                     $r_obj = $roles_by_key[$a->role_assigned] ?? null;
@@ -1054,14 +1102,17 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                     $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
                                                     $del_ass_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $d->id . '&remove_assignment=' . $a->id), 'dfn_del_ass_' . $a->id);
                                                 ?>
-                                                    <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; gap:8px;">
+                                                    <div class="dfn-vol-draggable-card" draggable="true" data-assignment-id="<?php echo esc_attr($a->id); ?>" data-shift-id="<?php echo esc_attr($shift->id); ?>" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:8px 12px; gap:8px; cursor:grab; user-select:none; transition:transform 0.15s ease, box-shadow 0.15s ease;">
                                                         <div style="flex:1; min-width:0;">
-                                                            <strong style="font-size:13px; color:#1e293b; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?php echo esc_attr($v_name); ?>">
-                                                                <?php echo esc_html($v_name); ?>
-                                                                <?php if (empty($a->volunteer_id)) : ?>
-                                                                    <span style="font-size:10.5px; color:#64748b; font-weight:normal; font-style:italic;">(Manuale)</span>
-                                                                <?php endif; ?>
-                                                            </strong>
+                                                            <div style="display:flex; align-items:center; gap:6px;">
+                                                                <span style="color:#94a3b8; font-size:12px; cursor:grab;" title="Trascina per spostare">⠿</span>
+                                                                <strong style="font-size:13px; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?php echo esc_attr($v_name); ?>">
+                                                                    <?php echo esc_html($v_name); ?>
+                                                                    <?php if (empty($a->volunteer_id)) : ?>
+                                                                        <span style="font-size:10.5px; color:#64748b; font-weight:normal; font-style:italic;">(Manuale)</span>
+                                                                    <?php endif; ?>
+                                                                </strong>
+                                                            </div>
                                                             
                                                             <!-- Menu Rapido Cambio Mansione -->
                                                             <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $d->id)); ?>" style="margin-top:4px;">
@@ -1090,8 +1141,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                     </div>
                                                 <?php endforeach; ?>
                                             <?php else : ?>
-                                                <div style="grid-column: 1 / -1; color:#94a3b8; font-style:italic; padding:8px 0;">
-                                                    Nessun volontario assegnato a questo slot orario.
+                                                <div class="dfn-dropzone-empty-msg" style="grid-column: 1 / -1; color:#94a3b8; font-style:italic; padding:12px; text-align:center; border:1px dashed #cbd5e1; border-radius:6px; background:#fff;">
+                                                    Nessun volontario assegnato. Trascina qui un volontario o usa il modulo in basso.
                                                 </div>
                                             <?php endif; ?>
                                         </div>
@@ -1201,6 +1252,12 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
         <script>
         document.addEventListener('DOMContentLoaded', function() {
+            var ajaxUrl = '<?php echo esc_url(admin_url('admin-ajax.php')); ?>';
+            var dragNonce = '<?php echo esc_js(wp_create_nonce('dfn_matrix_drag_drop_nonce')); ?>';
+            var draggedCard = null;
+            var dragHoverTimer = null;
+
+            // Accordion Singola Finestra & Auto-open in hover durante Drag
             var accordions = document.querySelectorAll('.dfn-day-accordion');
             accordions.forEach(function(acc) {
                 acc.addEventListener('toggle', function() {
@@ -1212,7 +1269,136 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                         });
                     }
                 });
+
+                // Auto-apertura giorno quando si trascina sopra la testata di un giorno chiuso
+                var summary = acc.querySelector('summary');
+                if (summary) {
+                    summary.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        if (!acc.open && draggedCard) {
+                            if (!dragHoverTimer) {
+                                dragHoverTimer = setTimeout(function() {
+                                    acc.setAttribute('open', 'true');
+                                    accordions.forEach(function(other) {
+                                        if (other !== acc && other.open) {
+                                            other.removeAttribute('open');
+                                        }
+                                    });
+                                }, 400);
+                            }
+                        }
+                    });
+                    summary.addEventListener('dragleave', function() {
+                        if (dragHoverTimer) {
+                            clearTimeout(dragHoverTimer);
+                            dragHoverTimer = null;
+                        }
+                    });
+                }
             });
+
+            // DRAG & DROP DEI VOLONTARI SUI TURNI
+            function attachDragListeners() {
+                var cards = document.querySelectorAll('.dfn-vol-draggable-card');
+                cards.forEach(function(card) {
+                    card.addEventListener('dragstart', function(e) {
+                        draggedCard = this;
+                        this.style.opacity = '0.4';
+                        this.style.transform = 'scale(0.98)';
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', this.getAttribute('data-assignment-id'));
+                    });
+
+                    card.addEventListener('dragend', function() {
+                        this.style.opacity = '1';
+                        this.style.transform = 'none';
+                        draggedCard = null;
+                        if (dragHoverTimer) {
+                            clearTimeout(dragHoverTimer);
+                            dragHoverTimer = null;
+                        }
+                        document.querySelectorAll('.dfn-shift-dropzone').forEach(function(dz) {
+                            dz.style.background = '';
+                            dz.style.border = '';
+                        });
+                    });
+                });
+
+                var dropzones = document.querySelectorAll('.dfn-shift-dropzone');
+                dropzones.forEach(function(dz) {
+                    dz.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        this.style.background = '#f0fdf4';
+                        this.style.border = '2px dashed #16a34a';
+                    });
+
+                    dz.addEventListener('dragleave', function() {
+                        this.style.background = '';
+                        this.style.border = '';
+                    });
+
+                    dz.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        this.style.background = '';
+                        this.style.border = '';
+
+                        if (!draggedCard) return;
+
+                        var assignmentId = draggedCard.getAttribute('data-assignment-id');
+                        var oldShiftId = draggedCard.getAttribute('data-shift-id');
+                        var newShiftId = this.getAttribute('data-shift-id');
+
+                        if (oldShiftId === newShiftId) {
+                            return; // Stesso slot
+                        }
+
+                        var targetZone = this;
+                        var cardToMove = draggedCard;
+
+                        // Rimuovi eventuale messaggio 'Nessun volontario assegnato'
+                        var emptyMsg = targetZone.querySelector('.dfn-dropzone-empty-msg');
+                        if (emptyMsg) {
+                            emptyMsg.remove();
+                        }
+
+                        // Feedback visivo immediato (sposta card nel DOM)
+                        targetZone.appendChild(cardToMove);
+                        cardToMove.setAttribute('data-shift-id', newShiftId);
+
+                        // Esegui chiamata AJAX
+                        var formData = new FormData();
+                        formData.append('action', 'dfn_move_volunteer_shift');
+                        formData.append('security', dragNonce);
+                        formData.append('assignment_id', assignmentId);
+                        formData.append('target_shift_id', newShiftId);
+
+                        fetch(ajaxUrl, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(function(res) { return res.json(); })
+                        .then(function(response) {
+                            if (response.success) {
+                                // Mostra breve feedback verde
+                                cardToMove.style.boxShadow = '0 0 0 2px #16a34a';
+                                setTimeout(function() {
+                                    cardToMove.style.boxShadow = '';
+                                }, 1000);
+                            } else {
+                                alert(response.data ? response.data.message : 'Errore durante lo spostamento.');
+                                window.location.reload();
+                            }
+                        })
+                        .catch(function(err) {
+                            alert('Errore di connessione durante lo spostamento del turno.');
+                            window.location.reload();
+                        });
+                    });
+                });
+            }
+
+            attachDragListeners();
         });
         </script>
     </div>
