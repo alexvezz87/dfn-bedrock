@@ -1450,7 +1450,9 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                     </span>
                 </div>
 
-                <?php if (! empty($days)) : ?>
+                <?php 
+                $active_days_with_shifts = 0;
+                if (! empty($days)) : ?>
                     <?php foreach ($days as $day) : 
                         // Recupera tutti gli shift configurati per questo giorno
                         $shifts_in_day = $wpdb->get_results($wpdb->prepare(
@@ -1458,12 +1460,11 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                             $day->id
                         ));
 
+                        // Se il giorno non ha slot orari inseriti nella matrice, non viene incluso nel sondaggio
                         if (empty($shifts_in_day)) {
-                            $shifts_in_day = [
-                                (object) ['shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00'],
-                                (object) ['shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00'],
-                            ];
+                            continue;
                         }
+                        $active_days_with_shifts++;
                     ?>
                         <!-- BLOCCO GIORNO EVENTO -->
                         <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; overflow:hidden; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
@@ -1561,6 +1562,11 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                             </div>
                         </div>
                     <?php endforeach; ?>
+                    <?php if ($active_days_with_shifts === 0) : ?>
+                        <div style="background:#fff; padding:24px; border-radius:8px; border:1px dashed #cbd5e1; text-align:center; color:#64748b;">
+                            ℹ️ Non ci sono ancora giorni con slot orari configurati nella matrice. Configura prima i turni orari per abilitare i giorni nel sondaggio.
+                        </div>
+                    <?php endif; ?>
                 <?php else : ?>
                     <div style="background:#fff; padding:24px; border-radius:8px; border:1px solid #c3c4c7; text-align:center; color:#64748b;">
                         Nessun giorno configurato per questo evento.
