@@ -36,6 +36,16 @@ function dfn_ajax_move_volunteer_shift(): void
         wp_send_json_error(['message' => 'Parametri non validi.']);
     }
 
+    // Recupera l'assegnazione corrente
+    $current_ass = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE id = %d",
+        $assignment_id
+    ));
+
+    if (! $current_ass) {
+        wp_send_json_error(['message' => 'Assegnazione non trovata.']);
+    }
+
     // Verifica che lo shift di destinazione esista
     $target_shift = $wpdb->get_row($wpdb->prepare(
         "SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE id = %d",
@@ -44,6 +54,29 @@ function dfn_ajax_move_volunteer_shift(): void
 
     if (! $target_shift) {
         wp_send_json_error(['message' => 'Slot di destinazione non trovato.']);
+    }
+
+    // Controllo anti-duplicazione: il volontario è già assegnato allo slot di destinazione?
+    if (! empty($current_ass->volunteer_id)) {
+        $already_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_shift_assignments 
+             WHERE shift_id = %d AND volunteer_id = %d AND id != %d",
+            $target_shift_id,
+            $current_ass->volunteer_id,
+            $assignment_id
+        ));
+    } else {
+        $already_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_shift_assignments 
+             WHERE shift_id = %d AND volunteer_name_manual = %s AND id != %d",
+            $target_shift_id,
+            $current_ass->volunteer_name_manual,
+            $assignment_id
+        ));
+    }
+
+    if ($already_exists > 0) {
+        wp_send_json_error(['message' => 'Questo volontario è già assegnato a questo turno orario.']);
     }
 
     // Aggiorna lo shift_id dell'assegnazione
@@ -1100,9 +1133,10 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                     $r_bg    = $r_obj ? $r_obj->badge_bg : '#f1f5f9';
 
                                                     $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
+                                                    $v_key  = $a->volunteer_id ? ('id_' . $a->volunteer_id) : ('manual_' . sanitize_key($a->volunteer_name_manual));
                                                     $del_ass_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $d->id . '&remove_assignment=' . $a->id), 'dfn_del_ass_' . $a->id);
                                                 ?>
-                                                    <div class="dfn-vol-draggable-card" draggable="true" data-assignment-id="<?php echo esc_attr($a->id); ?>" data-shift-id="<?php echo esc_attr($shift->id); ?>" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:8px 12px; gap:8px; cursor:grab; user-select:none; transition:transform 0.15s ease, box-shadow 0.15s ease;">
+                                                    <div class="dfn-vol-draggable-card" draggable="true" data-assignment-id="<?php echo esc_attr($a->id); ?>" data-shift-id="<?php echo esc_attr($shift->id); ?>" data-volunteer-key="<?php echo esc_attr($v_key); ?>" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:8px 12px; gap:8px; cursor:grab; user-select:none; transition:transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, filter 0.15s ease;">
                                                         <div style="flex:1; min-width:0;">
                                                             <div style="display:flex; align-items:center; gap:6px;">
                                                                 <span style="color:#94a3b8; font-size:12px; cursor:grab;" title="Trascina per spostare">⠿</span>
@@ -1328,14 +1362,43 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 dropzones.forEach(function(dz) {
                     dz.addEventListener('dragover', function(e) {
                         e.preventDefault();
-                        e.dataTransfer.dropEffect = 'move';
-                        this.style.background = '#f0fdf4';
-                        this.style.border = '2px dashed #16a34a';
+                        if (!draggedCard) return;
+
+                        var volKey = draggedCard.getAttribute('data-volunteer-key');
+                        var oldShiftId = draggedCard.getAttribute('data-shift-id');
+                        var targetShiftId = this.getAttribute('data-shift-id');
+
+                        // Controlla se la dropzone contiene già questo volontario (diverso dalla card trascinata)
+                        var isDuplicate = false;
+                        if (targetShiftId !== oldShiftId) {
+                            var existingCard = this.querySelector('.dfn-vol-draggable-card[data-volunteer-key="' + volKey + '"]');
+                            if (existingCard && existingCard !== draggedCard) {
+                                isDuplicate = true;
+                            }
+                        }
+
+                        if (isDuplicate) {
+                            e.dataTransfer.dropEffect = 'none';
+                            this.style.background = '#fef2f2';
+                            this.style.border = '2px dashed #ef4444';
+                            draggedCard.style.opacity = '0.25';
+                            draggedCard.style.filter = 'grayscale(100%)';
+                        } else {
+                            e.dataTransfer.dropEffect = 'move';
+                            this.style.background = '#f0fdf4';
+                            this.style.border = '2px dashed #16a34a';
+                            draggedCard.style.opacity = '0.6';
+                            draggedCard.style.filter = 'none';
+                        }
                     });
 
                     dz.addEventListener('dragleave', function() {
                         this.style.background = '';
                         this.style.border = '';
+                        if (draggedCard) {
+                            draggedCard.style.opacity = '0.5';
+                            draggedCard.style.filter = 'none';
+                        }
                     });
 
                     dz.addEventListener('drop', function(e) {
@@ -1345,12 +1408,23 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
                         if (!draggedCard) return;
 
+                        draggedCard.style.opacity = '1';
+                        draggedCard.style.filter = 'none';
+
                         var assignmentId = draggedCard.getAttribute('data-assignment-id');
                         var oldShiftId = draggedCard.getAttribute('data-shift-id');
                         var newShiftId = this.getAttribute('data-shift-id');
+                        var volKey = draggedCard.getAttribute('data-volunteer-key');
 
                         if (oldShiftId === newShiftId) {
                             return; // Stesso slot
+                        }
+
+                        // Controllo preventivo duplicazione
+                        var existingCard = this.querySelector('.dfn-vol-draggable-card[data-volunteer-key="' + volKey + '"]');
+                        if (existingCard && existingCard !== draggedCard) {
+                            alert('⚠️ Impossibile spostare: questo volontario è già presente in questo turno orario.');
+                            return;
                         }
 
                         var targetZone = this;
