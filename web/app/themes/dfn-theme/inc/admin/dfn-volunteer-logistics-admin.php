@@ -164,7 +164,15 @@ function dfn_render_volunteer_events_list(): void
                                 </td>
                                 <td>
                                     <div style="font-size:12px; color:#475569;">
-                                        📅 <strong><?php echo count($days); ?></strong> giorni • 🏛️ <strong><?php echo count($places); ?></strong> luoghi aperti
+                                        <?php 
+                                        $num_days = count($days);
+                                        $num_places = count($places);
+                                        $place_suffix = '';
+                                        if ($num_places === 1 && ! empty($places[0]->place_name)) {
+                                            $place_suffix = ' (' . esc_html($places[0]->place_name) . ')';
+                                        }
+                                        ?>
+                                        📅 <strong><?php echo $num_days; ?></strong> <?php echo $num_days === 1 ? 'giorno' : 'giorni'; ?> • 🏛️ <strong><?php echo $num_places; ?></strong> <?php echo $num_places === 1 ? 'luogo aperto' : 'luoghi aperti'; ?><?php echo $place_suffix; ?>
                                     </div>
                                     <?php if ($survey) : ?>
                                         <div style="font-size:11px; color:#0369a1; margin-top:2px;">

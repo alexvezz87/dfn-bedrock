@@ -1246,7 +1246,7 @@ function dfn_get_volunteer_event_places(int $day_id): array
 }
 
 /**
- * Recupera tutti i luoghi aperti per l'intero evento logistica.
+ * Recupera tutti i luoghi aperti per l'intero evento logistica (distinti per nome per evitare duplicati su eventi multi-giorno).
  *
  * @param int $event_id ID dell'evento.
  * @return array<object>
@@ -1255,7 +1255,11 @@ function dfn_get_volunteer_event_all_places(int $event_id): array
 {
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_volunteer_event_places';
-    $sql = "SELECT * FROM {$table} WHERE event_id = %d ORDER BY day_id ASC, order_num ASC, id ASC";
+    $sql = "SELECT place_name, MIN(id) as id, event_id, MIN(day_id) as day_id, MIN(address) as address 
+            FROM {$table} 
+            WHERE event_id = %d 
+            GROUP BY place_name 
+            ORDER BY id ASC";
     $res = $wpdb->get_results($wpdb->prepare($sql, $event_id));
     return is_array($res) ? $res : [];
 }
