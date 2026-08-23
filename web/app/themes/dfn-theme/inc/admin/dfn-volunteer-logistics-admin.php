@@ -1514,12 +1514,6 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                                                                 <strong style="color:#0f172a; font-size:13px; display:block;">
                                                                     <?php echo esc_html($r->first_name . ' ' . $r->last_name); ?>
                                                                 </strong>
-                                                                <?php if ($r->phone) : ?>
-                                                                    <span style="font-size:11px; color:#64748b;">📞 <?php echo esc_html($r->phone); ?></span>
-                                                                <?php endif; ?>
-                                                                <?php if ($r->email) : ?>
-                                                                    <div style="font-size:11px; color:#94a3b8;"><?php echo esc_html($r->email); ?></div>
-                                                                <?php endif; ?>
                                                             </td>
                                                             <td>
                                                                 <div style="display:flex; flex-wrap:wrap; gap:4px;">
