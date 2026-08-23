@@ -573,16 +573,15 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             echo '<div class="notice notice-error is-dismissible"><p>⚠️ <strong>Nessun sondaggio trovato</strong> per questo evento. Crea prima un sondaggio per raccogliere le disponibilità.</p></div>';
         } elseif (! $is_survey_closed) {
             echo '<div class="notice notice-warning is-dismissible"><p>⚠️ <strong>Sondaggio ancora aperto:</strong> l\'assegnazione automatica può essere eseguita solo dopo la chiusura o la scadenza del sondaggio, per evitare assegnazioni parziali prima che tutti i volontari abbiano risposto.</p></div>';
-        } else {
-            // Rimuovi eventuali assegnazioni precedenti per gli shift di questo giorno prima di riassegnare
-            $day_shift_ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d", $selected_day_id));
-            if (! empty($day_shift_ids)) {
-                $in_placeholders = implode(',', array_fill(0, count($day_shift_ids), '%d'));
-                $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE shift_id IN ($in_placeholders)", ...$day_shift_ids));
+            // Rimuovi eventuali assegnazioni precedenti per tutti gli shift dell'evento prima di riassegnare
+            $all_event_shift_ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE event_id = %d", $event_id));
+            if (! empty($all_event_shift_ids)) {
+                $in_placeholders = implode(',', array_fill(0, count($all_event_shift_ids), '%d'));
+                $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE shift_id IN ($in_placeholders)", ...$all_event_shift_ids));
             }
 
-            $assigned_count = dfn_run_volunteer_auto_assignment($event_id, $selected_day_id);
-            echo '<div class="notice notice-success is-dismissible"><p>🤖 <strong>Assegnazione automatica completata!</strong> Assegnati ' . intval($assigned_count) . ' volontari ai turni nel rispetto esclusivo delle sole mansioni abilitate per questo evento.</p></div>';
+            $assigned_count = dfn_run_volunteer_auto_assignment($event_id, 0);
+            echo '<div class="notice notice-success is-dismissible"><p>🤖 <strong>Assegnazione automatica completata!</strong> Assegnati ' . intval($assigned_count) . ' volontari ai turni su tutti i giorni dell\'evento nel rispetto esclusivo delle sole mansioni abilitate.</p></div>';
         }
     }
 
@@ -1164,55 +1163,66 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
 
     $assigned_count = 0;
 
-    // Recupera tutti gli shift configurati per questo giorno
-    $shifts_in_day = $wpdb->get_results($wpdb->prepare(
-        "SELECT s.*, p.place_name FROM {$table_shifts} s
-         JOIN {$table_places} p ON s.place_id = p.id
-         WHERE s.day_id = %d
-         ORDER BY s.time_start ASC, s.id ASC",
-        $day_id
-    ));
+    $target_days = [];
+    if ($day_id > 0) {
+        $target_days = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_days WHERE id = %d", $day_id));
+    } else {
+        $target_days = dfn_get_volunteer_event_days($event_id);
+    }
 
-    if (empty($shifts_in_day)) {
+    if (empty($target_days)) {
         return 0;
     }
 
-    // Raggruppa gli shift per fascia oraria/chiave
-    $shifts_by_slot = [];
-    foreach ($shifts_in_day as $sh) {
-        $slot_k = sanitize_key($sh->shift_label . '_' . substr($sh->time_start, 0, 5));
-        $shifts_by_slot[$slot_k][] = $sh;
+    // Carica tutte le risposte disponibili per il sondaggio una sola volta
+    $all_responses = $wpdb->get_results($wpdb->prepare(
+        "SELECT r.*, f.is_guide, f.has_safety_course 
+         FROM {$table_resp} r
+         LEFT JOIN {$table_fai} f ON r.volunteer_id = f.id
+         WHERE r.survey_id = %d AND r.is_available = 1",
+        $survey->id
+    ));
+
+    $responses_by_day = [];
+    foreach ($all_responses as $resp) {
+        $clean_k = preg_replace('/[^a-z0-9]/', '', strtolower($resp->time_slot_key));
+        $responses_by_day[$resp->day_id][$resp->time_slot_key][] = $resp;
+        $responses_by_day[$resp->day_id][$clean_k][] = $resp;
     }
 
-    foreach ($shifts_by_slot as $slot_key => $shifts) {
-        // Recupera i volontari che hanno dato disponibilità per questo giorno e slot
-        $available_responses = $wpdb->get_results($wpdb->prepare(
-            "SELECT r.*, f.is_guide, f.has_safety_course 
-             FROM {$table_resp} r
-             LEFT JOIN {$table_fai} f ON r.volunteer_id = f.id
-             WHERE r.survey_id = %d AND r.day_id = %d AND r.time_slot_key = %s AND r.is_available = 1",
-            $survey->id,
-            $day_id,
-            $slot_key
+    foreach ($target_days as $t_day) {
+        $shifts_in_day = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.*, p.place_name FROM {$table_shifts} s
+             JOIN {$table_places} p ON s.place_id = p.id
+             WHERE s.day_id = %d
+             ORDER BY s.time_start ASC, s.id ASC",
+            $t_day->id
         ));
 
-        // Fallback per compatibilità vecchi slot
-        if (empty($available_responses)) {
-            $fallback_key = (strpos($slot_key, 'pomeriggio') !== false || strpos($slot_key, '14:') !== false || strpos($slot_key, '15:') !== false) ? 'pomeriggio' : 'mattina';
-            $available_responses = $wpdb->get_results($wpdb->prepare(
-                "SELECT r.*, f.is_guide, f.has_safety_course 
-                 FROM {$table_resp} r
-                 LEFT JOIN {$table_fai} f ON r.volunteer_id = f.id
-                 WHERE r.survey_id = %d AND r.day_id = %d AND r.time_slot_key = %s AND r.is_available = 1",
-                $survey->id,
-                $day_id,
-                $fallback_key
-            ));
-        }
-
-        if (empty($available_responses)) {
+        if (empty($shifts_in_day)) {
             continue;
         }
+
+        // Raggruppa gli shift per fascia oraria/chiave
+        $shifts_by_slot = [];
+        foreach ($shifts_in_day as $sh) {
+            $slot_k = sanitize_key($sh->shift_label . '_' . substr($sh->time_start, 0, 5));
+            $shifts_by_slot[$slot_k][] = $sh;
+        }
+
+        foreach ($shifts_by_slot as $slot_key => $shifts) {
+            $clean_target = preg_replace('/[^a-z0-9]/', '', strtolower($slot_key));
+            $available_responses = $responses_by_day[$t_day->id][$slot_key] ?? ($responses_by_day[$t_day->id][$clean_target] ?? []);
+
+            // Fallback per compatibilità vecchi slot
+            if (empty($available_responses)) {
+                $fallback_key = (strpos($slot_key, 'pomeriggio') !== false || strpos($slot_key, '14:') !== false || strpos($slot_key, '15:') !== false) ? 'pomeriggio' : 'mattina';
+                $available_responses = $responses_by_day[$t_day->id][$fallback_key] ?? [];
+            }
+
+            if (empty($available_responses)) {
+                continue;
+            }
 
         // Raggruppamento per competenze
         $safety_volunteers = [];
@@ -1289,6 +1299,7 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
             $role_index++;
         }
     }
+}
 
     return $assigned_count;
 }
