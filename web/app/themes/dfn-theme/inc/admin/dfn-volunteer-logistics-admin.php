@@ -573,6 +573,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             echo '<div class="notice notice-error is-dismissible"><p>⚠️ <strong>Nessun sondaggio trovato</strong> per questo evento. Crea prima un sondaggio per raccogliere le disponibilità.</p></div>';
         } elseif (! $is_survey_closed) {
             echo '<div class="notice notice-warning is-dismissible"><p>⚠️ <strong>Sondaggio ancora aperto:</strong> l\'assegnazione automatica può essere eseguita solo dopo la chiusura o la scadenza del sondaggio, per evitare assegnazioni parziali prima che tutti i volontari abbiano risposto.</p></div>';
+        } else {
             // Rimuovi eventuali assegnazioni precedenti per tutti gli shift dell'evento prima di riassegnare
             $all_event_shift_ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE event_id = %d", $event_id));
             if (! empty($all_event_shift_ids)) {
