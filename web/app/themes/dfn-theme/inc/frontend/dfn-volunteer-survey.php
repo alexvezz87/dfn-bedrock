@@ -169,7 +169,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                     $wpdb->delete($table_resp, [ 'survey_id' => $survey->id, 'email' => $f_email ], [ '%d', '%s' ]);
                 }
 
-                // Inserisci le disponibilità per ciascun giorno e fascia
+                // Inserisci le disponibilità per ciascun giorno e fascia (SOLO per i giorni che hanno slot orari configurati)
                 foreach ($days as $day) {
                     // Recupera gli slot orari reali definiti per questo giorno
                     $day_shifts = $wpdb->get_results($wpdb->prepare(
@@ -177,11 +177,9 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                         $day->id
                     ));
 
+                    // Se non ci sono slot orari configurati per questo giorno, il giorno non viene considerato nel sondaggio
                     if (empty($day_shifts)) {
-                        $day_shifts = [
-                            (object) ['shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00'],
-                            (object) ['shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00'],
-                        ];
+                        continue;
                     }
 
                     foreach ($day_shifts as $sh) {
@@ -314,7 +312,9 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                     </p>
 
                     <div style="display: flex; flex-direction: column; gap: 14px;">
-                        <?php foreach ($days as $day) : 
+                        <?php 
+                        $rendered_days_count = 0;
+                        foreach ($days as $day) : 
                             $d_time = strtotime($day->event_date);
                             $d_title = date_i18n('l d F Y', $d_time);
 
@@ -324,12 +324,11 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                                 $day->id
                             ));
 
+                            // Se non ci sono slot orari configurati per questo giorno, il giorno viene escluso dal sondaggio
                             if (empty($day_shifts)) {
-                                $day_shifts = [
-                                    (object) ['shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00'],
-                                    (object) ['shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00'],
-                                ];
+                                continue;
                             }
+                            $rendered_days_count++;
                         ?>
                             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
                                 <div style="font-size: 14px; font-weight: 800; color: #004b23; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
@@ -359,6 +358,12 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                                 </div>
                             </div>
                         <?php endforeach; ?>
+
+                        <?php if ($rendered_days_count === 0) : ?>
+                            <div style="background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 24px; text-align: center; color: #64748b;">
+                                ℹ️ Non ci sono ancora turni orari configurati per questo evento.
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
