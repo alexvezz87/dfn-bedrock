@@ -582,24 +582,26 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
     $selected_day_id = isset($_GET['day_id']) ? (int) $_GET['day_id'] : (! empty($days) ? (int) $days[0]->id : 0);
 
     // Gestione aggiunta luogo
-    if (isset($_POST['dfn_add_place']) && wp_verify_nonce($_POST['dfn_place_nonce'] ?? '', 'dfn_add_place_action')) {
+    if (isset($_POST['dfn_add_place']) && (wp_verify_nonce($_POST['dfn_place_nonce'] ?? '', 'dfn_place_action') || wp_verify_nonce($_POST['dfn_place_nonce'] ?? '', 'dfn_add_place_action'))) {
         $place_name = sanitize_text_field($_POST['place_name'] ?? '');
-        if (! empty($place_name) && $selected_day_id > 0) {
+        $target_day_id = ! empty($_POST['day_id']) ? (int) $_POST['day_id'] : $selected_day_id;
+
+        if (! empty($place_name) && $target_day_id > 0) {
             $table_places = $wpdb->prefix . 'dfn_volunteer_event_places';
             $table_shifts = $wpdb->prefix . 'dfn_volunteer_event_shifts';
 
             $wpdb->insert(
                 $table_places,
-                [ 'event_id' => $event_id, 'day_id' => $selected_day_id, 'place_name' => $place_name, 'order_num' => 10 ],
+                [ 'event_id' => $event_id, 'day_id' => $target_day_id, 'place_name' => $place_name, 'order_num' => 10 ],
                 [ '%d', '%d', '%s', '%d' ]
             );
             $place_id = $wpdb->insert_id;
 
             // Crea automaticamente i 2 turni standard per il luogo: Mattina e Pomeriggio
-            $wpdb->insert($table_shifts, [ 'event_id' => $event_id, 'day_id' => $selected_day_id, 'place_id' => $place_id, 'shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00', 'order_num' => 1 ], [ '%d', '%d', '%d', '%s', '%s', '%s', '%d' ]);
-            $wpdb->insert($table_shifts, [ 'event_id' => $event_id, 'day_id' => $selected_day_id, 'place_id' => $place_id, 'shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00', 'order_num' => 2 ], [ '%d', '%d', '%d', '%s', '%s', '%s', '%d' ]);
+            $wpdb->insert($table_shifts, [ 'event_id' => $event_id, 'day_id' => $target_day_id, 'place_id' => $place_id, 'shift_label' => 'Mattina', 'time_start' => '09:00:00', 'time_end' => '12:30:00', 'order_num' => 1 ], [ '%d', '%d', '%d', '%s', '%s', '%s', '%d' ]);
+            $wpdb->insert($table_shifts, [ 'event_id' => $event_id, 'day_id' => $target_day_id, 'place_id' => $place_id, 'shift_label' => 'Pomeriggio', 'time_start' => '14:00:00', 'time_end' => '18:00:00', 'order_num' => 2 ], [ '%d', '%d', '%d', '%s', '%s', '%s', '%d' ]);
 
-            echo '<div class="notice notice-success is-dismissible"><p>✅ Luogo e turni aggiunti con successo.</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Luogo "' . esc_html($place_name) . '" e relativi turni aggiunti con successo!</p></div>';
         }
     }
 
@@ -1032,6 +1034,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                 </h3>
                                 <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $d->id)); ?>" style="display:flex; gap:8px; align-items:center;">
                                     <?php wp_nonce_field('dfn_place_action', 'dfn_place_nonce'); ?>
+                                    <input type="hidden" name="day_id" value="<?php echo esc_attr($d->id); ?>">
                                     <input type="text" name="place_name" placeholder="Nuovo Luogo / Bene aperto..." required style="width:240px; border-radius:6px; border:1px solid #cbd5e1; height:32px; padding:0 8px; font-size:12.5px;">
                                     <button type="submit" name="dfn_add_place" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700; height:32px;">
                                         ➕ Aggiungi Luogo
