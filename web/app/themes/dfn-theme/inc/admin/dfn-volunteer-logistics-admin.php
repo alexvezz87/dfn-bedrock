@@ -2016,7 +2016,7 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
 
     // Recupera solo le disponibilità positive (is_available = 1)
     $available_responses = $survey ? $wpdb->get_results($wpdb->prepare(
-        "SELECT r.*, f.is_guide, f.has_safety_course, f.card_number 
+        "SELECT r.*, f.first_name, f.last_name, f.email, f.is_guide, f.has_safety_course, f.card_number 
          FROM {$table_resp} r
          LEFT JOIN {$wpdb->prefix}dfn_fai_members f ON r.volunteer_id = f.id
          WHERE r.survey_id = %d AND r.is_available = 1 
