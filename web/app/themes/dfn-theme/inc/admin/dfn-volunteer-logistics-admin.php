@@ -1865,12 +1865,20 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                 continue;
             }
 
-        // Raggruppamento per competenze
+        // Tracciamento dei volontari assegnati nella specifica fascia oraria di questo giorno per evitare sovrapposizioni su più luoghi
+        $slot_full_k = $t_day->id . '_' . $slot_key;
+        $assigned_vols_in_current_slot = [];
+
+        // Raggruppamento per competenze (filtrando eventuali volontari già allocati)
         $safety_volunteers = [];
         $guide_volunteers  = [];
         $general_volunteers= [];
 
         foreach ($available_responses as $resp) {
+            $v_id = (int) $resp->volunteer_id;
+            if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
+                continue;
+            }
             if (! empty($resp->has_safety_course) && $safety_role_key) {
                 $safety_volunteers[] = $resp;
             } elseif (! empty($resp->is_guide) && $guide_role_key) {
@@ -1886,14 +1894,21 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                 $has_safety = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_ass} WHERE shift_id = %d AND role_assigned = %s", $shift->id, $safety_role_key));
                 if (! $has_safety && ! empty($safety_volunteers)) {
                     $picked = array_shift($safety_volunteers);
+                    $v_id   = (int) $picked->volunteer_id;
+                    if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
+                        continue;
+                    }
                     $wpdb->insert($table_ass, [
                         'shift_id'              => $shift->id,
-                        'volunteer_id'          => $picked->volunteer_id ?: null,
-                        'volunteer_name_manual' => ! $picked->volunteer_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
+                        'volunteer_id'          => $v_id ?: null,
+                        'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
                         'role_assigned'         => $safety_role_key,
                         'created_at'            => current_time('mysql'),
                     ], [ '%d', '%d', '%s', '%s', '%s' ]);
                     $assigned_count++;
+                    if ($v_id > 0) {
+                        $assigned_vols_in_current_slot[] = $v_id;
+                    }
                 }
             }
         }
@@ -1901,22 +1916,38 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
         // 2. Assegnazione Guide (se abilitate per l'evento)
         if ($guide_role_key) {
             foreach ($shifts as $shift) {
-                if (! empty($guide_volunteers)) {
+                while (! empty($guide_volunteers)) {
                     $picked = array_shift($guide_volunteers);
+                    $v_id   = (int) $picked->volunteer_id;
+                    if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
+                        continue;
+                    }
                     $wpdb->insert($table_ass, [
                         'shift_id'              => $shift->id,
-                        'volunteer_id'          => $picked->volunteer_id ?: null,
-                        'volunteer_name_manual' => ! $picked->volunteer_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
+                        'volunteer_id'          => $v_id ?: null,
+                        'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
                         'role_assigned'         => $guide_role_key,
                         'created_at'            => current_time('mysql'),
                     ], [ '%d', '%d', '%s', '%s', '%s' ]);
                     $assigned_count++;
+                    if ($v_id > 0) {
+                        $assigned_vols_in_current_slot[] = $v_id;
+                    }
+                    break;
                 }
             }
         }
 
-        // 3. Distribuzione bilanciata round-robin di tutti i restanti volontari tra le sole mansioni abilitate per l'evento
-        $remaining_pool = array_merge($safety_volunteers, $guide_volunteers, $general_volunteers);
+        // 3. Distribuzione bilanciata round-robin di tutti i restanti volontari tra i luoghi e le mansioni abilitate
+        $remaining_pool = [];
+        foreach (array_merge($safety_volunteers, $guide_volunteers, $general_volunteers) as $cand) {
+            $c_vid = (int) $cand->volunteer_id;
+            if ($c_vid > 0 && in_array($c_vid, $assigned_vols_in_current_slot, true)) {
+                continue;
+            }
+            $remaining_pool[] = $cand;
+        }
+
         $shift_index = 0;
         $num_shifts  = count($shifts);
         $role_index  = 0;
@@ -1924,17 +1955,25 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
 
         while (! empty($remaining_pool)) {
             $picked = array_shift($remaining_pool);
+            $v_id   = (int) $picked->volunteer_id;
+            if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
+                continue;
+            }
+
             $shift  = $shifts[$shift_index % $num_shifts];
             $role   = $standard_role_keys[$role_index % $num_roles];
 
             $wpdb->insert($table_ass, [
                 'shift_id'              => $shift->id,
-                'volunteer_id'          => $picked->volunteer_id ?: null,
-                'volunteer_name_manual' => ! $picked->volunteer_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
+                'volunteer_id'          => $v_id ?: null,
+                'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
                 'role_assigned'         => $role,
                 'created_at'            => current_time('mysql'),
             ], [ '%d', '%d', '%s', '%s', '%s' ]);
             $assigned_count++;
+            if ($v_id > 0) {
+                $assigned_vols_in_current_slot[] = $v_id;
+            }
 
             $shift_index++;
             $role_index++;
