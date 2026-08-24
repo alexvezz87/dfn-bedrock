@@ -931,6 +931,12 @@ function dfn_volunteer_events_endpoint_content(): void
                         <!-- Sezione 2: Visualizzazione Turni Generali dell'Evento (quando pubblicati) -->
                         <?php if ($are_shifts_published) : 
                             $ev_days = dfn_get_volunteer_event_days((int) $ev->id);
+                            $all_roles_def = function_exists('dfn_get_volunteer_roles') ? dfn_get_volunteer_roles(true) : [];
+                            $roles_meta = [];
+                            foreach ($all_roles_def as $rd) {
+                                $roles_meta[$rd->role_key] = $rd;
+                            }
+                            $role_order = ['guida', 'accoglienza', 'banchetto', 'resp_banchetto', 'resp_scuola'];
                         ?>
                             <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 14px;">
                                 <details style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px;">
@@ -940,9 +946,20 @@ function dfn_volunteer_events_endpoint_content(): void
                                     <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 14px;">
                                         <?php foreach ($ev_days as $eday) : 
                                             $eplaces = dfn_get_volunteer_event_places((int) $eday->id);
+                                            if (empty($eplaces)) continue;
+
+                                            // Controlla se esistono turni/slot configurati per questo giorno
+                                            $has_shifts_in_day = (int) $wpdb->get_var($wpdb->prepare(
+                                                "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d",
+                                                $eday->id
+                                            ));
+
+                                            if ($has_shifts_in_day === 0) {
+                                                continue; // Salta i giorni privi di turni/slot
+                                            }
                                         ?>
-                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-                                                <div style="font-size: 12.5px; font-weight: 800; color: #004b23; margin-bottom: 8px;">
+                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+                                                <div style="font-size: 13px; font-weight: 800; color: #004b23; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
                                                     🗓️ <?php echo esc_html(strtoupper($eday->day_label)); ?>
                                                 </div>
                                                 <?php foreach ($eplaces as $eplc) : 
@@ -950,36 +967,66 @@ function dfn_volunteer_events_endpoint_content(): void
                                                         "SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d ORDER BY time_start ASC",
                                                         $eplc->id
                                                     ));
+                                                    if (empty($eshifts)) continue;
                                                 ?>
-                                                    <div style="margin-bottom: 8px;">
-                                                        <div style="font-size: 12px; font-weight: 700; color: #1e293b;">
-                                                            🏛️ <?php echo esc_html($eplc->place_name); ?>
-                                                        </div>
-                                                        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+                                                    <div style="margin-bottom: 12px;">
+                                                        <?php if (count($eplaces) > 1) : ?>
+                                                            <div style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">
+                                                                📍 <?php echo esc_html($eplc->place_name); ?>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                        <div style="display: flex; flex-direction: column; gap: 8px;">
                                                             <?php foreach ($eshifts as $esh) : 
                                                                 $eass = dfn_get_volunteer_shift_assignments((int) $esh->id);
                                                                 $time_str = substr($esh->time_start, 0, 5) . ' - ' . substr($esh->time_end, 0, 5);
+
+                                                                // Raggruppa i volontari per mansione
+                                                                $grouped_by_role = [];
+                                                                foreach ($eass as $asgn) {
+                                                                    $r_k = ! empty($asgn->role_assigned) ? $asgn->role_assigned : 'banchetto';
+                                                                    $v_full_name = $asgn->volunteer_id ? ($asgn->first_name . ' ' . $asgn->last_name) : $asgn->volunteer_name_manual;
+                                                                    $grouped_by_role[$r_k][] = $v_full_name;
+                                                                }
+
+                                                                uksort($grouped_by_role, function($k1, $k2) use ($role_order) {
+                                                                    $pos1 = array_search($k1, $role_order, true);
+                                                                    $pos2 = array_search($k2, $role_order, true);
+                                                                    $pos1 = ($pos1 === false) ? 99 : $pos1;
+                                                                    $pos2 = ($pos2 === false) ? 99 : $pos2;
+                                                                    return $pos1 <=> $pos2;
+                                                                });
                                                             ?>
-                                                                <div style="font-size: 11.5px; color: #475569; background: #f1f5f9; border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
-                                                                    <span>⏰ <strong><?php echo esc_html($esh->shift_label); ?> (<?php echo esc_html($time_str); ?>):</strong></span>
-                                                                    <span>
-                                                                        <?php if (! empty($eass)) : 
-                                                                            $names = [];
-                                                                            foreach ($eass as $asgn) {
-                                                                                $asgn_r = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($asgn->role_assigned) : null;
-                                                                                $tag = '';
-                                                                                if ($asgn_r && ! empty($asgn_r->badge_code)) {
-                                                                                    $tag = ' ' . $asgn_r->badge_code;
-                                                                                } elseif ($asgn->role_assigned === 'resp_scuola') $tag = ' (S)';
-                                                                                elseif ($asgn->role_assigned === 'resp_banchetto') $tag = ' (R)';
-                                                                                elseif ($asgn->role_assigned === 'guida') $tag = ' (G)';
-                                                                                $names[] = esc_html($asgn->first_name . ' ' . $asgn->last_name . $tag);
-                                                                            }
-                                                                            echo implode(', ', $names);
-                                                                        else : ?>
-                                                                            <em>Nessun volontario assegnato</em>
-                                                                        <?php endif; ?>
-                                                                    </span>
+                                                                <div style="font-size: 12px; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px;">
+                                                                    <div style="font-weight: 800; color: #0f172a; margin-bottom: 6px;">
+                                                                        ⏰ <?php echo esc_html($esh->shift_label); ?> (<?php echo esc_html($time_str); ?>)
+                                                                    </div>
+                                                                    <?php if (! empty($grouped_by_role)) : ?>
+                                                                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                                                                            <?php foreach ($grouped_by_role as $r_key => $v_names) : 
+                                                                                $r_def = $roles_meta[$r_key] ?? null;
+                                                                                $r_label = $r_def ? $r_def->role_name : ucfirst(str_replace('_', ' ', $r_key));
+                                                                                $tag_bg = '#f1f5f9';
+                                                                                $tag_color = '#334155';
+                                                                                $tag_border = '#cbd5e1';
+                                                                                if ($r_key === 'guida') { $tag_bg = '#e0f2fe'; $tag_color = '#0284c7'; $tag_border = '#7dd3fc'; }
+                                                                                elseif ($r_key === 'accoglienza') { $tag_bg = '#dcfce7'; $tag_color = '#16a34a'; $tag_border = '#86efac'; }
+                                                                                elseif ($r_key === 'banchetto') { $tag_bg = '#f1f5f9'; $tag_color = '#334155'; $tag_border = '#94a3b8'; }
+                                                                                elseif ($r_key === 'resp_banchetto') { $tag_bg = '#fee2e2'; $tag_color = '#dc2626'; $tag_border = '#fca5a5'; }
+                                                                                elseif ($r_key === 'resp_scuola') { $tag_bg = '#fef9c3'; $tag_color = '#ca8a04'; $tag_border = '#fde047'; }
+                                                                            ?>
+                                                                                <div style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
+                                                                                    <span style="background: <?php echo esc_attr($tag_bg); ?>; color: <?php echo esc_attr($tag_color); ?>; border: 1.5px solid <?php echo esc_attr($tag_border); ?>; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.4px;">
+                                                                                        <?php echo esc_html($r_label); ?> (<?php echo count($v_names); ?>)
+                                                                                    </span>
+                                                                                    <span style="color: #0f172a; font-weight: 500;">
+                                                                                        <?php echo esc_html(implode(', ', $v_names)); ?>
+                                                                                    </span>
+                                                                                </div>
+                                                                            <?php endforeach; ?>
+                                                                        </div>
+                                                                    <?php else : ?>
+                                                                        <em style="color: #94a3b8; font-size: 11.5px;">— Nessun volontario assegnato —</em>
+                                                                    <?php endif; ?>
                                                                 </div>
                                                             <?php endforeach; ?>
                                                         </div>
