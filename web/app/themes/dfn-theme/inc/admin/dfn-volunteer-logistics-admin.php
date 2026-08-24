@@ -2022,23 +2022,41 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                 color: #fff; 
                 border: none; 
                 padding: 8px 18px; 
-                border-radius: 6px; 
-                font-weight: 700; 
-                font-size: 13px; 
-                cursor: pointer; 
-                margin-bottom: 15px; 
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+                bord            .role-group-row {
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+                margin-bottom: 5px;
+                line-height: 1.4;
+                font-size: 12px;
             }
-            .print-btn:hover { background: #003b1c; }
-            .vol-pill {
-                display: inline-block;
-                background: #f8fafc;
-                border: 1px solid #e2e8f0;
+            .role-group-row:last-child {
+                margin-bottom: 0;
+            }
+            .role-badge-tag {
+                font-size: 10px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                padding: 2px 7px;
                 border-radius: 4px;
-                padding: 2px 8px;
-                margin: 2px 4px 2px 0;
-                font-size: 11.5px;
+                white-space: nowrap;
+                flex-shrink: 0;
             }
+            .role-vols-names {
+                color: #1e293b;
+                font-size: 12px;
+            }
+            .role-vols-names strong {
+                color: #0f172a;
+                font-weight: 600;
+            }
+            .role-tag-guida { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+            .role-tag-accoglienza { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+            .role-tag-banchetto { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; }
+            .role-tag-resp_banchetto { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+            .role-tag-resp_scuola { background: #fefce8; color: #a16207; border: 1px solid #fef08a; }
+            .role-tag-default { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
             @media print { 
                 .no-print { display: none !important; } 
                 body { padding: 0; background: #fff; } 
@@ -2058,7 +2076,18 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                 <p><?php echo esc_html($event->title); ?> • Piano Assegnazione Turni &amp; Presidi</p>
             </div>
 
-            <?php foreach ($days as $day) : 
+            <?php 
+            // Carica tutte le mansioni registrate per risolverne etichette e stili
+            $all_roles_def = function_exists('dfn_get_volunteer_roles') ? dfn_get_volunteer_roles(true) : [];
+            $roles_meta = [];
+            foreach ($all_roles_def as $rd) {
+                $roles_meta[$rd->role_key] = $rd;
+            }
+
+            // Mappatura ruoli standard e ordine di priorità logica
+            $role_order = ['guida', 'accoglienza', 'banchetto', 'resp_banchetto', 'resp_scuola'];
+
+            foreach ($days as $day) : 
                 $places = dfn_get_volunteer_event_places((int) $day->id);
                 if (empty($places)) continue;
 
@@ -2090,7 +2119,7 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                             <thead>
                                 <tr>
                                     <th style="width: 220px;">Fascia Oraria / Turno</th>
-                                    <th>Volontari Assegnati &amp; Incarichi</th>
+                                    <th>Volontari Assegnati per Mansione</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2102,6 +2131,22 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                                         $sh->time_start
                                     ));
                                     $ass = ! empty($shifts) ? dfn_get_volunteer_shift_assignments((int) $shifts[0]->id) : [];
+
+                                    // Raggruppa i volontari per mansione
+                                    $grouped_by_role = [];
+                                    foreach ($ass as $a) {
+                                        $r_k = ! empty($a->role_assigned) ? $a->role_assigned : 'banchetto';
+                                        $grouped_by_role[$r_k][] = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
+                                    }
+
+                                    // Ordina i gruppi di ruoli
+                                    uksort($grouped_by_role, function($k1, $k2) use ($role_order) {
+                                        $pos1 = array_search($k1, $role_order, true);
+                                        $pos2 = array_search($k2, $role_order, true);
+                                        $pos1 = ($pos1 === false) ? 99 : $pos1;
+                                        $pos2 = ($pos2 === false) ? 99 : $pos2;
+                                        return $pos1 <=> $pos2;
+                                    });
                                 ?>
                                     <tr>
                                         <td style="font-weight:700; color:#0f172a; background:#fafafa;">
@@ -2109,20 +2154,24 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                                             <div style="font-size:11px; font-weight:normal; color:#64748b; margin-top:2px;">(<?php echo esc_html($time_lbl); ?>)</div>
                                         </td>
                                         <td>
-                                            <?php if (! empty($ass)) : ?>
-                                                <div style="display:flex; flex-wrap:wrap; gap:4px;">
-                                                    <?php foreach ($ass as $a) : 
-                                                        $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
-                                                        $role_code = '';
-                                                        $role_class = '';
-                                                        if ($a->role_assigned === 'resp_scuola') { $role_code = ' (S)'; $role_class = 'role-s'; }
-                                                        elseif ($a->role_assigned === 'resp_banchetto') { $role_code = ' (R)'; $role_class = 'role-r'; }
-                                                        elseif ($a->role_assigned === 'guida') { $role_code = ' (G)'; $role_class = 'role-g'; }
-                                                        elseif ($a->role_assigned === 'accoglienza') { $role_code = ' [Accoglienza]'; }
+                                            <?php if (! empty($grouped_by_role)) : ?>
+                                                <div style="display:flex; flex-direction:column; gap:6px;">
+                                                    <?php foreach ($grouped_by_role as $r_key => $v_names) : 
+                                                        $r_def = $roles_meta[$r_key] ?? null;
+                                                        $r_label = $r_def ? $r_def->role_name : ucfirst(str_replace('_', ' ', $r_key));
+                                                        $tag_class = 'role-tag-' . sanitize_html_class($r_key);
+                                                        if (! in_array($r_key, ['guida', 'accoglienza', 'banchetto', 'resp_banchetto', 'resp_scuola'], true)) {
+                                                            $tag_class = 'role-tag-default';
+                                                        }
                                                     ?>
-                                                        <span class="vol-pill <?php echo esc_attr($role_class); ?>">
-                                                            • <strong><?php echo esc_html($v_name); ?></strong><?php echo esc_html($role_code); ?>
-                                                        </span>
+                                                        <div class="role-group-row">
+                                                            <span class="role-badge-tag <?php echo esc_attr($tag_class); ?>">
+                                                                <?php echo esc_html($r_label); ?> (<?php echo count($v_names); ?>)
+                                                            </span>
+                                                            <div class="role-vols-names">
+                                                                <?php echo esc_html(implode(', ', $v_names)); ?>
+                                                            </div>
+                                                        </div>
                                                     <?php endforeach; ?>
                                                 </div>
                                             <?php else : ?>
@@ -2160,22 +2209,42 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                                                 $sh->time_start
                                             ));
                                             $ass = ! empty($shifts) ? dfn_get_volunteer_shift_assignments((int) $shifts[0]->id) : [];
+
+                                            $grouped_by_role = [];
+                                            foreach ($ass as $a) {
+                                                $r_k = ! empty($a->role_assigned) ? $a->role_assigned : 'banchetto';
+                                                $grouped_by_role[$r_k][] = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
+                                            }
+
+                                            uksort($grouped_by_role, function($k1, $k2) use ($role_order) {
+                                                $pos1 = array_search($k1, $role_order, true);
+                                                $pos2 = array_search($k2, $role_order, true);
+                                                $pos1 = ($pos1 === false) ? 99 : $pos1;
+                                                $pos2 = ($pos2 === false) ? 99 : $pos2;
+                                                return $pos1 <=> $pos2;
+                                            });
                                         ?>
-                                            <td>
-                                                <?php if (! empty($ass)) : ?>
-                                                    <?php foreach ($ass as $a) : 
-                                                        $v_name = $a->volunteer_id ? ($a->first_name . ' ' . $a->last_name) : $a->volunteer_name_manual;
-                                                        $role_code = '';
-                                                        $role_class = '';
-                                                        if ($a->role_assigned === 'resp_scuola') { $role_code = ' (S)'; $role_class = 'role-s'; }
-                                                        elseif ($a->role_assigned === 'resp_banchetto') { $role_code = ' (R)'; $role_class = 'role-r'; }
-                                                        elseif ($a->role_assigned === 'guida') { $role_code = ' (G)'; $role_class = 'role-g'; }
-                                                        elseif ($a->role_assigned === 'accoglienza') { $role_code = ' [Accoglienza]'; }
-                                                    ?>
-                                                        <div style="margin-bottom: 3px;" class="<?php echo esc_attr($role_class); ?>">
-                                                            • <strong><?php echo esc_html($v_name); ?></strong><?php echo esc_html($role_code); ?>
-                                                        </div>
-                                                    <?php endforeach; ?>
+                                            <td style="vertical-align: top;">
+                                                <?php if (! empty($grouped_by_role)) : ?>
+                                                    <div style="display:flex; flex-direction:column; gap:6px;">
+                                                        <?php foreach ($grouped_by_role as $r_key => $v_names) : 
+                                                            $r_def = $roles_meta[$r_key] ?? null;
+                                                            $r_label = $r_def ? $r_def->role_name : ucfirst(str_replace('_', ' ', $r_key));
+                                                            $tag_class = 'role-tag-' . sanitize_html_class($r_key);
+                                                            if (! in_array($r_key, ['guida', 'accoglienza', 'banchetto', 'resp_banchetto', 'resp_scuola'], true)) {
+                                                                $tag_class = 'role-tag-default';
+                                                            }
+                                                        ?>
+                                                            <div class="role-group-row" style="flex-direction: column; gap: 2px;">
+                                                                <span class="role-badge-tag <?php echo esc_attr($tag_class); ?>" style="align-self: flex-start;">
+                                                                    <?php echo esc_html($r_label); ?> (<?php echo count($v_names); ?>)
+                                                                </span>
+                                                                <div class="role-vols-names" style="padding-left: 2px;">
+                                                                    <?php echo esc_html(implode(', ', $v_names)); ?>
+                                                                </div>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
                                                 <?php else : ?>
                                                     <span style="color:#94a3b8; font-style:italic;">— Nessun volontario —</span>
                                                 <?php endif; ?>
@@ -2188,14 +2257,6 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>
-
-            <div style="margin-top: 16px; font-size: 10.5px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 8px;">
-                <strong>Legenda Ruoli:</strong> 
-                <span class="role-s">(S) = Responsabile Scuola (Apprendisti Ciceroni)</span> • 
-                <span class="role-r">(R) = Responsabile Banchetto</span> • 
-                <span class="role-g">(G) = Guida</span> •
-                <span>Accoglienza / Banchetto</span>
-            </div>
         </div>
     </body>
     </html>
