@@ -696,6 +696,16 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
         }
     }
 
+    // Gestione Azzeramento Completo dei Turni Assegnati
+    if (isset($_POST['dfn_clear_assignments']) && wp_verify_nonce($_POST['dfn_clear_nonce'] ?? '', 'dfn_clear_assignments_action')) {
+        $all_event_shift_ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE event_id = %d", $event_id));
+        if (! empty($all_event_shift_ids)) {
+            $in_placeholders = implode(',', array_fill(0, count($all_event_shift_ids), '%d'));
+            $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE shift_id IN ($in_placeholders)", ...$all_event_shift_ids));
+        }
+        echo '<div class="notice notice-success is-dismissible"><p>🧹 <strong>Turni azzerati!</strong> Tutte le assegnazioni dei volontari per questo evento sono state rimosse e la board è completamente pulita.</p></div>';
+    }
+
     // Gestione Algoritmo Assegnazione Automatica
     if (isset($_POST['dfn_auto_assign']) && wp_verify_nonce($_POST['dfn_auto_nonce'] ?? '', 'dfn_auto_assign_action')) {
         $now = current_time('mysql');
@@ -714,7 +724,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             }
 
             $assigned_count = dfn_run_volunteer_auto_assignment($event_id, 0);
-            echo '<div class="notice notice-success is-dismissible"><p>🤖 <strong>Assegnazione automatica completata!</strong> Assegnati ' . intval($assigned_count) . ' volontari ai turni su tutti i giorni dell\'evento nel rispetto esclusivo delle sole mansioni abilitate.</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>🤖 <strong>Assegnazione automatica completata!</strong> Assegnati ' . intval($assigned_count) . ' volontari ai turni su tutti i giorni dell\'evento nel rispetto esclusivo delle sole mansioni abilitate e dei limiti di ruolo.</p></div>';
         }
     }
 
@@ -903,6 +913,16 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                         <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
                         <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
                             🤖 Assegna Automaticamente i Turni
+                        </button>
+                    </form>
+                <?php endif; ?>
+
+                <!-- 2.1. Azzera Assegnazioni (Pulisce tutta la board dei turni) -->
+                <?php if ($total_event_assignments > 0) : ?>
+                    <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler azzerare TUTTI i turni assegnati? La griglia dei turni tornerà completamente pulita per questo evento.');" style="margin:0;">
+                        <?php wp_nonce_field('dfn_clear_assignments_action', 'dfn_clear_nonce'); ?>
+                        <button type="submit" name="dfn_clear_assignments" class="button" style="color:#b91c1c; border-color:#fca5a5; font-weight:700; background:#fff;">
+                            🧹 Azzera Assegnazioni
                         </button>
                     </form>
                 <?php endif; ?>
@@ -1780,22 +1800,28 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
         return 0;
     }
 
-    // Mappa mansioni speciali abilitate per questo evento
-    $safety_role_key = null;
-    $guide_role_key  = null;
+    // Mappa mansioni speciali e ruoli con vincolo di quota
+    $safety_role_key   = null;
+    $guide_role_key    = null;
+    $resp_banchetto_key= null;
     $standard_role_keys = [];
 
     foreach ($event_roles as $er) {
+        $rk = $er->role_key;
         if (! empty($er->requires_safety_course) && ! $safety_role_key) {
-            $safety_role_key = $er->role_key;
+            $safety_role_key = $rk;
         } elseif (! empty($er->requires_guide) && ! $guide_role_key) {
-            $guide_role_key = $er->role_key;
+            $guide_role_key = $rk;
+        } elseif (stripos($rk, 'resp') !== false && stripos($rk, 'banch') !== false) {
+            $resp_banchetto_key = $rk;
+        } elseif (stripos($er->role_name, 'responsabile banchetto') !== false) {
+            $resp_banchetto_key = $rk;
         } else {
-            $standard_role_keys[] = $er->role_key;
+            $standard_role_keys[] = $rk;
         }
     }
 
-    // Se tutte le mansioni erano speciali e non ci sono standard, usa tutte le chiavi disponibili
+    // Se non ci sono altri ruoli standard, mantieni tutti i ruoli disponibili come fallback
     if (empty($standard_role_keys)) {
         foreach ($event_roles as $er) {
             $standard_role_keys[] = $er->role_key;
@@ -1865,121 +1891,153 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                 continue;
             }
 
-        // Tracciamento dei volontari assegnati nella specifica fascia oraria di questo giorno per evitare sovrapposizioni su più luoghi
-        $slot_full_k = $t_day->id . '_' . $slot_key;
-        $assigned_vols_in_current_slot = [];
+            // Tracciamento dei volontari assegnati nella specifica fascia oraria di questo giorno per evitare sovrapposizioni su più luoghi
+            $slot_full_k = $t_day->id . '_' . $slot_key;
+            $assigned_vols_in_current_slot = [];
 
-        // Raggruppamento per competenze (filtrando eventuali volontari già allocati)
-        $safety_volunteers = [];
-        $guide_volunteers  = [];
-        $general_volunteers= [];
+            // Raggruppamento per competenze (filtrando eventuali volontari già allocati)
+            $safety_volunteers = [];
+            $guide_volunteers  = [];
+            $general_volunteers= [];
 
-        foreach ($available_responses as $resp) {
-            $v_id = (int) $resp->volunteer_id;
-            if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
-                continue;
+            foreach ($available_responses as $resp) {
+                $v_id = (int) $resp->volunteer_id;
+                if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
+                    continue;
+                }
+                if (! empty($resp->has_safety_course) && $safety_role_key) {
+                    $safety_volunteers[] = $resp;
+                } elseif (! empty($resp->is_guide) && $guide_role_key) {
+                    $guide_volunteers[] = $resp;
+                } else {
+                    $general_volunteers[] = $resp;
+                }
             }
-            if (! empty($resp->has_safety_course) && $safety_role_key) {
-                $safety_volunteers[] = $resp;
-            } elseif (! empty($resp->is_guide) && $guide_role_key) {
-                $guide_volunteers[] = $resp;
-            } else {
-                $general_volunteers[] = $resp;
-            }
-        }
 
-        // 1. Assegnazione ruolo Sicurezza (se abilitato per l'evento)
-        if ($safety_role_key) {
-            foreach ($shifts as $shift) {
-                $has_safety = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_ass} WHERE shift_id = %d AND role_assigned = %s", $shift->id, $safety_role_key));
-                if (! $has_safety && ! empty($safety_volunteers)) {
-                    $picked = array_shift($safety_volunteers);
-                    $v_id   = (int) $picked->volunteer_id;
-                    if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
-                        continue;
-                    }
-                    $wpdb->insert($table_ass, [
-                        'shift_id'              => $shift->id,
-                        'volunteer_id'          => $v_id ?: null,
-                        'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
-                        'role_assigned'         => $safety_role_key,
-                        'created_at'            => current_time('mysql'),
-                    ], [ '%d', '%d', '%s', '%s', '%s' ]);
-                    $assigned_count++;
-                    if ($v_id > 0) {
-                        $assigned_vols_in_current_slot[] = $v_id;
+            // 1. Assegnazione ruolo Sicurezza (se abilitato per l'evento)
+            if ($safety_role_key) {
+                foreach ($shifts as $shift) {
+                    $has_safety = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_ass} WHERE shift_id = %d AND role_assigned = %s", $shift->id, $safety_role_key));
+                    if (! $has_safety && ! empty($safety_volunteers)) {
+                        $picked = array_shift($safety_volunteers);
+                        $v_id   = (int) $picked->volunteer_id;
+                        if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
+                            continue;
+                        }
+                        $wpdb->insert($table_ass, [
+                            'shift_id'              => $shift->id,
+                            'volunteer_id'          => $v_id ?: null,
+                            'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
+                            'role_assigned'         => $safety_role_key,
+                            'created_at'            => current_time('mysql'),
+                        ], [ '%d', '%d', '%s', '%s', '%s' ]);
+                        $assigned_count++;
+                        if ($v_id > 0) {
+                            $assigned_vols_in_current_slot[] = $v_id;
+                        }
                     }
                 }
             }
-        }
 
-        // 2. Assegnazione Guide (se abilitate per l'evento)
-        if ($guide_role_key) {
-            foreach ($shifts as $shift) {
-                while (! empty($guide_volunteers)) {
-                    $picked = array_shift($guide_volunteers);
-                    $v_id   = (int) $picked->volunteer_id;
-                    if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
-                        continue;
+            // 2. Assegnazione Guide (se abilitate per l'evento)
+            if ($guide_role_key) {
+                foreach ($shifts as $shift) {
+                    while (! empty($guide_volunteers)) {
+                        $picked = array_shift($guide_volunteers);
+                        $v_id   = (int) $picked->volunteer_id;
+                        if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
+                            continue;
+                        }
+                        $wpdb->insert($table_ass, [
+                            'shift_id'              => $shift->id,
+                            'volunteer_id'          => $v_id ?: null,
+                            'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
+                            'role_assigned'         => $guide_role_key,
+                            'created_at'            => current_time('mysql'),
+                        ], [ '%d', '%d', '%s', '%s', '%s' ]);
+                        $assigned_count++;
+                        if ($v_id > 0) {
+                            $assigned_vols_in_current_slot[] = $v_id;
+                        }
+                        break;
                     }
-                    $wpdb->insert($table_ass, [
-                        'shift_id'              => $shift->id,
-                        'volunteer_id'          => $v_id ?: null,
-                        'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
-                        'role_assigned'         => $guide_role_key,
-                        'created_at'            => current_time('mysql'),
-                    ], [ '%d', '%d', '%s', '%s', '%s' ]);
-                    $assigned_count++;
-                    if ($v_id > 0) {
-                        $assigned_vols_in_current_slot[] = $v_id;
-                    }
-                    break;
                 }
             }
-        }
 
-        // 3. Distribuzione bilanciata round-robin di tutti i restanti volontari tra i luoghi e le mansioni abilitate
-        $remaining_pool = [];
-        foreach (array_merge($safety_volunteers, $guide_volunteers, $general_volunteers) as $cand) {
-            $c_vid = (int) $cand->volunteer_id;
-            if ($c_vid > 0 && in_array($c_vid, $assigned_vols_in_current_slot, true)) {
-                continue;
-            }
-            $remaining_pool[] = $cand;
-        }
-
-        $shift_index = 0;
-        $num_shifts  = count($shifts);
-        $role_index  = 0;
-        $num_roles   = count($standard_role_keys);
-
-        while (! empty($remaining_pool)) {
-            $picked = array_shift($remaining_pool);
-            $v_id   = (int) $picked->volunteer_id;
-            if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
-                continue;
+            // Pool di volontari rimanenti per i ruoli ordinari
+            $remaining_pool = [];
+            foreach (array_merge($safety_volunteers, $guide_volunteers, $general_volunteers) as $cand) {
+                $c_vid = (int) $cand->volunteer_id;
+                if ($c_vid > 0 && in_array($c_vid, $assigned_vols_in_current_slot, true)) {
+                    continue;
+                }
+                $remaining_pool[] = $cand;
             }
 
-            $shift  = $shifts[$shift_index % $num_shifts];
-            $role   = $standard_role_keys[$role_index % $num_roles];
+            // 3. Assegnazione Esclusiva: Massimo 1 Responsabile Banchetto per ciascun turno/luogo
+            if ($resp_banchetto_key) {
+                foreach ($shifts as $shift) {
+                    $has_resp_banco = (int) $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$table_ass} WHERE shift_id = %d AND role_assigned = %s",
+                        $shift->id,
+                        $resp_banchetto_key
+                    ));
 
-            $wpdb->insert($table_ass, [
-                'shift_id'              => $shift->id,
-                'volunteer_id'          => $v_id ?: null,
-                'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
-                'role_assigned'         => $role,
-                'created_at'            => current_time('mysql'),
-            ], [ '%d', '%d', '%s', '%s', '%s' ]);
-            $assigned_count++;
-            if ($v_id > 0) {
-                $assigned_vols_in_current_slot[] = $v_id;
+                    if ($has_resp_banco === 0 && ! empty($remaining_pool)) {
+                        $picked = array_shift($remaining_pool);
+                        $v_id   = (int) $picked->volunteer_id;
+                        if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
+                            continue;
+                        }
+
+                        $wpdb->insert($table_ass, [
+                            'shift_id'              => $shift->id,
+                            'volunteer_id'          => $v_id ?: null,
+                            'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
+                            'role_assigned'         => $resp_banchetto_key,
+                            'created_at'            => current_time('mysql'),
+                        ], [ '%d', '%d', '%s', '%s', '%s' ]);
+                        $assigned_count++;
+                        if ($v_id > 0) {
+                            $assigned_vols_in_current_slot[] = $v_id;
+                        }
+                    }
+                }
             }
 
-            $shift_index++;
-            $role_index++;
+            // 4. Distribuzione bilanciata round-robin di tutti i restanti volontari tra i luoghi e le altre mansioni abilitate (Accoglienza, Volontario Banchetto, ecc.)
+            $shift_index = 0;
+            $num_shifts  = count($shifts);
+            $role_index  = 0;
+            $num_roles   = count($standard_role_keys);
+
+            while (! empty($remaining_pool)) {
+                $picked = array_shift($remaining_pool);
+                $v_id   = (int) $picked->volunteer_id;
+                if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
+                    continue;
+                }
+
+                $shift  = $shifts[$shift_index % $num_shifts];
+                $role   = $standard_role_keys[$role_index % $num_roles];
+
+                $wpdb->insert($table_ass, [
+                    'shift_id'              => $shift->id,
+                    'volunteer_id'          => $v_id ?: null,
+                    'volunteer_name_manual' => ! $v_id ? ($picked->first_name . ' ' . $picked->last_name) : null,
+                    'role_assigned'         => $role,
+                    'created_at'            => current_time('mysql'),
+                ], [ '%d', '%d', '%s', '%s', '%s' ]);
+                $assigned_count++;
+                if ($v_id > 0) {
+                    $assigned_vols_in_current_slot[] = $v_id;
+                }
+
+                $shift_index++;
+                $role_index++;
+            }
         }
     }
-}
 
     return $assigned_count;
 }
