@@ -1870,6 +1870,10 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
             continue;
         }
 
+        // Mappa ancoraggio Luogo nel giorno: $vol_assigned_place_in_day[vol_id] = place_id
+        // Garantisce che un volontario assegnato a un luogo (es. Mattina) rimanga nello stesso luogo anche negli altri turni del giorno
+        $vol_assigned_place_in_day = [];
+
         // Raggruppa gli shift per fascia oraria/chiave
         $shifts_by_slot = [];
         foreach ($shifts_in_day as $sh) {
@@ -1895,6 +1899,33 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
             $slot_full_k = $t_day->id . '_' . $slot_key;
             $assigned_vols_in_current_slot = [];
 
+            // Helper di matching turno per luogo preferito
+            $find_best_shift_for_vol = function(int $v_id, array $available_shifts) use (&$vol_assigned_place_in_day, $wpdb, $table_ass): ?object {
+                if (empty($available_shifts)) {
+                    return null;
+                }
+                // Se il volontario è già stato assegnato a un luogo oggi, cerca lo shift di quel luogo
+                if ($v_id > 0 && isset($vol_assigned_place_in_day[$v_id])) {
+                    $target_pid = $vol_assigned_place_in_day[$v_id];
+                    foreach ($available_shifts as $sh_item) {
+                        if ((int) $sh_item->place_id === (int) $target_pid) {
+                            return $sh_item;
+                        }
+                    }
+                }
+                // Altrimenti, scegli lo shift con meno assegnati per bilanciare il carico tra i luoghi
+                $best_sh = $available_shifts[0];
+                $min_count = 9999;
+                foreach ($available_shifts as $sh_item) {
+                    $cnt = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_ass} WHERE shift_id = %d", $sh_item->id));
+                    if ($cnt < $min_count) {
+                        $min_count = $cnt;
+                        $best_sh = $sh_item;
+                    }
+                }
+                return $best_sh;
+            };
+
             // Raggruppamento per competenze (filtrando eventuali volontari già allocati)
             $safety_volunteers = [];
             $guide_volunteers  = [];
@@ -1919,8 +1950,33 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                 foreach ($shifts as $shift) {
                     $has_safety = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_ass} WHERE shift_id = %d AND role_assigned = %s", $shift->id, $safety_role_key));
                     if (! $has_safety && ! empty($safety_volunteers)) {
-                        $picked = array_shift($safety_volunteers);
-                        $v_id   = (int) $picked->volunteer_id;
+                        // Cerca prioritariamente volontari sicurezza già legati a questo luogo
+                        $picked_idx = null;
+                        foreach ($safety_volunteers as $s_idx => $s_cand) {
+                            $c_vid = (int) $s_cand->volunteer_id;
+                            if (isset($vol_assigned_place_in_day[$c_vid]) && (int) $vol_assigned_place_in_day[$c_vid] === (int) $shift->place_id) {
+                                $picked_idx = $s_idx;
+                                break;
+                            }
+                        }
+                        if ($picked_idx === null) {
+                            // Altrimenti cerca uno non ancora vincolato ad un altro luogo
+                            foreach ($safety_volunteers as $s_idx => $s_cand) {
+                                $c_vid = (int) $s_cand->volunteer_id;
+                                if (! isset($vol_assigned_place_in_day[$c_vid])) {
+                                    $picked_idx = $s_idx;
+                                    break;
+                                }
+                            }
+                        }
+                        if ($picked_idx === null) {
+                            $picked_idx = 0;
+                        }
+
+                        $picked = $safety_volunteers[$picked_idx];
+                        array_splice($safety_volunteers, $picked_idx, 1);
+
+                        $v_id = (int) $picked->volunteer_id;
                         if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
                             continue;
                         }
@@ -1934,6 +1990,7 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                         $assigned_count++;
                         if ($v_id > 0) {
                             $assigned_vols_in_current_slot[] = $v_id;
+                            $vol_assigned_place_in_day[$v_id] = (int) $shift->place_id;
                         }
                     }
                 }
@@ -1942,9 +1999,33 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
             // 2. Assegnazione Guide (se abilitate per l'evento)
             if ($guide_role_key) {
                 foreach ($shifts as $shift) {
-                    while (! empty($guide_volunteers)) {
-                        $picked = array_shift($guide_volunteers);
-                        $v_id   = (int) $picked->volunteer_id;
+                    if (! empty($guide_volunteers)) {
+                        // Cerca prioritariamente guide già legate a questo luogo
+                        $picked_idx = null;
+                        foreach ($guide_volunteers as $g_idx => $g_cand) {
+                            $c_vid = (int) $g_cand->volunteer_id;
+                            if (isset($vol_assigned_place_in_day[$c_vid]) && (int) $vol_assigned_place_in_day[$c_vid] === (int) $shift->place_id) {
+                                $picked_idx = $g_idx;
+                                break;
+                            }
+                        }
+                        if ($picked_idx === null) {
+                            foreach ($guide_volunteers as $g_idx => $g_cand) {
+                                $c_vid = (int) $g_cand->volunteer_id;
+                                if (! isset($vol_assigned_place_in_day[$c_vid])) {
+                                    $picked_idx = $g_idx;
+                                    break;
+                                }
+                            }
+                        }
+                        if ($picked_idx === null) {
+                            $picked_idx = 0;
+                        }
+
+                        $picked = $guide_volunteers[$picked_idx];
+                        array_splice($guide_volunteers, $picked_idx, 1);
+
+                        $v_id = (int) $picked->volunteer_id;
                         if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
                             continue;
                         }
@@ -1958,8 +2039,8 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                         $assigned_count++;
                         if ($v_id > 0) {
                             $assigned_vols_in_current_slot[] = $v_id;
+                            $vol_assigned_place_in_day[$v_id] = (int) $shift->place_id;
                         }
-                        break;
                     }
                 }
             }
@@ -1984,8 +2065,32 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                     ));
 
                     if ($has_resp_banco === 0 && ! empty($remaining_pool)) {
-                        $picked = array_shift($remaining_pool);
-                        $v_id   = (int) $picked->volunteer_id;
+                        // Cerca prioritariamente chi è già stato in questo luogo
+                        $picked_idx = null;
+                        foreach ($remaining_pool as $r_idx => $r_cand) {
+                            $c_vid = (int) $r_cand->volunteer_id;
+                            if (isset($vol_assigned_place_in_day[$c_vid]) && (int) $vol_assigned_place_in_day[$c_vid] === (int) $shift->place_id) {
+                                $picked_idx = $r_idx;
+                                break;
+                            }
+                        }
+                        if ($picked_idx === null) {
+                            foreach ($remaining_pool as $r_idx => $r_cand) {
+                                $c_vid = (int) $r_cand->volunteer_id;
+                                if (! isset($vol_assigned_place_in_day[$c_vid])) {
+                                    $picked_idx = $r_idx;
+                                    break;
+                                }
+                            }
+                        }
+                        if ($picked_idx === null) {
+                            $picked_idx = 0;
+                        }
+
+                        $picked = $remaining_pool[$picked_idx];
+                        array_splice($remaining_pool, $picked_idx, 1);
+
+                        $v_id = (int) $picked->volunteer_id;
                         if ($v_id > 0 && in_array($v_id, $assigned_vols_in_current_slot, true)) {
                             continue;
                         }
@@ -2000,16 +2105,15 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                         $assigned_count++;
                         if ($v_id > 0) {
                             $assigned_vols_in_current_slot[] = $v_id;
+                            $vol_assigned_place_in_day[$v_id] = (int) $shift->place_id;
                         }
                     }
                 }
             }
 
-            // 4. Distribuzione bilanciata round-robin di tutti i restanti volontari tra i luoghi e le altre mansioni abilitate (Accoglienza, Volontario Banchetto, ecc.)
-            $shift_index = 0;
-            $num_shifts  = count($shifts);
-            $role_index  = 0;
-            $num_roles   = count($standard_role_keys);
+            // 4. Distribuzione bilanciata di tutti i restanti volontari rispettando il luogo già assegnato nel giorno
+            $role_index = 0;
+            $num_roles  = count($standard_role_keys);
 
             while (! empty($remaining_pool)) {
                 $picked = array_shift($remaining_pool);
@@ -2018,8 +2122,13 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                     continue;
                 }
 
-                $shift  = $shifts[$shift_index % $num_shifts];
-                $role   = $standard_role_keys[$role_index % $num_roles];
+                // Trova il miglior turno per questo volontario: preferisce lo stesso luogo del giorno se già assegnato
+                $shift = $find_best_shift_for_vol($v_id, $shifts);
+                if (! $shift) {
+                    $shift = $shifts[0];
+                }
+
+                $role = $standard_role_keys[$role_index % $num_roles];
 
                 $wpdb->insert($table_ass, [
                     'shift_id'              => $shift->id,
@@ -2031,9 +2140,9 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                 $assigned_count++;
                 if ($v_id > 0) {
                     $assigned_vols_in_current_slot[] = $v_id;
+                    $vol_assigned_place_in_day[$v_id] = (int) $shift->place_id;
                 }
 
-                $shift_index++;
                 $role_index++;
             }
         }
