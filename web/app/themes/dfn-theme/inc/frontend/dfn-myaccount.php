@@ -294,51 +294,62 @@ function dfn_fai_cards_query_vars(array $vars): array
  */
 function dfn_add_fai_cards_to_menu(array $items): array
 {
-    global $wpdb;
+    global $wpdb, $wp;
     unset($items['customer-logout'], $items['downloads'], $items['edit-address']);
 
     $is_volunteer = function_exists('dfn_is_user_volunteer') ? dfn_is_user_volunteer() : false;
 
-    // Controlla se ci sono sondaggi aperti/attivi
-    $has_open_surveys = false;
-    if ($is_volunteer) {
-        $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_surveys WHERE status = 'open' AND deadline_at >= NOW()");
-        $has_open_surveys = ($count > 0);
+    if (! $is_volunteer) {
+        // Menu standard per visitatori non volontari
+        $new_items = [];
+        foreach ($items as $key => $value) {
+            if ('edit-account' === $key) {
+                $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
+                $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
+            } else {
+                $new_items[$key] = $value;
+            }
+        }
+        if (! isset($new_items['tessere-fai'])) {
+            $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
+        }
+        return $new_items;
     }
 
+    // Controlla se ci sono sondaggi aperti/attivi
+    $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_surveys WHERE status = 'open' AND deadline_at >= NOW()");
+    $has_open_surveys = ($count > 0);
+
+    // Rileva se ci troviamo in una pagina dell'Area Volontari
+    $current_endpoint = '';
+    if (isset($wp->query_vars)) {
+        if (isset($wp->query_vars['eventi-fai'])) $current_endpoint = 'eventi-fai';
+        elseif (isset($wp->query_vars['sondaggi-fai'])) $current_endpoint = 'sondaggi-fai';
+        elseif (isset($wp->query_vars['riunioni-fai'])) $current_endpoint = 'riunioni-fai';
+    }
+
+    $is_volunteer_mode = (! empty($current_endpoint) || (isset($_GET['area']) && $_GET['area'] === 'volontari'));
+
     $new_items = [];
-    foreach ($items as $key => $value) {
-        if ('edit-account' === $key) {
-            $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
-            if ($is_volunteer) {
-                if ($has_open_surveys) {
-                    $new_items['sondaggi-fai'] = esc_html__('Sondaggi', 'dfn-theme');
-                }
-                $new_items['eventi-fai'] = esc_html__('Eventi', 'dfn-theme');
-                $new_items['riunioni-fai'] = esc_html__('Prossime Riunioni', 'dfn-theme');
-            }
-            $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
-        } else {
-            $new_items[ $key ] = $value;
-        }
-    }
-    if (! isset($new_items['tessere-fai'])) {
-        $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
-    }
-    if ($is_volunteer) {
-        if ($has_open_surveys && ! isset($new_items['sondaggi-fai'])) {
+
+    if ($is_volunteer_mode) {
+        // --- MENU MODALITÀ VOLONTARIO (4-5 voci chiare e spaziose) ---
+        $new_items['dashboard']    = esc_html__('← Visitatore', 'dfn-theme');
+        $new_items['eventi-fai']   = esc_html__('Eventi & Turni', 'dfn-theme');
+        if ($has_open_surveys) {
             $new_items['sondaggi-fai'] = esc_html__('Sondaggi', 'dfn-theme');
         }
-        if (! isset($new_items['eventi-fai'])) {
-            $new_items['eventi-fai'] = esc_html__('Eventi', 'dfn-theme');
-        }
-        if (! isset($new_items['riunioni-fai'])) {
-            $new_items['riunioni-fai'] = esc_html__('Prossime Riunioni', 'dfn-theme');
-        }
-    }
-    if (isset($new_items['edit-account'])) {
+        $new_items['riunioni-fai'] = esc_html__('Riunioni', 'dfn-theme');
+        $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
+    } else {
+        // --- MENU MODALITÀ VISITATORE (4-5 voci standard con hub volontari) ---
+        $new_items['dashboard']    = $items['dashboard'] ?? esc_html__('Bacheca', 'dfn-theme');
+        $new_items['orders']       = $items['orders'] ?? esc_html__('Prenotazioni', 'dfn-theme');
+        $new_items['tessere-fai']  = esc_html__('Tessere FAI', 'dfn-theme');
+        $new_items['eventi-fai']   = esc_html__('🦺 Volontari', 'dfn-theme');
         $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
     }
+
     return $new_items;
 }
 add_filter('woocommerce_account_menu_items', 'dfn_add_fai_cards_to_menu', 15);
@@ -1839,13 +1850,22 @@ function dfn_custom_myaccount_dashboard_content(): void
         
         <!-- 1. Hero Saluto & Contatori Vertically Stacked (1 col, 3 rows) -->
         <div style="background: linear-gradient(135deg, #004b23 0%, #006b35 100%); color: #ffffff; border-radius: 16px; padding: 18px 16px 14px 16px; box-shadow: 0 10px 25px rgba(0,75,35,0.15); display: flex; flex-direction: column; gap: 12px;">
-            <div>
-                <h2 style="color: #ffffff; margin: 0 0 4px 0; font-size: 20px; font-weight: 800;">
-                    <?php printf(esc_html__('Benvenuto, %s! 👋', 'dfn-theme'), esc_html($display_name)); ?>
-                </h2>
-                <p style="margin: 0; color: rgba(255,255,255,0.85); font-size: 13px;">
-                    <?php esc_html_e('Riepilogo delle tue prenotazioni ed esperienze con FAI Novara', 'dfn-theme'); ?>
-                </p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h2 style="color: #ffffff; margin: 0 0 4px 0; font-size: 20px; font-weight: 800;">
+                        <?php printf(esc_html__('Benvenuto, %s! 👋', 'dfn-theme'), esc_html($display_name)); ?>
+                    </h2>
+                    <p style="margin: 0; color: rgba(255,255,255,0.85); font-size: 13px;">
+                        <?php esc_html_e('Riepilogo delle tue prenotazioni ed esperienze con FAI Novara', 'dfn-theme'); ?>
+                    </p>
+                </div>
+                <?php if (function_exists('dfn_is_user_volunteer') && dfn_is_user_volunteer($current_user_id)) : ?>
+                    <div>
+                        <a href="<?php echo esc_url(wc_get_endpoint_url('eventi-fai', '', wc_get_page_permalink('myaccount'))); ?>" class="button" style="background: #ffffff; color: #004b23; border-radius: 30px; font-size: 12px; font-weight: 800; padding: 6px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: none;">
+                            🦺 Area Volontari →
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
             
             <div class="dfn-hero-stats" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
