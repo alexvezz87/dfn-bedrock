@@ -2021,42 +2021,46 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                 background: #004b23; 
                 color: #fff; 
                 border: none; 
-                padding: 8px 18px; 
-                bord            .role-group-row {
+                border-radius: 6px; 
+                font-weight: 700; 
+                font-size: 13px; 
+                cursor: pointer; 
+                margin-bottom: 15px; 
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            }
+            .print-btn:hover { background: #003b1c; }
+            .role-group-row {
                 display: flex;
                 align-items: baseline;
-                gap: 8px;
-                margin-bottom: 5px;
-                line-height: 1.4;
+                gap: 10px;
+                margin-bottom: 6px;
+                line-height: 1.5;
                 font-size: 12px;
             }
             .role-group-row:last-child {
                 margin-bottom: 0;
             }
             .role-badge-tag {
-                font-size: 10px;
+                font-size: 11px;
                 font-weight: 800;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
-                padding: 2px 7px;
-                border-radius: 4px;
+                padding: 3px 9px;
+                border-radius: 5px;
                 white-space: nowrap;
                 flex-shrink: 0;
             }
             .role-vols-names {
-                color: #1e293b;
-                font-size: 12px;
-            }
-            .role-vols-names strong {
                 color: #0f172a;
-                font-weight: 600;
+                font-size: 12.5px;
+                font-weight: 500;
             }
-            .role-tag-guida { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-            .role-tag-accoglienza { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-            .role-tag-banchetto { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; }
-            .role-tag-resp_banchetto { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-            .role-tag-resp_scuola { background: #fefce8; color: #a16207; border: 1px solid #fef08a; }
-            .role-tag-default { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+            .role-tag-guida { background: #e0f2fe; color: #0284c7; border: 1.5px solid #7dd3fc; }
+            .role-tag-accoglienza { background: #dcfce7; color: #16a34a; border: 1.5px solid #86efac; }
+            .role-tag-banchetto { background: #f1f5f9; color: #334155; border: 1.5px solid #94a3b8; }
+            .role-tag-resp_banchetto { background: #fee2e2; color: #dc2626; border: 1.5px solid #fca5a5; }
+            .role-tag-resp_scuola { background: #fef9c3; color: #ca8a04; border: 1.5px solid #fde047; }
+            .role-tag-default { background: #f1f5f9; color: #334155; border: 1.5px solid #cbd5e1; }
             @media print { 
                 .no-print { display: none !important; } 
                 body { padding: 0; background: #fff; } 
@@ -2097,10 +2101,9 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                     $day->id
                 ));
 
+                // Se non ci sono shift/turni generati per questo giorno, NON mostrarlo nel tabellone
                 if (empty($shifts_in_day)) {
-                    $shifts_in_day = [
-                        (object) ['shift_label' => 'Turno Unico', 'time_start' => '09:00:00', 'time_end' => '18:00:00'],
-                    ];
+                    continue;
                 }
 
                 $is_single_place = (count($places) === 1);
