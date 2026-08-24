@@ -269,8 +269,29 @@
         margin-left: auto;
     }
 
+    .dfn-header-user-btn-group {
+        gap: 6px !important;
+    }
+
     .dfn-header-user-action .cv-dynamic-login-btn {
-        height: 40px !important;
-        padding: 0 14px 0 12px !important;
+        height: 38px !important;
+        padding: 0 12px 0 10px !important;
+        font-size: 13px !important;
+    }
+
+    @media (max-width: 576px) {
+        .dfn-header-user-action .cv-dynamic-login-btn .cv-btn-text {
+            display: none !important;
+        }
+        .dfn-header-user-action .cv-dynamic-login-btn {
+            width: 38px !important;
+            height: 38px !important;
+            padding: 0 !important;
+            border-radius: 50% !important;
+        }
+        .dfn-header-user-action .cv-dynamic-login-btn .cv-main-icon {
+            margin: auto !important;
+        }
     }
 }
+

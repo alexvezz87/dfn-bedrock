@@ -90,7 +90,10 @@ function cv_render_login_biglietti_shortcode()
 
     if (is_user_logged_in()) {
         $ordini_url = wc_get_endpoint_url('orders', '', $account_url);
-        $bottone = '<a href="' . esc_url($ordini_url) . '" class="cv-dynamic-login-btn logged-in">' . $icona_ticket . '<span class="cv-btn-text">Le Mie Prenotazioni</span></a>';
+        $bottone = '<div class="dfn-header-user-btn-group" style="display:flex; align-items:center; gap:8px;">'
+                 . '<a href="' . esc_url($account_url) . '" class="cv-dynamic-login-btn cv-btn-account" title="' . esc_attr__('Bacheca Area Riservata', 'dfn-theme') . '">' . $icona_utente . '<span class="cv-btn-text">' . esc_html__('Area Riservata', 'dfn-theme') . '</span></a>'
+                 . '<a href="' . esc_url($ordini_url) . '" class="cv-dynamic-login-btn cv-btn-bookings logged-in" title="' . esc_attr__('Le Mie Prenotazioni', 'dfn-theme') . '">' . $icona_ticket . '<span class="cv-btn-text">' . esc_html__('Le Mie Prenotazioni', 'dfn-theme') . '</span></a>'
+                 . '</div>';
     } else {
         $bottone = '<a href="' . esc_url($account_url) . '" class="cv-dynamic-login-btn logged-out">' . $icona_utente . '<span class="cv-btn-text">Accedi / Registrati</span></a>';
     }

@@ -4,8 +4,11 @@ parameters:
         - web/app/themes/dfn-theme/inc/core/dfn-roles-manager.php
         - web/app/themes/dfn-theme/inc/admin/dfn-roles-admin.php
         - web/app/themes/dfn-theme/inc/core/dfn-security.php
+        - web/app/themes/dfn-theme/inc/admin/dfn-volunteers-admin.php
+        - web/app/themes/dfn-theme/inc/admin/dfn-volunteer-logistics-admin.php
     scanFiles:
         - web/app/themes/dfn-theme/functions.php
+        - web/app/themes/dfn-theme/inc/core/dfn-database.php
     ignoreErrors:
         - '#Constant DFN_PRIVACY_POLICY_URL not found#'
         - '#Function wc_get_page_permalink not found#'

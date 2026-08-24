@@ -32,7 +32,7 @@ function dfn_roles_register_admin_menu(): void
         'dfn-roles',
         'dfn_roles_render_admin_page',
         'dashicons-shield',
-        57
+        58
     );
 
     // Sottomenu 1: FAI Prenotazioni

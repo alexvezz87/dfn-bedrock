@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.2.0');
+define('DFN_DB_VERSION', '2.4.1');
 
 /**
  * ========================================================================
@@ -180,7 +180,7 @@ function dfn_db_install(): void
     ) {$charset_collate};";
 
     // -------------------------------------------------------------------
-    // TABELLA 5: Anagrafica Iscritti FAI
+    // TABELLA 5: Anagrafica Iscritti FAI (Soci e Volontari)
     // -------------------------------------------------------------------
     $table_fai = $wpdb->prefix . 'dfn_fai_members';
     $sql_fai = "CREATE TABLE {$table_fai} (
@@ -196,13 +196,22 @@ function dfn_db_install(): void
         verified_by bigint(20) unsigned DEFAULT NULL,
         verified_at datetime DEFAULT NULL,
         user_id bigint(20) unsigned DEFAULT NULL,
+        is_volunteer tinyint(1) NOT NULL DEFAULT 0,
+        volunteer_status varchar(20) NOT NULL DEFAULT 'active',
+        volunteer_notes text DEFAULT NULL,
+        joined_date date DEFAULT NULL,
+        is_guide tinyint(1) NOT NULL DEFAULT 0,
+        has_safety_course tinyint(1) NOT NULL DEFAULT 0,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY idx_email (email),
         KEY idx_card (card_number),
         KEY idx_user (user_id),
-        KEY idx_expiry (card_expiry)
+        KEY idx_expiry (card_expiry),
+        KEY idx_volunteer (is_volunteer),
+        KEY idx_guide (is_guide),
+        KEY idx_safety (has_safety_course)
     ) {$charset_collate};";
 
     // -------------------------------------------------------------------
@@ -262,7 +271,195 @@ function dfn_db_install(): void
         KEY idx_logged_at (logged_at)
     ) {$charset_collate};";
 
+    // -------------------------------------------------------------------
+    // TABELLA 9: Riunioni Volontari di Delegazione
+    // -------------------------------------------------------------------
+    $table_meetings = $wpdb->prefix . 'dfn_volunteer_meetings';
+    $sql_meetings = "CREATE TABLE {$table_meetings} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        title varchar(255) NOT NULL,
+        meeting_date date NOT NULL,
+        meeting_time_start time NOT NULL,
+        meeting_time_end time DEFAULT NULL,
+        location varchar(500) NOT NULL,
+        meeting_link varchar(500) DEFAULT NULL,
+        agenda text DEFAULT NULL,
+        notes text DEFAULT NULL,
+        status varchar(20) NOT NULL DEFAULT 'scheduled',
+        created_by bigint(20) unsigned DEFAULT NULL,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY idx_date (meeting_date),
+        KEY idx_status (status)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 10: Eventi Logistica Volontari (Locali & Giornate FAI)
+    // -------------------------------------------------------------------
+    $table_vol_events = $wpdb->prefix . 'dfn_volunteer_events';
+    $sql_vol_events = "CREATE TABLE {$table_vol_events} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        title varchar(255) NOT NULL,
+        event_type varchar(30) NOT NULL DEFAULT 'local',
+        date_start date NOT NULL,
+        date_end date NOT NULL,
+        linked_event_id bigint(20) unsigned DEFAULT NULL,
+        description text DEFAULT NULL,
+        status varchar(30) NOT NULL DEFAULT 'draft',
+        created_by bigint(20) unsigned DEFAULT NULL,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY idx_type (event_type),
+        KEY idx_status (status),
+        KEY idx_dates (date_start, date_end),
+        KEY idx_linked (linked_event_id)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 11: Giorni Evento Logistica Volontari
+    // -------------------------------------------------------------------
+    $table_vol_days = $wpdb->prefix . 'dfn_volunteer_event_days';
+    $sql_vol_days = "CREATE TABLE {$table_vol_days} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        event_id bigint(20) unsigned NOT NULL,
+        event_date date NOT NULL,
+        day_label varchar(100) NOT NULL,
+        order_num int(10) unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY  (id),
+        KEY idx_event (event_id),
+        KEY idx_date (event_date)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 12: Luoghi Aperti per Giorno (Es. Castello, Chiesa...)
+    // -------------------------------------------------------------------
+    $table_vol_places = $wpdb->prefix . 'dfn_volunteer_event_places';
+    $sql_vol_places = "CREATE TABLE {$table_vol_places} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        event_id bigint(20) unsigned NOT NULL,
+        day_id bigint(20) unsigned NOT NULL,
+        place_name varchar(255) NOT NULL,
+        address varchar(500) DEFAULT NULL,
+        notes text DEFAULT NULL,
+        order_num int(10) unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY  (id),
+        KEY idx_event (event_id),
+        KEY idx_day (day_id)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 13: Turni / Slot Orari per Luogo e Giorno
+    // -------------------------------------------------------------------
+    $table_vol_shifts = $wpdb->prefix . 'dfn_volunteer_event_shifts';
+    $sql_vol_shifts = "CREATE TABLE {$table_vol_shifts} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        event_id bigint(20) unsigned NOT NULL,
+        day_id bigint(20) unsigned NOT NULL,
+        place_id bigint(20) unsigned NOT NULL,
+        shift_label varchar(100) NOT NULL,
+        time_start time NOT NULL,
+        time_end time NOT NULL,
+        min_volunteers int(10) unsigned NOT NULL DEFAULT 2,
+        max_volunteers int(10) unsigned NOT NULL DEFAULT 10,
+        order_num int(10) unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY  (id),
+        KEY idx_event (event_id),
+        KEY idx_day (day_id),
+        KEY idx_place (place_id)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 14: Assegnazioni Volontari ai Turni (con Ruolo)
+    // -------------------------------------------------------------------
+    $table_vol_assignments = $wpdb->prefix . 'dfn_volunteer_shift_assignments';
+    $sql_vol_assignments = "CREATE TABLE {$table_vol_assignments} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        shift_id bigint(20) unsigned NOT NULL,
+        volunteer_id bigint(20) unsigned DEFAULT NULL,
+        volunteer_name_manual varchar(255) DEFAULT NULL,
+        role_assigned varchar(50) NOT NULL DEFAULT 'banchetto',
+        notes text DEFAULT NULL,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY idx_shift (shift_id),
+        KEY idx_vol (volunteer_id),
+        KEY idx_role (role_assigned)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 15: Sondaggi Disponibilità Volontari
+    // -------------------------------------------------------------------
+    $table_vol_surveys = $wpdb->prefix . 'dfn_volunteer_surveys';
+    $sql_vol_surveys = "CREATE TABLE {$table_vol_surveys} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        event_id bigint(20) unsigned NOT NULL,
+        title varchar(255) NOT NULL,
+        deadline_at datetime NOT NULL,
+        status varchar(20) NOT NULL DEFAULT 'open',
+        token_public varchar(64) NOT NULL,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY idx_event (event_id),
+        KEY idx_status (status),
+        KEY idx_token (token_public)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 16: Risposte ai Sondaggi Disponibilità
+    // -------------------------------------------------------------------
+    $table_vol_survey_responses = $wpdb->prefix . 'dfn_volunteer_survey_responses';
+    $sql_vol_survey_responses = "CREATE TABLE {$table_vol_survey_responses} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        survey_id bigint(20) unsigned NOT NULL,
+        volunteer_id bigint(20) unsigned DEFAULT NULL,
+        day_id bigint(20) unsigned NOT NULL,
+        time_slot_key varchar(50) NOT NULL,
+        is_available tinyint(1) NOT NULL DEFAULT 1,
+        notes text DEFAULT NULL,
+        submitted_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY idx_survey (survey_id),
+        KEY idx_vol (volunteer_id),
+        KEY idx_slot (day_id, time_slot_key)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 17: Anagrafica Mansioni / Ruoli Volontari
+    // -------------------------------------------------------------------
+    $table_roles = $wpdb->prefix . 'dfn_volunteer_roles';
+    $sql_roles = "CREATE TABLE {$table_roles} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        role_key varchar(50) NOT NULL,
+        role_name varchar(100) NOT NULL,
+        badge_code varchar(20) DEFAULT NULL,
+        badge_color varchar(20) NOT NULL DEFAULT '#475569',
+        badge_bg varchar(20) NOT NULL DEFAULT '#f1f5f9',
+        requires_safety_course tinyint(1) NOT NULL DEFAULT 0,
+        requires_guide tinyint(1) NOT NULL DEFAULT 0,
+        is_default tinyint(1) NOT NULL DEFAULT 0,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY uk_role_key (role_key)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 18: Associazione Mansioni Abilitate per Singolo Evento
+    // -------------------------------------------------------------------
+    $table_event_roles = $wpdb->prefix . 'dfn_volunteer_event_roles';
+    $sql_event_roles = "CREATE TABLE {$table_event_roles} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        event_id bigint(20) unsigned NOT NULL,
+        role_id bigint(20) unsigned NOT NULL,
+        order_num int(10) unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY  (id),
+        KEY idx_event (event_id),
+        KEY idx_role (role_id),
+        UNIQUE KEY uk_event_role (event_id, role_id)
+    ) {$charset_collate};";
+
     // Esecuzione idempotente di tutte le tabelle
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta($sql_events);
     dbDelta($sql_slots);
     dbDelta($sql_bookings);
@@ -271,6 +468,41 @@ function dfn_db_install(): void
     dbDelta($sql_waitlist);
     dbDelta($sql_pending);
     dbDelta($sql_logs);
+    dbDelta($sql_meetings);
+    dbDelta($sql_vol_events);
+    dbDelta($sql_vol_days);
+    dbDelta($sql_vol_places);
+    dbDelta($sql_vol_shifts);
+    dbDelta($sql_vol_assignments);
+    dbDelta($sql_vol_surveys);
+    dbDelta($sql_vol_survey_responses);
+    dbDelta($sql_roles);
+    dbDelta($sql_event_roles);
+
+    // Popolamento ruoli predefiniti se la tabella è vuota
+    $table_roles = $wpdb->prefix . 'dfn_volunteer_roles';
+    $roles_count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_roles}");
+    if ($roles_count === 0) {
+        $default_roles = [
+            ['resp_scuola', 'Responsabile Scuola', '(S)', '#92400e', '#fef3c7', 1, 0, 1],
+            ['resp_banchetto', 'Responsabile Banchetto', '(R)', '#991b1b', '#fee2e2', 0, 0, 1],
+            ['guida', 'Guida Culturale', '(G)', '#0369a1', '#e0f2fe', 0, 1, 1],
+            ['accoglienza', 'Accoglienza / Validatore', 'Accoglienza', '#166534', '#f0fdf4', 0, 0, 1],
+            ['banchetto', 'Volontario Banchetto', 'Banchetto', '#475569', '#f1f5f9', 0, 0, 1],
+        ];
+        foreach ($default_roles as $dr) {
+            $wpdb->insert($table_roles, [
+                'role_key'              => $dr[0],
+                'role_name'             => $dr[1],
+                'badge_code'            => $dr[2],
+                'badge_color'           => $dr[3],
+                'badge_bg'              => $dr[4],
+                'requires_safety_course'=> $dr[5],
+                'requires_guide'        => $dr[6],
+                'is_default'            => $dr[7],
+            ]);
+        }
+    }
 
     // Forza la creazione della colonna description se manca (dbDelta a volte fallisce l'alter)
     $row = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'description'");
@@ -286,6 +518,24 @@ function dfn_db_install(): void
 
     // Forza la nullabilità di card_expiry nella tabella fai_members (dbDelta a volte fallisce l'alter)
     $wpdb->query("ALTER TABLE {$table_fai} MODIFY COLUMN card_expiry date DEFAULT NULL");
+
+    // Garantisce che le colonne del modulo Volontari siano create in wp_dfn_fai_members
+    $row_vol = $wpdb->get_results("SHOW COLUMNS FROM {$table_fai} LIKE 'is_volunteer'");
+    if (empty($row_vol)) {
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN is_volunteer tinyint(1) NOT NULL DEFAULT 0");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN volunteer_status varchar(20) NOT NULL DEFAULT 'active'");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN volunteer_notes text DEFAULT NULL");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN joined_date date DEFAULT NULL");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_volunteer (is_volunteer)");
+    }
+
+    $row_guide = $wpdb->get_results("SHOW COLUMNS FROM {$table_fai} LIKE 'is_guide'");
+    if (empty($row_guide)) {
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN is_guide tinyint(1) NOT NULL DEFAULT 0");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN has_safety_course tinyint(1) NOT NULL DEFAULT 0");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_guide (is_guide)");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_safety (has_safety_course)");
+    }
 
     // Migra dati legacy dalla waitlist su wp_options (one-shot)
     dfn_migrate_waitlist_from_options();
@@ -844,3 +1094,352 @@ function dfn_restrict_test_events_access(): void
     }
 }
 add_action('template_redirect', 'dfn_restrict_test_events_access', 1);
+
+/**
+ * ========================================================================
+ * HELPER VOLONTARI FAI & RIUNIONI DI DELEGAZIONE
+ * ========================================================================
+ */
+
+/**
+ * Verifica se un determinato utente è registrato come Volontario FAI attivo
+ * oppure se possiede ruoli FAI assegnati.
+ *
+ * @param int|null $user_id ID dell'utente (se null, usa l'utente corrente).
+ * @return bool True se è un volontario attivo, false altrimenti.
+ */
+function dfn_is_user_volunteer(?int $user_id = null): bool
+{
+    $uid = $user_id ?: get_current_user_id();
+    if (! $uid) {
+        return false;
+    }
+
+    // Se è amministratore o ha ruoli di gestione
+    if (user_can($uid, 'manage_options')) {
+        return true;
+    }
+
+    // Controlla se ha ruoli FAI operativi assegnati
+    $assigned_fai_roles = get_user_meta($uid, '_dfn_assigned_fai_roles', true);
+    if (is_array($assigned_fai_roles) && ! empty($assigned_fai_roles)) {
+        return true;
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_fai_members';
+
+    // Controlla se esiste nella tabella iscritti FAI come volontario attivo
+    $is_vol = (bool) $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM {$table} WHERE user_id = %d AND is_volunteer = 1 AND volunteer_status = 'active'",
+        $uid
+    ));
+
+    return $is_vol;
+}
+
+/**
+ * Recupera il record del volontario associato a un determinato user_id.
+ *
+ * @param int $user_id ID utente WordPress.
+ * @return object|null Record del volontario o null.
+ */
+function dfn_get_volunteer_by_user(int $user_id)
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_fai_members';
+    return $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table} WHERE user_id = %d AND is_volunteer = 1 LIMIT 1",
+        $user_id
+    ));
+}
+
+/**
+ * Recupera l'elenco delle prossime riunioni di delegazione programmate.
+ *
+ * @param bool $upcoming_only Se true, restituisce solo le riunioni da oggi in poi.
+ * @param int  $limit         Numero massimo di riunioni da restituire.
+ * @return array<object>
+ */
+function dfn_get_volunteer_meetings(bool $upcoming_only = true, int $limit = 20): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_meetings';
+
+    $where = "status != 'cancelled'";
+    if ($upcoming_only) {
+        $where .= " AND meeting_date >= CURDATE()";
+    }
+
+    $sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY meeting_date ASC, meeting_time_start ASC LIMIT %d";
+    $results = $wpdb->get_results($wpdb->prepare($sql, $limit));
+
+    return is_array($results) ? $results : [];
+}
+
+/**
+ * ========================================================================
+ * HELPER LOGISTICA EVENTI E TURNI VOLONTARI FAI (GIORNATE FAI / LOCALI)
+ * ========================================================================
+ */
+
+/**
+ * Recupera un evento logistica per ID.
+ *
+ * @param int $event_id ID dell'evento logistica.
+ * @return object|null
+ */
+function dfn_get_volunteer_event(int $event_id)
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_events';
+    return $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d LIMIT 1", $event_id));
+}
+
+/**
+ * Recupera tutti gli eventi logistica volontari.
+ *
+ * @param string $status Stato opzionale ('all', 'published', 'draft', etc.)
+ * @return array<object>
+ */
+function dfn_get_volunteer_events(string $status = 'all'): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_events';
+    $where = "1=1";
+    if ($status !== 'all') {
+        $where .= $wpdb->prepare(" AND status = %s", $status);
+    }
+    $sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY date_start DESC, id DESC";
+    $res = $wpdb->get_results($sql);
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Recupera i giorni configurati per un evento logistica.
+ *
+ * @param int $event_id ID dell'evento.
+ * @return array<object>
+ */
+function dfn_get_volunteer_event_days(int $event_id): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_event_days';
+    $sql = "SELECT * FROM {$table} WHERE event_id = %d ORDER BY order_num ASC, event_date ASC";
+    $res = $wpdb->get_results($wpdb->prepare($sql, $event_id));
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Recupera i luoghi aperti per un giorno di evento logistica.
+ *
+ * @param int $day_id ID del giorno.
+ * @return array<object>
+ */
+function dfn_get_volunteer_event_places(int $day_id): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_event_places';
+    $sql = "SELECT * FROM {$table} WHERE day_id = %d ORDER BY order_num ASC, id ASC";
+    $res = $wpdb->get_results($wpdb->prepare($sql, $day_id));
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Recupera tutti i luoghi aperti per l'intero evento logistica (distinti per nome per evitare duplicati su eventi multi-giorno).
+ *
+ * @param int $event_id ID dell'evento.
+ * @return array<object>
+ */
+function dfn_get_volunteer_event_all_places(int $event_id): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_event_places';
+    $sql = "SELECT place_name, MIN(id) as id, event_id, MIN(day_id) as day_id, MIN(address) as address 
+            FROM {$table} 
+            WHERE event_id = %d 
+            GROUP BY place_name 
+            ORDER BY id ASC";
+    $res = $wpdb->get_results($wpdb->prepare($sql, $event_id));
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Recupera i turni / slot orari configurati per un luogo.
+ *
+ * @param int $place_id ID del luogo.
+ * @return array<object>
+ */
+function dfn_get_volunteer_place_shifts(int $place_id): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_event_shifts';
+    $sql = "SELECT * FROM {$table} WHERE place_id = %d ORDER BY order_num ASC, time_start ASC";
+    $res = $wpdb->get_results($wpdb->prepare($sql, $place_id));
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Recupera tutte le assegnazioni volontari per uno shift.
+ *
+ * @param int $shift_id ID dello shift.
+ * @return array<object>
+ */
+function dfn_get_volunteer_shift_assignments(int $shift_id): array
+{
+    global $wpdb;
+    $table_ass = $wpdb->prefix . 'dfn_volunteer_shift_assignments';
+    $table_fai = $wpdb->prefix . 'dfn_fai_members';
+
+    $sql = "SELECT a.*, f.first_name, f.last_name, f.phone, f.email, f.card_number, f.is_guide, f.has_safety_course, f.user_id
+            FROM {$table_ass} a
+            LEFT JOIN {$table_fai} f ON a.volunteer_id = f.id
+            WHERE a.shift_id = %d
+            ORDER BY 
+                CASE a.role_assigned
+                    WHEN 'resp_banchetto' THEN 1
+                    WHEN 'resp_scuola' THEN 2
+                    WHEN 'guida' THEN 3
+                    WHEN 'accoglienza' THEN 4
+                    ELSE 5
+                END ASC, a.id ASC";
+    $res = $wpdb->get_results($wpdb->prepare($sql, $shift_id));
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Recupera i turni assegnati a un determinato volontario (per visualizzazione /mio-account/).
+ *
+ * @param int $user_id ID utente WordPress del volontario.
+ * @return array<object>
+ */
+function dfn_get_volunteer_assigned_shifts_for_user(int $user_id): array
+{
+    global $wpdb;
+    $table_fai    = $wpdb->prefix . 'dfn_fai_members';
+    $table_ass    = $wpdb->prefix . 'dfn_volunteer_shift_assignments';
+    $table_shifts = $wpdb->prefix . 'dfn_volunteer_event_shifts';
+    $table_places = $wpdb->prefix . 'dfn_volunteer_event_places';
+    $table_days   = $wpdb->prefix . 'dfn_volunteer_event_days';
+    $table_events = $wpdb->prefix . 'dfn_volunteer_events';
+
+    $vol = $wpdb->get_row($wpdb->prepare("SELECT id FROM {$table_fai} WHERE user_id = %d AND is_volunteer = 1 LIMIT 1", $user_id));
+    if (! $vol) {
+        return [];
+    }
+
+    $sql = "SELECT a.*, s.event_id, s.shift_label, s.time_start, s.time_end, p.place_name, p.address as place_address, d.event_date, d.day_label, e.title as event_title, e.event_type
+            FROM {$table_ass} a
+            INNER JOIN {$table_shifts} s ON a.shift_id = s.id
+            INNER JOIN {$table_places} p ON s.place_id = p.id
+            INNER JOIN {$table_days} d ON s.day_id = d.id
+            INNER JOIN {$table_events} e ON s.event_id = e.id
+            WHERE a.volunteer_id = %d AND e.status IN ('published', 'completed')
+            ORDER BY d.event_date ASC, s.time_start ASC";
+    
+    $res = $wpdb->get_results($wpdb->prepare($sql, $vol->id));
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Recupera il sondaggio attivo per un evento.
+ *
+ * @param int $event_id ID dell'evento.
+ * @return object|null
+ */
+function dfn_get_volunteer_survey_by_event(int $event_id)
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_surveys';
+    return $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE event_id = %d LIMIT 1", $event_id));
+}
+
+/**
+ * Recupera un sondaggio tramite public token.
+ *
+ * @param string $token Token pubblico.
+ * @return object|null
+ */
+function dfn_get_volunteer_survey_by_token(string $token)
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_surveys';
+    return $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE token_public = %s LIMIT 1", $token));
+}
+
+/**
+ * Recupera tutte le mansioni/ruoli registrati a database.
+ *
+ * @return array<object>
+ */
+function dfn_get_all_volunteer_roles(): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_roles';
+    $res = $wpdb->get_results("SELECT * FROM {$table} ORDER BY is_default DESC, role_name ASC");
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Recupera le mansioni associate a uno specifico evento.
+ *
+ * @param int $event_id ID dell'evento logistica.
+ * @return array<object>
+ */
+function dfn_get_volunteer_event_roles(int $event_id): array
+{
+    global $wpdb;
+    $table_er = $wpdb->prefix . 'dfn_volunteer_event_roles';
+    $table_r  = $wpdb->prefix . 'dfn_volunteer_roles';
+    $sql = "SELECT r.* 
+            FROM {$table_r} r 
+            INNER JOIN {$table_er} er ON r.id = er.role_id 
+            WHERE er.event_id = %d 
+            ORDER BY er.order_num ASC, r.role_name ASC";
+    $res = $wpdb->get_results($wpdb->prepare($sql, $event_id));
+    return is_array($res) ? $res : [];
+}
+
+/**
+ * Associa un insieme di mansioni a un evento.
+ *
+ * @param int $event_id ID dell'evento.
+ * @param array<int> $role_ids Array di ID mansione da associare.
+ * @return void
+ */
+function dfn_set_volunteer_event_roles(int $event_id, array $role_ids): void
+{
+    global $wpdb;
+    $table_er = $wpdb->prefix . 'dfn_volunteer_event_roles';
+    
+    // Rimuovi associazioni precedenti
+    $wpdb->delete($table_er, ['event_id' => $event_id], ['%d']);
+
+    $order = 1;
+    foreach ($role_ids as $r_id) {
+        $r_id = (int) $r_id;
+        if ($r_id > 0) {
+            $wpdb->insert($table_er, [
+                'event_id'  => $event_id,
+                'role_id'   => $r_id,
+                'order_num' => $order,
+            ], ['%d', '%d', '%d']);
+            $order++;
+        }
+    }
+}
+
+/**
+ * Recupera un ruolo dalla sua role_key.
+ *
+ * @param string $role_key Chiave identificativa ruolo.
+ * @return object|null
+ */
+function dfn_get_volunteer_role_by_key(string $role_key)
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_roles';
+    return $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE role_key = %s LIMIT 1", $role_key));
+}
+
+

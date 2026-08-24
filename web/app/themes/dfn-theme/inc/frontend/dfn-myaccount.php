@@ -249,20 +249,29 @@ function dfn_add_group_tickets_action_button(array $actions, $order): array
  * ========================================================================
  */
 
-// Registra l'endpoint custom per le tessere FAI
+// Registra l'endpoint custom per le tessere FAI e per le sezioni Volontari (Riunioni, Sondaggi, Eventi)
 add_action('init', 'dfn_fai_cards_endpoint_init');
 /**
- * Registra il nuovo endpoint rewrite di WooCommerce per le tessere FAI.
+ * Registra i nuovi endpoint rewrite di WooCommerce per le tessere FAI e aree volontari.
  */
 function dfn_fai_cards_endpoint_init(): void
 {
-    add_rewrite_endpoint('tessere-fai', EP_PAGES);
+    add_rewrite_endpoint('tessere-fai', EP_PAGES | EP_ROOT);
+    add_rewrite_endpoint('riunioni-fai', EP_PAGES | EP_ROOT);
+    add_rewrite_endpoint('sondaggi-fai', EP_PAGES | EP_ROOT);
+    add_rewrite_endpoint('eventi-fai', EP_PAGES | EP_ROOT);
+
+    // Auto-flush se una delle regole di rewrite non è ancora presente
+    $rules = get_option('rewrite_rules');
+    if (! isset($rules['(.?.+?)/riunioni-fai(/(.*))?/?$']) || ! isset($rules['(.?.+?)/sondaggi-fai(/(.*))?/?$']) || ! isset($rules['(.?.+?)/eventi-fai(/(.*))?/?$'])) {
+        flush_rewrite_rules(false);
+    }
 }
 
-// Aggiunge la query var consentita da WooCommerce
+// Aggiunge le query var consentite da WooCommerce
 add_filter('query_vars', 'dfn_fai_cards_query_vars', 0);
 /**
- * Registra la variabile di query per l'endpoint tessere-fai.
+ * Registra le variabili di query per gli endpoint custom.
  *
  * @param array $vars Variabili di query esistenti.
  * @return array Variabili di query aggiornate.
@@ -270,35 +279,77 @@ add_filter('query_vars', 'dfn_fai_cards_query_vars', 0);
 function dfn_fai_cards_query_vars(array $vars): array
 {
     $vars[] = 'tessere-fai';
+    $vars[] = 'riunioni-fai';
+    $vars[] = 'sondaggi-fai';
+    $vars[] = 'eventi-fai';
     return $vars;
 }
 
-// Inserisce la voce nel menu Mio Account di WooCommerce
+// Inserisce le voci nel menu Mio Account di WooCommerce
 /**
- * Aggiunge la voce "Tessere FAI", rinomina "Account" e rimuove "Esci" dalla bottom bar.
+ * Aggiunge la voce "Tessere FAI" e, se l'utente è un volontario, "Sondaggi" (se attivi), "Eventi" e "Prossime Riunioni".
  *
  * @param array<string, string> $items Voci del menu account.
  * @return array<string, string> Menu modificato.
  */
 function dfn_add_fai_cards_to_menu(array $items): array
 {
+    global $wpdb, $wp;
     unset($items['customer-logout'], $items['downloads'], $items['edit-address']);
 
-    $new_items = [];
-    foreach ($items as $key => $value) {
-        if ('edit-account' === $key) {
-            $new_items['tessere-fai']  = esc_html__('Tessere FAI', 'dfn-theme');
-            $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
-        } else {
-            $new_items[ $key ] = $value;
+    $is_volunteer = function_exists('dfn_is_user_volunteer') ? dfn_is_user_volunteer() : false;
+
+    if (! $is_volunteer) {
+        // Menu standard per visitatori non volontari
+        $new_items = [];
+        foreach ($items as $key => $value) {
+            if ('edit-account' === $key) {
+                $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
+                $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
+            } else {
+                $new_items[$key] = $value;
+            }
         }
+        if (! isset($new_items['tessere-fai'])) {
+            $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
+        }
+        return $new_items;
     }
-    if (! isset($new_items['tessere-fai'])) {
-        $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
+
+    // Controlla se ci sono sondaggi aperti/attivi
+    $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_surveys WHERE status = 'open' AND deadline_at >= NOW()");
+    $has_open_surveys = ($count > 0);
+
+    // Rileva se ci troviamo in una pagina dell'Area Volontari
+    $current_endpoint = '';
+    if (isset($wp->query_vars)) {
+        if (isset($wp->query_vars['eventi-fai'])) $current_endpoint = 'eventi-fai';
+        elseif (isset($wp->query_vars['sondaggi-fai'])) $current_endpoint = 'sondaggi-fai';
+        elseif (isset($wp->query_vars['riunioni-fai'])) $current_endpoint = 'riunioni-fai';
     }
-    if (isset($new_items['edit-account'])) {
+
+    $is_volunteer_mode = (! empty($current_endpoint) || (isset($_GET['area']) && $_GET['area'] === 'volontari'));
+
+    $new_items = [];
+
+    if ($is_volunteer_mode) {
+        // --- MENU MODALITÀ VOLONTARIO (Voci chiare e pulite senza icone) ---
+        $new_items['dashboard']    = esc_html__('Visitatore', 'dfn-theme');
+        $new_items['eventi-fai']   = esc_html__('Bacheca Turni', 'dfn-theme');
+        if ($has_open_surveys) {
+            $new_items['sondaggi-fai'] = esc_html__('Sondaggi', 'dfn-theme');
+        }
+        $new_items['riunioni-fai'] = esc_html__('Riunioni', 'dfn-theme');
+        $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
+    } else {
+        // --- MENU MODALITÀ VISITATORE (Voci chiare e pulite senza icone) ---
+        $new_items['dashboard']    = $items['dashboard'] ?? esc_html__('Bacheca', 'dfn-theme');
+        $new_items['orders']       = $items['orders'] ?? esc_html__('Prenotazioni', 'dfn-theme');
+        $new_items['tessere-fai']  = esc_html__('Tessere FAI', 'dfn-theme');
+        $new_items['eventi-fai']   = esc_html__('Volontari', 'dfn-theme');
         $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
     }
+
     return $new_items;
 }
 add_filter('woocommerce_account_menu_items', 'dfn_add_fai_cards_to_menu', 15);
@@ -330,10 +381,10 @@ add_action('init', 'dfn_fai_cards_flush_rules', 999);
  */
 function dfn_fai_cards_flush_rules(): void
 {
-    if ('yes' !== get_option('dfn_fai_permalink_flushed')) {
+    if ('yes' !== get_option('dfn_fai_permalink_flushed_v230')) {
         dfn_fai_cards_endpoint_init();
         flush_rewrite_rules();
-        update_option('dfn_fai_permalink_flushed', 'yes');
+        update_option('dfn_fai_permalink_flushed_v230', 'yes');
     }
 }
 
@@ -412,10 +463,12 @@ function dfn_fai_cards_endpoint_content(): void
         }
     }
 
-    // Recupera le tessere verificate (verified = 1)
+    // Recupera le tessere verificate (verified = 1 da wp_dfn_fai_members)
     $verified_cards = $wpdb->get_results(
         $wpdb->prepare(
-            "SELECT * FROM {$table_fai} WHERE (user_id = %d OR (email IS NOT NULL AND email != '' AND LOWER(email) = LOWER(%s))) AND verified = 1 ORDER BY card_expiry DESC, created_at DESC",
+            "SELECT * FROM {$table_fai} 
+             WHERE (user_id = %d OR (email IS NOT NULL AND email != '' AND LOWER(email) = LOWER(%s))) AND verified = 1
+             ORDER BY card_expiry DESC, created_at DESC",
             $current_user_id,
             $current_user->user_email
         )
@@ -596,6 +649,468 @@ function dfn_fai_cards_endpoint_content(): void
                 <div class="dfn-fai-empty-icon">🪪</div>
                 <h4><?php esc_html_e('Nessuna tessera FAI verificata', 'dfn-theme'); ?></h4>
                 <p><?php esc_html_e('Non risultano ancora tessere FAI verificate associate a questo account.', 'dfn-theme'); ?></p>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
+// Rendering del contenuto della sezione "Prossime Riunioni" per i Volontari
+add_action('woocommerce_account_riunioni-fai_endpoint', 'dfn_volunteer_meetings_endpoint_content');
+/**
+ * Renderizza la bacheca delle riunioni di delegazione riservata ai volontari.
+ */
+function dfn_volunteer_meetings_endpoint_content(): void
+{
+    $current_user_id = get_current_user_id();
+    if (! $current_user_id) {
+        return;
+    }
+
+    if (function_exists('dfn_is_user_volunteer') && ! dfn_is_user_volunteer($current_user_id)) {
+        ?>
+        <div class="dfn-account-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('Accesso Riservato', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Questa sezione è riservata esclusivamente ai volontari attivi della Delegazione FAI.', 'dfn-theme'); ?></p>
+        </div>
+        <?php
+        return;
+    }
+
+    $meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 50) : [];
+    ?>
+    <div class="dfn-volunteer-meetings-section" id="dfn-meetings-section">
+        <div class="dfn-account-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('📅 Riunioni di Delegazione', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Consulta il calendario delle prossime riunioni dei volontari FAI, gli orari, le sedi e gli ordini del giorno programmati.', 'dfn-theme'); ?></p>
+        </div>
+
+        <?php if (! empty($meetings)) : ?>
+            <div class="dfn-meetings-grid" style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
+                <?php foreach ($meetings as $m) : 
+                    $m_date = strtotime($m->meeting_date);
+                    $day_name = date_i18n('l', $m_date);
+                    $day_num  = date_i18n('d', $m_date);
+                    $month    = date_i18n('F Y', $m_date);
+                ?>
+                    <div class="dfn-meeting-list-card">
+                        <!-- Date Box Badge -->
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 18px; text-align: center; min-width: 90px; flex-shrink: 0;">
+                            <span style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase; display: block;"><?php echo esc_html($day_name); ?></span>
+                            <span style="font-size: 26px; font-weight: 800; color: #004b23; line-height: 1.1; display: block;"><?php echo esc_html($day_num); ?></span>
+                            <span style="font-size: 11px; font-weight: 600; color: #475569; display: block;"><?php echo esc_html($month); ?></span>
+                        </div>
+
+                        <!-- Details -->
+                        <div style="flex: 1; min-width: 250px;">
+                            <h3 style="margin: 0 0 8px 0; font-size: 17px; font-weight: 700; color: #0f172a;">
+                                <?php echo esc_html($m->title); ?>
+                            </h3>
+
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; font-size: 13px; color: #334155;">
+                                <div>
+                                    <strong style="color: #004b23;">⏰ Orario:</strong> <?php echo esc_html(substr($m->meeting_time_start, 0, 5)); ?>
+                                    <?php if ($m->meeting_time_end) echo ' - ' . esc_html(substr($m->meeting_time_end, 0, 5)); ?>
+                                </div>
+                                <div>
+                                    <strong style="color: #004b23;">📍 Sede:</strong> <?php echo esc_html($m->location); ?>
+                                </div>
+                            </div>
+
+                            <?php if (! empty($m->agenda)) : ?>
+                                <div style="background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 12px 14px; font-size: 13px; color: #334155; line-height: 1.5; margin-bottom: 12px;">
+                                    <strong style="color: #1e293b; display: block; margin-bottom: 4px;">📝 Ordine del giorno:</strong>
+                                    <?php echo nl2br(esc_html($m->agenda)); ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if (! empty($m->meeting_link)) : ?>
+                                <div style="margin-top: 10px;">
+                                    <a href="<?php echo esc_url($m->meeting_link); ?>" target="_blank" class="button" style="background: #004b23; color: #ffffff; border-radius: 8px; font-weight: 700; padding: 6px 16px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                                        <span>🔗 Partecipa alla Riunione Online</span>
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php else : ?>
+            <div class="dfn-fai-empty-state" style="margin-top: 20px;">
+                <div class="dfn-fai-empty-icon">📅</div>
+                <h4><?php esc_html_e('Nessuna riunione programmata', 'dfn-theme'); ?></h4>
+                <p><?php esc_html_e('Non ci sono riunioni di delegazione in calendario al momento.', 'dfn-theme'); ?></p>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
+// Rendering del contenuto della sezione "Sondaggi Disponibilità" per i Volontari
+add_action('woocommerce_account_sondaggi-fai_endpoint', 'dfn_volunteer_surveys_endpoint_content');
+/**
+ * Renderizza l'elenco dei sondaggi di disponibilità attivi per i volontari.
+ */
+function dfn_volunteer_surveys_endpoint_content(): void
+{
+    $current_user_id = get_current_user_id();
+    if (! $current_user_id) {
+        return;
+    }
+
+    if (function_exists('dfn_is_user_volunteer') && ! dfn_is_user_volunteer($current_user_id)) {
+        ?>
+        <div class="dfn-account-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('Accesso Riservato', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Questa sezione è riservata esclusivamente ai volontari attivi della Delegazione FAI.', 'dfn-theme'); ?></p>
+        </div>
+        <?php
+        return;
+    }
+
+    global $wpdb;
+    $table_surveys = $wpdb->prefix . 'dfn_volunteer_surveys';
+    $table_events  = $wpdb->prefix . 'dfn_volunteer_events';
+    $surveys = $wpdb->get_results("SELECT s.*, e.title as event_title, e.event_type, e.date_start, e.date_end 
+                                   FROM {$table_surveys} s 
+                                   JOIN {$table_events} e ON s.event_id = e.id 
+                                   WHERE s.status = 'open' AND s.deadline_at >= NOW() 
+                                   ORDER BY s.deadline_at ASC");
+    ?>
+    <div class="dfn-volunteer-surveys-section">
+        <div class="dfn-account-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('📋 Sondaggi Disponibilità Volontari', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('In questa sezione puoi indicare le tue fasce orarie di disponibilità per i prossimi eventi e giornate FAI.', 'dfn-theme'); ?></p>
+        </div>
+
+        <?php if (! empty($surveys)) : ?>
+            <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
+                <?php foreach ($surveys as $s) : 
+                    $deadline_str = date_i18n('d/m/Y \a\l\l\e H:i', strtotime($s->deadline_at));
+                    $survey_url = home_url('/sondaggio-volontari/?token=' . $s->token_public);
+                ?>
+                    <div class="dfn-survey-list-card">
+                        <div style="flex: 1; min-width: 260px;">
+                            <div style="margin-bottom: 6px;">
+                                <span class="dfn-badge-pill pill-status-open">⏳ Aperto alle risposte</span>
+                            </div>
+                            <h3 style="margin: 0 0 6px 0; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.3;"><?php echo esc_html($s->title); ?></h3>
+                            <div style="font-size: 13px; color: #475569; margin-top: 4px;">🗓️ Date Evento: <strong><?php echo esc_html(date_i18n('d/m/Y', strtotime($s->date_start))); ?></strong><?php echo $s->date_end !== $s->date_start ? ' - <strong>' . esc_html(date_i18n('d/m/Y', strtotime($s->date_end))) . '</strong>' : ''; ?></div>
+                            <div style="font-size: 12.5px; color: #b91c1c; font-weight: 700; margin-top: 4px;">⏰ Scadenza invio: <?php echo esc_html($deadline_str); ?></div>
+                        </div>
+
+                        <div>
+                            <a href="<?php echo esc_url($survey_url); ?>" class="button dfn-btn-survey">✍️ Compila Sondaggio</a>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php else : ?>
+            <div class="dfn-fai-empty-state" style="margin-top: 20px;">
+                <div class="dfn-fai-empty-icon">📋</div>
+                <h4><?php esc_html_e('Nessun sondaggio attivo', 'dfn-theme'); ?></h4>
+                <p><?php esc_html_e('Al momento non ci sono sondaggi aperti che richiedono la tua disponibilità.', 'dfn-theme'); ?></p>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
+// Rendering del contenuto della sezione "Eventi Volontari" per i Volontari
+add_action('woocommerce_account_eventi-fai_endpoint', 'dfn_volunteer_events_endpoint_content');
+/**
+ * Renderizza la bacheca degli eventi, stato sondaggio, istruzioni e matrice turni per i volontari.
+ */
+function dfn_volunteer_events_endpoint_content(): void
+{
+    $current_user_id = get_current_user_id();
+    if (! $current_user_id) {
+        return;
+    }
+
+    if (function_exists('dfn_is_user_volunteer') && ! dfn_is_user_volunteer($current_user_id)) {
+        ?>
+        <div class="dfn-account-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('Accesso Riservato', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Questa sezione è riservata esclusivamente ai volontari attivi della Delegazione FAI.', 'dfn-theme'); ?></p>
+        </div>
+        <?php
+        return;
+    }
+
+    global $wpdb;
+    $events = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}dfn_volunteer_events WHERE date_end >= CURDATE() ORDER BY date_start ASC");
+    $my_shifts = function_exists('dfn_get_volunteer_assigned_shifts_for_user') ? dfn_get_volunteer_assigned_shifts_for_user($current_user_id) : [];
+    $table_surveys = $wpdb->prefix . 'dfn_volunteer_surveys';
+    $open_surveys = $wpdb->get_results("SELECT s.*, e.title as event_title FROM {$table_surveys} s JOIN {$wpdb->prefix}dfn_volunteer_events e ON s.event_id = e.id WHERE s.status = 'open' AND s.deadline_at >= NOW() ORDER BY s.deadline_at ASC LIMIT 1");
+    $upcoming_meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 2) : [];
+
+    ?>
+    <div class="dfn-volunteer-events-section" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="dfn-account-header-card">
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('🏛️ Bacheca Volontari FAI', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Consulta il piano turni dei tuoi eventi, le istruzioni operative, i sondaggi di disponibilità e le riunioni.', 'dfn-theme'); ?></p>
+        </div>
+
+        <?php if (! empty($open_surveys)) : 
+            $surv = $open_surveys[0];
+        ?>
+            <!-- Box Sondaggio Aperto in Bacheca Volontari -->
+            <div class="dfn-dash-vol-box-survey">
+                <div>
+                    <div class="dfn-dash-vol-survey-tag">📋 Disponibilità Richiesta</div>
+                    <h3 class="dfn-dash-vol-survey-title"><?php echo esc_html($surv->title); ?></h3>
+                    <p class="dfn-dash-vol-survey-desc">Indica le tue preferenze orarie entro il <strong><?php echo esc_html(date_i18n('d/m/Y \a\l\l\e H:i', strtotime($surv->deadline_at))); ?></strong>.</p>
+                </div>
+                <div>
+                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $surv->token_public)); ?>" class="button dfn-btn-survey">✍️ Compila Sondaggio</a>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if (! empty($upcoming_meetings)) : ?>
+            <div class="dfn-dash-vol-box-meetings">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
+                        <span>📅</span> <?php esc_html_e('Prossime Riunioni di Delegazione', 'dfn-theme'); ?>
+                    </h3>
+                    <a href="<?php echo esc_url(wc_get_endpoint_url('riunioni-fai', '', wc_get_page_permalink('myaccount'))); ?>" style="font-size: 12px; font-weight: 700; color: #004b23; text-decoration: none;">
+                        <?php esc_html_e('Tutte le riunioni →', 'dfn-theme'); ?>
+                    </a>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <?php foreach ($upcoming_meetings as $m_item) :
+                        $m_d = strtotime($m_item->meeting_date);
+                        $date_text = date_i18n('l d F Y', $m_d);
+                        $time_text = substr($m_item->meeting_time_start, 0, 5);
+                        ?>
+                        <div class="dfn-dash-vol-meeting-row">
+                            <div>
+                                <h4 style="margin: 0 0 2px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;"><?php echo esc_html($m_item->title); ?></h4>
+                                <div style="font-size: 12px; color: #334155;">
+                                    🗓️ <strong><?php echo esc_html(ucfirst($date_text)); ?></strong> alle <strong><?php echo esc_html($time_text); ?></strong> • 📍 <?php echo esc_html($m_item->location); ?>
+                                </div>
+                            </div>
+                            <?php if (! empty($m_item->meeting_link)) : ?>
+                                <a href="<?php echo esc_url($m_item->meeting_link); ?>" target="_blank" class="button" style="background: #004b23; color: #ffffff; border-radius: 20px; font-size: 11.5px; font-weight: 700; padding: 4px 14px; text-decoration: none;">
+                                    🔗 Link Online
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if (! empty($events)) : ?>
+            <div style="display: flex; flex-direction: column; gap: 24px; margin-top: 6px;">
+                <?php foreach ($events as $ev) : 
+                    $date_start_str = date_i18n('l d F Y', strtotime($ev->date_start));
+                    $date_end_str   = date_i18n('l d F Y', strtotime($ev->date_end));
+                    $is_giornata_fai = ($ev->event_type === 'giornata_fai');
+
+                    // Recupera sondaggio associato
+                    $survey = function_exists('dfn_get_volunteer_survey_by_event') ? dfn_get_volunteer_survey_by_event((int) $ev->id) : null;
+                    $now = current_time('mysql');
+                    $is_survey_open = ($survey && $survey->status === 'open' && $survey->deadline_at >= $now);
+                    $is_survey_closed = ($survey && ($survey->status === 'closed' || $survey->deadline_at < $now));
+                    $are_shifts_published = ($ev->status === 'published' || $ev->status === 'completed');
+
+                    // Filtra turni assegnati a questo specifico volontario per questo evento
+                    $ev_my_shifts = array_filter($my_shifts, function($s) use ($ev) {
+                        return (int) $s->event_id === (int) $ev->id;
+                    });
+                ?>
+                    <div class="dfn-vol-event-card">
+                        
+                        <!-- Header Evento & Badges di Stato -->
+                        <div class="dfn-vol-header">
+                            <div>
+                                <h3 class="dfn-vol-title"><?php echo esc_html($ev->title); ?></h3>
+                                <div class="dfn-vol-date">🗓️ <strong><?php echo esc_html(ucfirst($date_start_str)); ?></strong><?php echo $ev->date_start !== $ev->date_end ? ' — <strong>' . esc_html(ucfirst($date_end_str)) . '</strong>' : ''; ?></div>
+
+                                <!-- Badge Tipologia & Stato Sondaggio / Turni Sotto Titolo e Data -->
+                                <div class="dfn-vol-badges-row">
+                                    <span class="dfn-badge-pill pill-type-fai"><?php echo $is_giornata_fai ? '🏰 Giornata FAI (Nazionale)' : '📍 Evento Locale / Visita'; ?></span><?php if ($are_shifts_published) : ?><span class="dfn-badge-pill pill-status-published">✅ Turni Pubblicati</span><?php elseif ($is_survey_open) : ?><span class="dfn-badge-pill pill-status-open">🟢 Sondaggio aperto</span><?php elseif ($is_survey_closed) : ?><span class="dfn-badge-pill pill-status-closed">🟡 Sondaggio chiuso in attesa dei turni</span><?php endif; ?>
+                                </div>
+                            </div>
+
+                            <?php if ($is_survey_open && $survey) : ?>
+                                <div>
+                                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $survey->token_public)); ?>" class="button" style="background: #2563eb; color: #ffffff; border-radius: 30px; font-weight: 700; padding: 8px 18px; font-size: 12.5px; text-decoration: none; border: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 8px rgba(37,99,235,0.2);">
+                                        ✍️ Compila Sondaggio
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Istruzioni & Note per i Volontari -->
+                        <?php if (! empty($ev->description)) : ?>
+                            <div class="dfn-vol-instructions">
+                                <strong class="dfn-vol-instructions-title"><span>📝</span> Note e Istruzioni per i Volontari:</strong>
+                                <div class="dfn-vol-instructions-body"><?php echo esc_html($ev->description); ?></div>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Sezione 1: Il Tuo Turno Assegnato (Dettaglio: Giorno, Luogo, Slot Orario) -->
+                        <?php if ($are_shifts_published && ! empty($ev_my_shifts)) : ?>
+                            <div class="dfn-vol-assigned-section">
+                                <div class="dfn-vol-assigned-heading"><span>📍</span> Il Tuo Turno &amp; Incarico Assegnato:</div>
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <?php foreach ($ev_my_shifts as $sh_item) : 
+                                        $r_obj = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($sh_item->role_assigned) : null;
+                                        if ($r_obj) {
+                                            $b_code = trim((string) $r_obj->badge_code);
+                                            $r_lbl = $r_obj->role_name;
+                                            if (! empty($b_code) && stripos($r_lbl, $b_code) === false) {
+                                                $r_lbl .= ' ' . $b_code;
+                                            }
+                                        } else {
+                                            $r_lbl = ucfirst(str_replace('_', ' ', $sh_item->role_assigned));
+                                        }
+                                        $r_bg  = $r_obj ? $r_obj->badge_bg : '#ea580c';
+                                        $r_col = $r_obj ? $r_obj->badge_color : '#ffffff';
+                                    ?>
+                                        <div class="dfn-vol-shift-item">
+                                            <div>
+                                                <div style="font-size: 13.5px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">
+                                                    🗓️ <strong>Giorno:</strong> <?php echo esc_html(ucfirst(date_i18n('l d/m/Y', strtotime($sh_item->event_date)))); ?>
+                                                </div>
+                                                <div style="font-size: 13px; color: #334155; margin-bottom: 2px;">
+                                                    📍 <strong>Luogo:</strong> <?php echo esc_html($sh_item->place_name); ?>
+                                                </div>
+                                                <div style="font-size: 13px; color: #334155;">
+                                                    ⏰ <strong>Slot Orario:</strong> <?php echo esc_html(substr($sh_item->time_start, 0, 5) . ' - ' . substr($sh_item->time_end, 0, 5)); ?> (<?php echo esc_html($sh_item->shift_label); ?>)
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="dfn-vol-role-badge" style="background: <?php echo esc_attr($r_bg); ?> !important; color: <?php echo esc_attr($r_col); ?> !important;"><?php echo esc_html($r_lbl); ?></span>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Sezione 2: Visualizzazione Turni Generali dell'Evento (quando pubblicati) -->
+                        <?php if ($are_shifts_published) : 
+                            $ev_days = dfn_get_volunteer_event_days((int) $ev->id);
+                            $all_roles_def = function_exists('dfn_get_volunteer_roles') ? dfn_get_volunteer_roles(true) : [];
+                            $roles_meta = [];
+                            foreach ($all_roles_def as $rd) {
+                                $roles_meta[$rd->role_key] = $rd;
+                            }
+                            $role_order = ['guida', 'accoglienza', 'banchetto', 'resp_banchetto', 'resp_scuola'];
+                        ?>
+                            <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 14px;">
+                                <details style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px;">
+                                    <summary style="cursor: pointer; font-size: 13px; font-weight: 700; color: #004b23; display: flex; align-items: center; gap: 6px; user-select: none;">
+                                        <span>📋</span> Visualizza Piano Turni Generale dell'Evento (Tutti i Luoghi e Orari)
+                                    </summary>
+                                    <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 14px;">
+                                        <?php foreach ($ev_days as $eday) : 
+                                            $eplaces = dfn_get_volunteer_event_places((int) $eday->id);
+                                            if (empty($eplaces)) continue;
+
+                                            // Controlla se esistono turni/slot configurati per questo giorno
+                                            $has_shifts_in_day = (int) $wpdb->get_var($wpdb->prepare(
+                                                "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE day_id = %d",
+                                                $eday->id
+                                            ));
+
+                                            if ($has_shifts_in_day === 0) {
+                                                continue; // Salta i giorni privi di turni/slot
+                                            }
+                                        ?>
+                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+                                                <div style="font-size: 13px; font-weight: 800; color: #004b23; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                                                    🗓️ <?php echo esc_html(strtoupper($eday->day_label)); ?>
+                                                </div>
+                                                <?php foreach ($eplaces as $eplc) : 
+                                                    $eshifts = $wpdb->get_results($wpdb->prepare(
+                                                        "SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d ORDER BY time_start ASC",
+                                                        $eplc->id
+                                                    ));
+                                                    if (empty($eshifts)) continue;
+                                                ?>
+                                                    <div style="margin-bottom: 12px;">
+                                                        <?php if (count($eplaces) > 1) : ?>
+                                                            <div style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">
+                                                                📍 <?php echo esc_html($eplc->place_name); ?>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                                                            <?php foreach ($eshifts as $esh) : 
+                                                                $eass = dfn_get_volunteer_shift_assignments((int) $esh->id);
+                                                                $time_str = substr($esh->time_start, 0, 5) . ' - ' . substr($esh->time_end, 0, 5);
+
+                                                                // Raggruppa i volontari per mansione
+                                                                $grouped_by_role = [];
+                                                                foreach ($eass as $asgn) {
+                                                                    $r_k = ! empty($asgn->role_assigned) ? $asgn->role_assigned : 'banchetto';
+                                                                    $v_full_name = $asgn->volunteer_id ? ($asgn->first_name . ' ' . $asgn->last_name) : $asgn->volunteer_name_manual;
+                                                                    $grouped_by_role[$r_k][] = $v_full_name;
+                                                                }
+
+                                                                uksort($grouped_by_role, function($k1, $k2) use ($role_order) {
+                                                                    $pos1 = array_search($k1, $role_order, true);
+                                                                    $pos2 = array_search($k2, $role_order, true);
+                                                                    $pos1 = ($pos1 === false) ? 99 : $pos1;
+                                                                    $pos2 = ($pos2 === false) ? 99 : $pos2;
+                                                                    return $pos1 <=> $pos2;
+                                                                });
+                                                            ?>
+                                                                <div style="font-size: 12px; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px;">
+                                                                    <div style="font-weight: 800; color: #0f172a; margin-bottom: 6px;">
+                                                                        ⏰ <?php echo esc_html($esh->shift_label); ?> (<?php echo esc_html($time_str); ?>)
+                                                                    </div>
+                                                                    <?php if (! empty($grouped_by_role)) : ?>
+                                                                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                                                                            <?php foreach ($grouped_by_role as $r_key => $v_names) : 
+                                                                                $r_def = $roles_meta[$r_key] ?? null;
+                                                                                $r_label = $r_def ? $r_def->role_name : ucfirst(str_replace('_', ' ', $r_key));
+                                                                                $tag_bg = '#f1f5f9';
+                                                                                $tag_color = '#334155';
+                                                                                $tag_border = '#cbd5e1';
+                                                                                if ($r_key === 'guida') { $tag_bg = '#e0f2fe'; $tag_color = '#0284c7'; $tag_border = '#7dd3fc'; }
+                                                                                elseif ($r_key === 'accoglienza') { $tag_bg = '#dcfce7'; $tag_color = '#16a34a'; $tag_border = '#86efac'; }
+                                                                                elseif ($r_key === 'banchetto') { $tag_bg = '#f1f5f9'; $tag_color = '#334155'; $tag_border = '#94a3b8'; }
+                                                                                elseif ($r_key === 'resp_banchetto') { $tag_bg = '#fee2e2'; $tag_color = '#dc2626'; $tag_border = '#fca5a5'; }
+                                                                                elseif ($r_key === 'resp_scuola') { $tag_bg = '#fef9c3'; $tag_color = '#ca8a04'; $tag_border = '#fde047'; }
+                                                                            ?>
+                                                                                <div style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
+                                                                                    <span style="background: <?php echo esc_attr($tag_bg); ?>; color: <?php echo esc_attr($tag_color); ?>; border: 1.5px solid <?php echo esc_attr($tag_border); ?>; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.4px;">
+                                                                                        <?php echo esc_html($r_label); ?> (<?php echo count($v_names); ?>)
+                                                                                    </span>
+                                                                                    <span style="color: #0f172a; font-weight: 500;">
+                                                                                        <?php echo esc_html(implode(', ', $v_names)); ?>
+                                                                                    </span>
+                                                                                </div>
+                                                                            <?php endforeach; ?>
+                                                                        </div>
+                                                                    <?php else : ?>
+                                                                        <em style="color: #94a3b8; font-size: 11.5px;">— Nessun volontario assegnato —</em>
+                                                                    <?php endif; ?>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </details>
+                            </div>
+                        <?php endif; ?>
+
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php else : ?>
+            <div class="dfn-fai-empty-state" style="margin-top: 20px;">
+                <div class="dfn-fai-empty-icon">🏛️</div>
+                <h4><?php esc_html_e('Nessun evento in programma', 'dfn-theme'); ?></h4>
+                <p><?php esc_html_e('Non ci sono eventi attivi con istruzioni per i volontari al momento.', 'dfn-theme'); ?></p>
             </div>
         <?php endif; ?>
     </div>
@@ -1388,13 +1903,22 @@ function dfn_custom_myaccount_dashboard_content(): void
         
         <!-- 1. Hero Saluto & Contatori Vertically Stacked (1 col, 3 rows) -->
         <div style="background: linear-gradient(135deg, #004b23 0%, #006b35 100%); color: #ffffff; border-radius: 16px; padding: 18px 16px 14px 16px; box-shadow: 0 10px 25px rgba(0,75,35,0.15); display: flex; flex-direction: column; gap: 12px;">
-            <div>
-                <h2 style="color: #ffffff; margin: 0 0 4px 0; font-size: 20px; font-weight: 800;">
-                    <?php printf(esc_html__('Benvenuto, %s! 👋', 'dfn-theme'), esc_html($display_name)); ?>
-                </h2>
-                <p style="margin: 0; color: rgba(255,255,255,0.85); font-size: 13px;">
-                    <?php esc_html_e('Riepilogo delle tue prenotazioni ed esperienze con FAI Novara', 'dfn-theme'); ?>
-                </p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h2 style="color: #ffffff; margin: 0 0 4px 0; font-size: 20px; font-weight: 800;">
+                        <?php printf(esc_html__('Benvenuto, %s! 👋', 'dfn-theme'), esc_html($display_name)); ?>
+                    </h2>
+                    <p style="margin: 0; color: rgba(255,255,255,0.85); font-size: 13px;">
+                        <?php esc_html_e('Riepilogo delle tue prenotazioni ed esperienze con FAI Novara', 'dfn-theme'); ?>
+                    </p>
+                </div>
+                <?php if (function_exists('dfn_is_user_volunteer') && dfn_is_user_volunteer($current_user_id)) : ?>
+                    <div>
+                        <a href="<?php echo esc_url(wc_get_endpoint_url('eventi-fai', '', wc_get_page_permalink('myaccount'))); ?>" class="button" style="background: #ffffff; color: #004b23; border-radius: 30px; font-size: 12px; font-weight: 800; padding: 6px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: none;">
+                            🦺 Area Volontari →
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
             
             <div class="dfn-hero-stats" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
