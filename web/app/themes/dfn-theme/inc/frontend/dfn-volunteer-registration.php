@@ -150,6 +150,8 @@ function dfn_process_volunteer_registration(): array
             'last_name'  => $last_name,
             'user_pass'  => $password,
         ]);
+        // Aggiunge il ruolo Volontario FAI se non presente
+        $existing_user->add_role('dfn_volunteer');
     } else {
         // Genera username pulito
         $base_user = sanitize_user(strtolower($first_name . '.' . $last_name));
@@ -170,8 +172,15 @@ function dfn_process_volunteer_registration(): array
             'first_name'   => $first_name,
             'last_name'    => $last_name,
             'display_name' => trim($first_name . ' ' . $last_name),
-            'role'         => 'subscriber',
+            'role'         => 'dfn_volunteer',
         ]);
+    }
+
+    // Imposta ruolo FAI salvato nei meta
+    $current_assigned = (array) get_user_meta($user_id, '_dfn_assigned_fai_roles', true);
+    if (! in_array('dfn_volunteer', $current_assigned, true)) {
+        $current_assigned[] = 'dfn_volunteer';
+        update_user_meta($user_id, '_dfn_assigned_fai_roles', array_unique($current_assigned));
     }
 
     // Salva metadati anagrafici

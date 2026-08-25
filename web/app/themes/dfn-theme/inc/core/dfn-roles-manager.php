@@ -185,6 +185,12 @@ function dfn_get_default_roles(): array
             'module'      => 'volontari',
             'description' => __('Gestione completa anagrafica volontari, logistica turni, sondaggi e riunioni di delegazione.', 'dfn-theme'),
         ],
+        'dfn_volunteer'       => [
+            'label'       => __('Volontario FAI', 'dfn-theme'),
+            'is_system'   => false,
+            'module'      => 'volontari',
+            'description' => __('Volontario operativo di delegazione.', 'dfn-theme'),
+        ],
     ];
 }
 
@@ -341,6 +347,11 @@ function dfn_get_stored_roles(): array
         if (! isset($stored['dfn_coord_volontari'])) {
             $stored['dfn_coord_volontari'] = $defaults['dfn_coord_volontari'];
             $stored['dfn_coord_volontari']['modules'] = ['volontari'];
+            $changed = true;
+        }
+        if (! isset($stored['dfn_volunteer'])) {
+            $stored['dfn_volunteer'] = $defaults['dfn_volunteer'];
+            $stored['dfn_volunteer']['modules'] = ['volontari'];
             $changed = true;
         }
         if ($changed) {
