@@ -409,9 +409,7 @@ function dfn_add_fai_cards_to_menu(array $items): array
         // --- MENU MODALITÀ VOLONTARIO (Voci chiare e pulite senza icone) ---
         $new_items['dashboard']    = esc_html__('Visitatore', 'dfn-theme');
         $new_items['eventi-fai']   = esc_html__('Bacheca Turni', 'dfn-theme');
-        if ($has_open_surveys) {
-            $new_items['sondaggi-fai'] = esc_html__('Sondaggi', 'dfn-theme');
-        }
+        $new_items['sondaggi-fai'] = esc_html__('Sondaggi', 'dfn-theme');
         $new_items['riunioni-fai'] = esc_html__('Riunioni', 'dfn-theme');
         $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
     } else {
