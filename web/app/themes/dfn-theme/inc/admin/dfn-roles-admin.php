@@ -381,72 +381,68 @@ function dfn_roles_render_admin_page(): void
                             $users_count = count(get_users(['role' => $r_slug]));
                             $r_modules = ! empty($r_data['modules']) && is_array($r_data['modules']) ? $r_data['modules'] : (array) ($r_data['module'] ?? []);
                         ?>
-                            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; background: <?php echo ! empty($r_data['is_system']) ? '#f8fafc' : '#ffffff'; ?>;">
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                    <div>
-                                        <div style="font-weight: 700; color: #1e293b; font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                                            <?php echo esc_html($r_data['label']); ?>
-                                            
-                                            <?php if ($r_slug === 'administrator') : ?>
-                                                <span style="font-size: 11px; background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Globale</span>
-                                            <?php else : ?>
-                                                <?php if (in_array('volontari', $r_modules, true)) : ?>
-                                                    <span style="font-size: 11px; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 10px; font-weight: 600;">👥 Volontari FAI</span>
-                                                <?php endif; ?>
-                                                <?php if (in_array('prenotazioni', $r_modules, true)) : ?>
-                                                    <span style="font-size: 11px; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 10px; font-weight: 600;">🎟️ FAI Prenotazioni</span>
-                                                <?php endif; ?>
-                                                <?php if (empty($r_modules)) : ?>
-                                                    <span style="font-size: 11px; background: #f8fafc; color: #64748b; border: 1px dashed #cbd5e1; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Nessuna Materia</span>
-                                                <?php endif; ?>
+                            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; background: <?php echo ! empty($r_data['is_system']) ? '#f8fafc' : '#ffffff'; ?>; display: flex; flex-direction: column; gap: 10px;">
+                                <div>
+                                    <div style="font-weight: 700; color: #1e293b; font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                        <?php echo esc_html($r_data['label']); ?>
+                                        
+                                        <?php if ($r_slug === 'administrator') : ?>
+                                            <span style="font-size: 11px; background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Globale</span>
+                                        <?php else : ?>
+                                            <?php if (in_array('volontari', $r_modules, true)) : ?>
+                                                <span style="font-size: 11px; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 10px; font-weight: 600;">👥 Volontari FAI</span>
                                             <?php endif; ?>
-
-                                            <?php if (! empty($r_data['is_system'])) : ?>
-                                                <span style="font-size: 11px; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Sistema</span>
+                                            <?php if (in_array('prenotazioni', $r_modules, true)) : ?>
+                                                <span style="font-size: 11px; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 10px; font-weight: 600;">🎟️ FAI Prenotazioni</span>
                                             <?php endif; ?>
-                                        </div>
-                                        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
-                                            <?php echo esc_html($r_data['description']); ?>
-                                        </div>
-                                        <div style="font-size: 11px; color: #0284c7; margin-top: 6px; font-weight: 600;">
-                                            👤 <?php echo intval($users_count); ?> utenti assegnati &bull; <code><?php echo esc_html($r_slug); ?></code>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <?php if (empty($r_data['is_system'])) : ?>
-                                            <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler eliminare questo ruolo? Gli utenti con questo ruolo perderanno le autorizzazioni associate.');" style="margin: 0;">
-                                                <?php wp_nonce_field('dfn_delete_role_action', 'dfn_delete_role_nonce'); ?>
-                                                <input type="hidden" name="role_slug" value="<?php echo esc_attr($r_slug); ?>" />
-                                                <button type="submit" class="button button-link-delete" style="color: #ef4444; font-size: 12px; padding: 0;">
-                                                    🗑️ Elimina
-                                                </button>
-                                            </form>
+                                            <?php if (empty($r_modules)) : ?>
+                                                <span style="font-size: 11px; background: #f8fafc; color: #64748b; border: 1px dashed #cbd5e1; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Nessuna Materia</span>
+                                            <?php endif; ?>
                                         <?php endif; ?>
+
+                                        <?php if (! empty($r_data['is_system'])) : ?>
+                                            <span style="font-size: 11px; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Sistema</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                        <?php echo esc_html($r_data['description']); ?>
+                                    </div>
+                                    <div style="font-size: 11px; color: #0284c7; margin-top: 6px; font-weight: 600;">
+                                        👤 <?php echo intval($users_count); ?> utenti assegnati &bull; <code><?php echo esc_html($r_slug); ?></code>
                                     </div>
                                 </div>
 
-                                <!-- Modifica rapida materie per ruoli personalizzati -->
+                                <!-- Modifica rapida materie e pulsanti azione affiancati -->
                                 <?php if (empty($r_data['is_system'])) : ?>
-                                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
-                                        <form method="post" action="" style="margin: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                                    <div style="padding-top: 10px; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                                        <form method="post" action="" id="form-update-<?php echo esc_attr($r_slug); ?>" style="margin: 0; display: flex; align-items: center; gap: 12px; font-size: 12px;">
                                             <?php wp_nonce_field('dfn_update_role_modules_action', 'dfn_update_role_modules_nonce'); ?>
                                             <input type="hidden" name="role_slug" value="<?php echo esc_attr($r_slug); ?>" />
-                                            <div style="display: flex; align-items: center; gap: 12px; font-size: 12px;">
-                                                <span style="color: #475569; font-weight: 600;">Materie abilitate:</span>
-                                                <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                                                    <input type="checkbox" name="role_modules[]" value="volontari" <?php checked(in_array('volontari', $r_modules, true), true); ?> style="margin: 0;" />
-                                                    👥 Volontari
-                                                </label>
-                                                <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                                                    <input type="checkbox" name="role_modules[]" value="prenotazioni" <?php checked(in_array('prenotazioni', $r_modules, true), true); ?> style="margin: 0;" />
-                                                    🎟️ Prenotazioni
-                                                </label>
-                                            </div>
-                                            <button type="submit" class="button button-small" style="font-size: 11px; height: 24px; line-height: 22px;">
-                                                Aggiorna
-                                            </button>
+                                            <span style="color: #475569; font-weight: 600;">Materie:</span>
+                                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                                                <input type="checkbox" name="role_modules[]" value="volontari" <?php checked(in_array('volontari', $r_modules, true), true); ?> style="margin: 0;" />
+                                                👥 Volontari
+                                            </label>
+                                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                                                <input type="checkbox" name="role_modules[]" value="prenotazioni" <?php checked(in_array('prenotazioni', $r_modules, true), true); ?> style="margin: 0;" />
+                                                🎟️ Prenotazioni
+                                            </label>
                                         </form>
+
+                                        <!-- Pulsanti Icone Affiancati (Matita & Cestino) -->
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <button type="submit" form="form-update-<?php echo esc_attr($r_slug); ?>" title="Aggiorna materie abilitate per questo ruolo" class="button" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border-radius: 6px; border-color: #cbd5e1; background: #ffffff; cursor: pointer;">
+                                                ✏️
+                                            </button>
+
+                                            <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler eliminare questo ruolo? Gli utenti con questo ruolo perderanno le autorizzazioni associate.');" style="margin: 0;">
+                                                <?php wp_nonce_field('dfn_delete_role_action', 'dfn_delete_role_nonce'); ?>
+                                                <input type="hidden" name="role_slug" value="<?php echo esc_attr($r_slug); ?>" />
+                                                <button type="submit" title="Elimina ruolo" class="button" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border-radius: 6px; border-color: #fecaca; background: #fff5f5; color: #ef4444; cursor: pointer;">
+                                                    🗑️
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 <?php endif; ?>
                             </div>
