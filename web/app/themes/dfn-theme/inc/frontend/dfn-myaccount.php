@@ -190,27 +190,32 @@ function dfn_enqueue_myaccount_assets(): void
                     [
                         'selector' => '.dfn-vol-profile-card, .dfn-volunteer-events-section .dfn-account-header-card',
                         'title'    => '🏛️ Benvenuto nella Bacheca Volontario!',
-                        'content'  => 'Questa è la tua centrale operativa FAI. Da qui visualizzi la tua tessera, i tuoi ruoli e competenze, e accedi rapidamente a turni, sondaggi e riunioni.',
+                        'content'  => 'Questa è la tua centrale operativa FAI. Da qui visualizzi il tuo profilo, lo stato della tua <strong>Tessera FAI</strong>, i tuoi <strong>ruoli e mansioni</strong> di delegazione.',
+                    ],
+                    [
+                        'selector' => '.dfn-vol-hub-card:first-of-type, .dfn-my-shifts-container',
+                        'title'    => '📍 Il Tuo Prossimo Turno',
+                        'content'  => 'In questo box trovi a colpo d\'occhio data, luogo, orario e incarico del tuo prossimo turno assegnato. Clicca su <em>"Tutti i turni ed eventi"</em> per il dettaglio completo.',
                     ],
                     [
                         'selector' => '.woocommerce-MyAccount-navigation-link--eventi-fai a',
-                        'title'    => '🗓️ Piano Turni & Eventi',
-                        'content'  => 'Clicca qui per consultare tutti gli eventi aperti, il piano turni generale di delegazione, i tuoi incarichi assegnati e i colleghi di squadra.',
+                        'title'    => '🗓️ Sezione Turni & Eventi',
+                        'content'  => 'Accedi qui per visualizzare tutti gli eventi della Delegazione, le istruzioni operative, il tuo turno e il piano turni generale con l\'elenco di tutti i volontari presenti.',
                     ],
                     [
                         'selector' => '.woocommerce-MyAccount-navigation-link--sondaggi-fai a',
                         'title'    => '✍️ Sondaggi Disponibilità',
-                        'content'  => 'Prima di ogni evento, compila il sondaggio orario per indicare quando puoi essere presente (es. Mattina, Pomeriggio o entrambi i giorni).',
+                        'content'  => 'Prima di ogni Giornata FAI o grande evento, compila il sondaggio orario per indicare le tue preferenze e disponibilità di presenza.',
                     ],
                     [
                         'selector' => '.woocommerce-MyAccount-navigation-link--riunioni-fai a',
                         'title'    => '📅 Riunioni di Delegazione',
-                        'content'  => 'Accedi al calendario delle riunioni di gruppo, con luogo, orario, ordini del giorno ed eventuali link per la partecipazione online.',
+                        'content'  => 'Consulta il calendario delle riunioni di gruppo con ordine del giorno, luogo, data, orari e link per il collegamento online.',
                     ],
                     [
                         'selector' => '.woocommerce-MyAccount-navigation-link--dashboard a',
                         'title'    => '🔄 Torna all\'Area Visitatore',
-                        'content'  => 'Puoi tornare in qualsiasi momento alla modalità <strong>Visitatore</strong> per consultare le tue prenotazioni personali e i tuoi biglietti FAI.',
+                        'content'  => 'In qualunque momento puoi tornare alla modalità <strong>Visitatore</strong> per consultare le tue prenotazioni personali e i tuoi biglietti.',
                     ],
                 ],
             ];
@@ -1002,27 +1007,13 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                         <?php foreach ($assigned_roles as $rk) : 
                             $rinfo = $all_roles[$rk] ?? null;
                             $rlabel = $rinfo ? $rinfo['label'] : ucfirst(str_replace('_', ' ', $rk));
-                        ?>
-                            <span class="dfn-vol-role-badge">
-                                🏛️ <?php echo esc_html($rlabel); ?>
-                            </span>
-                        <?php endforeach; ?>
+                        ?><span class="dfn-vol-role-badge">🏛️ <?php echo esc_html($rlabel); ?></span><?php endforeach; ?>
                     <?php else : ?>
-                        <span class="dfn-vol-role-badge badge-default">
-                            Volontario FAI
-                        </span>
+                        <span class="dfn-vol-role-badge badge-default">Volontario FAI</span>
                     <?php endif; ?>
 
-                    <?php if ($member && ! empty($member->is_guide)) : ?>
-                        <span class="dfn-vol-role-badge badge-guide">
-                            🏛️ Guida / Cicerone
-                        </span>
-                    <?php endif; ?>
-                    <?php if ($member && ! empty($member->has_safety_course)) : ?>
-                        <span class="dfn-vol-role-badge badge-safety">
-                            🦺 Sicurezza FAI
-                        </span>
-                    <?php endif; ?>
+                    <?php if ($member && ! empty($member->is_guide)) : ?><span class="dfn-vol-role-badge badge-guide">🏛️ Guida / Cicerone</span><?php endif; ?>
+                    <?php if ($member && ! empty($member->has_safety_course)) : ?><span class="dfn-vol-role-badge badge-safety">🦺 Sicurezza FAI</span><?php endif; ?>
                 </div>
 
                 <!-- Bottone App Gestione Eventi (Visibile solo da Mobile per Utenti Abilitati) -->
@@ -1066,9 +1057,7 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                         </div>
                     </div>
                     <div>
-                        <span class="dfn-vol-shift-badge" style="background: <?php echo esc_attr($r_bg); ?> !important; color: <?php echo esc_attr($r_col); ?> !important;">
-                            <?php echo esc_html($r_lbl); ?>
-                        </span>
+                        <span class="dfn-vol-shift-badge" style="background-color: <?php echo esc_attr($r_bg); ?> !important; color: <?php echo esc_attr($r_col); ?> !important;"><?php echo esc_html($r_lbl); ?></span>
                     </div>
                 </div>
             <?php else : ?>
