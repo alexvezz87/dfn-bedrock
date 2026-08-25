@@ -19,7 +19,40 @@ if (! defined('ABSPATH')) {
 // 1. Registrazione shortcode
 add_shortcode('dfn_registrazione_volontario', 'dfn_render_volunteer_registration_shortcode');
 
-// 2. Intercetta l'URL virtuale /registrazione-volontario/
+// 2. Creazione/Garantisce l'esistenza della pagina fisica WordPress
+add_action('init', 'dfn_ensure_volunteer_registration_page_exists');
+
+/**
+ * Crea la pagina WordPress 'Registrazione Volontari FAI' se non esiste già.
+ */
+function dfn_ensure_volunteer_registration_page_exists(): void
+{
+    if (get_option('dfn_page_volunteer_reg_created') === 'yes') {
+        return;
+    }
+
+    $page_slug = 'registrazione-volontario';
+    $existing = get_page_by_path($page_slug);
+
+    if (! $existing) {
+        $page_id = wp_insert_post([
+            'post_title'     => 'Registrazione Volontari FAI',
+            'post_name'      => $page_slug,
+            'post_content'   => '[dfn_registrazione_volontario]',
+            'post_status'    => 'publish',
+            'post_type'      => 'page',
+            'comment_status' => 'closed',
+            'ping_status'    => 'closed',
+        ]);
+        if (! is_wp_error($page_id)) {
+            update_option('dfn_page_volunteer_reg_created', 'yes');
+        }
+    } else {
+        update_option('dfn_page_volunteer_reg_created', 'yes');
+    }
+}
+
+// 3. Intercetta l'URL virtuale /registrazione-volontario/ per template custom
 add_action('template_redirect', 'dfn_handle_volunteer_registration_page_rewrite');
 
 /**
