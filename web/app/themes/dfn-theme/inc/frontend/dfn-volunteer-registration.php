@@ -103,12 +103,13 @@ function dfn_process_volunteer_registration(): array
         return ['status' => 'error', 'message' => 'Sessione scaduta. Ricarica la pagina e riprova.'];
     }
 
-    $first_name = sanitize_text_field($_POST['first_name'] ?? '');
-    $last_name  = sanitize_text_field($_POST['last_name'] ?? '');
-    $email      = sanitize_email($_POST['email'] ?? '');
-    $phone      = sanitize_text_field($_POST['phone'] ?? '');
-    $password   = $_POST['password'] ?? '';
-    $is_guide   = ! empty($_POST['is_guide']) ? 1 : 0;
+    $first_name       = sanitize_text_field($_POST['first_name'] ?? '');
+    $last_name        = sanitize_text_field($_POST['last_name'] ?? '');
+    $email            = sanitize_email($_POST['email'] ?? '');
+    $phone            = sanitize_text_field($_POST['phone'] ?? '');
+    $password         = $_POST['password'] ?? '';
+    $password_confirm = $_POST['password_confirm'] ?? '';
+    $is_guide         = ! empty($_POST['is_guide']) ? 1 : 0;
 
     if (empty($first_name) || empty($last_name) || empty($email)) {
         return ['status' => 'error', 'message' => 'Compila tutti i campi obbligatori (Nome, Cognome, Email).'];
@@ -122,6 +123,10 @@ function dfn_process_volunteer_registration(): array
         return ['status' => 'error', 'message' => 'La password deve contenere almeno 6 caratteri.'];
     }
 
+    if ($password !== $password_confirm) {
+        return ['status' => 'error', 'message' => 'Le due password inserite non coincidono. Ricontrolla e riprova.'];
+    }
+
     global $wpdb;
     $table_fai = $wpdb->prefix . 'dfn_fai_members';
 
@@ -131,12 +136,12 @@ function dfn_process_volunteer_registration(): array
 
     if ($existing_user) {
         $user_id = $existing_user->ID;
-        // Aggiorna nome e cognome se mancanti
+        // Aggiorna nome, cognome e password
         wp_update_user([
             'ID'         => $user_id,
             'first_name' => $first_name,
             'last_name'  => $last_name,
-            'user_pass'  => $password, // aggiorna password scelta
+            'user_pass'  => $password,
         ]);
     } else {
         // Genera username pulito
@@ -298,7 +303,7 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
                 </div>
             <?php endif; ?>
 
-            <form method="post" action="" style="margin: 0;">
+            <form method="post" action="" id="dfn-volunteer-registration-form" style="margin: 0;">
                 <?php wp_nonce_field('dfn_vol_reg_action', 'dfn_vol_reg_nonce'); ?>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
@@ -336,14 +341,33 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
                     </span>
                 </div>
 
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px;">
-                        Crea una Password di Accesso *
-                    </label>
-                    <input type="password" name="password" required minlength="6" placeholder="Almeno 6 caratteri" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box;" />
-                    <span style="font-size: 11.5px; color: #64748b; margin-top: 4px; display: block;">
-                        Ti servirà per accedere alla tua Area Personale anche dai tuoi dispositivi personali.
-                    </span>
+                <!-- SEZIONE PASSWORD DOPPIA CON TOGGLE MOSTRA/NASCONDI -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 6px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+                            Crea Password *
+                        </label>
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <input type="password" name="password" id="dfn-reg-pass" required minlength="6" placeholder="Min. 6 caratteri" style="width: 100%; padding: 10px 40px 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box;" />
+                            <button type="button" class="dfn-toggle-pass-btn" data-target="dfn-reg-pass" title="Mostra/Nascondi password" style="position: absolute; right: 8px; background: none; border: none; font-size: 16px; cursor: pointer; color: #64748b; padding: 4px;">
+                                👁️
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+                            Conferma Password *
+                        </label>
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <input type="password" name="password_confirm" id="dfn-reg-pass-confirm" required minlength="6" placeholder="Ripeti password" style="width: 100%; padding: 10px 40px 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box;" />
+                            <button type="button" class="dfn-toggle-pass-btn" data-target="dfn-reg-pass-confirm" title="Mostra/Nascondi password" style="position: absolute; right: 8px; background: none; border: none; font-size: 16px; cursor: pointer; color: #64748b; padding: 4px;">
+                                👁️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="dfn-pass-match-msg" style="font-size: 11.5px; color: #64748b; margin-bottom: 18px;">
+                    Ti servirà per accedere alla tua Area Personale dal tuo smartphone o computer.
                 </div>
 
                 <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 24px;">
@@ -371,6 +395,69 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
         </div>
 
     </div>
+
+    <!-- Script Gestione Toggle Password e Validazione Match -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle mostra/nascondi password
+        document.querySelectorAll('.dfn-toggle-pass-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var targetId = this.dataset.target;
+                var input = document.getElementById(targetId);
+                if (input) {
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        this.textContent = '🙈';
+                    } else {
+                        input.type = 'password';
+                        this.textContent = '👁️';
+                    }
+                }
+            });
+        });
+
+        // Controllo live corrispondenza password
+        var pass = document.getElementById('dfn-reg-pass');
+        var passConfirm = document.getElementById('dfn-reg-pass-confirm');
+        var msg = document.getElementById('dfn-pass-match-msg');
+        var form = document.getElementById('dfn-volunteer-registration-form');
+
+        function checkPasswordMatch() {
+            if (!pass || !passConfirm || !msg) return;
+            if (!passConfirm.value) {
+                msg.innerHTML = 'Ti servirà per accedere alla tua Area Personale dal tuo smartphone o computer.';
+                msg.style.color = '#64748b';
+                passConfirm.style.borderColor = '#cbd5e1';
+                return;
+            }
+            if (pass.value === passConfirm.value) {
+                msg.innerHTML = '✅ Le password coincidono perfettamente.';
+                msg.style.color = '#166534';
+                passConfirm.style.borderColor = '#86efac';
+            } else {
+                msg.innerHTML = '⚠️ Le due password non coincidono.';
+                msg.style.color = '#dc2626';
+                passConfirm.style.borderColor = '#fca5a5';
+            }
+        }
+
+        if (pass && passConfirm) {
+            pass.addEventListener('input', checkPasswordMatch);
+            passConfirm.addEventListener('input', checkPasswordMatch);
+        }
+
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (pass.value !== passConfirm.value) {
+                    e.preventDefault();
+                    alert('Attenzione: Le due password inserite non coincidono. Ricontrolla prima di inviare.');
+                    passConfirm.focus();
+                }
+            });
+        }
+    });
+    </script>
     <?php
     return ob_get_clean();
 }
