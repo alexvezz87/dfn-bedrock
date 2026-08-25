@@ -40,21 +40,26 @@ function dfn_volunteers_admin_enqueue_tooltip_assets(string $hook): void
 add_action('admin_footer', 'dfn_volunteers_admin_tooltip_script');
 function dfn_volunteers_admin_tooltip_script(): void
 {
-    if (! isset($_GET['page']) || (strpos($_GET['page'], 'dfn-volunteer') === false && $_GET['page'] !== 'dfn-volunteers')) {
-        return;
-    }
     ?>
     <script>
     (function() {
-        var overlay     = document.getElementById('dfn-tooltip-overlay');
         var activeModal = null;
         var triggerEl   = null;
 
-        if (!overlay) return;
-
         function openModal(modalId, trigger) {
-            var modal = document.getElementById(modalId);
-            if (!modal) return;
+            var overlay = document.getElementById('dfn-tooltip-overlay');
+            var modal   = document.getElementById(modalId);
+            if (!modal) {
+                console.warn('[DFN Tooltip] Modal non trovato:', modalId);
+                return;
+            }
+
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'dfn-tooltip-overlay';
+                overlay.id = 'dfn-tooltip-overlay';
+                document.body.appendChild(overlay);
+            }
 
             if (activeModal) closeModal(false);
 
@@ -74,7 +79,10 @@ function dfn_volunteers_admin_tooltip_script(): void
         function closeModal(restoreFocus) {
             if (!activeModal) return;
 
-            overlay.classList.remove('dfn-tooltip-active');
+            var overlay = document.getElementById('dfn-tooltip-overlay');
+            if (overlay) {
+                overlay.classList.remove('dfn-tooltip-active');
+            }
             activeModal.classList.remove('dfn-tooltip-active');
             document.body.style.overflow = '';
 
@@ -90,6 +98,7 @@ function dfn_volunteers_admin_tooltip_script(): void
             var trigger = e.target.closest('.dfn-tooltip-trigger');
             if (trigger) {
                 e.preventDefault();
+                e.stopPropagation();
                 var modalId = trigger.getAttribute('data-tooltip');
                 if (modalId) openModal(modalId, trigger);
                 return;
@@ -102,7 +111,8 @@ function dfn_volunteers_admin_tooltip_script(): void
                 return;
             }
 
-            if (e.target === overlay) {
+            var overlay = document.getElementById('dfn-tooltip-overlay');
+            if (overlay && e.target === overlay) {
                 e.preventDefault();
                 closeModal(true);
             }

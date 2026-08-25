@@ -976,35 +976,41 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                         </button>
                     </form>
                 <?php elseif ($total_event_assignments > 0) : ?>
-                    <form method="post" action="" onsubmit="return confirm('Confermi la pubblicazione dei turni? I volontari potranno visualizzare i turni a loro assegnati nella propria area personale.');" style="margin:0; display:flex; align-items:center;">
-                        <?php wp_nonce_field('dfn_publish_shifts_action', 'dfn_publish_nonce'); ?>
-                        <button type="submit" name="dfn_publish_shifts" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:4px 16px; box-shadow:0 2px 4px rgba(0,75,35,0.2);">
-                            📢 Pubblica Turni
-                        </button>
+                    <div style="display:inline-flex; align-items:center; gap:4px;">
+                        <form method="post" action="" onsubmit="return confirm('Confermi la pubblicazione dei turni? I volontari potranno visualizzare i turni a loro assegnati nella propria area personale.');" style="margin:0;">
+                            <?php wp_nonce_field('dfn_publish_shifts_action', 'dfn_publish_nonce'); ?>
+                            <button type="submit" name="dfn_publish_shifts" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:4px 16px; box-shadow:0 2px 4px rgba(0,75,35,0.2);">
+                                📢 Pubblica Turni
+                            </button>
+                        </form>
                         <?php dfn_tooltip_icon('dfn-tip-matrix-publish', 'Informazioni: Pubblicazione Turni'); ?>
-                    </form>
+                    </div>
                 <?php endif; ?>
 
                 <!-- 2. Assegnazione Automatica (Disponibile solo dopo chiusura/scadenza sondaggio) -->
                 <?php if ($survey && $is_survey_closed) : ?>
-                    <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e alle sole mansioni abilitate per l\'evento. Continuare?');" style="margin:0; display:flex; align-items:center;">
-                        <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
-                        <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
-                            🤖 Assegna Automaticamente i Turni
-                        </button>
+                    <div style="display:inline-flex; align-items:center; gap:4px;">
+                        <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e alle sole mansioni abilitate per l\'evento. Continuare?');" style="margin:0;">
+                            <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
+                            <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
+                                🤖 Assegna Automaticamente i Turni
+                            </button>
+                        </form>
                         <?php dfn_tooltip_icon('dfn-tip-matrix-auto', 'Informazioni: Algoritmo di Assegnazione'); ?>
-                    </form>
+                    </div>
                 <?php endif; ?>
 
                 <!-- 2.1. Azzera Assegnazioni (Pulisce tutta la board dei turni) -->
                 <?php if ($total_event_assignments > 0) : ?>
-                    <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler azzerare TUTTI i turni assegnati? La griglia dei turni tornerà completamente pulita per questo evento.');" style="margin:0; display:flex; align-items:center;">
-                        <?php wp_nonce_field('dfn_clear_assignments_action', 'dfn_clear_nonce'); ?>
-                        <button type="submit" name="dfn_clear_assignments" class="button" style="color:#b91c1c; border-color:#fca5a5; font-weight:700; background:#fff;">
-                            🧹 Azzera Assegnazioni
-                        </button>
+                    <div style="display:inline-flex; align-items:center; gap:4px;">
+                        <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler azzerare TUTTI i turni assegnati? La griglia dei turni tornerà completamente pulita per questo evento.');" style="margin:0;">
+                            <?php wp_nonce_field('dfn_clear_assignments_action', 'dfn_clear_nonce'); ?>
+                            <button type="submit" name="dfn_clear_assignments" class="button" style="color:#b91c1c; border-color:#fca5a5; font-weight:700; background:#fff;">
+                                🧹 Azzera Assegnazioni
+                            </button>
+                        </form>
                         <?php dfn_tooltip_icon('dfn-tip-matrix-clear', 'Informazioni: Azzeramento Turni'); ?>
-                    </form>
+                    </div>
                 <?php endif; ?>
 
                 <!-- 3. Gestione / Risposte Sondaggio (Condizionale all'esistenza del sondaggio) -->
@@ -1844,6 +1850,10 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     });
                 });
             }
+
+            attachDragListeners();
+        });
+        </script>
 
         <!-- Overlay e Tooltip Modals Matrice Turni -->
         <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
