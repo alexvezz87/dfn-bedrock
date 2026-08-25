@@ -14,18 +14,151 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-add_action('admin_menu', 'dfn_volunteers_register_admin_menu', 25);
+// Caricamento asset CSS e JS tooltip per l'area amministrativa Volontari e Logistica
+add_action('admin_enqueue_scripts', 'dfn_volunteers_admin_enqueue_tooltip_assets');
+function dfn_volunteers_admin_enqueue_tooltip_assets(string $hook): void
+{
+    $vol_pages = [
+        'toplevel_page_dfn-volunteers',
+        'volontari-fai_page_dfn-volunteer-add',
+        'volontari-fai_page_dfn-volunteer-meetings',
+        'volontari-fai_page_dfn-volunteer-logistics',
+        'volontari-fai_page_dfn-volunteer-roles',
+    ];
+
+    if (in_array($hook, $vol_pages, true) || (isset($_GET['page']) && strpos($_GET['page'], 'dfn-volunteer') !== false)) {
+        wp_enqueue_style(
+            'dfn-events-manager-css',
+            get_stylesheet_directory_uri() . '/assets/css/dfn-events-manager.css',
+            [],
+            '2.4.0'
+        );
+    }
+}
+
+// Stampa JS tooltip nel footer per le pagine admin volontari
+add_action('admin_footer', 'dfn_volunteers_admin_tooltip_script');
+function dfn_volunteers_admin_tooltip_script(): void
+{
+    ?>
+    <script>
+    (function() {
+        var activeModal = null;
+        var triggerEl   = null;
+
+        function openModal(modalId, trigger) {
+            var overlay = document.getElementById('dfn-tooltip-overlay');
+            var modal   = document.getElementById(modalId);
+            if (!modal) {
+                console.warn('[DFN Tooltip] Modal non trovato:', modalId);
+                return;
+            }
+
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'dfn-tooltip-overlay';
+                overlay.id = 'dfn-tooltip-overlay';
+                document.body.appendChild(overlay);
+            }
+
+            if (activeModal) closeModal(false);
+
+            activeModal = modal;
+            triggerEl   = trigger || null;
+
+            overlay.classList.add('dfn-tooltip-active');
+            modal.classList.add('dfn-tooltip-active');
+            document.body.style.overflow = 'hidden';
+
+            var focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (focusable) {
+                setTimeout(function() { focusable.focus(); }, 50);
+            }
+        }
+
+        function closeModal(restoreFocus) {
+            if (!activeModal) return;
+
+            var overlay = document.getElementById('dfn-tooltip-overlay');
+            if (overlay) {
+                overlay.classList.remove('dfn-tooltip-active');
+            }
+            activeModal.classList.remove('dfn-tooltip-active');
+            document.body.style.overflow = '';
+
+            if (restoreFocus !== false && triggerEl) {
+                triggerEl.focus();
+            }
+
+            activeModal = null;
+            triggerEl   = null;
+        }
+
+        document.addEventListener('click', function(e) {
+            var trigger = e.target.closest('.dfn-tooltip-trigger');
+            if (trigger) {
+                e.preventDefault();
+                e.stopPropagation();
+                var modalId = trigger.getAttribute('data-tooltip');
+                if (modalId) openModal(modalId, trigger);
+                return;
+            }
+
+            var closeBtn = e.target.closest('.dfn-tooltip-modal-close');
+            if (closeBtn) {
+                e.preventDefault();
+                closeModal(true);
+                return;
+            }
+
+            var overlay = document.getElementById('dfn-tooltip-overlay');
+            if (overlay && e.target === overlay) {
+                e.preventDefault();
+                closeModal(true);
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if ((e.key === 'Escape' || e.keyCode === 27) && activeModal) {
+                closeModal(true);
+            }
+        });
+    })();
+    </script>
+    <?php
+}
+
+if (! function_exists('dfn_tooltip_icon')) {
+    /**
+     * Stampa l'icona trigger di un tooltip modal.
+     *
+     * @param string $tooltip_id  ID del modal da aprire (senza #).
+     * @param string $aria_label  Testo alternativo per accessibilità.
+     */
+    function dfn_tooltip_icon(string $tooltip_id, string $aria_label = ''): void {
+        $label = $aria_label ?: __('Informazioni su questo elemento', 'dfn-theme');
+        echo '<button type="button" class="dfn-tooltip-trigger" '
+            . 'data-tooltip="' . esc_attr($tooltip_id) . '" '
+            . 'aria-label="' . esc_attr($label) . '" '
+            . 'title="' . esc_attr($label) . '" style="cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:#e2e8f0; border:none; color:#475569; font-size:11px; font-weight:700; margin-left:6px; vertical-align:middle;">?</button>';
+    }
+}
 
 /**
  * Registra il menu top-level "Gestione Volontari FAI" e i relativi sottomenu.
  */
+add_action('admin_menu', 'dfn_volunteers_register_admin_menu');
 function dfn_volunteers_register_admin_menu(): void
 {
+    // Verifica se l'utente ha accesso al modulo Volontari FAI (o capability base)
+    $has_vol_access = function_exists('dfn_user_has_module_access') && dfn_user_has_module_access('volontari');
+    $cap_main = ($has_vol_access || current_user_can('manage_options') || current_user_can('dfn_act_fai_members')) ? 'read' : 'dfn_act_vol_roster';
+
     // Menu Top-Level allo stesso livello di FAI Prenotazioni
     add_menu_page(
         __('Gestione Volontari FAI', 'dfn-theme'),
         __('Volontari FAI', 'dfn-theme'),
-        'dfn_act_fai_members', // Permesso condiviso con la gestione soci/delegazione
+        $cap_main,
         'dfn-volunteers',
         'dfn_render_volunteers_list_page',
         'dashicons-groups',
@@ -37,7 +170,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Elenco Volontari', 'dfn-theme'),
         __('Elenco Volontari', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteers',
         'dfn_render_volunteers_list_page'
     );
@@ -47,7 +180,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Aggiungi Volontario', 'dfn-theme'),
         __('Aggiungi Volontario', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteer-add',
         'dfn_render_volunteer_add_page'
     );
@@ -57,7 +190,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Riunioni di Delegazione', 'dfn-theme'),
         __('Riunioni Delegazione', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteer-meetings',
         'dfn_render_volunteer_meetings_admin_page'
     );
@@ -67,7 +200,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Turni & Logistica Eventi', 'dfn-theme'),
         __('Turni & Logistica', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteer-logistics',
         'dfn_render_volunteer_logistics_page'
     );
@@ -77,7 +210,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Mansioni & Ruoli', 'dfn-theme'),
         __('Mansioni & Ruoli', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteer-roles',
         'dfn_render_volunteer_roles_admin_page'
     );
@@ -88,7 +221,7 @@ function dfn_volunteers_register_admin_menu(): void
  */
 function dfn_render_volunteers_list_page(): void
 {
-    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_roster'))) {
         wp_die(__('Permessi insufficienti per accedere a questa sezione.', 'dfn-theme'));
     }
 
@@ -190,12 +323,13 @@ function dfn_render_volunteers_list_page(): void
             <table class="wp-list-table widefat fixed striped table-view-list" style="border:none;">
                 <thead>
                     <tr>
-                        <th style="width:180px; font-weight:700;">Volontario</th>
-                        <th style="width:130px; font-weight:700;">Tessera FAI</th>
-                        <th style="width:200px; font-weight:700;">Contatti</th>
-                        <th style="font-weight:700;">Ruoli Operativi / Competenze</th>
-                        <th style="width:90px; font-weight:700; text-align:center;">Stato</th>
-                        <th style="width:230px; font-weight:700; text-align:right;">Azioni</th>
+                        <th style="width:170px; font-weight:700;">Volontario</th>
+                        <th style="width:125px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
+                        <th style="width:180px; font-weight:700;">Contatti</th>
+                        <th style="font-weight:700;">Incarichi &amp; Ruoli FAI <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
+                        <th style="width:180px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
+                        <th style="width:85px; font-weight:700; text-align:center;">Stato</th>
+                        <th style="width:215px; font-weight:700; text-align:right;">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -219,11 +353,17 @@ function dfn_render_volunteers_list_page(): void
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;">
-                                        💳 <?php echo esc_html($v->card_number); ?>
-                                    </code>
-                                    <?php if ($v->card_expiry) : ?>
-                                        <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
+                                    <?php if (! empty($v->card_number)) : ?>
+                                        <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;">
+                                            💳 <?php echo esc_html($v->card_number); ?>
+                                        </code>
+                                        <?php if ($v->card_expiry) : ?>
+                                            <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
+                                        <?php endif; ?>
+                                    <?php else : ?>
+                                        <span style="font-size:11px; background:#fffbeb; color:#b45309; border:1px dashed #fcd34d; padding:2px 7px; border-radius:6px; font-weight:600; white-space:nowrap;">
+                                            ⚠️ Da assegnare
+                                        </span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -233,22 +373,27 @@ function dfn_render_volunteers_list_page(): void
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span style="font-size:12px; color:#334155;"><?php echo esc_html($roles_label); ?></span>
-                                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
+                                    <span style="font-size:12.5px; font-weight:600; color:#1e293b;"><?php echo esc_html($roles_label); ?></span>
+                                    <?php if ($v->volunteer_notes) : ?>
+                                        <div style="font-size:11.5px; color:#64748b; font-style:italic; margin-top:3px;">📝 <?php echo esc_html($v->volunteer_notes); ?></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <div style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
                                         <?php if (! empty($v->is_guide)) : ?>
-                                            <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:10px; font-size:10.5px; font-weight:700; padding:1px 7px; white-space:nowrap;">
+                                            <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:10px; font-size:10.5px; font-weight:700; padding:2px 7px; white-space:nowrap;">
                                                 🏛️ Guida
                                             </span>
                                         <?php endif; ?>
                                         <?php if (! empty($v->has_safety_course)) : ?>
-                                            <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:10px; font-size:10.5px; font-weight:700; padding:1px 7px; white-space:nowrap;">
+                                            <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:10px; font-size:10.5px; font-weight:700; padding:2px 7px; white-space:nowrap;">
                                                 🦺 Sicurezza
                                             </span>
                                         <?php endif; ?>
+                                        <?php if (empty($v->is_guide) && empty($v->has_safety_course)) : ?>
+                                            <span style="font-size:12px; color:#94a3b8;">—</span>
+                                        <?php endif; ?>
                                     </div>
-                                    <?php if ($v->volunteer_notes) : ?>
-                                        <div style="font-size:11.5px; color:#64748b; font-style:italic; margin-top:3px;">📝 <?php echo esc_html($v->volunteer_notes); ?></div>
-                                    <?php endif; ?>
                                 </td>
                                 <td style="text-align:center; vertical-align:middle;">
                                     <?php if ($v->volunteer_status === 'active') : ?>
@@ -283,13 +428,44 @@ function dfn_render_volunteers_list_page(): void
                         <?php endforeach; ?>
                     <?php else : ?>
                         <tr>
-                            <td colspan="6" style="padding:30px; text-align:center; color:#64748b;">
+                            <td colspan="7" style="padding:30px; text-align:center; color:#64748b;">
                                 Nessun volontario registrato. <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-add')); ?>">Aggiungi il primo volontario</a>.
                             </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Overlay e Tooltip Modals Elenco Volontari -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-badges" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-badges-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-badges-title">🏛️ Ruoli e Competenze dei Volontari</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>I badge e le competenze guidano l'algoritmo di <strong>assegnazione automatica</strong> e la selezione manuale dei turni durante gli eventi:</p>
+                <ul>
+                    <li><strong>🏛️ Guida Culturale:</strong> identifica i volontari formati per condurre visite guidate, percorsi narrati o approfondimenti storico-artistici.</li>
+                    <li><strong>🦺 Corso Sicurezza Attivo:</strong> certifica il superamento della formazione sulla sicurezza nei luoghi di lavoro (D.Lgs. 81/08). È un requisito fondamentale per le mansioni a contatto con le scolaresche (es. <em>Responsabile Scuola / Apprendisti Ciceroni</em>).</li>
+                </ul>
+                <div class="dfn-tip-box">
+                    <strong>Suggerimento:</strong> Puoi personalizzare e aggiungere nuove mansioni operative dal menu <em>Mansioni &amp; Ruoli</em>.
+                </div>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-card" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-card-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-card-title">💳 Tessere FAI e Utenti Collegati</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Ogni volontario registrato in anagrafica deve possedere una <strong>Tessera Iscritto FAI in corso di validità</strong>.</p>
+                <p>Se la tessera viene associata ad un account WordPress del sito, il volontario vedrà comparire in automatico la sezione <strong>Volontari</strong> e la <strong>Bacheca Turni</strong> nella sua area personale.</p>
+            </div>
         </div>
     </div>
     <?php
@@ -337,9 +513,10 @@ function dfn_render_volunteer_add_page(): void
             }
         }
 
-        if (! empty($first_name) && ! empty($last_name) && ! empty($email) && ! empty($card_number)) {
+        if (! empty($first_name) && ! empty($last_name) && ! empty($email)) {
             $is_guide          = isset($_POST['is_guide']) ? 1 : 0;
             $has_safety_course = isset($_POST['has_safety_course']) ? 1 : 0;
+            $submitted_fai_roles = isset($_POST['fai_roles']) && is_array($_POST['fai_roles']) ? array_map('sanitize_key', $_POST['fai_roles']) : [];
 
             if ($volunteer_data) {
                 // Aggiornamento del volontario esistente
@@ -427,6 +604,37 @@ function dfn_render_volunteer_add_page(): void
                 }
             }
 
+            // Sincronizzazione dei ruoli FAI assegnati all'account utente WordPress collegato
+            if ($user_id && $user_id > 0) {
+                $target_wp_user = get_userdata($user_id);
+                if ($target_wp_user) {
+                    $stored_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
+                    $fai_slugs = array_diff(array_keys($stored_roles), ['administrator']);
+
+                    // Rimuove vecchi ruoli FAI non più selezionati
+                    foreach ($fai_slugs as $s_role) {
+                        if (! in_array($s_role, $submitted_fai_roles, true)) {
+                            $target_wp_user->remove_role($s_role);
+                        }
+                    }
+
+                    // Aggiunge i nuovi ruoli selezionati
+                    foreach ($submitted_fai_roles as $n_role) {
+                        if (isset($stored_roles[$n_role])) {
+                            $target_wp_user->add_role($n_role);
+                        }
+                    }
+
+                    // Se non ha nessun ruolo rimanente, impostiamo subscriber di sicurezza
+                    if (empty($target_wp_user->roles)) {
+                        $target_wp_user->add_role('subscriber');
+                    }
+
+                    // Salva nei meta utente per lookup rapido
+                    update_user_meta($user_id, '_dfn_assigned_fai_roles', $submitted_fai_roles);
+                }
+            }
+
             // Log dell'azione
             if (function_exists('dfn_log_write')) {
                 dfn_log_write(
@@ -437,7 +645,7 @@ function dfn_render_volunteer_add_page(): void
                 );
             }
 
-            echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario e ruoli/competenze salvati con successo!</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario e ruoli/deleghe salvati con successo!</p></div>';
             $volunteer_data = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $saved_id));
         } else {
             echo '<div class="notice notice-error is-dismissible"><p>❌ Compila tutti i campi obbligatori (Nome, Cognome, Email, Numero Tessera FAI).</p></div>';
@@ -482,7 +690,9 @@ function dfn_render_volunteer_add_page(): void
                 </div>
 
                 <div style="margin-bottom:16px;">
-                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Associa ad Utente Registrato (Opzionale)</label>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">
+                        Associa ad Utente Registrato (Opzionale) <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Account Utente'); ?>
+                    </label>
                     <select name="user_id" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                         <option value="0">-- Cerca o seleziona un utente --</option>
                         <?php foreach ($wp_users as $u) : ?>
@@ -506,13 +716,13 @@ function dfn_render_volunteer_add_page(): void
                 </div>
 
                 <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px;">
-                    💳 Dettagli Tessera FAI Obbligatoria &amp; Delegazione
+                    💳 Dettagli Tessera FAI (Opzionale) &amp; Delegazione
                 </h3>
 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
                     <div>
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Numero Tessera <span style="color:#ef4444;">*</span></label>
-                        <input type="text" name="card_number" required value="<?php echo esc_attr($is_edit ? $volunteer_data->card_number : ''); ?>" placeholder="Es. 12345678" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Numero Tessera</label>
+                        <input type="text" name="card_number" value="<?php echo esc_attr($is_edit ? $volunteer_data->card_number : ''); ?>" placeholder="Es. 12345678 (o lascia vuoto)" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Scadenza Tessera</label>
@@ -532,7 +742,7 @@ function dfn_render_volunteer_add_page(): void
                 </div>
 
                 <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px; margin-top:20px;">
-                    🎯 Competenze &amp; Ruoli Speciali per i Turni
+                    🎯 Competenze &amp; Ruoli Speciali per i Turni <?php dfn_tooltip_icon('dfn-tip-vol-roles-info', 'Informazioni: Competenze e Ruoli'); ?>
                 </h3>
 
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:12px;">
@@ -553,6 +763,53 @@ function dfn_render_volunteer_add_page(): void
                     </label>
                 </div>
 
+                <!-- SEZIONE INCARICHI DI DELEGAZIONE & RUOLI AMMINISTRATIVI -->
+                <?php
+                $all_stored_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
+                $linked_user_id = $is_edit && ! empty($volunteer_data->user_id) ? (int) $volunteer_data->user_id : 0;
+                $user_assigned_fai = $linked_user_id > 0 ? (array) get_user_meta($linked_user_id, '_dfn_assigned_fai_roles', true) : [];
+                if ($linked_user_id > 0 && empty($user_assigned_fai)) {
+                    $u_obj = get_userdata($linked_user_id);
+                    if ($u_obj) {
+                        $user_assigned_fai = (array) $u_obj->roles;
+                    }
+                }
+                ?>
+                <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px; margin-top:20px;">
+                    🛡️ Incarichi di Delegazione &amp; Ruoli Amministrativi
+                </h3>
+                <p style="font-size:12px; color:#64748b; margin-top:4px; margin-bottom:12px;">
+                    Se il volontario ricopre ruoli organizzativi nella delegazione (es. <em>Coordinatore Volontari</em>, <em>Delegato Scuole</em>, <em>Banchetto</em>), selezionali qui sotto per sbloccare le relative funzionalità nell'area gestionale.
+                </p>
+
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:10px;">
+                    <?php 
+                    foreach ($all_stored_roles as $r_slug => $r_info) : 
+                        if ($r_slug === 'administrator') continue;
+                        $r_modules = ! empty($r_info['modules']) && is_array($r_info['modules']) ? $r_info['modules'] : (array) ($r_info['module'] ?? []);
+                        $is_role_checked = in_array($r_slug, $user_assigned_fai, true);
+                    ?>
+                        <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:8px 10px; border-radius:6px; border:1px solid <?php echo $is_role_checked ? '#86efac' : '#f1f5f9'; ?>; background:<?php echo $is_role_checked ? '#f0fdf4' : '#fafafa'; ?>;">
+                            <input type="checkbox" name="fai_roles[]" value="<?php echo esc_attr($r_slug); ?>" <?php checked($is_role_checked, true); ?> style="width:18px; height:18px; margin-top:2px; accent-color:#004b23;">
+                            <div>
+                                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                    <strong style="font-size:13px; color:#0f172a;"><?php echo esc_html($r_info['label']); ?></strong>
+                                    <?php if (in_array('volontari', $r_modules, true)) : ?>
+                                        <span style="font-size:10.5px; background:#dcfce7; color:#166534; padding:1px 6px; border-radius:8px; font-weight:600;">👥 Volontari FAI</span>
+                                    <?php endif; ?>
+                                    <?php if (in_array('prenotazioni', $r_modules, true)) : ?>
+                                        <span style="font-size:10.5px; background:#dbeafe; color:#1e40af; padding:1px 6px; border-radius:8px; font-weight:600;">🎟️ FAI Prenotazioni</span>
+                                    <?php endif; ?>
+                                    <?php if (empty($r_modules)) : ?>
+                                        <span style="font-size:10.5px; background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:8px; font-weight:600;">Nessuna Materia</span>
+                                    <?php endif; ?>
+                                </div>
+                                <span style="font-size:11.5px; color:#64748b; display:block; margin-top:2px;"><?php echo esc_html($r_info['description']); ?></span>
+                            </div>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+
                 <div style="margin-bottom:24px;">
                     <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Note Delegazione / Disponibilità</label>
                     <textarea name="notes" rows="3" placeholder="Es. Disponibile per visite guidate nei weekend, accoglienza banchetto..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:8px 10px;"><?php echo esc_textarea($is_edit ? ($volunteer_data->volunteer_notes ?: '') : ''); ?></textarea>
@@ -566,6 +823,39 @@ function dfn_render_volunteer_add_page(): void
                 </div>
             </form>
         </div>
+
+        <!-- Overlay e Tooltip Modals Form Volontario -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-user" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-user-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-user-title">👤 Collegamento Utente WordPress</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Selezionando un account utente registrato sul sito, il sistema abiliterà automaticamente il <strong>menu Volontari</strong> all'interno della sua area personale (<em>/mio-account/</em>).</p>
+                <p>In questo modo il volontario potrà:</p>
+                <ul>
+                    <li>Compilare i <strong>sondaggi di disponibilità oraria</strong> per le Giornate FAI;</li>
+                    <li>Consultare i <strong>turni e i luoghi</strong> a lui assegnati dopo la pubblicazione;</li>
+                    <li>Vedere i colleghi di turno e l'ordine del giorno delle <strong>riunioni di delegazione</strong>.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-roles-info" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-roles-info-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-roles-info-title">🎯 Competenze e Formazione</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Le competenze inserite permettono all'algoritmo di allocazione automatica di distribuire i volontari in modo corretto ed efficiente:</p>
+                <ul>
+                    <li><strong>Guida:</strong> garantisce la presenza di volontari qualificati per l'illustrazione dei beni storici.</li>
+                    <li><strong>Corso Sicurezza:</strong> soddisfa i requisiti normativi per i referenti dei gruppi scuola e minori.</li>
+                </ul>
+            </div>
+        </div>
     </div>
     <?php
 }
@@ -575,7 +865,7 @@ function dfn_render_volunteer_add_page(): void
  */
 function dfn_render_volunteer_meetings_admin_page(): void
 {
-    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_meetings'))) {
         wp_die(__('Permessi insufficienti.', 'dfn-theme'));
     }
 
@@ -748,7 +1038,7 @@ function dfn_render_volunteer_meetings_admin_page(): void
  */
 function dfn_render_volunteer_roles_admin_page(): void
 {
-    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_roles'))) {
         wp_die(__('Permessi insufficienti per accedere a questa sezione.', 'dfn-theme'));
     }
 

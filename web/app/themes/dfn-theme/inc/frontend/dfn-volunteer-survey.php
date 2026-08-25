@@ -226,10 +226,10 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
 
     ob_start();
     ?>
-    <div class="dfn-survey-container" style="max-width: 680px; margin: 30px auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;">
+    <div class="dfn-survey-container dfn-survey-form-container" style="max-width: 680px; margin: 30px auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;">
         
         <!-- Header Sondaggio -->
-        <div style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 24px;">
+        <div class="dfn-survey-header" style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 24px;">
             <span style="display:inline-block; font-size:12px; font-weight:800; text-transform:uppercase; color:#004b23; background:#e8f5e9; padding:4px 14px; border-radius:20px; margin-bottom:10px;">
                 📋 Sondaggio Delegazione FAI Novara
             </span>
@@ -330,7 +330,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                             }
                             $rendered_days_count++;
                         ?>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
+                            <div class="dfn-survey-day-block" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
                                 <div style="font-size: 14px; font-weight: 800; color: #004b23; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
                                     <span>🗓️</span> <?php echo esc_html(ucfirst($d_title)); ?>
                                 </div>
@@ -375,7 +375,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
 
                 <!-- Pulsante Submit (solo se sondaggio aperto) -->
                 <?php if (! $is_expired) : ?>
-                    <button type="submit" name="dfn_submit_survey" class="button button-primary" style="background: #004b23; border: none; border-radius: 50px; color: #ffffff; font-weight: 800; font-size: 15px; width: 100%; padding: 14px 20px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,75,35,0.25);">
+                    <button type="submit" name="dfn_submit_survey" class="button button-primary dfn-survey-submit-btn" style="background: #004b23; border: none; border-radius: 50px; color: #ffffff; font-weight: 800; font-size: 15px; width: 100%; padding: 14px 20px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,75,35,0.25);">
                         💾 Invia la mia Disponibilità
                     </button>
                 <?php endif; ?>
