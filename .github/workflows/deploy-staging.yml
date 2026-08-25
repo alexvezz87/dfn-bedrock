@@ -27,7 +27,7 @@ jobs:
         import os, sys, base64, urllib.request, json, time
 
         base_dir = os.path.join(os.getcwd(), 'web', 'app', 'themes', 'dfn-theme')
-        target_url = 'https://dfnprenotazioni.it/deploy_file.php?t=202605300020'
+        target_url = 'https://staging.dfnprenotazioni.it/deploy_file.php?t=202605300020'
 
         count = 0
         for root, dirs, files in os.walk(base_dir):
