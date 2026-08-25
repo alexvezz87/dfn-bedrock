@@ -774,18 +774,22 @@ function dfn_render_volunteer_add_page(): void
                     <?php 
                     foreach ($all_stored_roles as $r_slug => $r_info) : 
                         if ($r_slug === 'administrator') continue;
-                        $r_mod = $r_info['module'] ?? 'prenotazioni';
+                        $r_modules = ! empty($r_info['modules']) && is_array($r_info['modules']) ? $r_info['modules'] : (array) ($r_info['module'] ?? []);
                         $is_role_checked = in_array($r_slug, $user_assigned_fai, true);
                     ?>
                         <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:8px 10px; border-radius:6px; border:1px solid <?php echo $is_role_checked ? '#86efac' : '#f1f5f9'; ?>; background:<?php echo $is_role_checked ? '#f0fdf4' : '#fafafa'; ?>;">
-                            <input type="checkbox" name="fai_roles[]" value="<?php echo esc_attr($r_slug); ?>" <?php checked($is_role_checked, true); ?> style="width:18px; height:18px; margin-top:2px;">
+                            <input type="checkbox" name="fai_roles[]" value="<?php echo esc_attr($r_slug); ?>" <?php checked($is_role_checked, true); ?> style="width:18px; height:18px; margin-top:2px; accent-color:#004b23;">
                             <div>
                                 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                     <strong style="font-size:13px; color:#0f172a;"><?php echo esc_html($r_info['label']); ?></strong>
-                                    <?php if ($r_mod === 'volontari') : ?>
+                                    <?php if (in_array('volontari', $r_modules, true)) : ?>
                                         <span style="font-size:10.5px; background:#dcfce7; color:#166534; padding:1px 6px; border-radius:8px; font-weight:600;">👥 Volontari FAI</span>
-                                    <?php else : ?>
+                                    <?php endif; ?>
+                                    <?php if (in_array('prenotazioni', $r_modules, true)) : ?>
                                         <span style="font-size:10.5px; background:#dbeafe; color:#1e40af; padding:1px 6px; border-radius:8px; font-weight:600;">🎟️ FAI Prenotazioni</span>
+                                    <?php endif; ?>
+                                    <?php if (empty($r_modules)) : ?>
+                                        <span style="font-size:10.5px; background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:8px; font-weight:600;">Nessuna Materia</span>
                                     <?php endif; ?>
                                 </div>
                                 <span style="font-size:11.5px; color:#64748b; display:block; margin-top:2px;"><?php echo esc_html($r_info['description']); ?></span>
