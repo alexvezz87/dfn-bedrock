@@ -156,16 +156,21 @@ function dfn_roles_handle_post_actions(): void
         }
     }
 
-    // 2.1 Aggiornamento rapido materie di un ruolo esistente
-    if (isset($_POST['dfn_update_role_modules_nonce']) && wp_verify_nonce($_POST['dfn_update_role_modules_nonce'], 'dfn_update_role_modules_action')) {
-        $role_slug = sanitize_key($_POST['role_slug'] ?? '');
-        $updated_modules = isset($_POST['role_modules']) && is_array($_POST['role_modules']) ? array_map('sanitize_key', $_POST['role_modules']) : [];
-        $valid_modules = ['prenotazioni', 'volontari'];
-        $updated_modules = array_values(array_intersect($updated_modules, $valid_modules));
+    // 2.1 Modifica Completa Ruolo Esistente
+    if (isset($_POST['dfn_edit_role_nonce']) && wp_verify_nonce($_POST['dfn_edit_role_nonce'], 'dfn_edit_role_action')) {
+        $role_slug        = sanitize_key($_POST['role_slug'] ?? '');
+        $updated_name     = sanitize_text_field($_POST['edit_role_name'] ?? '');
+        $updated_desc     = sanitize_text_field($_POST['edit_role_desc'] ?? '');
+        $updated_modules  = isset($_POST['edit_role_modules']) && is_array($_POST['edit_role_modules']) ? array_map('sanitize_key', $_POST['edit_role_modules']) : [];
+        $valid_modules    = ['prenotazioni', 'volontari'];
+        $updated_modules  = array_values(array_intersect($updated_modules, $valid_modules));
 
         $roles = dfn_get_stored_roles();
-        if (isset($roles[$role_slug]) && empty($roles[$role_slug]['is_system'])) {
-            $roles[$role_slug]['modules'] = $updated_modules;
+        if (isset($roles[$role_slug]) && empty($roles[$role_slug]['is_system']) && ! empty($updated_name)) {
+            $roles[$role_slug]['label']       = $updated_name;
+            $roles[$role_slug]['description'] = $updated_desc;
+            $roles[$role_slug]['modules']     = $updated_modules;
+            
             update_option('dfn_custom_roles', $roles);
             dfn_sync_wp_roles();
             wp_safe_redirect(add_query_arg(['page' => 'dfn-roles-manage', 'role_updated' => '1'], admin_url('admin.php')));
@@ -381,8 +386,8 @@ function dfn_roles_render_admin_page(): void
                             $users_count = count(get_users(['role' => $r_slug]));
                             $r_modules = ! empty($r_data['modules']) && is_array($r_data['modules']) ? $r_data['modules'] : (array) ($r_data['module'] ?? []);
                         ?>
-                            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; background: <?php echo ! empty($r_data['is_system']) ? '#f8fafc' : '#ffffff'; ?>; display: flex; flex-direction: column; gap: 10px;">
-                                <div>
+                            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; background: <?php echo ! empty($r_data['is_system']) ? '#f8fafc' : '#ffffff'; ?>; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+                                <div style="flex: 1;">
                                     <div style="font-weight: 700; color: #1e293b; font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                                         <?php echo esc_html($r_data['label']); ?>
                                         
@@ -404,45 +409,39 @@ function dfn_roles_render_admin_page(): void
                                             <span style="font-size: 11px; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Sistema</span>
                                         <?php endif; ?>
                                     </div>
-                                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                    
+                                    <div style="font-size: 12.5px; color: #64748b; margin-top: 5px; line-height: 1.4;">
                                         <?php echo esc_html($r_data['description']); ?>
                                     </div>
-                                    <div style="font-size: 11px; color: #0284c7; margin-top: 6px; font-weight: 600;">
+                                    
+                                    <div style="font-size: 11.5px; color: #0284c7; margin-top: 8px; font-weight: 600;">
                                         👤 <?php echo intval($users_count); ?> utenti assegnati &bull; <code><?php echo esc_html($r_slug); ?></code>
                                     </div>
                                 </div>
 
-                                <!-- Modifica rapida materie e pulsanti azione affiancati -->
+                                <!-- Pulsanti Azione Affiancati (Matita & Cestino) -->
                                 <?php if (empty($r_data['is_system'])) : ?>
-                                    <div style="padding-top: 10px; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                                        <form method="post" action="" id="form-update-<?php echo esc_attr($r_slug); ?>" style="margin: 0; display: flex; align-items: center; gap: 12px; font-size: 12px;">
-                                            <?php wp_nonce_field('dfn_update_role_modules_action', 'dfn_update_role_modules_nonce'); ?>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <button 
+                                            type="button" 
+                                            class="button dfn-open-edit-role-modal" 
+                                            title="Modifica Ruolo" 
+                                            data-slug="<?php echo esc_attr($r_slug); ?>"
+                                            data-name="<?php echo esc_attr($r_data['label']); ?>"
+                                            data-desc="<?php echo esc_attr($r_data['description']); ?>"
+                                            data-modules="<?php echo esc_attr(json_encode($r_modules)); ?>"
+                                            style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 6px; border-color: #cbd5e1; background: #ffffff; cursor: pointer; font-size: 15px;"
+                                        >
+                                            ✏️
+                                        </button>
+
+                                        <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler eliminare questo ruolo? Gli utenti con questo ruolo perderanno le autorizzazioni associate.');" style="margin: 0;">
+                                            <?php wp_nonce_field('dfn_delete_role_action', 'dfn_delete_role_nonce'); ?>
                                             <input type="hidden" name="role_slug" value="<?php echo esc_attr($r_slug); ?>" />
-                                            <span style="color: #475569; font-weight: 600;">Materie:</span>
-                                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                                                <input type="checkbox" name="role_modules[]" value="volontari" <?php checked(in_array('volontari', $r_modules, true), true); ?> style="margin: 0;" />
-                                                👥 Volontari
-                                            </label>
-                                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                                                <input type="checkbox" name="role_modules[]" value="prenotazioni" <?php checked(in_array('prenotazioni', $r_modules, true), true); ?> style="margin: 0;" />
-                                                🎟️ Prenotazioni
-                                            </label>
-                                        </form>
-
-                                        <!-- Pulsanti Icone Affiancati (Matita & Cestino) -->
-                                        <div style="display: flex; align-items: center; gap: 6px;">
-                                            <button type="submit" form="form-update-<?php echo esc_attr($r_slug); ?>" title="Aggiorna materie abilitate per questo ruolo" class="button" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border-radius: 6px; border-color: #cbd5e1; background: #ffffff; cursor: pointer;">
-                                                ✏️
+                                            <button type="submit" title="Elimina Ruolo" class="button" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 6px; border-color: #fecaca; background: #fff5f5; color: #ef4444; cursor: pointer; font-size: 15px;">
+                                                🗑️
                                             </button>
-
-                                            <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler eliminare questo ruolo? Gli utenti con questo ruolo perderanno le autorizzazioni associate.');" style="margin: 0;">
-                                                <?php wp_nonce_field('dfn_delete_role_action', 'dfn_delete_role_nonce'); ?>
-                                                <input type="hidden" name="role_slug" value="<?php echo esc_attr($r_slug); ?>" />
-                                                <button type="submit" title="Elimina ruolo" class="button" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border-radius: 6px; border-color: #fecaca; background: #fff5f5; color: #ef4444; cursor: pointer;">
-                                                    🗑️
-                                                </button>
-                                            </form>
-                                        </div>
+                                        </form>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -526,13 +525,78 @@ function dfn_roles_render_admin_page(): void
 
             </div>
 
+            <!-- MODAL POPUP: MODIFICA RUOLO -->
+            <div id="dfn-edit-role-modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 99998; backdrop-filter: blur(2px);"></div>
+            
+            <div id="dfn-edit-role-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 92%; max-width: 540px; background: #ffffff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.2); z-index: 99999; overflow: hidden;">
+                
+                <div style="background: #004b23; color: #ffffff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; color: #ffffff; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                        ✏️ Modifica Ruolo FAI
+                    </h3>
+                    <button type="button" class="dfn-close-edit-modal" style="background: none; border: none; color: #ffffff; font-size: 20px; cursor: pointer; padding: 0 4px; line-height: 1;">&times;</button>
+                </div>
+
+                <form method="post" action="" style="padding: 20px 24px; margin: 0;">
+                    <?php wp_nonce_field('dfn_edit_role_action', 'dfn_edit_role_nonce'); ?>
+                    <input type="hidden" name="role_slug" id="dfn-edit-role-slug" value="" />
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="font-weight: 700; font-size: 13px; color: #334155; display: block; margin-bottom: 6px;">
+                            Nome Ruolo *
+                        </label>
+                        <input type="text" name="edit_role_name" id="dfn-edit-role-name" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
+                    </div>
+
+                    <div style="margin-bottom: 18px;">
+                        <label style="font-weight: 700; font-size: 13px; color: #334155; display: block; margin-bottom: 8px;">
+                            Materie / Moduli di Competenza
+                        </label>
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                            <label style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border: 1.5px solid #bbf7d0; background: #f0fdf4; border-radius: 8px; cursor: pointer;">
+                                <input type="checkbox" name="edit_role_modules[]" value="volontari" id="dfn-edit-mod-volontari" style="margin-top: 3px; accent-color: #004b23;" />
+                                <div>
+                                    <div style="font-size: 13px; font-weight: 700; color: #166534;">👥 Volontari FAI</div>
+                                    <div style="font-size: 11.5px; color: #475569;">Turni, Logistica, Anagrafica, Riunioni</div>
+                                </div>
+                            </label>
+
+                            <label style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border: 1.5px solid #bfdbfe; background: #eff6ff; border-radius: 8px; cursor: pointer;">
+                                <input type="checkbox" name="edit_role_modules[]" value="prenotazioni" id="dfn-edit-mod-prenotazioni" style="margin-top: 3px; accent-color: #004b23;" />
+                                <div>
+                                    <div style="font-size: 13px; font-weight: 700; color: #1e40af;">🎟️ FAI Prenotazioni</div>
+                                    <div style="font-size: 11.5px; color: #475569;">Eventi, Biglietti, Scanner QR, Soci</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="font-weight: 700; font-size: 13px; color: #334155; display: block; margin-bottom: 6px;">
+                            Descrizione o Note Operative
+                        </label>
+                        <textarea name="edit_role_desc" id="dfn-edit-role-desc" rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;"></textarea>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+                        <button type="button" class="button dfn-close-edit-modal" style="padding: 6px 16px; font-weight: 600;">
+                            Annulla
+                        </button>
+                        <button type="submit" class="button button-primary" style="background: #004b23; border-color: #003318; font-weight: 700; padding: 6px 20px;">
+                            💾 Salva Modifiche
+                        </button>
+                    </div>
+                </form>
+            </div>
+
         <?php endif; ?>
 
     </div>
 
-    <!-- SCRIPT RAPIDO SELEZIONA TUTTI / NESSUNO COLONNA -->
+    <!-- SCRIPT RAPIDO SELEZIONA TUTTI / NESSUNO COLONNA & POPUP MODIFICA RUOLO -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Toggle colonne matrice
         document.querySelectorAll('.dfn-toggle-col-all').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 var role = this.dataset.role;
@@ -548,6 +612,63 @@ function dfn_roles_render_admin_page(): void
                     cb.checked = false;
                 });
             });
+        });
+
+        // Gestione Modal Popup Modifica Ruolo
+        var modal = document.getElementById('dfn-edit-role-modal');
+        var backdrop = document.getElementById('dfn-edit-role-modal-backdrop');
+
+        function openEditModal(btn) {
+            var slug = btn.dataset.slug;
+            var name = btn.dataset.name;
+            var desc = btn.dataset.desc;
+            var modules = [];
+            try {
+                modules = JSON.parse(btn.dataset.modules || '[]');
+            } catch(e) {
+                modules = [];
+            }
+
+            document.getElementById('dfn-edit-role-slug').value = slug;
+            document.getElementById('dfn-edit-role-name').value = name;
+            document.getElementById('dfn-edit-role-desc').value = desc;
+            
+            document.getElementById('dfn-edit-mod-volontari').checked = modules.indexOf('volontari') !== -1;
+            document.getElementById('dfn-edit-mod-prenotazioni').checked = modules.indexOf('prenotazioni') !== -1;
+
+            modal.style.display = 'block';
+            backdrop.style.display = 'block';
+        }
+
+        function closeEditModal() {
+            if (modal && backdrop) {
+                modal.style.display = 'none';
+                backdrop.style.display = 'none';
+            }
+        }
+
+        document.querySelectorAll('.dfn-open-edit-role-modal').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                openEditModal(this);
+            });
+        });
+
+        document.querySelectorAll('.dfn-close-edit-modal').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                closeEditModal();
+            });
+        });
+
+        if (backdrop) {
+            backdrop.addEventListener('click', closeEditModal);
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' || e.keyCode === 27) {
+                closeEditModal();
+            }
         });
     });
     </script>
