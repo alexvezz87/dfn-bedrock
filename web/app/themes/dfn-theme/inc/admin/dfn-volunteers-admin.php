@@ -323,12 +323,13 @@ function dfn_render_volunteers_list_page(): void
             <table class="wp-list-table widefat fixed striped table-view-list" style="border:none;">
                 <thead>
                     <tr>
-                        <th style="width:180px; font-weight:700;">Volontario</th>
-                        <th style="width:130px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
-                        <th style="width:200px; font-weight:700;">Contatti</th>
-                        <th style="font-weight:700;">Ruoli Operativi / Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Ruoli e Competenze Volontari'); ?></th>
-                        <th style="width:90px; font-weight:700; text-align:center;">Stato</th>
-                        <th style="width:230px; font-weight:700; text-align:right;">Azioni</th>
+                        <th style="width:170px; font-weight:700;">Volontario</th>
+                        <th style="width:125px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
+                        <th style="width:180px; font-weight:700;">Contatti</th>
+                        <th style="font-weight:700;">Incarichi &amp; Ruoli FAI <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
+                        <th style="width:180px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
+                        <th style="width:85px; font-weight:700; text-align:center;">Stato</th>
+                        <th style="width:215px; font-weight:700; text-align:right;">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -366,22 +367,27 @@ function dfn_render_volunteers_list_page(): void
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span style="font-size:12px; color:#334155;"><?php echo esc_html($roles_label); ?></span>
-                                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
+                                    <span style="font-size:12.5px; font-weight:600; color:#1e293b;"><?php echo esc_html($roles_label); ?></span>
+                                    <?php if ($v->volunteer_notes) : ?>
+                                        <div style="font-size:11.5px; color:#64748b; font-style:italic; margin-top:3px;">📝 <?php echo esc_html($v->volunteer_notes); ?></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <div style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
                                         <?php if (! empty($v->is_guide)) : ?>
-                                            <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:10px; font-size:10.5px; font-weight:700; padding:1px 7px; white-space:nowrap;">
+                                            <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:10px; font-size:10.5px; font-weight:700; padding:2px 7px; white-space:nowrap;">
                                                 🏛️ Guida
                                             </span>
                                         <?php endif; ?>
                                         <?php if (! empty($v->has_safety_course)) : ?>
-                                            <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:10px; font-size:10.5px; font-weight:700; padding:1px 7px; white-space:nowrap;">
+                                            <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:10px; font-size:10.5px; font-weight:700; padding:2px 7px; white-space:nowrap;">
                                                 🦺 Sicurezza
                                             </span>
                                         <?php endif; ?>
+                                        <?php if (empty($v->is_guide) && empty($v->has_safety_course)) : ?>
+                                            <span style="font-size:12px; color:#94a3b8;">—</span>
+                                        <?php endif; ?>
                                     </div>
-                                    <?php if ($v->volunteer_notes) : ?>
-                                        <div style="font-size:11.5px; color:#64748b; font-style:italic; margin-top:3px;">📝 <?php echo esc_html($v->volunteer_notes); ?></div>
-                                    <?php endif; ?>
                                 </td>
                                 <td style="text-align:center; vertical-align:middle;">
                                     <?php if ($v->volunteer_status === 'active') : ?>
@@ -416,7 +422,7 @@ function dfn_render_volunteers_list_page(): void
                         <?php endforeach; ?>
                     <?php else : ?>
                         <tr>
-                            <td colspan="6" style="padding:30px; text-align:center; color:#64748b;">
+                            <td colspan="7" style="padding:30px; text-align:center; color:#64748b;">
                                 Nessun volontario registrato. <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-add')); ?>">Aggiungi il primo volontario</a>.
                             </td>
                         </tr>
