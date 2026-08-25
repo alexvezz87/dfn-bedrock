@@ -420,15 +420,37 @@ function dfn_roles_render_admin_page(): void
                             <input type="text" name="new_role_name" required placeholder="Es. Delegato Scuole" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
                         </div>
 
-                        <div style="margin-bottom: 16px;">
-                            <label style="font-weight: 700; font-size: 13px; color: #334155; display: block; margin-bottom: 6px;">
+                        <div style="margin-bottom: 18px;">
+                            <label style="font-weight: 700; font-size: 13px; color: #334155; display: block; margin-bottom: 8px;">
                                 Materia / Modulo di Competenza *
                             </label>
-                            <select name="new_role_module" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; height: 38px;">
-                                <option value="volontari">👥 Volontari FAI (Turni, Logistica, Anagrafica, Riunioni)</option>
-                                <option value="prenotazioni">🎟️ FAI Prenotazioni (Eventi, Biglietti, Botteghino, Scanner)</option>
-                            </select>
-                            <span style="font-size: 12px; color: #64748b; margin-top: 4px; display: block;">
+                            
+                            <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                                <label style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border: 1.5px solid #bbf7d0; background: #f0fdf4; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease;">
+                                    <input type="radio" name="new_role_module" value="volontari" checked style="margin-top: 3px; accent-color: #004b23;" />
+                                    <div>
+                                        <div style="font-size: 13.5px; font-weight: 700; color: #166534;">
+                                            👥 Volontari FAI
+                                        </div>
+                                        <div style="font-size: 12px; color: #475569; margin-top: 2px;">
+                                            Turni, Logistica, Anagrafica, Riunioni di Delegazione, Scuole
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <label style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border: 1.5px solid #bfdbfe; background: #eff6ff; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease;">
+                                    <input type="radio" name="new_role_module" value="prenotazioni" style="margin-top: 3px; accent-color: #004b23;" />
+                                    <div>
+                                        <div style="font-size: 13.5px; font-weight: 700; color: #1e40af;">
+                                            🎟️ FAI Prenotazioni
+                                        </div>
+                                        <div style="font-size: 12px; color: #475569; margin-top: 2px;">
+                                            Eventi, Biglietti, Botteghino Live, Scanner QR, Soci
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <span style="font-size: 11.5px; color: #64748b; margin-top: 6px; display: block;">
                                 Il ruolo comparirà esclusivamente nella matrice permessi del settore scelto.
                             </span>
                         </div>
