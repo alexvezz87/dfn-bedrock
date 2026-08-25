@@ -112,6 +112,7 @@ function dfn_process_volunteer_registration(): array
 
     $first_name       = sanitize_text_field($_POST['first_name'] ?? '');
     $last_name        = sanitize_text_field($_POST['last_name'] ?? '');
+    $username_input   = sanitize_user(trim($_POST['username'] ?? ''), true);
     $email            = sanitize_email($_POST['email'] ?? '');
     $phone            = sanitize_text_field($_POST['phone'] ?? '');
     $password         = $_POST['password'] ?? '';
@@ -153,13 +154,15 @@ function dfn_process_volunteer_registration(): array
         // Aggiunge il ruolo Volontario FAI se non presente
         $existing_user->add_role('dfn_volunteer');
     } else {
-        // Genera username pulito
-        $base_user = sanitize_user(strtolower($first_name . '.' . $last_name));
-        $username = $base_user;
-        $counter = 1;
-        while (username_exists($username)) {
-            $username = $base_user . $counter;
-            $counter++;
+        // Determinazione Username
+        $username = $username_input;
+        if (empty($username)) {
+            $username = sanitize_user(strtolower($first_name . '.' . $last_name), true);
+        }
+
+        // Se l'username scelto esiste già per un'altra email, restituisce errore chiaro
+        if (username_exists($username)) {
+            return ['status' => 'error', 'message' => sprintf('Il nome utente "%s" è già in uso. Scegline un altro.', esc_html($username))];
         }
 
         $user_id = wp_create_user($username, $password, $email);
@@ -328,14 +331,24 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
                         <label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px;">
                             Nome *
                         </label>
-                        <input type="text" name="first_name" required placeholder="Mario" value="<?php echo esc_attr($_POST['first_name'] ?? ''); ?>" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box; outline: none; transition: border-color 0.15s ease;" />
+                        <input type="text" name="first_name" id="dfn-reg-first-name" required placeholder="Mario" value="<?php echo esc_attr($_POST['first_name'] ?? ''); ?>" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box; outline: none; transition: border-color 0.15s ease;" />
                     </div>
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px;">
                             Cognome *
                         </label>
-                        <input type="text" name="last_name" required placeholder="Rossi" value="<?php echo esc_attr($_POST['last_name'] ?? ''); ?>" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box; outline: none; transition: border-color 0.15s ease;" />
+                        <input type="text" name="last_name" id="dfn-reg-last-name" required placeholder="Rossi" value="<?php echo esc_attr($_POST['last_name'] ?? ''); ?>" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box; outline: none; transition: border-color 0.15s ease;" />
                     </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+                        Nome Utente (Username) *
+                    </label>
+                    <input type="text" name="username" id="dfn-reg-username" required placeholder="mario.rossi" value="<?php echo esc_attr($_POST['username'] ?? ''); ?>" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box; outline: none;" />
+                    <span style="font-size: 11.5px; color: #64748b; margin-top: 4px; display: block;">
+                        Scegli il tuo nome utente di accesso (oppure usa quello generato in automatico).
+                    </span>
                 </div>
 
                 <div style="margin-bottom: 16px;">
@@ -433,6 +446,40 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
                 }
             });
         });
+
+        // Auto-compilazione dinamica Username (nome.cognome)
+        var firstNameInput = document.getElementById('dfn-reg-first-name');
+        var lastNameInput = document.getElementById('dfn-reg-last-name');
+        var usernameInput = document.getElementById('dfn-reg-username');
+        var userModifiedUsername = false;
+
+        if (usernameInput) {
+            usernameInput.addEventListener('input', function() {
+                if (this.value.trim().length > 0) {
+                    userModifiedUsername = true;
+                } else {
+                    userModifiedUsername = false;
+                }
+            });
+        }
+
+        function updateSuggestedUsername() {
+            if (userModifiedUsername || !usernameInput || !firstNameInput || !lastNameInput) return;
+            var f = firstNameInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            var l = lastNameInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (f && l) {
+                usernameInput.value = f + '.' + l;
+            } else if (f) {
+                usernameInput.value = f;
+            } else if (l) {
+                usernameInput.value = l;
+            }
+        }
+
+        if (firstNameInput && lastNameInput) {
+            firstNameInput.addEventListener('input', updateSuggestedUsername);
+            lastNameInput.addEventListener('input', updateSuggestedUsername);
+        }
 
         // Controllo live corrispondenza password
         var pass = document.getElementById('dfn-reg-pass');
