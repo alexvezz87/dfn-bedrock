@@ -56,6 +56,9 @@ function dfn_ensure_volunteer_registration_page_exists(): void
 global $dfn_vol_reg_result;
 $dfn_vol_reg_result = ['status' => '', 'message' => ''];
 
+// 3. Intercetta l'URL /registrazione-volontario/ per elaborazione POST e template custom
+add_action('template_redirect', 'dfn_handle_volunteer_registration_page_rewrite');
+
 /**
  * Intercetta le richieste dirette a /registrazione-volontario/ e renderizza il template FAI.
  */
