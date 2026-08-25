@@ -939,7 +939,7 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
     // Verifica se l'utente ha accesso al modulo di gestione eventi/prenotazioni
     $has_events_mgr_access = function_exists('dfn_user_has_module_access') ? dfn_user_has_module_access('prenotazioni', $current_user_id) : current_user_can('manage_options');
     ?>
-    <div class="dfn-volunteer-hub-section" style="display: flex; flex-direction: column; gap: 18px;">
+    <div class="dfn-volunteer-hub-section">
         
         <!-- Header Hub -->
         <div class="dfn-account-header-card">
@@ -948,17 +948,17 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
         </div>
 
         <!-- Card Informazioni Volontario: Nome, Scadenza Tessera, Ruolo e Mansioni -->
-        <div class="dfn-vol-profile-card" style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 22px 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
-            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 16px;">
-                <div style="display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 52px; height: 52px; background: #e8f5e9; color: #004b23; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800;">
+        <div class="dfn-vol-profile-card">
+            <div class="dfn-vol-profile-header">
+                <div class="dfn-vol-profile-user">
+                    <div class="dfn-vol-avatar">
                         <?php echo esc_html(strtoupper(substr($current_user->first_name ?: $current_user->display_name, 0, 1))); ?>
                     </div>
                     <div>
-                        <h3 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 800; color: #0f172a;">
+                        <h3 class="dfn-vol-name">
                             <?php echo esc_html(trim(($current_user->first_name . ' ' . $current_user->last_name)) ?: $current_user->display_name); ?>
                         </h3>
-                        <div style="font-size: 12.5px; color: #64748b; display: flex; align-items: center; gap: 8px;">
+                        <div class="dfn-vol-contacts">
                             <span>✉️ <?php echo esc_html($current_user->user_email); ?></span>
                             <?php if (! empty($member->phone)) : ?>
                                 <span>• 📞 <?php echo esc_html($member->phone); ?></span>
@@ -973,20 +973,20 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                         $exp_text = ! empty($member->card_expiry) ? date_i18n('d/m/Y', strtotime($member->card_expiry)) : 'Non specificata';
                         $is_expired = (! empty($member->card_expiry) && strtotime($member->card_expiry) < time());
                     ?>
-                        <div style="text-align: right; background: <?php echo $is_expired ? '#fef2f2' : '#f0fdf4'; ?>; border: 1px solid <?php echo $is_expired ? '#fecaca' : '#bbf7d0'; ?>; padding: 8px 14px; border-radius: 10px;">
-                            <div style="font-size: 12px; font-weight: 700; color: <?php echo $is_expired ? '#991b1b' : '#166534'; ?>;">
+                        <div class="dfn-vol-card-status <?php echo $is_expired ? 'is-expired' : 'is-active'; ?>">
+                            <div class="dfn-vol-card-num">
                                 🪪 Tessera FAI: <strong><?php echo esc_html($member->card_number); ?></strong>
                             </div>
-                            <div style="font-size: 11px; color: <?php echo $is_expired ? '#b91c1c' : '#15803d'; ?>; margin-top: 2px;">
+                            <div class="dfn-vol-card-exp">
                                 Scadenza: <strong><?php echo esc_html($exp_text); ?></strong><?php echo $is_expired ? ' ⚠️ Scaduta' : ' ✅ Attiva'; ?>
                             </div>
                         </div>
                     <?php else : ?>
-                        <div style="text-align: right; background: #fffbeb; border: 1px solid #fef3c7; padding: 8px 14px; border-radius: 10px;">
-                            <div style="font-size: 12px; font-weight: 700; color: #92400e;">
-                                🪪 Tessera FAI: <span style="color: #b45309;">⚠️ In fase di assegnazione</span>
+                        <div class="dfn-vol-card-status is-pending">
+                            <div class="dfn-vol-card-num">
+                                🪪 Tessera FAI: <span>⚠️ In fase di assegnazione</span>
                             </div>
-                            <div style="font-size: 11px; color: #78350f; margin-top: 2px;">
+                            <div class="dfn-vol-card-exp">
                                 Verrà integrata dalla Delegazione
                             </div>
                         </div>
@@ -995,31 +995,31 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
             </div>
 
             <!-- Incarichi & Competenze -->
-            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;">
-                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
-                    <span style="font-size: 12px; font-weight: 700; color: #475569; margin-right: 4px;">Incarichi & Ruoli FAI:</span>
+            <div class="dfn-vol-profile-footer">
+                <div class="dfn-vol-roles-list">
+                    <span class="dfn-vol-roles-label">Incarichi &amp; Ruoli FAI:</span>
                     <?php if (! empty($assigned_roles)) : ?>
                         <?php foreach ($assigned_roles as $rk) : 
                             $rinfo = $all_roles[$rk] ?? null;
                             $rlabel = $rinfo ? $rinfo['label'] : ucfirst(str_replace('_', ' ', $rk));
                         ?>
-                            <span style="background: #004b23; color: #ffffff; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700;">
+                            <span class="dfn-vol-role-badge">
                                 🏛️ <?php echo esc_html($rlabel); ?>
                             </span>
                         <?php endforeach; ?>
                     <?php else : ?>
-                        <span style="background: #e2e8f0; color: #475569; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600;">
+                        <span class="dfn-vol-role-badge badge-default">
                             Volontario FAI
                         </span>
                     <?php endif; ?>
 
                     <?php if ($member && ! empty($member->is_guide)) : ?>
-                        <span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700;">
+                        <span class="dfn-vol-role-badge badge-guide">
                             🏛️ Guida / Cicerone
                         </span>
                     <?php endif; ?>
                     <?php if ($member && ! empty($member->has_safety_course)) : ?>
-                        <span style="background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700;">
+                        <span class="dfn-vol-role-badge badge-safety">
                             🦺 Sicurezza FAI
                         </span>
                     <?php endif; ?>
@@ -1027,8 +1027,8 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
 
                 <!-- Bottone App Gestione Eventi (Visibile solo da Mobile per Utenti Abilitati) -->
                 <?php if ($has_events_mgr_access) : ?>
-                    <div class="dfn-mobile-only-btn-wrapper" style="width: 100%;">
-                        <a href="<?php echo esc_url(home_url('/gestione-eventi/')); ?>" class="button dfn-btn-gestione-eventi-mobile" style="background: linear-gradient(135deg, #004b23 0%, #15803d 100%); color: #ffffff !important; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 12px 18px; border-radius: 10px; font-weight: 700; font-size: 13.5px; box-shadow: 0 4px 12px rgba(0,75,35,0.25); border: none;">
+                    <div class="dfn-mobile-only-btn-wrapper">
+                        <a href="<?php echo esc_url(home_url('/gestione-eventi/')); ?>" class="button dfn-btn-gestione-eventi-mobile">
                             <span>📱</span> Apri Gestione Eventi Mobile
                         </a>
                     </div>
@@ -1037,12 +1037,12 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
         </div>
 
         <!-- Sezione Quick Info: 1. Prossimo Turno Assegnato -->
-        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
-                <h3 style="margin: 0; font-size: 15.5px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
+        <div class="dfn-vol-hub-card">
+            <div class="dfn-vol-hub-card-header">
+                <h3 class="dfn-vol-hub-card-title">
                     <span>📍</span> <?php esc_html_e('Il Tuo Prossimo Turno', 'dfn-theme'); ?>
                 </h3>
-                <a href="<?php echo esc_url(wc_get_endpoint_url('eventi-fai', '', wc_get_page_permalink('myaccount'))); ?>" style="font-size: 12.5px; font-weight: 700; color: #004b23; text-decoration: none;">
+                <a href="<?php echo esc_url(wc_get_endpoint_url('eventi-fai', '', wc_get_page_permalink('myaccount'))); ?>" class="dfn-vol-hub-card-link">
                     <?php esc_html_e('Tutti i turni ed eventi →', 'dfn-theme'); ?>
                 </a>
             </div>
@@ -1053,30 +1053,30 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                 $r_bg  = $r_obj ? $r_obj->badge_bg : '#ea580c';
                 $r_col = $r_obj ? $r_obj->badge_color : '#ffffff';
             ?>
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+                <div class="dfn-vol-shift-box">
                     <div>
-                        <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 3px;">
+                        <div class="dfn-vol-shift-date">
                             🗓️ <?php echo esc_html(ucfirst(date_i18n('l d F Y', strtotime($next_shift->event_date)))); ?>
                         </div>
-                        <div style="font-size: 13px; color: #334155; margin-bottom: 2px;">
+                        <div class="dfn-vol-shift-place">
                             📍 Luogo: <strong><?php echo esc_html($next_shift->place_name); ?></strong>
                         </div>
-                        <div style="font-size: 12.5px; color: #64748b;">
+                        <div class="dfn-vol-shift-time">
                             ⏰ Orario: <strong><?php echo esc_html(substr($next_shift->time_start, 0, 5) . ' - ' . substr($next_shift->time_end, 0, 5)); ?></strong> (<?php echo esc_html($next_shift->shift_label); ?>)
                         </div>
                     </div>
                     <div>
-                        <span style="background: <?php echo esc_attr($r_bg); ?> !important; color: <?php echo esc_attr($r_col); ?> !important; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block;">
+                        <span class="dfn-vol-shift-badge" style="background: <?php echo esc_attr($r_bg); ?> !important; color: <?php echo esc_attr($r_col); ?> !important;">
                             <?php echo esc_html($r_lbl); ?>
                         </span>
                     </div>
                 </div>
             <?php else : ?>
-                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #475569; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div class="dfn-vol-empty-box">
                     <div>
                         ℹ️ <strong>Nessun turno assegnato:</strong> Non risulti attualmente pianificato nei prossimi turni pubblicati.
                     </div>
-                    <a href="<?php echo esc_url(wc_get_endpoint_url('eventi-fai', '', wc_get_page_permalink('myaccount'))); ?>" class="button" style="background: #004b23; color: #ffffff; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none;">
+                    <a href="<?php echo esc_url(wc_get_endpoint_url('eventi-fai', '', wc_get_page_permalink('myaccount'))); ?>" class="button dfn-vol-empty-btn">
                         Consulta Turni &rarr;
                     </a>
                 </div>
@@ -1085,20 +1085,20 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
 
         <!-- Sezione Quick Info: 2. Sondaggi di Disponibilità in Corso -->
         <?php if (! empty($open_survey)) : ?>
-            <div class="dfn-dash-vol-box-survey" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1.5px solid #bfdbfe; border-radius: 14px; padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+            <div class="dfn-dash-vol-box-survey">
                 <div>
-                    <div style="display: inline-block; background: #2563eb; color: #ffffff; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; margin-bottom: 6px;">
-                        📋 Sondaggio Aperto
+                    <div class="dfn-dash-vol-survey-tag">
+                        📋 Disponibilità Richiesta
                     </div>
-                    <h4 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 800; color: #1e3a8a;">
+                    <h3 class="dfn-dash-vol-survey-title">
                         <?php echo esc_html($open_survey->title); ?>
-                    </h4>
-                    <p style="margin: 0; font-size: 12.5px; color: #1e40af;">
+                    </h3>
+                    <p class="dfn-dash-vol-survey-desc">
                         Indica la tua disponibilità oraria entro il <strong><?php echo esc_html(date_i18n('d/m/Y \a\l\l\e H:i', strtotime($open_survey->deadline_at))); ?></strong>.
                     </p>
                 </div>
                 <div>
-                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $open_survey->token_public)); ?>" class="button" style="background: #2563eb; color: #ffffff; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; text-decoration: none; display: inline-block;">
+                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $open_survey->token_public)); ?>" class="button dfn-btn-survey">
                         ✍️ Compila Ora
                     </a>
                 </div>
@@ -1106,12 +1106,12 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
         <?php endif; ?>
 
         <!-- Sezione Quick Info: 3. Prossima Riunione di Delegazione -->
-        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
-                <h3 style="margin: 0; font-size: 15.5px; font-weight: 800; color: #004b23; display: flex; align-items: center; gap: 8px;">
+        <div class="dfn-vol-hub-card">
+            <div class="dfn-vol-hub-card-header">
+                <h3 class="dfn-vol-hub-card-title">
                     <span>📅</span> <?php esc_html_e('Prossima Riunione di Delegazione', 'dfn-theme'); ?>
                 </h3>
-                <a href="<?php echo esc_url(wc_get_endpoint_url('riunioni-fai', '', wc_get_page_permalink('myaccount'))); ?>" style="font-size: 12.5px; font-weight: 700; color: #004b23; text-decoration: none;">
+                <a href="<?php echo esc_url(wc_get_endpoint_url('riunioni-fai', '', wc_get_page_permalink('myaccount'))); ?>" class="dfn-vol-hub-card-link">
                     <?php esc_html_e('Tutte le riunioni →', 'dfn-theme'); ?>
                 </a>
             </div>
@@ -1121,40 +1121,27 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                 $date_text = date_i18n('l d F Y', $m_d);
                 $time_text = substr($next_meeting->meeting_time_start, 0, 5);
             ?>
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div class="dfn-vol-meeting-box">
                     <div>
-                        <h4 style="margin: 0 0 3px 0; font-size: 14px; font-weight: 800; color: #0f172a;"><?php echo esc_html($next_meeting->title); ?></h4>
-                        <div style="font-size: 12.5px; color: #334155;">
+                        <h4 class="dfn-vol-meeting-title"><?php echo esc_html($next_meeting->title); ?></h4>
+                        <div class="dfn-vol-meeting-meta">
                             🗓️ <strong><?php echo esc_html(ucfirst($date_text)); ?></strong> alle <strong><?php echo esc_html($time_text); ?></strong> • 📍 <?php echo esc_html($next_meeting->location); ?>
                         </div>
                     </div>
                     <?php if (! empty($next_meeting->meeting_link)) : ?>
-                        <a href="<?php echo esc_url($next_meeting->meeting_link); ?>" target="_blank" class="button" style="background: #004b23; color: #ffffff; border-radius: 20px; font-size: 11.5px; font-weight: 700; padding: 4px 14px; text-decoration: none;">
+                        <a href="<?php echo esc_url($next_meeting->meeting_link); ?>" target="_blank" class="button dfn-vol-meeting-btn">
                             🔗 Link Online
                         </a>
                     <?php endif; ?>
                 </div>
             <?php else : ?>
-                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #64748b;">
+                <div class="dfn-vol-empty-box">
                     📅 Nessuna nuova riunione programmata al momento.
                 </div>
             <?php endif; ?>
         </div>
 
     </div>
-
-    <style>
-    /* Mostra il pulsante Gestione Eventi solo su dispositivi mobili / tablet */
-    .dfn-mobile-only-btn-wrapper {
-        display: none !important;
-    }
-    @media (max-width: 768px) {
-        .dfn-mobile-only-btn-wrapper {
-            display: block !important;
-            margin-top: 10px;
-        }
-    }
-    </style>
     <?php
 }
 
