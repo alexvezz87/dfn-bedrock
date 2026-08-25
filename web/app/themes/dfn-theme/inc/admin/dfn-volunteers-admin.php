@@ -137,6 +137,7 @@ if (! function_exists('dfn_tooltip_icon')) {
 /**
  * Registra il menu top-level "Gestione Volontari FAI" e i relativi sottomenu.
  */
+add_action('admin_menu', 'dfn_volunteers_register_admin_menu');
 function dfn_volunteers_register_admin_menu(): void
 {
     // Menu Top-Level allo stesso livello di FAI Prenotazioni
