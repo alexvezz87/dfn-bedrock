@@ -1024,42 +1024,49 @@ function dfn_volunteer_events_endpoint_content(): void
                         <?php endif; ?>
 
                         <!-- Sezione 1: Il Tuo Turno Assegnato (Dettaglio: Giorno, Luogo, Slot Orario) -->
-                        <?php if ($are_shifts_published && ! empty($ev_my_shifts)) : ?>
+                        <?php if ($are_shifts_published) : ?>
                             <div class="dfn-vol-assigned-section dfn-my-shifts-container">
                                 <div class="dfn-vol-assigned-heading"><span>📍</span> Il Tuo Turno &amp; Incarico Assegnato:</div>
-                                <div style="display: flex; flex-direction: column; gap: 10px;">
-                                    <?php foreach ($ev_my_shifts as $sh_item) : 
-                                        $r_obj = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($sh_item->role_assigned) : null;
-                                        if ($r_obj) {
-                                            $b_code = trim((string) $r_obj->badge_code);
-                                            $r_lbl = $r_obj->role_name;
-                                            if (! empty($b_code) && stripos($r_lbl, $b_code) === false) {
-                                                $r_lbl .= ' ' . $b_code;
+                                <?php if (! empty($ev_my_shifts)) : ?>
+                                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                                        <?php foreach ($ev_my_shifts as $sh_item) : 
+                                            $r_obj = function_exists('dfn_get_volunteer_role_by_key') ? dfn_get_volunteer_role_by_key($sh_item->role_assigned) : null;
+                                            if ($r_obj) {
+                                                $b_code = trim((string) $r_obj->badge_code);
+                                                $r_lbl = $r_obj->role_name;
+                                                if (! empty($b_code) && stripos($r_lbl, $b_code) === false) {
+                                                    $r_lbl .= ' ' . $b_code;
+                                                }
+                                            } else {
+                                                $r_lbl = ucfirst(str_replace('_', ' ', $sh_item->role_assigned));
                                             }
-                                        } else {
-                                            $r_lbl = ucfirst(str_replace('_', ' ', $sh_item->role_assigned));
-                                        }
-                                        $r_bg  = $r_obj ? $r_obj->badge_bg : '#ea580c';
-                                        $r_col = $r_obj ? $r_obj->badge_color : '#ffffff';
-                                    ?>
-                                        <div class="dfn-vol-shift-item">
-                                            <div>
-                                                <div style="font-size: 13.5px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">
-                                                    🗓️ <strong>Giorno:</strong> <?php echo esc_html(ucfirst(date_i18n('l d/m/Y', strtotime($sh_item->event_date)))); ?>
+                                            $r_bg  = $r_obj ? $r_obj->badge_bg : '#ea580c';
+                                            $r_col = $r_obj ? $r_obj->badge_color : '#ffffff';
+                                        ?>
+                                            <div class="dfn-vol-shift-item">
+                                                <div>
+                                                    <div style="font-size: 13.5px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">
+                                                        🗓️ <strong>Giorno:</strong> <?php echo esc_html(ucfirst(date_i18n('l d/m/Y', strtotime($sh_item->event_date)))); ?>
+                                                    </div>
+                                                    <div style="font-size: 13px; color: #334155; margin-bottom: 2px;">
+                                                        📍 <strong>Luogo:</strong> <?php echo esc_html($sh_item->place_name); ?>
+                                                    </div>
+                                                    <div style="font-size: 13px; color: #334155;">
+                                                        ⏰ <strong>Slot Orario:</strong> <?php echo esc_html(substr($sh_item->time_start, 0, 5) . ' - ' . substr($sh_item->time_end, 0, 5)); ?> (<?php echo esc_html($sh_item->shift_label); ?>)
+                                                    </div>
                                                 </div>
-                                                <div style="font-size: 13px; color: #334155; margin-bottom: 2px;">
-                                                    📍 <strong>Luogo:</strong> <?php echo esc_html($sh_item->place_name); ?>
-                                                </div>
-                                                <div style="font-size: 13px; color: #334155;">
-                                                    ⏰ <strong>Slot Orario:</strong> <?php echo esc_html(substr($sh_item->time_start, 0, 5) . ' - ' . substr($sh_item->time_end, 0, 5)); ?> (<?php echo esc_html($sh_item->shift_label); ?>)
+                                                <div>
+                                                    <span class="dfn-vol-role-badge" style="background: <?php echo esc_attr($r_bg); ?> !important; color: <?php echo esc_attr($r_col); ?> !important;"><?php echo esc_html($r_lbl); ?></span>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <span class="dfn-vol-role-badge" style="background: <?php echo esc_attr($r_bg); ?> !important; color: <?php echo esc_attr($r_col); ?> !important;"><?php echo esc_html($r_lbl); ?></span>
-                                            </div>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else : ?>
+                                    <div style="background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #475569; line-height: 1.5;">
+                                        ℹ️ <strong>Nessun turno assegnato:</strong> Al momento non sei inserito nella turnazione di questo evento (ad esempio se ti sei unito alla squadra dopo la pianificazione iniziale).<br>
+                                        👉 Se desideri partecipare o dare disponibilità, <strong>contatta il Coordinatore o la Delegazione FAI</strong> per essere inserito manualmente.
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
 
