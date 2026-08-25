@@ -927,7 +927,15 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
 
     // Recupera ruoli assegnati
     $assigned_roles = (array) get_user_meta($current_user_id, '_dfn_assigned_fai_roles', true);
-    $all_roles = function_exists('dfn_get_all_roles') ? dfn_get_all_roles() : [];
+    $stored_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
+
+    // Se l'utente ha ruoli WP standard registrati tra i ruoli FAI
+    $u_roles = (array) $current_user->roles;
+    foreach ($u_roles as $ur) {
+        if (isset($stored_roles[$ur]) && ! in_array($ur, $assigned_roles, true)) {
+            $assigned_roles[] = $ur;
+        }
+    }
 
     // Recupera prossimo turno assegnato
     $my_shifts = function_exists('dfn_get_volunteer_assigned_shifts_for_user') ? dfn_get_volunteer_assigned_shifts_for_user($current_user_id) : [];
@@ -1005,8 +1013,8 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                     <span class="dfn-vol-roles-label">Incarichi &amp; Ruoli FAI:</span>
                     <?php if (! empty($assigned_roles)) : ?>
                         <?php foreach ($assigned_roles as $rk) : 
-                            $rinfo = $all_roles[$rk] ?? null;
-                            $rlabel = $rinfo ? $rinfo['label'] : ucfirst(str_replace('_', ' ', $rk));
+                            $rinfo = $stored_roles[$rk] ?? null;
+                            $rlabel = $rinfo ? $rinfo['label'] : ucfirst(trim(str_replace(['dfn_', '_'], ['', ' '], $rk)));
                         ?><span class="dfn-vol-role-badge">🏛️ <?php echo esc_html($rlabel); ?></span><?php endforeach; ?>
                     <?php else : ?>
                         <span class="dfn-vol-role-badge badge-default">Volontario FAI</span>

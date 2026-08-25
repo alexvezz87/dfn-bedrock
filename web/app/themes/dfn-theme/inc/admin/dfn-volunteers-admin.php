@@ -1115,7 +1115,7 @@ function dfn_render_volunteer_roles_admin_page(): void
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header" style="margin-bottom:20px;">
-            <h1 style="font-size:24px; font-weight:700; color:#1d2327;">🏷️ Gestione Mansioni &amp; Ruoli Volontari</h1>
+            <h1 style="font-size:24px; font-weight:700; color:#1d2327;">🏷️ Gestione Mansioni &amp; Ruoli Volontari <?php dfn_tooltip_icon('dfn-tip-vol-roles-page', 'Guida alla Gestione Mansioni'); ?></h1>
             <p style="color:#64748b; margin-top:4px;">Crea e personalizza le mansioni operative da associare agli eventi della delegazione (standard o personalizzate per singoli eventi).</p>
         </header>
 
@@ -1142,7 +1142,7 @@ function dfn_render_volunteer_roles_admin_page(): void
                     </div>
 
                     <div style="margin-bottom:14px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Etichetta Badge / Sigla Sintetica</label>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Etichetta Badge / Sigla Sintetica <?php dfn_tooltip_icon('dfn-tip-vol-role-badge', 'Guida sul Badge'); ?></label>
                         <input type="text" name="badge_code" value="<?php echo esc_attr($edit_role ? $edit_role->badge_code : ''); ?>" placeholder="Es. (S), (R), (G), 🍹 Bar, 🎟️ Pass" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px; font-size:13px;">
                     </div>
 
@@ -1249,6 +1249,32 @@ function dfn_render_volunteer_roles_admin_page(): void
                 </table>
             </div>
         </div>
+
+        <!-- Modali Tooltip -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-roles-page" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-roles-page-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-roles-page-title">🏷️ Mansioni Operative Volontari</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Le <strong>Mansioni Operative</strong> definiscono i compiti specifici assegnati ai volontari durante un evento o una Giornata FAI (es. <em>Guida, Accoglienza, Responsabile Scuola, Banchetto</em>).</p>
+                <p>Ogni mansione ha un colore di badge personalizzato e può richiedere specifiche abilitazioni, come il <strong>Corso di Sicurezza</strong> o il profilo <strong>Guida Culturale</strong>.</p>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-role-badge" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-role-badge-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-role-badge-title">🏷️ Etichetta Badge &amp; Colori</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>L'<strong>Etichetta Badge</strong> è la sigla sintetica o il testo compatto che appare nella <strong>Matrice Turni</strong> e nella <strong>Bacheca Volontario</strong> a front-end.</p>
+                <p>I colori di sfondo e del testo consentono di distinguere a colpo d'occhio i diversi incarichi nella pianificazione e sui report PDF.</p>
+            </div>
+        </div>
+
     </div>
     <?php
 }
