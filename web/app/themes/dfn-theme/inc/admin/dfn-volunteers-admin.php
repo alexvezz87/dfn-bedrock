@@ -14,7 +14,125 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-add_action('admin_menu', 'dfn_volunteers_register_admin_menu', 25);
+// Caricamento asset CSS e JS tooltip per l'area amministrativa Volontari e Logistica
+add_action('admin_enqueue_scripts', 'dfn_volunteers_admin_enqueue_tooltip_assets');
+function dfn_volunteers_admin_enqueue_tooltip_assets(string $hook): void
+{
+    $vol_pages = [
+        'toplevel_page_dfn-volunteers',
+        'volontari-fai_page_dfn-volunteer-add',
+        'volontari-fai_page_dfn-volunteer-meetings',
+        'volontari-fai_page_dfn-volunteer-logistics',
+        'volontari-fai_page_dfn-volunteer-roles',
+    ];
+
+    if (in_array($hook, $vol_pages, true) || (isset($_GET['page']) && strpos($_GET['page'], 'dfn-volunteer') !== false)) {
+        wp_enqueue_style(
+            'dfn-events-manager-css',
+            get_stylesheet_directory_uri() . '/assets/css/dfn-events-manager.css',
+            [],
+            '2.4.0'
+        );
+    }
+}
+
+// Stampa JS tooltip nel footer per le pagine admin volontari
+add_action('admin_footer', 'dfn_volunteers_admin_tooltip_script');
+function dfn_volunteers_admin_tooltip_script(): void
+{
+    if (! isset($_GET['page']) || (strpos($_GET['page'], 'dfn-volunteer') === false && $_GET['page'] !== 'dfn-volunteers')) {
+        return;
+    }
+    ?>
+    <script>
+    (function() {
+        var overlay     = document.getElementById('dfn-tooltip-overlay');
+        var activeModal = null;
+        var triggerEl   = null;
+
+        if (!overlay) return;
+
+        function openModal(modalId, trigger) {
+            var modal = document.getElementById(modalId);
+            if (!modal) return;
+
+            if (activeModal) closeModal(false);
+
+            activeModal = modal;
+            triggerEl   = trigger || null;
+
+            overlay.classList.add('dfn-tooltip-active');
+            modal.classList.add('dfn-tooltip-active');
+            document.body.style.overflow = 'hidden';
+
+            var focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (focusable) {
+                setTimeout(function() { focusable.focus(); }, 50);
+            }
+        }
+
+        function closeModal(restoreFocus) {
+            if (!activeModal) return;
+
+            overlay.classList.remove('dfn-tooltip-active');
+            activeModal.classList.remove('dfn-tooltip-active');
+            document.body.style.overflow = '';
+
+            if (restoreFocus !== false && triggerEl) {
+                triggerEl.focus();
+            }
+
+            activeModal = null;
+            triggerEl   = null;
+        }
+
+        document.addEventListener('click', function(e) {
+            var trigger = e.target.closest('.dfn-tooltip-trigger');
+            if (trigger) {
+                e.preventDefault();
+                var modalId = trigger.getAttribute('data-tooltip');
+                if (modalId) openModal(modalId, trigger);
+                return;
+            }
+
+            var closeBtn = e.target.closest('.dfn-tooltip-modal-close');
+            if (closeBtn) {
+                e.preventDefault();
+                closeModal(true);
+                return;
+            }
+
+            if (e.target === overlay) {
+                e.preventDefault();
+                closeModal(true);
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if ((e.key === 'Escape' || e.keyCode === 27) && activeModal) {
+                closeModal(true);
+            }
+        });
+    })();
+    </script>
+    <?php
+}
+
+if (! function_exists('dfn_tooltip_icon')) {
+    /**
+     * Stampa l'icona trigger di un tooltip modal.
+     *
+     * @param string $tooltip_id  ID del modal da aprire (senza #).
+     * @param string $aria_label  Testo alternativo per accessibilità.
+     */
+    function dfn_tooltip_icon(string $tooltip_id, string $aria_label = ''): void {
+        $label = $aria_label ?: __('Informazioni su questo elemento', 'dfn-theme');
+        echo '<button type="button" class="dfn-tooltip-trigger" '
+            . 'data-tooltip="' . esc_attr($tooltip_id) . '" '
+            . 'aria-label="' . esc_attr($label) . '" '
+            . 'title="' . esc_attr($label) . '" style="cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:#e2e8f0; border:none; color:#475569; font-size:11px; font-weight:700; margin-left:6px; vertical-align:middle;">?</button>';
+    }
+}
 
 /**
  * Registra il menu top-level "Gestione Volontari FAI" e i relativi sottomenu.
@@ -191,9 +309,9 @@ function dfn_render_volunteers_list_page(): void
                 <thead>
                     <tr>
                         <th style="width:180px; font-weight:700;">Volontario</th>
-                        <th style="width:130px; font-weight:700;">Tessera FAI</th>
+                        <th style="width:130px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
                         <th style="width:200px; font-weight:700;">Contatti</th>
-                        <th style="font-weight:700;">Ruoli Operativi / Competenze</th>
+                        <th style="font-weight:700;">Ruoli Operativi / Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Ruoli e Competenze Volontari'); ?></th>
                         <th style="width:90px; font-weight:700; text-align:center;">Stato</th>
                         <th style="width:230px; font-weight:700; text-align:right;">Azioni</th>
                     </tr>
@@ -290,6 +408,37 @@ function dfn_render_volunteers_list_page(): void
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Overlay e Tooltip Modals Elenco Volontari -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-badges" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-badges-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-badges-title">🏛️ Ruoli e Competenze dei Volontari</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>I badge e le competenze guidano l'algoritmo di <strong>assegnazione automatica</strong> e la selezione manuale dei turni durante gli eventi:</p>
+                <ul>
+                    <li><strong>🏛️ Guida Culturale:</strong> identifica i volontari formati per condurre visite guidate, percorsi narrati o approfondimenti storico-artistici.</li>
+                    <li><strong>🦺 Corso Sicurezza Attivo:</strong> certifica il superamento della formazione sulla sicurezza nei luoghi di lavoro (D.Lgs. 81/08). È un requisito fondamentale per le mansioni a contatto con le scolaresche (es. <em>Responsabile Scuola / Apprendisti Ciceroni</em>).</li>
+                </ul>
+                <div class="dfn-tip-box">
+                    <strong>Suggerimento:</strong> Puoi personalizzare e aggiungere nuove mansioni operative dal menu <em>Mansioni &amp; Ruoli</em>.
+                </div>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-card" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-card-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-card-title">💳 Tessere FAI e Utenti Collegati</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Ogni volontario registrato in anagrafica deve possedere una <strong>Tessera Iscritto FAI in corso di validità</strong>.</p>
+                <p>Se la tessera viene associata ad un account WordPress del sito, il volontario vedrà comparire in automatico la sezione <strong>Volontari</strong> e la <strong>Bacheca Turni</strong> nella sua area personale.</p>
+            </div>
         </div>
     </div>
     <?php
@@ -482,7 +631,9 @@ function dfn_render_volunteer_add_page(): void
                 </div>
 
                 <div style="margin-bottom:16px;">
-                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Associa ad Utente Registrato (Opzionale)</label>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">
+                        Associa ad Utente Registrato (Opzionale) <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Account Utente'); ?>
+                    </label>
                     <select name="user_id" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                         <option value="0">-- Cerca o seleziona un utente --</option>
                         <?php foreach ($wp_users as $u) : ?>
@@ -532,7 +683,7 @@ function dfn_render_volunteer_add_page(): void
                 </div>
 
                 <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px; margin-top:20px;">
-                    🎯 Competenze &amp; Ruoli Speciali per i Turni
+                    🎯 Competenze &amp; Ruoli Speciali per i Turni <?php dfn_tooltip_icon('dfn-tip-vol-roles-info', 'Informazioni: Competenze e Ruoli'); ?>
                 </h3>
 
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:12px;">
@@ -565,6 +716,39 @@ function dfn_render_volunteer_add_page(): void
                     </button>
                 </div>
             </form>
+        </div>
+
+        <!-- Overlay e Tooltip Modals Form Volontario -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-user" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-user-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-user-title">👤 Collegamento Utente WordPress</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Selezionando un account utente registrato sul sito, il sistema abiliterà automaticamente il <strong>menu Volontari</strong> all'interno della sua area personale (<em>/mio-account/</em>).</p>
+                <p>In questo modo il volontario potrà:</p>
+                <ul>
+                    <li>Compilare i <strong>sondaggi di disponibilità oraria</strong> per le Giornate FAI;</li>
+                    <li>Consultare i <strong>turni e i luoghi</strong> a lui assegnati dopo la pubblicazione;</li>
+                    <li>Vedere i colleghi di turno e l'ordine del giorno delle <strong>riunioni di delegazione</strong>.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-roles-info" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-roles-info-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-roles-info-title">🎯 Competenze e Formazione</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Le competenze inserite permettono all'algoritmo di allocazione automatica di distribuire i volontari in modo corretto ed efficiente:</p>
+                <ul>
+                    <li><strong>Guida:</strong> garantisce la presenza di volontari qualificati per l'illustrazione dei beni storici.</li>
+                    <li><strong>Corso Sicurezza:</strong> soddisfa i requisiti normativi per i referenti dei gruppi scuola e minori.</li>
+                </ul>
+            </div>
         </div>
     </div>
     <?php

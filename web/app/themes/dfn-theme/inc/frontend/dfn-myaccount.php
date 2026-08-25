@@ -81,106 +81,179 @@ function dfn_enqueue_myaccount_assets(): void
             true,
         );
 
-        // Dati degli step del tour passati in modo sicuro da PHP a JS
-        wp_localize_script('dfn-tour', 'dfnTourData', [
-            'tours' => [
-                // Tour 0 — Bacheca Principale & Tour del Menu Laterale
-                [
-                    'storageKey'    => 'dfn_tour_dashboard_done',
-                    'sectionAnchor' => '.dfn-dashboard-hub',
-                    'steps'         => [
-                        [
-                            'selector' => '.dfn-dashboard-hub',
-                            'title'    => '👋 La Tua Area Riservata FAI',
-                            'content'  => 'Benvenuto nella tua bacheca personale! Da qui puoi gestire tutte le tue esperienze, consultare i biglietti e accedere ai vantaggi dedicati ai sostenitori FAI.',
-                        ],
-                        [
-                            'selector' => '.woocommerce-MyAccount-navigation-link--dashboard a',
-                            'title'    => '📊 Sezione: Bacheca',
-                            'content'  => 'La <strong>Bacheca</strong> è la tua schermata principale. Qui trovi il riepilogo in tempo reale con il tuo prossimo appuntamento imminente, le statistiche di visita e le novità del FAI Novara.',
-                        ],
-                        [
-                            'selector' => '.woocommerce-MyAccount-navigation-link--orders a',
-                            'title'    => '🎟️ Sezione: Le Mie Prenotazioni',
-                            'content'  => 'In questa sezione puoi consultare tutte le tue prenotazioni passate e future. Da qui puoi <strong>scaricare i tuoi biglietti</strong> con QR Code, <strong>modificare il numero di partecipanti</strong> o <strong>annullare i posti</strong> in caso di imprevisti.',
-                        ],
-                        [
-                            'selector' => '.woocommerce-MyAccount-navigation-link--tessere-fai a',
-                            'title'    => '🪪 Sezione: Tessere FAI',
-                            'content'  => 'Gestisci e inserisci qui le tue <strong>Tessere Iscritto FAI</strong>. Una volta verificate dalla segreteria, sbloccherai le quote agevolate durante la prenotazione e potrai mostrare la tua tessera digitale con QR Code direttamente all\'ingresso degli eventi.',
-                        ],
-                        [
-                            'selector' => '.woocommerce-MyAccount-navigation-link--edit-account a',
-                            'title'    => '👤 Sezione: Dettagli Account',
-                            'content'  => 'In questa sezione puoi aggiornare i tuoi dati personali (nome, cognome, indirizzo email di contatto) e modificare la tua password di accesso in totale sicurezza.',
-                        ],
-                        [
-                            'selector' => '.woocommerce-MyAccount-navigation-link--customer-logout a',
-                            'title'    => '🚪 Sezione: Esci',
-                            'content'  => 'Clicca qui per disconnetterti in modo sicuro dal tuo account quando utilizzi dispositivi pubblici o condivisi.',
-                        ],
+        // Rilevamento status volontario per arricchimento dinamico del Tour
+        $is_current_volunteer = function_exists('dfn_is_user_volunteer') ? dfn_is_user_volunteer() : false;
+
+        $tours = [
+            // Tour 0 — Bacheca Principale & Tour del Menu Laterale
+            [
+                'storageKey'    => 'dfn_tour_dashboard_done',
+                'sectionAnchor' => '.dfn-dashboard-hub',
+                'steps'         => [
+                    [
+                        'selector' => '.dfn-dashboard-hub',
+                        'title'    => '👋 La Tua Area Riservata FAI',
+                        'content'  => 'Benvenuto nella tua bacheca personale! Da qui puoi gestire tutte le tue esperienze, consultare i biglietti e accedere ai vantaggi dedicati ai sostenitori FAI.',
                     ],
-                ],
-                // Tour 1 — Le Mie Prenotazioni
-                [
-                    'storageKey'    => 'dfn_tour_bookings_done',
-                    'sectionAnchor' => '#dfn-my-bookings-section',
-                    'steps'         => [
-                        [
-                            'selector' => '#dfn-my-bookings-section .dfn-dashboard-title',
-                            'title'    => '📅 Benvenuto nel tuo Botteghino!',
-                            'content'  => 'Questa è la tua bacheca personale delle prenotazioni FAI. Trovi tutte le tue prenotazioni suddivise tra <strong>Prossimi eventi</strong> e <strong>Visite passate</strong>.',
-                        ],
-                        [
-                            'selector' => '#dfn-my-bookings-section .dfn-bookings-group-upcoming',
-                            'title'    => '📆 Prossimi Eventi',
-                            'content'  => 'Qui trovi tutti gli eventi ai quali sei prenotato e che non si sono ancora svolti. Clicca su una card per espandere il dettaglio della tua prenotazione.',
-                        ],
-                        [
-                            'selector' => '#dfn-my-bookings-section .dfn-booking-accordion',
-                            'title'    => '📂 Apri i dettagli',
-                            'content'  => 'Ogni card è <strong>espandibile</strong>: clicca sulla riga per vedere orario del turno, numero di posti prenotati e modalità di pagamento.',
-                        ],
-                        [
-                            'selector' => '#dfn-my-bookings-section .dfn-booking-status-badge',
-                            'title'    => '🏷️ Badge di Stato',
-                            'content'  => 'Il badge colorato indica lo stato: <strong style="color:#15803d">Verde = Confermata</strong>, <strong style="color:#b45309">Giallo = In attesa pagamento</strong>, <strong style="color:#dc2626">Rosso = Annullata</strong>.',
-                        ],
-                        [
-                            'selector' => '#dfn-my-bookings-section .dfn-action-modify',
-                            'title'    => '✏️ Modifica Partecipanti',
-                            'content'  => 'Hai prenotato per troppe persone? Clicca <strong>Modifica</strong> per ridurre il numero di partecipanti Standard o Soci FAI. Non è possibile aumentarli: per aggiungere persone effettua una nuova prenotazione.',
-                        ],
-                        [
-                            'selector' => '#dfn-my-bookings-section .dfn-btn-cancel-booking',
-                            'title'    => '❌ Annullamento Prenotazione',
-                            'content'  => 'Non riesci più a partecipare? Clicca <strong>Annulla</strong> per liberare i tuoi posti in modo che possano essere prenotati da altri utenti. L\'operazione è definitiva.',
-                        ],
+                    [
+                        'selector' => '.woocommerce-MyAccount-navigation-link--dashboard a',
+                        'title'    => '📊 Sezione: Bacheca',
+                        'content'  => 'La <strong>Bacheca</strong> è la tua schermata principale. Qui trovi il riepilogo in tempo reale con il tuo prossimo appuntamento imminente, le statistiche di visita e le novità del FAI Novara.',
                     ],
-                ],
-                // Tour 2 — Tessere FAI
-                [
-                    'storageKey'    => 'dfn_tour_fai_done',
-                    'sectionAnchor' => '#dfn-fai-section',
-                    'steps'         => [
-                        [
-                            'selector' => '#dfn-fai-section .dfn-dashboard-title',
-                            'title'    => '🪪 Le Mie Tessere FAI',
-                            'content'  => 'In questa sezione puoi registrare e consultare le tue <strong>Tessere FAI</strong>. Le tessere verificate ti permettono di prenotare eventi al contributo riservato ai Soci.',
-                        ],
-                        [
-                            'selector' => '#dfn-fai-section .dfn-add-fai-card-wrapper',
-                            'title'    => '➕ Aggiungi una Tessera',
-                            'content'  => 'Inserisci <strong>nome, cognome e numero di tessera</strong> e clicca "Invia Tessera". Lo staff FAI verificherà i dati: la tessera apparirà come attiva entro breve.',
-                        ],
-                        [
-                            'selector' => '#dfn-fai-section .dfn-fai-digital-card',
-                            'title'    => '💳 La tua Tessera Digitale',
-                            'content'  => 'Una volta verificata, la tessera appare in formato digitale con tutti i dettagli e il <strong>QR Code</strong>. Puoi mostrarla direttamente dallo schermo al banchetto di un evento.',
-                        ],
+                    [
+                        'selector' => '.woocommerce-MyAccount-navigation-link--orders a',
+                        'title'    => '🎟️ Sezione: Le Mie Prenotazioni',
+                        'content'  => 'In questa sezione puoi consultare tutte le tue prenotazioni passate e future. Da qui puoi <strong>scaricare i tuoi biglietti</strong> con QR Code, <strong>modificare il numero di partecipanti</strong> o <strong>annullare i posti</strong> in caso di imprevisti.',
+                    ],
+                    [
+                        'selector' => '.woocommerce-MyAccount-navigation-link--tessere-fai a',
+                        'title'    => '🪪 Sezione: Tessere FAI',
+                        'content'  => 'Gestisci e inserisci qui le tue <strong>Tessere Iscritto FAI</strong>. Una volta verificate dalla segreteria, sbloccherai le quote agevolate durante la prenotazione e potrai mostrare la tua tessera digitale con QR Code direttamente all\'ingresso degli eventi.',
                     ],
                 ],
             ],
+            // Tour 1 — Le Mie Prenotazioni
+            [
+                'storageKey'    => 'dfn_tour_bookings_done',
+                'sectionAnchor' => '#dfn-my-bookings-section',
+                'steps'         => [
+                    [
+                        'selector' => '#dfn-my-bookings-section .dfn-dashboard-title',
+                        'title'    => '📅 Benvenuto nel tuo Botteghino!',
+                        'content'  => 'Questa è la tua bacheca personale delle prenotazioni FAI. Trovi tutte le tue prenotazioni suddivise tra <strong>Prossimi eventi</strong> e <strong>Visite passate</strong>.',
+                    ],
+                    [
+                        'selector' => '#dfn-my-bookings-section .dfn-bookings-group-upcoming',
+                        'title'    => '📆 Prossimi Eventi',
+                        'content'  => 'Qui trovi tutti gli eventi ai quali sei prenotato e che non si sono ancora svolti. Clicca su una card per espandere il dettaglio della tua prenotazione.',
+                    ],
+                    [
+                        'selector' => '#dfn-my-bookings-section .dfn-booking-accordion',
+                        'title'    => '📂 Apri i dettagli',
+                        'content'  => 'Ogni card è <strong>espandibile</strong>: clicca sulla riga per vedere orario del turno, numero di posti prenotati e modalità di pagamento.',
+                    ],
+                    [
+                        'selector' => '#dfn-my-bookings-section .dfn-booking-status-badge',
+                        'title'    => '🏷️ Badge di Stato',
+                        'content'  => 'Il badge colorato indica lo stato: <strong style="color:#15803d">Verde = Confermata</strong>, <strong style="color:#b45309">Giallo = In attesa pagamento</strong>, <strong style="color:#dc2626">Rosso = Annullata</strong>.',
+                    ],
+                    [
+                        'selector' => '#dfn-my-bookings-section .dfn-action-modify',
+                        'title'    => '✏️ Modifica Partecipanti',
+                        'content'  => 'Hai prenotato per troppe persone? Clicca <strong>Modifica</strong> per ridurre il numero di partecipanti Standard o Soci FAI. Non è possibile aumentarli: per aggiungere persone effettua una nuova prenotazione.',
+                    ],
+                    [
+                        'selector' => '#dfn-my-bookings-section .dfn-btn-cancel-booking',
+                        'title'    => '❌ Annullamento Prenotazione',
+                        'content'  => 'Non riesci più a partecipare? Clicca <strong>Annulla</strong> per liberare i tuoi posti in modo che possano essere prenotati da altri utenti. L\'operazione è definitiva.',
+                    ],
+                ],
+            ],
+            // Tour 2 — Tessere FAI
+            [
+                'storageKey'    => 'dfn_tour_fai_done',
+                'sectionAnchor' => '#dfn-fai-section',
+                'steps'         => [
+                    [
+                        'selector' => '#dfn-fai-section .dfn-dashboard-title',
+                        'title'    => '🪪 Le Mie Tessere FAI',
+                        'content'  => 'In questa sezione puoi registrare e consultare le tue <strong>Tessere FAI</strong>. Le tessere verificate ti permettono di prenotare eventi al contributo riservato ai Soci.',
+                    ],
+                    [
+                        'selector' => '#dfn-fai-section .dfn-add-fai-card-wrapper',
+                        'title'    => '➕ Aggiungi una Tessera',
+                        'content'  => 'Inserisci <strong>nome, cognome e numero di tessera</strong> e clicca "Invia Tessera". Lo staff FAI verificherà i dati: la tessera apparirà come attiva entro breve.',
+                    ],
+                    [
+                        'selector' => '#dfn-fai-section .dfn-fai-digital-card',
+                        'title'    => '💳 La tua Tessera Digitale',
+                        'content'  => 'Una volta verificata, la tessera appare in formato digitale con tutti i dettagli e il <strong>QR Code</strong>. Puoi mostrarla direttamente dallo schermo al banchetto di un evento.',
+                    ],
+                ],
+            ],
+        ];
+
+        // Se l'utente è un Volontario FAI attivo, estendiamo i tour con le sezioni operative dedicate
+        if ($is_current_volunteer) {
+            // Aggiungi lo step "Volontari" al Tour 0 (Bacheca Visitatore)
+            $tours[0]['steps'][] = [
+                'selector' => '.woocommerce-MyAccount-navigation-link--eventi-fai a',
+                'title'    => '🏛️ Area Volontari FAI',
+                'content'  => 'In quanto volontario attivo di delegazione, hai accesso alla tua <strong>Area Volontari</strong>! Clicca qui per consultare la <strong>Bacheca Turni</strong>, compilare i <strong>sondaggi di disponibilità</strong> e visualizzare le <strong>riunioni</strong>.',
+            ];
+
+            // Tour 3 — Bacheca Volontari & Turni Assegnati
+            $tours[] = [
+                'storageKey'    => 'dfn_tour_vol_dashboard_done',
+                'sectionAnchor' => '.dfn-volunteer-events-section',
+                'steps'         => [
+                    [
+                        'selector' => '.dfn-volunteer-events-section .dfn-account-header-card',
+                        'title'    => '🏛️ Benvenuto nella Bacheca Volontari!',
+                        'content'  => 'Questa è la tua centrale operativa FAI. Da qui puoi gestire le tue disponibilità orarie, consultare i turni e rimanere aggiornato sulle attività di delegazione.',
+                    ],
+                    [
+                        'selector' => '.dfn-my-shifts-container',
+                        'title'    => '📋 I Miei Turni Assegnati',
+                        'content'  => 'Quando i turni di una Giornata FAI o di un evento vengono pubblicati, trovi qui il riepilogo completo con <strong>luogo di ritrovo</strong>, <strong>orario</strong>, <strong>mansione assegnata</strong> e <strong>colleghi di turno</strong>.',
+                    ],
+                    [
+                        'selector' => '.woocommerce-MyAccount-navigation-link--sondaggi-fai a',
+                        'title'    => '✍️ Sondaggi Disponibilità',
+                        'content'  => 'Prima di ogni evento, compila il sondaggio orario per indicare quando puoi essere presente (es. Mattina, Pomeriggio o entrambi i giorni).',
+                    ],
+                    [
+                        'selector' => '.woocommerce-MyAccount-navigation-link--riunioni-fai a',
+                        'title'    => '📅 Riunioni di Delegazione',
+                        'content'  => 'Accedi al calendario delle riunioni di gruppo, con luogo, orario, ordini del giorno ed eventuali link per la partecipazione online.',
+                    ],
+                    [
+                        'selector' => '.woocommerce-MyAccount-navigation-link--dashboard a',
+                        'title'    => '🔄 Torna all\'Area Visitatore',
+                        'content'  => 'Puoi tornare in qualsiasi momento alla modalità <strong>Visitatore</strong> per consultare le tue prenotazioni personali e i tuoi biglietti FAI.',
+                    ],
+                ],
+            ];
+
+            // Tour 4 — Compilazione Sondaggio Volontario
+            $tours[] = [
+                'storageKey'    => 'dfn_tour_vol_survey_done',
+                'sectionAnchor' => '.dfn-survey-form-container',
+                'steps'         => [
+                    [
+                        'selector' => '.dfn-survey-form-container .dfn-survey-header',
+                        'title'    => '📝 Sondaggio di Disponibilità',
+                        'content'  => 'Indica le tue preferenze per la prossima Giornata FAI. L\'algoritmo di assegnazione terrà conto delle tue scelte!',
+                    ],
+                    [
+                        'selector' => '.dfn-survey-day-block',
+                        'title'    => '⏰ Scelta delle Fasce Orarie',
+                        'content'  => 'Seleziona le caselle corrispondenti ai turni in cui sei disponibile. Più disponibilità indichi, più sarà facile organizzare la copertura di tutti i luoghi aperti.',
+                    ],
+                    [
+                        'selector' => '.dfn-survey-submit-btn',
+                        'title'    => '💾 Invia le tue Disponibilità',
+                        'content'  => 'Clicca su <strong>Invia Disponibilità</strong> per salvare le tue scelte. Potrai aggiornarle in qualsiasi momento fino alla scadenza del sondaggio.',
+                    ],
+                ],
+            ];
+        }
+
+        // Chiusura step Account & Esci per il Tour 0
+        $tours[0]['steps'][] = [
+            'selector' => '.woocommerce-MyAccount-navigation-link--edit-account a',
+            'title'    => '👤 Sezione: Dettagli Account',
+            'content'  => 'In questa sezione puoi aggiornare i tuoi dati personali (nome, cognome, indirizzo email di contatto) e modificare la tua password di accesso in totale sicurezza.',
+        ];
+        $tours[0]['steps'][] = [
+            'selector' => '.woocommerce-MyAccount-navigation-link--customer-logout a',
+            'title'    => '🚪 Sezione: Esci',
+            'content'  => 'Clicca qui per disconnetterti in modo sicuro dal tuo account quando utilizzi dispositivi pubblici o condivisi.',
+        ];
+
+        // Dati degli step del tour passati in modo sicuro da PHP a JS
+        wp_localize_script('dfn-tour', 'dfnTourData', [
+            'tours' => $tours,
         ]);
 
         // Passa l'URL AJAX al file JS in modo sicuro (non inline nel template PHP)
@@ -954,7 +1027,7 @@ function dfn_volunteer_events_endpoint_content(): void
 
                         <!-- Sezione 1: Il Tuo Turno Assegnato (Dettaglio: Giorno, Luogo, Slot Orario) -->
                         <?php if ($are_shifts_published && ! empty($ev_my_shifts)) : ?>
-                            <div class="dfn-vol-assigned-section">
+                            <div class="dfn-vol-assigned-section dfn-my-shifts-container">
                                 <div class="dfn-vol-assigned-heading"><span>📍</span> Il Tuo Turno &amp; Incarico Assegnato:</div>
                                 <div style="display: flex; flex-direction: column; gap: 10px;">
                                     <?php foreach ($ev_my_shifts as $sh_item) : 

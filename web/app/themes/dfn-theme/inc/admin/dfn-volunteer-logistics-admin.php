@@ -186,9 +186,9 @@ function dfn_render_volunteer_events_list(): void
                 <thead>
                     <tr>
                         <th style="width:280px; font-weight:700;">Nome Evento</th>
-                        <th style="width:140px; font-weight:700;">Tipologia</th>
+                        <th style="width:140px; font-weight:700;">Tipologia <?php dfn_tooltip_icon('dfn-tip-log-type', 'Informazioni: Tipologie Evento Logistica'); ?></th>
                         <th style="width:180px; font-weight:700;">Date Evento</th>
-                        <th style="width:120px; font-weight:700; text-align:center;">Stato</th>
+                        <th style="width:120px; font-weight:700; text-align:center;">Stato <?php dfn_tooltip_icon('dfn-tip-log-status', 'Informazioni: Stati e Flusso Logistica'); ?></th>
                         <th style="font-weight:700;">Dettagli Logistica</th>
                         <th style="width:240px; font-weight:700; text-align:right;">Azioni</th>
                     </tr>
@@ -262,33 +262,65 @@ function dfn_render_volunteer_events_list(): void
                                     <?php endif; ?>
                                 </td>
                                 <td style="text-align:right;">
-                                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $ev->id)); ?>" class="button button-small button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700;" title="Gestione Matrice Turni">
-                                        📋 Turni
-                                    </a>
-                                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=survey&event_id=' . $ev->id)); ?>" class="button button-small" title="Gestione Sondaggio">
-                                        📊 Sondaggio
-                                    </a>
-                                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=edit&event_id=' . $ev->id)); ?>" class="button button-small" title="Modifica Configurazione">
-                                        ✏️
-                                    </a>
-                                    <?php 
-                                    $del_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&delete_event=' . $ev->id), 'dfn_del_vol_event_' . $ev->id);
-                                    ?>
-                                    <a href="<?php echo esc_url($del_url); ?>" class="button button-small" style="color:#b91c1c;" onclick="return confirm('Confermi la cancellazione dell\'evento e di tutti i turni associati?');">
-                                        🗑️
-                                    </a>
+                                    <div style="display:flex; justify-content:flex-end; gap:6px; align-items:center;">
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $ev->id)); ?>" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700; font-size:12px; padding:2px 10px;">
+                                            🧩 Matrice Turni
+                                        </a>
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=edit&event_id=' . $ev->id)); ?>" class="button" style="font-size:12px; padding:2px 8px;" title="Modifica Configurazione">
+                                            ✏️
+                                        </a>
+                                        <?php 
+                                        $del_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&delete_event=' . $ev->id), 'dfn_del_vol_event_' . $ev->id);
+                                        ?>
+                                        <a href="<?php echo esc_url($del_url); ?>" class="button" style="color:#b91c1c; font-size:12px; padding:2px 8px;" onclick="return confirm('Sei sicuro di voler eliminare questo evento e tutti i suoi turni e sondaggi?');" title="Elimina Evento">
+                                            🗑️
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else : ?>
                         <tr>
-                            <td colspan="6" style="padding:30px; text-align:center; color:#64748b;">
-                                Nessun evento logistica creato. <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=new')); ?>">Crea il primo evento</a>.
+                            <td colspan="6" style="padding:32px; text-align:center; color:#64748b;">
+                                Nessun evento logistica creato finora. <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=new')); ?>">Crea il primo evento</a>.
                             </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Overlay e Tooltip Modals Elenco Eventi Logistica -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-log-type" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-log-type-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-log-type-title">🏛️ Tipologie di Evento Logistica</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Il sistema supporta due flussi logistici distinti per la gestione dei volontari:</p>
+                <ul>
+                    <li><strong>🏛️ Giornata FAI (Primavera, Autunno, ecc.):</strong> eventi complessi che si estendono su più giorni e su diversi luoghi/beni aperti contemporaneamente. Supportano la creazione automatica di sondaggi disponibilità per fascia oraria e la distribuzione algoritmica dei volontari per sede.</li>
+                    <li><strong>📍 Evento Locale:</strong> visite guidate, conferenze o laboratori singoli. Possono essere collegati direttamente a un evento di <em>FAI Prenotazioni</em> per ereditarne data, luogo e orari dei turni.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-log-status" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-log-status-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-log-status-title">📊 Ciclo di Vita e Stati della Logistica</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <ul>
+                    <li><strong>Bozza:</strong> l'evento è in fase di pianificazione oraria e scelta dei luoghi.</li>
+                    <li><strong>Sondaggio Aperto:</strong> i volontari possono esprimere le proprie disponibilità nella loro area personale.</li>
+                    <li><strong>Sondaggio Chiuso:</strong> le preferenze sono raccolte. Da questo momento è possibile lanciare l'<strong>Assegnazione Automatica</strong> o comporre i turni manualmente.</li>
+                    <li><strong>Turni Pubblicati:</strong> i turni e i luoghi diventano visibili nella bacheca di ciascun volontario.</li>
+                    <li><strong>Concluso:</strong> l'evento è terminato e archiviato.</li>
+                </ul>
+            </div>
         </div>
     </div>
     <?php
@@ -478,7 +510,9 @@ function dfn_render_volunteer_event_form(int $event_id): void
 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px;">
                     <div>
-                        <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">Tipologia Evento <span style="color:#ef4444;">*</span></label>
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">
+                            Tipologia Evento <span style="color:#ef4444;">*</span> <?php dfn_tooltip_icon('dfn-tip-vol-event-type', 'Informazioni: Tipologia Evento'); ?>
+                        </label>
                         <select name="event_type" id="dfn_event_type_select" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px;" onchange="toggleLinkedEventField()">
                             <option value="giornata_fai" <?php selected($event ? $event->event_type : 'giornata_fai', 'giornata_fai'); ?>>🏛️ Giornata FAI (Multi-luogo e Sondaggio)</option>
                             <option value="local" <?php selected($event ? $event->event_type : '', 'local'); ?>>📍 Evento Locale (Visita / Evento Singolo)</option>
@@ -486,7 +520,9 @@ function dfn_render_volunteer_event_form(int $event_id): void
                     </div>
 
                     <div id="linked_event_wrapper" style="display: <?php echo ($event && $event->event_type === 'local') ? 'block' : 'none'; ?>;">
-                        <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">Associa ad Evento FAI Prenotazioni (Solo Futuri)</label>
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">
+                            Associa ad Evento FAI Prenotazioni (Solo Futuri) <?php dfn_tooltip_icon('dfn-tip-vol-linked-event', 'Informazioni: Collegamento Prenotazioni'); ?>
+                        </label>
                         <select name="linked_event_id" id="dfn_linked_event_select" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px;" onchange="onLinkedEventChange(this)">
                             <option value="" data-start="" data-end="">-- Seleziona un evento futuro --</option>
                             <?php foreach ($fai_events as $fe) : 
@@ -534,7 +570,9 @@ function dfn_render_volunteer_event_form(int $event_id): void
                 <!-- SEZIONE: SELEZIONE MANSIONI -->
                 <div style="margin-bottom:20px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:16px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <label style="font-size:13px; font-weight:800; color:#004b23; text-transform:uppercase;">🏷️ Mansioni Volontari per questo Evento</label>
+                        <label style="font-size:13px; font-weight:800; color:#004b23; text-transform:uppercase;">
+                            🏷️ Mansioni Volontari per questo Evento <?php dfn_tooltip_icon('dfn-tip-vol-roles-select', 'Informazioni: Selezione Mansioni'); ?>
+                        </label>
                         <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-roles')); ?>" target="_blank" style="font-size:12px; color:#2563eb; text-decoration:none; font-weight:700;">➕ Gestisci o Aggiungi Nuove Mansioni ↗</a>
                     </div>
                     <?php if (! empty($all_available_roles)) : ?>
@@ -571,6 +609,45 @@ function dfn_render_volunteer_event_form(int $event_id): void
                     </button>
                 </div>
             </form>
+        </div>
+
+        <!-- Overlay e Tooltip Modals Form Evento Logistica -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-event-type" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-event-type-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-event-type-title">🏛️ Tipologia dell'Evento Logistica</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <ul>
+                    <li><strong>🏛️ Giornata FAI:</strong> attiva la struttura multi-luogo e multi-giorno (es. Sabato e Domenica). Consente di configurare più beni aperti, aggiungere per ciascuno gli slot orari dedicati e inviare ai volontari il sondaggio di preferenza oraria.</li>
+                    <li><strong>📍 Evento Locale:</strong> struttura snella per aperture speciali, mostre o visite guidate su un unico luogo. Può collegarsi a un evento di biglietteria.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-linked-event" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-linked-event-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-linked-event-title">🔗 Collegamento a FAI Prenotazioni</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Selezionando un evento futuro di <strong>FAI Prenotazioni</strong>, il modulo logistica sincronizzerà automaticamente le date, la sede dell'evento e la fascia oraria dei turni con la biglietteria pubblica.</p>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-vol-roles-select" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-vol-roles-select-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-vol-roles-select-title">🏷️ Mansioni Operative dell'Evento</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Seleziona esclusivamente le mansioni necessarie per questo specifico evento. L'algoritmo di <strong>Assegnazione Automatica</strong> utilizzerà solo ed esclusivamente i ruoli qui selezionati durante la distribuzione dei volontari.</p>
+                <div class="dfn-tip-box">
+                    <strong>Regola di Quota:</strong> Il ruolo <em>Responsabile Banchetto</em> viene assegnato dall'algoritmo in misura di <strong>massimo 1 per turno/luogo</strong>.
+                </div>
+            </div>
         </div>
     </div>
     <script>
@@ -890,7 +967,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 <!-- 1. Gestione Pubblicazione Turni (Mostrato solo se ci sono assegnazioni generate) -->
                 <?php if ($event->status === 'published') : ?>
                     <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:12.5px; font-weight:800; padding:5px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
-                        ✅ Turni Pubblicati
+                        ✅ Turni Pubblicati <?php dfn_tooltip_icon('dfn-tip-matrix-publish', 'Informazioni: Pubblicazione Turni'); ?>
                     </span>
                     <form method="post" action="" onsubmit="return confirm('Vuoi sospendere la visibilità dei turni in area personale?');" style="margin:0;">
                         <?php wp_nonce_field('dfn_publish_shifts_action', 'dfn_publish_nonce'); ?>
@@ -899,31 +976,34 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                         </button>
                     </form>
                 <?php elseif ($total_event_assignments > 0) : ?>
-                    <form method="post" action="" onsubmit="return confirm('Confermi la pubblicazione dei turni? I volontari potranno visualizzare i turni a loro assegnati nella propria area personale.');" style="margin:0;">
+                    <form method="post" action="" onsubmit="return confirm('Confermi la pubblicazione dei turni? I volontari potranno visualizzare i turni a loro assegnati nella propria area personale.');" style="margin:0; display:flex; align-items:center;">
                         <?php wp_nonce_field('dfn_publish_shifts_action', 'dfn_publish_nonce'); ?>
                         <button type="submit" name="dfn_publish_shifts" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:4px 16px; box-shadow:0 2px 4px rgba(0,75,35,0.2);">
                             📢 Pubblica Turni
                         </button>
+                        <?php dfn_tooltip_icon('dfn-tip-matrix-publish', 'Informazioni: Pubblicazione Turni'); ?>
                     </form>
                 <?php endif; ?>
 
                 <!-- 2. Assegnazione Automatica (Disponibile solo dopo chiusura/scadenza sondaggio) -->
                 <?php if ($survey && $is_survey_closed) : ?>
-                    <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e alle sole mansioni abilitate per l\'evento. Continuare?');" style="margin:0;">
+                    <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e alle sole mansioni abilitate per l\'evento. Continuare?');" style="margin:0; display:flex; align-items:center;">
                         <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
                         <button type="submit" name="dfn_auto_assign" class="button button-primary" style="background:#2563eb; border-color:#1d4ed8; font-weight:700; padding:4px 16px;">
                             🤖 Assegna Automaticamente i Turni
                         </button>
+                        <?php dfn_tooltip_icon('dfn-tip-matrix-auto', 'Informazioni: Algoritmo di Assegnazione'); ?>
                     </form>
                 <?php endif; ?>
 
                 <!-- 2.1. Azzera Assegnazioni (Pulisce tutta la board dei turni) -->
                 <?php if ($total_event_assignments > 0) : ?>
-                    <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler azzerare TUTTI i turni assegnati? La griglia dei turni tornerà completamente pulita per questo evento.');" style="margin:0;">
+                    <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler azzerare TUTTI i turni assegnati? La griglia dei turni tornerà completamente pulita per questo evento.');" style="margin:0; display:flex; align-items:center;">
                         <?php wp_nonce_field('dfn_clear_assignments_action', 'dfn_clear_nonce'); ?>
                         <button type="submit" name="dfn_clear_assignments" class="button" style="color:#b91c1c; border-color:#fca5a5; font-weight:700; background:#fff;">
                             🧹 Azzera Assegnazioni
                         </button>
+                        <?php dfn_tooltip_icon('dfn-tip-matrix-clear', 'Informazioni: Azzeramento Turni'); ?>
                     </form>
                 <?php endif; ?>
 
@@ -944,6 +1024,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                         🖨️ Stampa / Esporta PDF
                     </a>
                 <?php endif; ?>
+            </div>
             </div>
         </header>
 
@@ -1764,9 +1845,52 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 });
             }
 
-            attachDragListeners();
-        });
-        </script>
+        <!-- Overlay e Tooltip Modals Matrice Turni -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-matrix-publish" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-matrix-publish-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-matrix-publish-title">📢 Pubblicazione e Visibilità Turni</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Quando clicchi su <strong>Pubblica Turni</strong>:</p>
+                <ul>
+                    <li>I turni, gli orari, le mansioni e i colleghi di squadra diventano <strong>visibili ai volontari</strong> all'interno della loro area personale riservata;</li>
+                    <li>Puoi in qualsiasi momento <strong>Sospendere la Pubblicazione</strong> se devi apportare correzioni o modifiche organizzative dell'ultimo minuto.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-matrix-auto" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-matrix-auto-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-matrix-auto-title">🤖 Algoritmo di Assegnazione Automatica</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>L'algoritmo distribuisce i volontari disponibili rispettando rigorosamente le seguenti <strong>regole intelligenti</strong>:</p>
+                <ul>
+                    <li><strong>Disponibilità Oraria:</strong> assegna il volontario solo agli slot in cui ha dato esplicita adesione nel sondaggio;</li>
+                    <li><strong>Anti-Ubiquità:</strong> impedisce che lo stesso volontario venga assegnato contemporaneamente a due luoghi diversi nello stesso orario;</li>
+                    <li><strong>Ancoraggio al Luogo (Day-Place Stickiness):</strong> se un volontario è disponibile su più turni nello stesso giorno (es. mattina e pomeriggio), viene mantenuto <strong>nello stesso luogo</strong> per evitare spostamenti logistici durante le pause;</li>
+                    <li><strong>Competenze e Ruoli Speciali:</strong> assegna prioritariamente le <em>Guide</em> e i volontari con <em>Corso Sicurezza</em> ai ruoli che lo richiedono;</li>
+                    <li><strong>Quota Responsabile Banchetto:</strong> assegna <strong>al massimo 1 Responsabile Banchetto per turno/luogo</strong> (ulteriori responsabili possono essere assegnati solo manualmente).</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-matrix-clear" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-matrix-clear-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-matrix-clear-title">🧹 Azzera Assegnazioni</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Rimuove <strong>tutte le assegnazioni dei volontari</strong> da tutti gli slot orari dell'evento.</p>
+                <div class="dfn-warn-box">
+                    ⚠️ <strong>Attenzione:</strong> Questa operazione svuota completamente la griglia dei turni, mantenendo intatti i luoghi, gli slot e le risposte al sondaggio. È ideale per ricominciare da capo l'assegnazione automatica o manuale.
+                </div>
+            </div>
+        </div>
     </div>
     <?php
 }
@@ -2435,6 +2559,24 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                         Nessun giorno configurato per questo evento.
                     </div>
                 <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Overlay e Tooltip Modals Gestione Sondaggio -->
+        <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
+
+        <div class="dfn-tooltip-modal" id="dfn-tip-survey-info" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-survey-info-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-survey-info-title">📋 Come Funziona il Sondaggio Disponibilità</h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="Chiudi">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p>Il sondaggio permette di raccogliere le preferenze orarie di ciascun volontario prima di comporre i turni:</p>
+                <ul>
+                    <li><strong>Generazione Automatica:</strong> il sondaggio acquisisce in tempo reale gli slot orari configurati nella <em>Matrice Turni</em>;</li>
+                    <li><strong>Compilazione Volontario:</strong> quando lo stato è <em>Aperto</em>, ciascun volontario accede al link o all'area riservata e seleziona le fasce orarie in cui è disponibile;</li>
+                    <li><strong>Chiusura e Assegnazione:</strong> al termine della scadenza o cliccando su <em>Chiudi Sondaggio</em>, l'algoritmo di assegnazione automatica userà queste risposte per popolare i turni.</li>
+                </ul>
             </div>
         </div>
     </div>
