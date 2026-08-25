@@ -762,48 +762,53 @@ function dfn_volunteer_meetings_endpoint_content(): void
         </div>
 
         <?php if (! empty($meetings)) : ?>
-            <div class="dfn-meetings-grid" style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
+            <div class="dfn-meetings-card-grid">
                 <?php foreach ($meetings as $m) : 
                     $m_date = strtotime($m->meeting_date);
                     $day_name = date_i18n('l', $m_date);
                     $day_num  = date_i18n('d', $m_date);
                     $month    = date_i18n('F Y', $m_date);
                 ?>
-                    <div class="dfn-meeting-list-card">
-                        <!-- Date Box Badge -->
-                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 18px; text-align: center; min-width: 90px; flex-shrink: 0;">
-                            <span style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase; display: block;"><?php echo esc_html($day_name); ?></span>
-                            <span style="font-size: 26px; font-weight: 800; color: #004b23; line-height: 1.1; display: block;"><?php echo esc_html($day_num); ?></span>
-                            <span style="font-size: 11px; font-weight: 600; color: #475569; display: block;"><?php echo esc_html($month); ?></span>
+                    <div class="dfn-meeting-compact-card">
+                        <!-- Date Header Pill -->
+                        <div class="dfn-meeting-card-header">
+                            <div class="dfn-meeting-date-pill">
+                                <span class="dfn-meeting-date-day"><?php echo esc_html($day_num); ?></span>
+                                <span class="dfn-meeting-date-month"><?php echo esc_html($month); ?></span>
+                            </div>
+                            <span class="dfn-meeting-weekday-badge"><?php echo esc_html($day_name); ?></span>
                         </div>
 
-                        <!-- Details -->
-                        <div style="flex: 1; min-width: 250px;">
-                            <h3 style="margin: 0 0 8px 0; font-size: 17px; font-weight: 700; color: #0f172a;">
-                                <?php echo esc_html($m->title); ?>
-                            </h3>
+                        <!-- Details Body -->
+                        <div class="dfn-meeting-card-body">
+                            <div>
+                                <h3 class="dfn-meeting-card-title">
+                                    <?php echo esc_html($m->title); ?>
+                                </h3>
 
-                            <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; font-size: 13px; color: #334155;">
-                                <div>
-                                    <strong style="color: #004b23;">⏰ Orario:</strong> <?php echo esc_html(substr($m->meeting_time_start, 0, 5)); ?>
-                                    <?php if ($m->meeting_time_end) echo ' - ' . esc_html(substr($m->meeting_time_end, 0, 5)); ?>
+                                <div class="dfn-meeting-card-meta">
+                                    <div class="dfn-meeting-card-meta-item">
+                                        <span>⏰</span>
+                                        <span>Orario: <strong><?php echo esc_html(substr($m->meeting_time_start, 0, 5)); ?><?php if ($m->meeting_time_end) echo ' - ' . esc_html(substr($m->meeting_time_end, 0, 5)); ?></strong></span>
+                                    </div>
+                                    <div class="dfn-meeting-card-meta-item">
+                                        <span>📍</span>
+                                        <span>Sede: <strong><?php echo esc_html($m->location); ?></strong></span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <strong style="color: #004b23;">📍 Sede:</strong> <?php echo esc_html($m->location); ?>
-                                </div>
+
+                                <?php if (! empty($m->agenda)) : ?>
+                                    <div class="dfn-meeting-card-agenda">
+                                        <div class="dfn-meeting-card-agenda-label">📝 Ordine del giorno:</div>
+                                        <div><?php echo nl2br(esc_html($m->agenda)); ?></div>
+                                    </div>
+                                <?php endif; ?>
                             </div>
 
-                            <?php if (! empty($m->agenda)) : ?>
-                                <div style="background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 12px 14px; font-size: 13px; color: #334155; line-height: 1.5; margin-bottom: 12px;">
-                                    <strong style="color: #1e293b; display: block; margin-bottom: 4px;">📝 Ordine del giorno:</strong>
-                                    <?php echo nl2br(esc_html($m->agenda)); ?>
-                                </div>
-                            <?php endif; ?>
-
                             <?php if (! empty($m->meeting_link)) : ?>
-                                <div style="margin-top: 10px;">
-                                    <a href="<?php echo esc_url($m->meeting_link); ?>" target="_blank" class="button" style="background: #004b23; color: #ffffff; border-radius: 8px; font-weight: 700; padding: 6px 16px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
-                                        <span>🔗 Partecipa alla Riunione Online</span>
+                                <div class="dfn-meeting-card-footer">
+                                    <a href="<?php echo esc_url($m->meeting_link); ?>" target="_blank" class="button dfn-meeting-online-btn">
+                                        <span>🔗</span> Partecipa Online
                                     </a>
                                 </div>
                             <?php endif; ?>
