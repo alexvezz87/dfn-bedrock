@@ -150,11 +150,15 @@ if (! function_exists('dfn_tooltip_icon')) {
 add_action('admin_menu', 'dfn_volunteers_register_admin_menu');
 function dfn_volunteers_register_admin_menu(): void
 {
+    // Verifica se l'utente ha accesso al modulo Volontari FAI (o capability base)
+    $has_vol_access = function_exists('dfn_user_has_module_access') && dfn_user_has_module_access('volontari');
+    $cap_main = ($has_vol_access || current_user_can('manage_options') || current_user_can('dfn_act_fai_members')) ? 'read' : 'dfn_act_vol_roster';
+
     // Menu Top-Level allo stesso livello di FAI Prenotazioni
     add_menu_page(
         __('Gestione Volontari FAI', 'dfn-theme'),
         __('Volontari FAI', 'dfn-theme'),
-        'dfn_act_fai_members', // Permesso condiviso con la gestione soci/delegazione
+        $cap_main,
         'dfn-volunteers',
         'dfn_render_volunteers_list_page',
         'dashicons-groups',
@@ -166,7 +170,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Elenco Volontari', 'dfn-theme'),
         __('Elenco Volontari', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteers',
         'dfn_render_volunteers_list_page'
     );
@@ -176,7 +180,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Aggiungi Volontario', 'dfn-theme'),
         __('Aggiungi Volontario', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteer-add',
         'dfn_render_volunteer_add_page'
     );
@@ -186,7 +190,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Riunioni di Delegazione', 'dfn-theme'),
         __('Riunioni Delegazione', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteer-meetings',
         'dfn_render_volunteer_meetings_admin_page'
     );
@@ -196,7 +200,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Turni & Logistica Eventi', 'dfn-theme'),
         __('Turni & Logistica', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteer-logistics',
         'dfn_render_volunteer_logistics_page'
     );
@@ -206,7 +210,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         __('Mansioni & Ruoli', 'dfn-theme'),
         __('Mansioni & Ruoli', 'dfn-theme'),
-        'dfn_act_fai_members',
+        $cap_main,
         'dfn-volunteer-roles',
         'dfn_render_volunteer_roles_admin_page'
     );
@@ -217,7 +221,7 @@ function dfn_volunteers_register_admin_menu(): void
  */
 function dfn_render_volunteers_list_page(): void
 {
-    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_roster'))) {
         wp_die(__('Permessi insufficienti per accedere a questa sezione.', 'dfn-theme'));
     }
 
@@ -500,6 +504,7 @@ function dfn_render_volunteer_add_page(): void
         if (! empty($first_name) && ! empty($last_name) && ! empty($email) && ! empty($card_number)) {
             $is_guide          = isset($_POST['is_guide']) ? 1 : 0;
             $has_safety_course = isset($_POST['has_safety_course']) ? 1 : 0;
+            $submitted_fai_roles = isset($_POST['fai_roles']) && is_array($_POST['fai_roles']) ? array_map('sanitize_key', $_POST['fai_roles']) : [];
 
             if ($volunteer_data) {
                 // Aggiornamento del volontario esistente
@@ -587,6 +592,37 @@ function dfn_render_volunteer_add_page(): void
                 }
             }
 
+            // Sincronizzazione dei ruoli FAI assegnati all'account utente WordPress collegato
+            if ($user_id && $user_id > 0) {
+                $target_wp_user = get_userdata($user_id);
+                if ($target_wp_user) {
+                    $stored_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
+                    $fai_slugs = array_diff(array_keys($stored_roles), ['administrator']);
+
+                    // Rimuove vecchi ruoli FAI non più selezionati
+                    foreach ($fai_slugs as $s_role) {
+                        if (! in_array($s_role, $submitted_fai_roles, true)) {
+                            $target_wp_user->remove_role($s_role);
+                        }
+                    }
+
+                    // Aggiunge i nuovi ruoli selezionati
+                    foreach ($submitted_fai_roles as $n_role) {
+                        if (isset($stored_roles[$n_role])) {
+                            $target_wp_user->add_role($n_role);
+                        }
+                    }
+
+                    // Se non ha nessun ruolo rimanente, impostiamo subscriber di sicurezza
+                    if (empty($target_wp_user->roles)) {
+                        $target_wp_user->add_role('subscriber');
+                    }
+
+                    // Salva nei meta utente per lookup rapido
+                    update_user_meta($user_id, '_dfn_assigned_fai_roles', $submitted_fai_roles);
+                }
+            }
+
             // Log dell'azione
             if (function_exists('dfn_log_write')) {
                 dfn_log_write(
@@ -597,7 +633,7 @@ function dfn_render_volunteer_add_page(): void
                 );
             }
 
-            echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario e ruoli/competenze salvati con successo!</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario e ruoli/deleghe salvati con successo!</p></div>';
             $volunteer_data = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $saved_id));
         } else {
             echo '<div class="notice notice-error is-dismissible"><p>❌ Compila tutti i campi obbligatori (Nome, Cognome, Email, Numero Tessera FAI).</p></div>';
@@ -715,6 +751,49 @@ function dfn_render_volunteer_add_page(): void
                     </label>
                 </div>
 
+                <!-- SEZIONE INCARICHI DI DELEGAZIONE & RUOLI AMMINISTRATIVI -->
+                <?php
+                $all_stored_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
+                $linked_user_id = $is_edit && ! empty($volunteer_data->user_id) ? (int) $volunteer_data->user_id : 0;
+                $user_assigned_fai = $linked_user_id > 0 ? (array) get_user_meta($linked_user_id, '_dfn_assigned_fai_roles', true) : [];
+                if ($linked_user_id > 0 && empty($user_assigned_fai)) {
+                    $u_obj = get_userdata($linked_user_id);
+                    if ($u_obj) {
+                        $user_assigned_fai = (array) $u_obj->roles;
+                    }
+                }
+                ?>
+                <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px; margin-top:20px;">
+                    🛡️ Incarichi di Delegazione &amp; Ruoli Amministrativi
+                </h3>
+                <p style="font-size:12px; color:#64748b; margin-top:4px; margin-bottom:12px;">
+                    Se il volontario ricopre ruoli organizzativi nella delegazione (es. <em>Coordinatore Volontari</em>, <em>Delegato Scuole</em>, <em>Banchetto</em>), selezionali qui sotto per sbloccare le relative funzionalità nell'area gestionale.
+                </p>
+
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:10px;">
+                    <?php 
+                    foreach ($all_stored_roles as $r_slug => $r_info) : 
+                        if ($r_slug === 'administrator') continue;
+                        $r_mod = $r_info['module'] ?? 'prenotazioni';
+                        $is_role_checked = in_array($r_slug, $user_assigned_fai, true);
+                    ?>
+                        <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:8px 10px; border-radius:6px; border:1px solid <?php echo $is_role_checked ? '#86efac' : '#f1f5f9'; ?>; background:<?php echo $is_role_checked ? '#f0fdf4' : '#fafafa'; ?>;">
+                            <input type="checkbox" name="fai_roles[]" value="<?php echo esc_attr($r_slug); ?>" <?php checked($is_role_checked, true); ?> style="width:18px; height:18px; margin-top:2px;">
+                            <div>
+                                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                    <strong style="font-size:13px; color:#0f172a;"><?php echo esc_html($r_info['label']); ?></strong>
+                                    <?php if ($r_mod === 'volontari') : ?>
+                                        <span style="font-size:10.5px; background:#dcfce7; color:#166534; padding:1px 6px; border-radius:8px; font-weight:600;">👥 Volontari FAI</span>
+                                    <?php else : ?>
+                                        <span style="font-size:10.5px; background:#dbeafe; color:#1e40af; padding:1px 6px; border-radius:8px; font-weight:600;">🎟️ FAI Prenotazioni</span>
+                                    <?php endif; ?>
+                                </div>
+                                <span style="font-size:11.5px; color:#64748b; display:block; margin-top:2px;"><?php echo esc_html($r_info['description']); ?></span>
+                            </div>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+
                 <div style="margin-bottom:24px;">
                     <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Note Delegazione / Disponibilità</label>
                     <textarea name="notes" rows="3" placeholder="Es. Disponibile per visite guidate nei weekend, accoglienza banchetto..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:8px 10px;"><?php echo esc_textarea($is_edit ? ($volunteer_data->volunteer_notes ?: '') : ''); ?></textarea>
@@ -770,7 +849,7 @@ function dfn_render_volunteer_add_page(): void
  */
 function dfn_render_volunteer_meetings_admin_page(): void
 {
-    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_meetings'))) {
         wp_die(__('Permessi insufficienti.', 'dfn-theme'));
     }
 
@@ -943,7 +1022,7 @@ function dfn_render_volunteer_meetings_admin_page(): void
  */
 function dfn_render_volunteer_roles_admin_page(): void
 {
-    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_roles'))) {
         wp_die(__('Permessi insufficienti per accedere a questa sezione.', 'dfn-theme'));
     }
 

@@ -28,11 +28,11 @@ function dfn_get_modules_registry(): array
             'dashicon'    => 'dashicons-tickets-alt',
             'description' => __('Gestione eventi, turni, prenotazioni, check-in, botteghino e scanner live.', 'dfn-theme'),
         ],
-        'convenzioni'  => [
-            'label'       => __('FAI Convenzioni', 'dfn-theme'),
-            'icon'        => '🏷️',
-            'dashicon'    => 'dashicons-store',
-            'description' => __('Gestione accordi ed esercenti convenzionati, verifica tessere soci e riscatto vantaggi.', 'dfn-theme'),
+        'volontari'    => [
+            'label'       => __('Volontari FAI', 'dfn-theme'),
+            'icon'        => '👥',
+            'dashicon'    => 'dashicons-groups',
+            'description' => __('Anagrafica volontari, tessere FAI, logistica eventi, matrice turni, sondaggi e riunioni di delegazione.', 'dfn-theme'),
         ],
     ];
 }
@@ -112,31 +112,36 @@ function dfn_get_activities_catalog(): array
                 'description' => __('Configurazione notifiche email, testi, colori, cron e parametri generali.', 'dfn-theme'),
             ],
         ],
-        'convenzioni'  => [
-            'dfn_conv_manage_merchants' => [
-                'label'       => __('Gestione Esercenti & Negozi', 'dfn-theme'),
-                'icon'        => '🏬',
-                'description' => __('Anagrafica attività commerciali convenzionate, contatti e accordi attivi.', 'dfn-theme'),
+        'volontari'    => [
+            'dfn_act_vol_roster'      => [
+                'label'       => __('Anagrafica & Tessere Volontari', 'dfn-theme'),
+                'icon'        => '👥',
+                'description' => __('Consultazione elenco volontari, aggiunta, modifica anagrafica, tessere e competenze.', 'dfn-theme'),
             ],
-            'dfn_conv_verify_cards'     => [
-                'label'       => __('Verifica Sconti & Tessere', 'dfn-theme'),
-                'icon'        => '🔍',
-                'description' => __('Scansione e verifica validità della tessera FAI per applicazione sconti.', 'dfn-theme'),
+            'dfn_act_vol_logistics'   => [
+                'label'       => __('Pianificazione & Matrice Turni', 'dfn-theme'),
+                'icon'        => '🧩',
+                'description' => __('Creazione eventi logistica, configurazione luoghi/slot, assegnazione manuale e pubblicazione turni.', 'dfn-theme'),
             ],
-            'dfn_conv_manage_offers'    => [
-                'label'       => __('Offerte & Promozioni', 'dfn-theme'),
-                'icon'        => '🎁',
-                'description' => __('Configurazione sconti riservati, periodi di validità e condizioni.', 'dfn-theme'),
+            'dfn_act_vol_auto_assign' => [
+                'label'       => __('Assegnazione Automatica & Reset', 'dfn-theme'),
+                'icon'        => '🤖',
+                'description' => __('Esecuzione dell\'algoritmo intelligente di assegnazione turni e azzeramento board.', 'dfn-theme'),
             ],
-            'dfn_conv_reports'          => [
-                'label'       => __('Statistiche Convenzioni', 'dfn-theme'),
-                'icon'        => '📈',
-                'description' => __('Report di utilizzo convenzioni e volume sconti fruiti dai soci.', 'dfn-theme'),
+            'dfn_act_vol_surveys'     => [
+                'label'       => __('Gestione Sondaggi Disponibilità', 'dfn-theme'),
+                'icon'        => '📊',
+                'description' => __('Apertura, configurazione scadenze, consultazione preferenze e chiusura sondaggi.', 'dfn-theme'),
             ],
-            'dfn_conv_settings'         => [
-                'label'       => __('Impostazioni Convenzioni', 'dfn-theme'),
-                'icon'        => '⚙️',
-                'description' => __('Parametri di configurazione del modulo convenzioni ed email partner.', 'dfn-theme'),
+            'dfn_act_vol_meetings'    => [
+                'label'       => __('Riunioni di Delegazione', 'dfn-theme'),
+                'icon'        => '📅',
+                'description' => __('Pianificazione calendario riunioni, ordini del giorno e link di partecipazione.', 'dfn-theme'),
+            ],
+            'dfn_act_vol_roles'       => [
+                'label'       => __('Mansioni & Competenze Operative', 'dfn-theme'),
+                'icon'        => '🏷️',
+                'description' => __('Configurazione catalogo mansioni (Guida, Banchetto, Scuola, ecc.) e requisiti di sicurezza.', 'dfn-theme'),
             ],
         ],
     ];
@@ -145,30 +150,40 @@ function dfn_get_activities_catalog(): array
 /**
  * Restituisce la definizione predefinita dei ruoli FAI del sistema.
  *
- * @return array<string, array{label: string, is_system: bool, description: string}>
+ * @return array<string, array{label: string, is_system: bool, module: string, description: string}>
  */
 function dfn_get_default_roles(): array
 {
     return [
-        'administrator'   => [
+        'administrator'       => [
             'label'       => __('Amministratore', 'dfn-theme'),
             'is_system'   => true,
+            'module'      => 'all',
             'description' => __('Accesso completo a tutte le funzioni e impostazioni di tutti i moduli.', 'dfn-theme'),
         ],
-        'dfn_segreteria'  => [
+        'dfn_segreteria'      => [
             'label'       => __('Segreteria FAI', 'dfn-theme'),
             'is_system'   => false,
+            'module'      => 'prenotazioni',
             'description' => __('Gestione ordinaria prenotazioni, inserimento rapido, soci e liste d\'attesa.', 'dfn-theme'),
         ],
-        'dfn_banchetto'   => [
+        'dfn_banchetto'       => [
             'label'       => __('Banchetto & Accoglienza', 'dfn-theme'),
             'is_system'   => false,
+            'module'      => 'prenotazioni',
             'description' => __('Operatività all\'evento: check-in, botteghino live e validazione QR.', 'dfn-theme'),
         ],
-        'dfn_validatore'  => [
+        'dfn_validatore'      => [
             'label'       => __('Validatore QR', 'dfn-theme'),
             'is_system'   => false,
+            'module'      => 'prenotazioni',
             'description' => __('Esclusivamente scansione e convalida biglietti tramite fotocamera.', 'dfn-theme'),
+        ],
+        'dfn_coord_volontari' => [
+            'label'       => __('Coordinatore Volontari FAI', 'dfn-theme'),
+            'is_system'   => false,
+            'module'      => 'volontari',
+            'description' => __('Gestione completa anagrafica volontari, logistica turni, sondaggi e riunioni di delegazione.', 'dfn-theme'),
         ],
     ];
 }
@@ -181,7 +196,7 @@ function dfn_get_default_roles(): array
 function dfn_get_default_roles_matrix(): array
 {
     return [
-        'administrator'  => [
+        'administrator'       => [
             // Administrator ha tutto abilitato
             'dfn_act_events_manage'   => true,
             'dfn_act_scanner'         => true,
@@ -196,13 +211,14 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_reviews'         => true,
             'dfn_act_system_logs'     => true,
             'dfn_act_settings'        => true,
-            'dfn_conv_manage_merchants'=> true,
-            'dfn_conv_verify_cards'    => true,
-            'dfn_conv_manage_offers'   => true,
-            'dfn_conv_reports'         => true,
-            'dfn_conv_settings'        => true,
+            'dfn_act_vol_roster'      => true,
+            'dfn_act_vol_logistics'   => true,
+            'dfn_act_vol_auto_assign' => true,
+            'dfn_act_vol_surveys'     => true,
+            'dfn_act_vol_meetings'    => true,
+            'dfn_act_vol_roles'       => true,
         ],
-        'dfn_segreteria' => [
+        'dfn_segreteria'      => [
             'dfn_act_events_manage'   => false,
             'dfn_act_scanner'         => false,
             'dfn_act_checkin'         => true,
@@ -216,13 +232,14 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_reviews'         => false,
             'dfn_act_system_logs'     => false,
             'dfn_act_settings'        => false,
-            'dfn_conv_manage_merchants'=> true,
-            'dfn_conv_verify_cards'    => true,
-            'dfn_conv_manage_offers'   => false,
-            'dfn_conv_reports'         => false,
-            'dfn_conv_settings'        => false,
+            'dfn_act_vol_roster'      => false,
+            'dfn_act_vol_logistics'   => false,
+            'dfn_act_vol_auto_assign' => false,
+            'dfn_act_vol_surveys'     => false,
+            'dfn_act_vol_meetings'    => false,
+            'dfn_act_vol_roles'       => false,
         ],
-        'dfn_banchetto'  => [
+        'dfn_banchetto'       => [
             'dfn_act_events_manage'   => false,
             'dfn_act_scanner'         => true,
             'dfn_act_checkin'         => true,
@@ -236,13 +253,14 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_reviews'         => false,
             'dfn_act_system_logs'     => false,
             'dfn_act_settings'        => false,
-            'dfn_conv_manage_merchants'=> false,
-            'dfn_conv_verify_cards'    => true,
-            'dfn_conv_manage_offers'   => false,
-            'dfn_conv_reports'         => false,
-            'dfn_conv_settings'        => false,
+            'dfn_act_vol_roster'      => false,
+            'dfn_act_vol_logistics'   => false,
+            'dfn_act_vol_auto_assign' => false,
+            'dfn_act_vol_surveys'     => false,
+            'dfn_act_vol_meetings'    => false,
+            'dfn_act_vol_roles'       => false,
         ],
-        'dfn_validatore' => [
+        'dfn_validatore'      => [
             'dfn_act_events_manage'   => false,
             'dfn_act_scanner'         => true,
             'dfn_act_checkin'         => false,
@@ -256,11 +274,33 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_reviews'         => false,
             'dfn_act_system_logs'     => false,
             'dfn_act_settings'        => false,
-            'dfn_conv_manage_merchants'=> false,
-            'dfn_conv_verify_cards'    => true,
-            'dfn_conv_manage_offers'   => false,
-            'dfn_conv_reports'         => false,
-            'dfn_conv_settings'        => false,
+            'dfn_act_vol_roster'      => false,
+            'dfn_act_vol_logistics'   => false,
+            'dfn_act_vol_auto_assign' => false,
+            'dfn_act_vol_surveys'     => false,
+            'dfn_act_vol_meetings'    => false,
+            'dfn_act_vol_roles'       => false,
+        ],
+        'dfn_coord_volontari' => [
+            'dfn_act_events_manage'   => false,
+            'dfn_act_scanner'         => false,
+            'dfn_act_checkin'         => false,
+            'dfn_act_quick_booking'   => false,
+            'dfn_act_verify_bookings' => false,
+            'dfn_act_boxoffice'       => false,
+            'dfn_act_waitlist'        => false,
+            'dfn_act_fai_members'     => false,
+            'dfn_act_reports'         => false,
+            'dfn_act_financials'      => false,
+            'dfn_act_reviews'         => false,
+            'dfn_act_system_logs'     => false,
+            'dfn_act_settings'        => false,
+            'dfn_act_vol_roster'      => true,
+            'dfn_act_vol_logistics'   => true,
+            'dfn_act_vol_auto_assign' => true,
+            'dfn_act_vol_surveys'     => true,
+            'dfn_act_vol_meetings'    => true,
+            'dfn_act_vol_roles'       => true,
         ],
     ];
 }
@@ -268,7 +308,7 @@ function dfn_get_default_roles_matrix(): array
 /**
  * Restituisce i ruoli correnti memorizzati (o i default se non presenti).
  *
- * @return array<string, array{label: string, is_system: bool, description: string}>
+ * @return array<string, array{label: string, is_system: bool, module: string, description: string}>
  */
 function dfn_get_stored_roles(): array
 {
@@ -276,6 +316,23 @@ function dfn_get_stored_roles(): array
     if (! is_array($stored) || empty($stored)) {
         $stored = dfn_get_default_roles();
         update_option('dfn_custom_roles', $stored);
+    } else {
+        // Garantisce retrocompatibilità per campo module se mancante
+        $defaults = dfn_get_default_roles();
+        $changed = false;
+        foreach ($stored as $slug => &$r_data) {
+            if (! isset($r_data['module'])) {
+                $r_data['module'] = $defaults[$slug]['module'] ?? 'prenotazioni';
+                $changed = true;
+            }
+        }
+        if (! isset($stored['dfn_coord_volontari'])) {
+            $stored['dfn_coord_volontari'] = $defaults['dfn_coord_volontari'];
+            $changed = true;
+        }
+        if ($changed) {
+            update_option('dfn_custom_roles', $stored);
+        }
     }
     return $stored;
 }

@@ -45,13 +45,13 @@ function dfn_roles_register_admin_menu(): void
         'dfn_roles_render_admin_page'
     );
 
-    // Sottomenu 2: FAI Convenzioni
+    // Sottomenu 2: Volontari FAI
     add_submenu_page(
         'dfn-roles',
-        __('FAI Convenzioni — Permessi', 'dfn-theme'),
-        __('🏷️ FAI Convenzioni', 'dfn-theme'),
+        __('Volontari FAI — Permessi', 'dfn-theme'),
+        __('👥 Volontari FAI', 'dfn-theme'),
         $capability,
-        'dfn-roles-convenzioni',
+        'dfn-roles-volontari',
         'dfn_roles_render_admin_page'
     );
 
@@ -59,7 +59,7 @@ function dfn_roles_register_admin_menu(): void
     add_submenu_page(
         'dfn-roles',
         __('Gestione Ruoli & Utenti', 'dfn-theme'),
-        __('👥 Gestione Ruoli', 'dfn-theme'),
+        __('🛠️ Gestione Ruoli', 'dfn-theme'),
         $capability,
         'dfn-roles-manage',
         'dfn_roles_render_admin_page'
@@ -90,9 +90,15 @@ function dfn_roles_handle_post_actions(): void
             $module_caps = array_keys($catalog[$active_module]);
             $roles = dfn_get_stored_roles();
 
-            foreach (array_keys($roles) as $role_slug) {
+            foreach ($roles as $role_slug => $role_data) {
                 if ($role_slug === 'administrator') {
                     continue; // Administrator sempre tutto abilitato
+                }
+
+                // Sincronizza solo per i ruoli che appartengono a questo modulo
+                $role_mod = $role_data['module'] ?? 'prenotazioni';
+                if ($role_mod !== $active_module && $role_mod !== 'all') {
+                    continue;
                 }
 
                 if (! isset($stored_matrix[$role_slug])) {
@@ -115,8 +121,13 @@ function dfn_roles_handle_post_actions(): void
 
     // 2. Creazione Nuovo Ruolo
     if (isset($_POST['dfn_create_role_nonce']) && wp_verify_nonce($_POST['dfn_create_role_nonce'], 'dfn_create_role_action')) {
-        $role_name = sanitize_text_field($_POST['new_role_name'] ?? '');
-        $role_desc = sanitize_text_field($_POST['new_role_desc'] ?? '');
+        $role_name   = sanitize_text_field($_POST['new_role_name'] ?? '');
+        $role_module = sanitize_key($_POST['new_role_module'] ?? 'prenotazioni');
+        $role_desc   = sanitize_text_field($_POST['new_role_desc'] ?? '');
+
+        if (! in_array($role_module, ['prenotazioni', 'volontari'], true)) {
+            $role_module = 'prenotazioni';
+        }
 
         if (! empty($role_name)) {
             $slug_raw = sanitize_title_with_dashes($_POST['new_role_slug'] ?? $role_name);
@@ -128,6 +139,7 @@ function dfn_roles_handle_post_actions(): void
                 $roles[$slug] = [
                     'label'       => $role_name,
                     'is_system'   => false,
+                    'module'      => $role_module,
                     'description' => $role_desc,
                 ];
                 update_option('dfn_custom_roles', $roles);
@@ -178,15 +190,15 @@ function dfn_roles_render_admin_page(): void
     $catalog = dfn_get_activities_catalog();
 
     $active_tab = 'prenotazioni';
-    if ($current_page === 'dfn-roles-convenzioni') {
-        $active_tab = 'convenzioni';
+    if ($current_page === 'dfn-roles-volontari') {
+        $active_tab = 'volontari';
     } elseif ($current_page === 'dfn-roles-manage') {
         $active_tab = 'manage';
     }
     ?>
     <div class="wrap dfn-roles-admin-wrap" style="max-width: 1300px; margin-top: 20px;">
         
-        <!-- HEADER HEADER -->
+        <!-- HEADER -->
         <div style="background: linear-gradient(135deg, #004b23 0%, #002e15 100%); color: #fff; padding: 24px 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 16px;">
                 <div style="background: rgba(255,255,255,0.15); width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
@@ -194,7 +206,7 @@ function dfn_roles_render_admin_page(): void
                 </div>
                 <div>
                     <h1 style="color: #fff; margin: 0; font-size: 24px; font-weight: 700; display: inline-block;">FAI — Ruoli &amp; Permessi</h1>
-                    <p style="margin: 4px 0 0; color: #d1fae5; font-size: 14px;">Gestione unificata e modulare delle autorizzazioni per operatori, banchetto e volontari</p>
+                    <p style="margin: 4px 0 0; color: #d1fae5; font-size: 14px;">Gestione modulare delle autorizzazioni per operatori, coordinatori e volontari di delegazione</p>
                 </div>
             </div>
             <div>
@@ -223,15 +235,24 @@ function dfn_roles_render_admin_page(): void
             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles')); ?>" class="nav-tab <?php echo $active_tab === 'prenotazioni' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'prenotazioni' ? 'background:#004b23; color:#fff; border-color:#004b23;' : 'font-weight:600;'; ?>">
                 🎟️ FAI Prenotazioni
             </a>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles-convenzioni')); ?>" class="nav-tab <?php echo $active_tab === 'convenzioni' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'convenzioni' ? 'background:#004b23; color:#fff; border-color:#004b23;' : 'font-weight:600;'; ?>">
-                🏷️ FAI Convenzioni <span style="font-size:11px; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:10px; margin-left:4px;">In arrivo</span>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles-volontari')); ?>" class="nav-tab <?php echo $active_tab === 'volontari' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'volontari' ? 'background:#004b23; color:#fff; border-color:#004b23;' : 'font-weight:600;'; ?>">
+                👥 Volontari FAI
             </a>
             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles-manage')); ?>" class="nav-tab <?php echo $active_tab === 'manage' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'manage' ? 'background:#004b23; color:#fff; border-color:#004b23;' : 'font-weight:600;'; ?>">
-                👥 Gestione Ruoli &amp; Utenti
+                🛠️ Gestione Ruoli &amp; Utenti
             </a>
         </nav>
 
-        <?php if ($active_tab === 'prenotazioni' || $active_tab === 'convenzioni') : ?>
+        <?php if ($active_tab === 'prenotazioni' || $active_tab === 'volontari') : 
+            // Filtriamo i ruoli pertinenti a questa materia
+            $module_roles = [];
+            foreach ($roles as $r_slug => $r_data) {
+                $r_mod = $r_data['module'] ?? 'prenotazioni';
+                if ($r_slug === 'administrator' || $r_mod === $active_tab || $r_mod === 'all') {
+                    $module_roles[$r_slug] = $r_data;
+                }
+            }
+        ?>
             
             <!-- SCHERMATA MATRICE PERMESSI MODULO -->
             <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
@@ -239,17 +260,12 @@ function dfn_roles_render_admin_page(): void
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px;">
                     <div>
                         <h2 style="margin: 0; color: #004b23; font-size: 18px; font-weight: 700;">
-                            <?php echo esc_html($modules[$active_tab]['icon'] . ' ' . $modules[$active_tab]['label']); ?> — Matrice Attività
+                            <?php echo esc_html($modules[$active_tab]['icon'] . ' ' . $modules[$active_tab]['label']); ?> — Matrice Attività &amp; Permessi
                         </h2>
                         <p style="margin: 4px 0 0; color: #64748b; font-size: 13px;">
                             <?php echo esc_html($modules[$active_tab]['description']); ?>
                         </p>
                     </div>
-                    <?php if ($active_tab === 'convenzioni') : ?>
-                        <span style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
-                            💡 Predisposizione Modulo: le funzionalità saranno collegate alla futura sezione Convenzioni.
-                        </span>
-                    <?php endif; ?>
                 </div>
 
                 <form method="post" action="">
@@ -263,7 +279,7 @@ function dfn_roles_render_admin_page(): void
                                     <th style="padding: 14px 16px; font-size: 13px; font-weight: 700; color: #334155; width: 320px; border-bottom: 2px solid #cbd5e1;">
                                         Attività / Funzionalità
                                     </th>
-                                    <?php foreach ($roles as $r_slug => $r_data) : ?>
+                                    <?php foreach ($module_roles as $r_slug => $r_data) : ?>
                                         <th style="text-align: center; padding: 14px 10px; font-size: 13px; font-weight: 700; color: #004b23; border-bottom: 2px solid #cbd5e1; border-left: 1px solid #e2e8f0;">
                                             <div><?php echo esc_html($r_data['label']); ?></div>
                                             <?php if ($r_slug !== 'administrator') : ?>
@@ -295,7 +311,7 @@ function dfn_roles_render_admin_page(): void
                                             <code style="font-size: 10px; color: #94a3b8; margin-top: 4px; display: inline-block;"><?php echo esc_html($act_key); ?></code>
                                         </td>
                                         
-                                        <?php foreach ($roles as $r_slug => $r_data) : ?>
+                                        <?php foreach ($module_roles as $r_slug => $r_data) : ?>
                                             <td style="text-align: center; vertical-align: middle; padding: 10px; border-left: 1px solid #f1f5f9;">
                                                 <?php if ($r_slug === 'administrator') : ?>
                                                     <span style="color: #10b981; font-size: 18px;" title="Abilitato permanentemente">&#10004;</span>
@@ -342,13 +358,23 @@ function dfn_roles_render_admin_page(): void
                     <div style="display: flex; flex-direction: column; gap: 14px;">
                         <?php foreach ($roles as $r_slug => $r_data) : 
                             $users_count = count(get_users(['role' => $r_slug]));
+                            $r_mod = $r_data['module'] ?? 'prenotazioni';
                         ?>
                             <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; background: <?php echo ! empty($r_data['is_system']) ? '#f8fafc' : '#ffffff'; ?>; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <div style="font-weight: 700; color: #1e293b; font-size: 15px;">
+                                    <div style="font-weight: 700; color: #1e293b; font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                                         <?php echo esc_html($r_data['label']); ?>
+                                        
+                                        <?php if ($r_mod === 'all') : ?>
+                                            <span style="font-size: 11px; background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Globale</span>
+                                        <?php elseif ($r_mod === 'volontari') : ?>
+                                            <span style="font-size: 11px; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 10px; font-weight: 600;">👥 Volontari FAI</span>
+                                        <?php else : ?>
+                                            <span style="font-size: 11px; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 10px; font-weight: 600;">🎟️ FAI Prenotazioni</span>
+                                        <?php endif; ?>
+
                                         <?php if (! empty($r_data['is_system'])) : ?>
-                                            <span style="font-size: 11px; background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 10px; margin-left: 6px; font-weight: 600;">Sistema</span>
+                                            <span style="font-size: 11px; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Sistema</span>
                                         <?php endif; ?>
                                     </div>
                                     <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
@@ -381,7 +407,7 @@ function dfn_roles_render_admin_page(): void
                         ➕ Crea Nuovo Ruolo FAI
                     </h2>
                     <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">
-                        Crea una nuova figura operativa per la delegazione (es. <em>Coordinatore Volontari</em>, <em>Cassa FAI</em>). Potrai poi assegnare le attività desiderate nella matrice permessi.
+                        Crea una nuova figura operativa per la delegazione (es. <em>Delegato Scuole</em>, <em>Referente Visite Guidate</em>). Potrai poi assegnare le attività desiderate nella relativa matrice permessi.
                     </p>
 
                     <form method="post" action="">
@@ -391,14 +417,27 @@ function dfn_roles_render_admin_page(): void
                             <label style="font-weight: 700; font-size: 13px; color: #334155; display: block; margin-bottom: 6px;">
                                 Nome Ruolo *
                             </label>
-                            <input type="text" name="new_role_name" required placeholder="Es. Referente Visite Guidate" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
+                            <input type="text" name="new_role_name" required placeholder="Es. Delegato Scuole" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="font-weight: 700; font-size: 13px; color: #334155; display: block; margin-bottom: 6px;">
+                                Materia / Modulo di Competenza *
+                            </label>
+                            <select name="new_role_module" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; height: 38px;">
+                                <option value="volontari">👥 Volontari FAI (Turni, Logistica, Anagrafica, Riunioni)</option>
+                                <option value="prenotazioni">🎟️ FAI Prenotazioni (Eventi, Biglietti, Botteghino, Scanner)</option>
+                            </select>
+                            <span style="font-size: 12px; color: #64748b; margin-top: 4px; display: block;">
+                                Il ruolo comparirà esclusivamente nella matrice permessi del settore scelto.
+                            </span>
                         </div>
 
                         <div style="margin-bottom: 16px;">
                             <label style="font-weight: 700; font-size: 13px; color: #334155; display: block; margin-bottom: 6px;">
                                 Identificativo Slug (opzionale)
                             </label>
-                            <input type="text" name="new_role_slug" placeholder="Es. referente_visite (generato in automatico se vuoto)" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
+                            <input type="text" name="new_role_slug" placeholder="Es. delegato_scuole (generato in automatico se vuoto)" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
                         </div>
 
                         <div style="margin-bottom: 20px;">

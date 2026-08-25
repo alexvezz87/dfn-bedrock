@@ -119,7 +119,7 @@ function dfn_handle_volunteer_event_print_intercept(): void
  */
 function dfn_render_volunteer_logistics_page(): void
 {
-    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_logistics'))) {
         wp_die(__('Permessi insufficienti per accedere a questa sezione.', 'dfn-theme'));
     }
 
