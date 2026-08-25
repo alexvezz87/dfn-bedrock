@@ -96,8 +96,8 @@ function dfn_roles_handle_post_actions(): void
                 }
 
                 // Sincronizza solo per i ruoli che appartengono a questo modulo
-                $role_mod = $role_data['module'] ?? 'prenotazioni';
-                if ($role_mod !== $active_module && $role_mod !== 'all') {
+                $r_modules = ! empty($role_data['modules']) && is_array($role_data['modules']) ? $role_data['modules'] : (array) ($role_data['module'] ?? []);
+                if (! in_array($active_module, $r_modules, true) && ! in_array('all', $r_modules, true)) {
                     continue;
                 }
 
@@ -121,13 +121,13 @@ function dfn_roles_handle_post_actions(): void
 
     // 2. Creazione Nuovo Ruolo
     if (isset($_POST['dfn_create_role_nonce']) && wp_verify_nonce($_POST['dfn_create_role_nonce'], 'dfn_create_role_action')) {
-        $role_name   = sanitize_text_field($_POST['new_role_name'] ?? '');
-        $role_module = sanitize_key($_POST['new_role_module'] ?? 'prenotazioni');
-        $role_desc   = sanitize_text_field($_POST['new_role_desc'] ?? '');
+        $role_name    = sanitize_text_field($_POST['new_role_name'] ?? '');
+        $role_modules = isset($_POST['new_role_modules']) && is_array($_POST['new_role_modules']) ? array_map('sanitize_key', $_POST['new_role_modules']) : [];
+        $role_desc    = sanitize_text_field($_POST['new_role_desc'] ?? '');
 
-        if (! in_array($role_module, ['prenotazioni', 'volontari'], true)) {
-            $role_module = 'prenotazioni';
-        }
+        // Validazione materie ammesse
+        $valid_modules = ['prenotazioni', 'volontari'];
+        $role_modules  = array_values(array_intersect($role_modules, $valid_modules));
 
         if (! empty($role_name)) {
             $slug_raw = sanitize_title_with_dashes($_POST['new_role_slug'] ?? $role_name);
@@ -139,7 +139,7 @@ function dfn_roles_handle_post_actions(): void
                 $roles[$slug] = [
                     'label'       => $role_name,
                     'is_system'   => false,
-                    'module'      => $role_module,
+                    'modules'     => $role_modules,
                     'description' => $role_desc,
                 ];
                 update_option('dfn_custom_roles', $roles);
@@ -153,6 +153,23 @@ function dfn_roles_handle_post_actions(): void
                 wp_safe_redirect(add_query_arg(['page' => 'dfn-roles-manage', 'role_created' => '1'], admin_url('admin.php')));
                 exit;
             }
+        }
+    }
+
+    // 2.1 Aggiornamento rapido materie di un ruolo esistente
+    if (isset($_POST['dfn_update_role_modules_nonce']) && wp_verify_nonce($_POST['dfn_update_role_modules_nonce'], 'dfn_update_role_modules_action')) {
+        $role_slug = sanitize_key($_POST['role_slug'] ?? '');
+        $updated_modules = isset($_POST['role_modules']) && is_array($_POST['role_modules']) ? array_map('sanitize_key', $_POST['role_modules']) : [];
+        $valid_modules = ['prenotazioni', 'volontari'];
+        $updated_modules = array_values(array_intersect($updated_modules, $valid_modules));
+
+        $roles = dfn_get_stored_roles();
+        if (isset($roles[$role_slug]) && empty($roles[$role_slug]['is_system'])) {
+            $roles[$role_slug]['modules'] = $updated_modules;
+            update_option('dfn_custom_roles', $roles);
+            dfn_sync_wp_roles();
+            wp_safe_redirect(add_query_arg(['page' => 'dfn-roles-manage', 'role_updated' => '1'], admin_url('admin.php')));
+            exit;
         }
     }
 
@@ -206,7 +223,7 @@ function dfn_roles_render_admin_page(): void
                 </div>
                 <div>
                     <h1 style="color: #fff; margin: 0; font-size: 24px; font-weight: 700; display: inline-block;">FAI — Ruoli &amp; Permessi</h1>
-                    <p style="margin: 4px 0 0; color: #d1fae5; font-size: 14px;">Gestione modulare delle autorizzazioni per operatori, coordinatori e volontari di delegazione</p>
+                    <p style="margin: 4px 0 0; color: #d1fae5; font-size: 14px;">Gestione modulare e flessibile delle autorizzazioni per operatori, coordinatori e volontari</p>
                 </div>
             </div>
             <div>
@@ -223,6 +240,10 @@ function dfn_roles_render_admin_page(): void
         <?php elseif (isset($_GET['role_created'])) : ?>
             <div class="notice notice-success is-dismissible" style="border-left-color: #10b981; padding: 12px 16px; border-radius: 6px;">
                 <p style="font-weight: 600; color: #065f46; margin: 0;">🎉 Nuovo ruolo creato con successo!</p>
+            </div>
+        <?php elseif (isset($_GET['role_updated'])) : ?>
+            <div class="notice notice-success is-dismissible" style="border-left-color: #10b981; padding: 12px 16px; border-radius: 6px;">
+                <p style="font-weight: 600; color: #065f46; margin: 0;">💾 Materie del ruolo aggiornate con successo!</p>
             </div>
         <?php elseif (isset($_GET['role_deleted'])) : ?>
             <div class="notice notice-warning is-dismissible" style="border-left-color: #f59e0b; padding: 12px 16px; border-radius: 6px;">
@@ -247,8 +268,8 @@ function dfn_roles_render_admin_page(): void
             // Filtriamo i ruoli pertinenti a questa materia
             $module_roles = [];
             foreach ($roles as $r_slug => $r_data) {
-                $r_mod = $r_data['module'] ?? 'prenotazioni';
-                if ($r_slug === 'administrator' || $r_mod === $active_tab || $r_mod === 'all') {
+                $r_modules = ! empty($r_data['modules']) && is_array($r_data['modules']) ? $r_data['modules'] : (array) ($r_data['module'] ?? []);
+                if ($r_slug === 'administrator' || in_array($active_tab, $r_modules, true) || in_array('all', $r_modules, true)) {
                     $module_roles[$r_slug] = $r_data;
                 }
             }
@@ -355,47 +376,79 @@ function dfn_roles_render_admin_page(): void
                         📋 Ruoli FAI Attivi
                     </h2>
                     
-                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
                         <?php foreach ($roles as $r_slug => $r_data) : 
                             $users_count = count(get_users(['role' => $r_slug]));
-                            $r_mod = $r_data['module'] ?? 'prenotazioni';
+                            $r_modules = ! empty($r_data['modules']) && is_array($r_data['modules']) ? $r_data['modules'] : (array) ($r_data['module'] ?? []);
                         ?>
-                            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; background: <?php echo ! empty($r_data['is_system']) ? '#f8fafc' : '#ffffff'; ?>; display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <div style="font-weight: 700; color: #1e293b; font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                                        <?php echo esc_html($r_data['label']); ?>
-                                        
-                                        <?php if ($r_mod === 'all') : ?>
-                                            <span style="font-size: 11px; background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Globale</span>
-                                        <?php elseif ($r_mod === 'volontari') : ?>
-                                            <span style="font-size: 11px; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 10px; font-weight: 600;">👥 Volontari FAI</span>
-                                        <?php else : ?>
-                                            <span style="font-size: 11px; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 10px; font-weight: 600;">🎟️ FAI Prenotazioni</span>
-                                        <?php endif; ?>
+                            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; background: <?php echo ! empty($r_data['is_system']) ? '#f8fafc' : '#ffffff'; ?>;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                    <div>
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                            <?php echo esc_html($r_data['label']); ?>
+                                            
+                                            <?php if ($r_slug === 'administrator') : ?>
+                                                <span style="font-size: 11px; background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Globale</span>
+                                            <?php else : ?>
+                                                <?php if (in_array('volontari', $r_modules, true)) : ?>
+                                                    <span style="font-size: 11px; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 10px; font-weight: 600;">👥 Volontari FAI</span>
+                                                <?php endif; ?>
+                                                <?php if (in_array('prenotazioni', $r_modules, true)) : ?>
+                                                    <span style="font-size: 11px; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 10px; font-weight: 600;">🎟️ FAI Prenotazioni</span>
+                                                <?php endif; ?>
+                                                <?php if (empty($r_modules)) : ?>
+                                                    <span style="font-size: 11px; background: #f8fafc; color: #64748b; border: 1px dashed #cbd5e1; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Nessuna Materia</span>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
 
-                                        <?php if (! empty($r_data['is_system'])) : ?>
-                                            <span style="font-size: 11px; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Sistema</span>
+                                            <?php if (! empty($r_data['is_system'])) : ?>
+                                                <span style="font-size: 11px; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Sistema</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                            <?php echo esc_html($r_data['description']); ?>
+                                        </div>
+                                        <div style="font-size: 11px; color: #0284c7; margin-top: 6px; font-weight: 600;">
+                                            👤 <?php echo intval($users_count); ?> utenti assegnati &bull; <code><?php echo esc_html($r_slug); ?></code>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <?php if (empty($r_data['is_system'])) : ?>
+                                            <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler eliminare questo ruolo? Gli utenti con questo ruolo perderanno le autorizzazioni associate.');" style="margin: 0;">
+                                                <?php wp_nonce_field('dfn_delete_role_action', 'dfn_delete_role_nonce'); ?>
+                                                <input type="hidden" name="role_slug" value="<?php echo esc_attr($r_slug); ?>" />
+                                                <button type="submit" class="button button-link-delete" style="color: #ef4444; font-size: 12px; padding: 0;">
+                                                    🗑️ Elimina
+                                                </button>
+                                            </form>
                                         <?php endif; ?>
-                                    </div>
-                                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
-                                        <?php echo esc_html($r_data['description']); ?>
-                                    </div>
-                                    <div style="font-size: 11px; color: #0284c7; margin-top: 6px; font-weight: 600;">
-                                        👤 <?php echo intval($users_count); ?> utenti assegnati &bull; <code><?php echo esc_html($r_slug); ?></code>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <?php if (empty($r_data['is_system'])) : ?>
-                                        <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler eliminare questo ruolo? Gli utenti con questo ruolo perderanno le autorizzazioni associate.');">
-                                            <?php wp_nonce_field('dfn_delete_role_action', 'dfn_delete_role_nonce'); ?>
+                                <!-- Modifica rapida materie per ruoli personalizzati -->
+                                <?php if (empty($r_data['is_system'])) : ?>
+                                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+                                        <form method="post" action="" style="margin: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                                            <?php wp_nonce_field('dfn_update_role_modules_action', 'dfn_update_role_modules_nonce'); ?>
                                             <input type="hidden" name="role_slug" value="<?php echo esc_attr($r_slug); ?>" />
-                                            <button type="submit" class="button button-link-delete" style="color: #ef4444; font-size: 12px;">
-                                                🗑️ Elimina
+                                            <div style="display: flex; align-items: center; gap: 12px; font-size: 12px;">
+                                                <span style="color: #475569; font-weight: 600;">Materie abilitate:</span>
+                                                <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                                                    <input type="checkbox" name="role_modules[]" value="volontari" <?php checked(in_array('volontari', $r_modules, true), true); ?> style="margin: 0;" />
+                                                    👥 Volontari
+                                                </label>
+                                                <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                                                    <input type="checkbox" name="role_modules[]" value="prenotazioni" <?php checked(in_array('prenotazioni', $r_modules, true), true); ?> style="margin: 0;" />
+                                                    🎟️ Prenotazioni
+                                                </label>
+                                            </div>
+                                            <button type="submit" class="button button-small" style="font-size: 11px; height: 24px; line-height: 22px;">
+                                                Aggiorna
                                             </button>
                                         </form>
-                                    <?php endif; ?>
-                                </div>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -407,7 +460,7 @@ function dfn_roles_render_admin_page(): void
                         ➕ Crea Nuovo Ruolo FAI
                     </h2>
                     <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">
-                        Crea una nuova figura operativa per la delegazione (es. <em>Delegato Scuole</em>, <em>Referente Visite Guidate</em>). Potrai poi assegnare le attività desiderate nella relativa matrice permessi.
+                        Crea una nuova figura operativa per la delegazione. Puoi associare una, più o nessuna materia (potrai assegnarle o modificarle in qualsiasi momento).
                     </p>
 
                     <form method="post" action="">
@@ -422,12 +475,12 @@ function dfn_roles_render_admin_page(): void
 
                         <div style="margin-bottom: 18px;">
                             <label style="font-weight: 700; font-size: 13px; color: #334155; display: block; margin-bottom: 8px;">
-                                Materia / Modulo di Competenza *
+                                Materie / Moduli di Competenza (Opzionale - Selezione Multipla)
                             </label>
                             
                             <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
-                                <label style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border: 1.5px solid #bbf7d0; background: #f0fdf4; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease;">
-                                    <input type="radio" name="new_role_module" value="volontari" checked style="margin-top: 3px; accent-color: #004b23;" />
+                                <label style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border: 1.5px solid #bbf7d0; background: #f0fdf4; border-radius: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="new_role_modules[]" value="volontari" checked style="margin-top: 3px; accent-color: #004b23; width: 16px; height: 16px;" />
                                     <div>
                                         <div style="font-size: 13.5px; font-weight: 700; color: #166534;">
                                             👥 Volontari FAI
@@ -438,8 +491,8 @@ function dfn_roles_render_admin_page(): void
                                     </div>
                                 </label>
 
-                                <label style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border: 1.5px solid #bfdbfe; background: #eff6ff; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease;">
-                                    <input type="radio" name="new_role_module" value="prenotazioni" style="margin-top: 3px; accent-color: #004b23;" />
+                                <label style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border: 1.5px solid #bfdbfe; background: #eff6ff; border-radius: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="new_role_modules[]" value="prenotazioni" style="margin-top: 3px; accent-color: #004b23; width: 16px; height: 16px;" />
                                     <div>
                                         <div style="font-size: 13.5px; font-weight: 700; color: #1e40af;">
                                             🎟️ FAI Prenotazioni
@@ -451,7 +504,7 @@ function dfn_roles_render_admin_page(): void
                                 </label>
                             </div>
                             <span style="font-size: 11.5px; color: #64748b; margin-top: 6px; display: block;">
-                                Il ruolo comparirà esclusivamente nella matrice permessi del settore scelto.
+                                Puoi selezionare una o più materie, oppure lasciarle deselezionate per associarle in seguito.
                             </span>
                         </div>
 

@@ -308,7 +308,7 @@ function dfn_get_default_roles_matrix(): array
 /**
  * Restituisce i ruoli correnti memorizzati (o i default se non presenti).
  *
- * @return array<string, array{label: string, is_system: bool, module: string, description: string}>
+ * @return array<string, array{label: string, is_system: bool, modules: array<string>, description: string}>
  */
 function dfn_get_stored_roles(): array
 {
@@ -317,17 +317,30 @@ function dfn_get_stored_roles(): array
         $stored = dfn_get_default_roles();
         update_option('dfn_custom_roles', $stored);
     } else {
-        // Garantisce retrocompatibilità per campo module se mancante
         $defaults = dfn_get_default_roles();
         $changed = false;
         foreach ($stored as $slug => &$r_data) {
-            if (! isset($r_data['module'])) {
-                $r_data['module'] = $defaults[$slug]['module'] ?? 'prenotazioni';
+            // Normalizzazione in array 'modules'
+            if (! isset($r_data['modules'])) {
+                if (isset($r_data['module'])) {
+                    if ($r_data['module'] === 'all') {
+                        $r_data['modules'] = ['prenotazioni', 'volontari'];
+                    } elseif (! empty($r_data['module'])) {
+                        $r_data['modules'] = [(string) $r_data['module']];
+                    } else {
+                        $r_data['modules'] = [];
+                    }
+                } else {
+                    $r_data['modules'] = isset($defaults[$slug]['module']) && $defaults[$slug]['module'] === 'all' 
+                        ? ['prenotazioni', 'volontari'] 
+                        : (isset($defaults[$slug]['module']) ? [(string) $defaults[$slug]['module']] : []);
+                }
                 $changed = true;
             }
         }
         if (! isset($stored['dfn_coord_volontari'])) {
             $stored['dfn_coord_volontari'] = $defaults['dfn_coord_volontari'];
+            $stored['dfn_coord_volontari']['modules'] = ['volontari'];
             $changed = true;
         }
         if ($changed) {
