@@ -259,8 +259,8 @@ function dfn_process_volunteer_registration(): array
     wp_set_current_user($user_id);
     wp_set_auth_cookie($user_id, true);
 
-    // Redirect diretto alla Bacheca Volontari
-    $redirect_url = wc_get_account_endpoint_url('eventi-fai');
+    // Redirect diretto alla Bacheca Volontario
+    $redirect_url = wc_get_account_endpoint_url('volontari-fai');
     wp_safe_redirect(add_query_arg(['welcome_volunteer' => '1'], $redirect_url));
     exit;
 }
@@ -285,13 +285,13 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
         ));
 
         if ($is_vol) {
-            $account_url = function_exists('wc_get_account_endpoint_url') ? wc_get_account_endpoint_url('eventi-fai') : site_url('/mio-account/eventi-fai/');
+            $account_url = function_exists('wc_get_account_endpoint_url') ? wc_get_account_endpoint_url('volontari-fai') : site_url('/mio-account/volontari-fai/');
             return '<div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); text-align: center; border-top: 5px solid #004b23;">
                 <div style="font-size: 44px; margin-bottom: 12px;">🎉</div>
                 <h2 style="color: #004b23; margin: 0 0 10px; font-size: 22px; font-weight: 700;">Sei già registrato come Volontario FAI!</h2>
                 <p style="color: #475569; font-size: 14.5px; margin-bottom: 24px;">Ciao <strong>' . esc_html($current_user->display_name) . '</strong>, il tuo profilo volontario è attivo e pronto per le prossime attività di delegazione.</p>
                 <a href="' . esc_url($account_url) . '" class="button" style="background: #004b23; color: #ffffff; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 15px;">
-                    🏛️ Vai alla tua Bacheca Volontari &rarr;
+                    🏛️ Vai alla tua Bacheca Volontario &rarr;
                 </a>
             </div>';
         }
