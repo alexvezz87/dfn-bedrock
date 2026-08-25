@@ -353,11 +353,17 @@ function dfn_render_volunteers_list_page(): void
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;">
-                                        💳 <?php echo esc_html($v->card_number); ?>
-                                    </code>
-                                    <?php if ($v->card_expiry) : ?>
-                                        <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
+                                    <?php if (! empty($v->card_number)) : ?>
+                                        <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;">
+                                            💳 <?php echo esc_html($v->card_number); ?>
+                                        </code>
+                                        <?php if ($v->card_expiry) : ?>
+                                            <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
+                                        <?php endif; ?>
+                                    <?php else : ?>
+                                        <span style="font-size:11px; background:#fffbeb; color:#b45309; border:1px dashed #fcd34d; padding:2px 7px; border-radius:6px; font-weight:600; white-space:nowrap;">
+                                            ⚠️ Da assegnare
+                                        </span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -507,7 +513,7 @@ function dfn_render_volunteer_add_page(): void
             }
         }
 
-        if (! empty($first_name) && ! empty($last_name) && ! empty($email) && ! empty($card_number)) {
+        if (! empty($first_name) && ! empty($last_name) && ! empty($email)) {
             $is_guide          = isset($_POST['is_guide']) ? 1 : 0;
             $has_safety_course = isset($_POST['has_safety_course']) ? 1 : 0;
             $submitted_fai_roles = isset($_POST['fai_roles']) && is_array($_POST['fai_roles']) ? array_map('sanitize_key', $_POST['fai_roles']) : [];
@@ -710,13 +716,13 @@ function dfn_render_volunteer_add_page(): void
                 </div>
 
                 <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px;">
-                    💳 Dettagli Tessera FAI Obbligatoria &amp; Delegazione
+                    💳 Dettagli Tessera FAI (Opzionale) &amp; Delegazione
                 </h3>
 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
                     <div>
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Numero Tessera <span style="color:#ef4444;">*</span></label>
-                        <input type="text" name="card_number" required value="<?php echo esc_attr($is_edit ? $volunteer_data->card_number : ''); ?>" placeholder="Es. 12345678" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Numero Tessera</label>
+                        <input type="text" name="card_number" value="<?php echo esc_attr($is_edit ? $volunteer_data->card_number : ''); ?>" placeholder="Es. 12345678 (o lascia vuoto)" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Scadenza Tessera</label>

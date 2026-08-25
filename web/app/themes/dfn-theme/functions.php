@@ -39,6 +39,7 @@ require_once get_stylesheet_directory() . '/inc/frontend/dfn-myaccount.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-mobile-app.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-volunteer-survey.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-volunteer-registration.php';
 
 // Admin / Gestione
 require_once get_stylesheet_directory() . '/inc/admin/dfn-roles-admin.php';
