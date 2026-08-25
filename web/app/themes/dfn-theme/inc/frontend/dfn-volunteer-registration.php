@@ -52,8 +52,9 @@ function dfn_ensure_volunteer_registration_page_exists(): void
     }
 }
 
-// 3. Intercetta l'URL virtuale /registrazione-volontario/ per template custom
-add_action('template_redirect', 'dfn_handle_volunteer_registration_page_rewrite');
+// Variabile globale temporanea per passare eventuali errori di validazione da template_redirect allo shortcode
+global $dfn_vol_reg_result;
+$dfn_vol_reg_result = ['status' => '', 'message' => ''];
 
 /**
  * Intercetta le richieste dirette a /registrazione-volontario/ e renderizza il template FAI.
@@ -64,7 +65,13 @@ function dfn_handle_volunteer_registration_page_rewrite(): void
     $path = trim(parse_url($request_uri, PHP_URL_PATH) ?? '', '/');
 
     if ($path === 'registrazione-volontario' || strpos($path, 'registrazione-volontario') !== false) {
-        global $wp_query;
+        global $wp_query, $dfn_vol_reg_result;
+
+        // Processa prima l'invio del form POST PRIMA che qualsiasi HTML o header venga inviato
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['dfn_vol_reg_nonce'])) {
+            $dfn_vol_reg_result = dfn_process_volunteer_registration();
+        }
+
         if ($wp_query) {
             $wp_query->is_404 = false;
             $wp_query->is_page = true;
@@ -275,7 +282,8 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
         }
     }
 
-    $result = dfn_process_volunteer_registration();
+    global $dfn_vol_reg_result;
+    $result = is_array($dfn_vol_reg_result) ? $dfn_vol_reg_result : ['status' => '', 'message' => ''];
 
     ob_start();
     ?>
