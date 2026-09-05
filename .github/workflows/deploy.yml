@@ -44,17 +44,25 @@ jobs:
                 b64 = base64.b64encode(content).decode('utf-8')
                 payload = json.dumps({'filepath': rel_path_posix, 'content_b64': b64}).encode('utf-8')
                 
-                try:
-                    req = urllib.request.Request(
-                        target_url,
-                        data=payload,
-                        headers={'Content-Type': 'application/json'},
-                        method='POST'
-                    )
-                    with urllib.request.urlopen(req, timeout=30) as res:
-                        count += 1
-                except Exception as e:
-                    print(f'ERROR uploading {rel_path_posix}: {e}')
+                success = False
+                for attempt in range(3):
+                    try:
+                        req = urllib.request.Request(
+                            target_url,
+                            data=payload,
+                            headers={'Content-Type': 'application/json'},
+                            method='POST'
+                        )
+                        with urllib.request.urlopen(req, timeout=30) as res:
+                            count += 1
+                            success = True
+                            break
+                    except Exception as e:
+                        print(f'Attempt {attempt+1} failed uploading {rel_path_posix}: {e}')
+                        time.sleep(1)
+
+                if not success:
+                    print(f'❌ CRITICAL: Failed to upload {rel_path_posix}')
 
         print(f'✅ Total files synced directly to production: {count}')
         "
