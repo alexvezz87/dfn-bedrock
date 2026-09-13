@@ -2031,6 +2031,7 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
 
             // Tracciamento dei volontari assegnati nella specifica fascia oraria di questo giorno per evitare sovrapposizioni su più luoghi
             $slot_full_k = $t_day->id . '_' . $slot_key;
+            /** @var list<int> $assigned_vols_in_current_slot */
             $assigned_vols_in_current_slot = [];
 
             // Helper di matching turno per luogo preferito
@@ -2767,6 +2768,7 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                                     $ass = ! empty($shifts) ? dfn_get_volunteer_shift_assignments((int) $shifts[0]->id) : [];
 
                                     // Raggruppa i volontari per mansione
+                                    /** @var array<string, list<string|null>> $grouped_by_role */
                                     $grouped_by_role = [];
                                     foreach ($ass as $a) {
                                         $r_k = ! empty($a->role_assigned) ? $a->role_assigned : 'banchetto';
@@ -2844,6 +2846,7 @@ function dfn_render_volunteer_event_print_view(int $event_id): void
                                             ));
                                             $ass = ! empty($shifts) ? dfn_get_volunteer_shift_assignments((int) $shifts[0]->id) : [];
 
+                                            /** @var array<string, list<string|null>> $grouped_by_role */
                                             $grouped_by_role = [];
                                             foreach ($ass as $a) {
                                                 $r_k = ! empty($a->role_assigned) ? $a->role_assigned : 'banchetto';
