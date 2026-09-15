@@ -324,7 +324,7 @@ jQuery(document).ready(function($) {
             '    <div class="dfn-scan-icon-badge dfn-badge-error">⚠️</div>' +
             '    <h3 class="dfn-scan-title">Scansione Fallita</h3>' +
             '    <p class="dfn-scan-details">' + errorMsg + '</p>' +
-            '    <button class="dfn-scan-btn dfn-scan-btn-close btn-close-modal">Riprova</button>' +
+            '    <button class="dfn-scan-btn dfn-scan-btn-close btn-close-modal">✕ Chiudi e Riprova</button>' +
             '  </div>' +
             '</div>';
 
