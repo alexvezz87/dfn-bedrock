@@ -84,10 +84,64 @@ document.addEventListener("DOMContentLoaded", function() {
         attemptAjax(0);
     }
 
-    btnStart.addEventListener('click', function() {
-        initAudioAndVibration(); btnStart.style.display = 'none';
-        html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start( { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess )
-        .catch(function(err) { alert("Errore fotocamera: " + err); btnStart.style.display = 'block'; });
+    btnStart.addEventListener('click', async function() {
+        initAudioAndVibration();
+        btnStart.style.display = 'none';
+        html5QrCode = new Html5Qrcode("reader", {
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+            verbose: false
+        });
+
+        var cameraConfig = { facingMode: "environment" };
+        try {
+            var devices = await Html5Qrcode.getCameras();
+            if (devices && devices.length > 0) {
+                var backCameras = devices.filter(function(d) {
+                    var lbl = (d.label || '').toLowerCase();
+                    return lbl.includes('back') || lbl.includes('rear') || lbl.includes('posteriore') || lbl.includes('environment');
+                });
+                var primaryBack = backCameras.find(function(d) {
+                    var lbl = (d.label || '').toLowerCase();
+                    return !lbl.includes('ultra') && !lbl.includes('0.5') && !lbl.includes('telephoto') && !lbl.includes('zoom');
+                });
+                if (primaryBack) {
+                    cameraConfig = { deviceId: { exact: primaryBack.id } };
+                } else if (backCameras.length > 0) {
+                    cameraConfig = { deviceId: { exact: backCameras[0].id } };
+                }
+            }
+        } catch (e) {
+            cameraConfig = { facingMode: "environment" };
+        }
+
+        var scanConfig = {
+            fps: 15,
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+                var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                var size = Math.floor(minEdge * 0.8);
+                return { width: Math.max(180, size), height: Math.max(180, size) };
+            },
+            aspectRatio: 1.0,
+            videoConstraints: {
+                facingMode: { ideal: "environment" },
+                focusMode: { ideal: "continuous" }
+            }
+        };
+
+        html5QrCode.start(cameraConfig, scanConfig, onScanSuccess)
+            .then(function() {
+                var videoElem = document.querySelector('#reader video');
+                if (videoElem) {
+                    videoElem.setAttribute('playsinline', 'true');
+                    videoElem.setAttribute('webkit-playsinline', 'true');
+                    videoElem.setAttribute('muted', 'true');
+                    videoElem.setAttribute('autoplay', 'true');
+                    if (videoElem.paused) videoElem.play().catch(function() {});
+                }
+            })
+            .catch(function(err) {
+                alert("Errore fotocamera: " + err);
+                btnStart.style.display = 'block';
+            });
     });
 });

@@ -22,9 +22,22 @@ jQuery(document).ready(function($) {
 
     // Configurazione camera
     var config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
+        fps: 15,
+        qrbox: function(viewfinderWidth, viewfinderHeight) {
+            var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            var size = Math.floor(minEdge * 0.8);
+            return {
+                width: Math.max(180, size),
+                height: Math.max(180, size)
+            };
+        },
+        aspectRatio: 1.0,
+        videoConstraints: {
+            facingMode: { ideal: "environment" },
+            focusMode: { ideal: "continuous" },
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 }
+        }
     };
 
     $btnStart.on('click', function() {
@@ -35,18 +48,54 @@ jQuery(document).ready(function($) {
         }
     });
 
-    function startScanner() {
-        html5QrCode = new Html5Qrcode("dfn-reader");
+    async function startScanner() {
+        html5QrCode = new Html5Qrcode("dfn-reader", {
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            },
+            verbose: false
+        });
         $btnStart.text("⏳ Avvio fotocamera...").prop('disabled', true);
 
+        var cameraConfig = { facingMode: "environment" };
+        try {
+            var devices = await Html5Qrcode.getCameras();
+            if (devices && devices.length > 0) {
+                var backCameras = devices.filter(function(d) {
+                    var lbl = (d.label || '').toLowerCase();
+                    return lbl.includes('back') || lbl.includes('rear') || lbl.includes('posteriore') || lbl.includes('environment');
+                });
+                var primaryBack = backCameras.find(function(d) {
+                    var lbl = (d.label || '').toLowerCase();
+                    return !lbl.includes('ultra') && !lbl.includes('0.5') && !lbl.includes('telephoto') && !lbl.includes('zoom');
+                });
+                if (primaryBack) {
+                    cameraConfig = { deviceId: { exact: primaryBack.id } };
+                } else if (backCameras.length > 0) {
+                    cameraConfig = { deviceId: { exact: backCameras[0].id } };
+                }
+            }
+        } catch (e) {
+            cameraConfig = { facingMode: "environment" };
+        }
+
         html5QrCode.start(
-            { facingMode: "environment" },
+            cameraConfig,
             config,
             onScanSuccess,
             onScanFailure
         ).then(function() {
             scannerStarted = true;
             $btnStart.text("📷 Spegni Fotocamera").prop('disabled', false).removeClass('dfn-scanner-btn-start').addClass('dfn-scan-btn-close');
+
+            var videoElem = document.querySelector('#dfn-reader video');
+            if (videoElem) {
+                videoElem.setAttribute('playsinline', 'true');
+                videoElem.setAttribute('webkit-playsinline', 'true');
+                videoElem.setAttribute('muted', 'true');
+                videoElem.setAttribute('autoplay', 'true');
+                if (videoElem.paused) videoElem.play().catch(function() {});
+            }
         }).catch(function(err) {
             $btnStart.text("📷 Avvia Fotocamera").prop('disabled', false);
             alert("Impossibile accedere alla fotocamera. Assicurati di aver concesso i permessi.");
