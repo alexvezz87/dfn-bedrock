@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // -------------------------------------------------------------------
-    // 4. SCANNER QR CODE AUTOMATICO (Html5Qrcode Engine - iOS & Android Optimized)
+    // 4. SCANNER QR CODE AUTOMATICO (Dual-Engine: jsQR + Html5Qrcode - iOS & Android Optimized)
     // -------------------------------------------------------------------
     let html5QrScanner = null;
     let isScanningActive = false;
@@ -214,6 +214,84 @@ document.addEventListener('DOMContentLoaded', function () {
     let availableCameras = [];
     let currentCameraIndex = 0;
     let isTorchOn = false;
+    let scanCanvas = null;
+    let scanCtx = null;
+    let scanAnimFrame = null;
+    let nativeBarcodeDetector = null;
+
+    if (typeof BarcodeDetector !== 'undefined') {
+        try {
+            nativeBarcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+        } catch (e) {
+            nativeBarcodeDetector = null;
+        }
+    }
+
+    function startFrameAnalyzer(videoElem) {
+        if (!videoElem) return;
+
+        if (!scanCanvas) {
+            scanCanvas = document.createElement('canvas');
+            scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
+        }
+
+        function analyzeFrame() {
+            if (!isScanningActive) return;
+
+            if (!isProcessingScan && videoElem && videoElem.readyState >= 2 && videoElem.videoWidth > 0 && videoElem.videoHeight > 0) {
+                const vw = videoElem.videoWidth;
+                const vh = videoElem.videoHeight;
+
+                // Scala frame per performance e accuratezza ottimale (max 720px)
+                const scale = Math.min(1.0, 720 / Math.max(vw, vh));
+                const targetW = Math.max(200, Math.floor(vw * scale));
+                const targetH = Math.max(200, Math.floor(vh * scale));
+
+                if (scanCanvas.width !== targetW || scanCanvas.height !== targetH) {
+                    scanCanvas.width = targetW;
+                    scanCanvas.height = targetH;
+                }
+
+                try {
+                    scanCtx.drawImage(videoElem, 0, 0, targetW, targetH);
+                    const imgData = scanCtx.getImageData(0, 0, targetW, targetH);
+
+                    // 1. Motore Ultra-Robusto jsQR (100% affidabile su iPhone / iOS Safari)
+                    if (typeof jsQR !== 'undefined') {
+                        const code = jsQR(imgData.data, targetW, targetH, {
+                            inversionAttempts: "dontInvert"
+                        });
+                        if (code && code.data && code.data.trim().length > 0) {
+                            onQrScanSuccess(code.data.trim());
+                        }
+                    }
+
+                    // 2. Prova BarcodeDetector nativo se disponibile
+                    if (!isProcessingScan && nativeBarcodeDetector) {
+                        nativeBarcodeDetector.detect(scanCanvas).then(barcodes => {
+                            if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                                onQrScanSuccess(barcodes[0].rawValue.trim());
+                            }
+                        }).catch(() => {});
+                    }
+                } catch (drawErr) {
+                    // Ignora frame intermedi
+                }
+            }
+
+            scanAnimFrame = requestAnimationFrame(analyzeFrame);
+        }
+
+        stopFrameAnalyzer();
+        scanAnimFrame = requestAnimationFrame(analyzeFrame);
+    }
+
+    function stopFrameAnalyzer() {
+        if (scanAnimFrame) {
+            cancelAnimationFrame(scanAnimFrame);
+            scanAnimFrame = null;
+        }
+    }
 
     async function startHtml5Scanner() {
         if (isScanningActive || typeof Html5Qrcode === 'undefined') return;
@@ -299,16 +377,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 onQrScanError
             );
 
-            // Ottimizzazione iOS WebKit: forza playsinline e autoplay
+            // Ottimizzazione iOS WebKit: forza playsinline e avvia analizzatore frame
             const videoElem = readerElem.querySelector('video');
             if (videoElem) {
                 videoElem.setAttribute('playsinline', 'true');
                 videoElem.setAttribute('webkit-playsinline', 'true');
                 videoElem.setAttribute('muted', 'true');
                 videoElem.setAttribute('autoplay', 'true');
+                videoElem.muted = true;
+                videoElem.playsInline = true;
                 if (videoElem.paused) {
                     videoElem.play().catch(() => {});
                 }
+                startFrameAnalyzer(videoElem);
+                videoElem.addEventListener('play', () => startFrameAnalyzer(videoElem));
             }
 
             checkTorchSupport();
@@ -321,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function stopHtml5Scanner() {
+        stopFrameAnalyzer();
         if (html5QrScanner && isScanningActive) {
             try {
                 await html5QrScanner.stop();
@@ -347,6 +430,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const nextCam = availableCameras[currentCameraIndex];
 
         try {
+            stopFrameAnalyzer();
             await html5QrScanner.stop();
             await html5QrScanner.clear();
             isScanningActive = false;
@@ -372,6 +456,22 @@ document.addEventListener('DOMContentLoaded', function () {
             );
             isScanningActive = true;
             showToast('Camera: ' + (nextCam.label ? nextCam.label.split('(')[0].trim() : ('#' + (currentCameraIndex + 1))), 'info');
+
+            const readerElem = document.getElementById('dfn-mobile-qr-reader');
+            if (readerElem) {
+                const videoElem = readerElem.querySelector('video');
+                if (videoElem) {
+                    videoElem.setAttribute('playsinline', 'true');
+                    videoElem.setAttribute('webkit-playsinline', 'true');
+                    videoElem.setAttribute('muted', 'true');
+                    videoElem.setAttribute('autoplay', 'true');
+                    videoElem.muted = true;
+                    videoElem.playsInline = true;
+                    if (videoElem.paused) videoElem.play().catch(() => {});
+                    startFrameAnalyzer(videoElem);
+                }
+            }
+
             checkTorchSupport();
         } catch (e) {
             console.warn('Errore durante switch camera:', e);
@@ -424,7 +524,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function onQrScanSuccess(decodedText, decodedResult) {
-        if (isProcessingScan) return;
+        if (!decodedText || isProcessingScan) return;
         isProcessingScan = true;
 
         vibrate([100, 50, 100]);

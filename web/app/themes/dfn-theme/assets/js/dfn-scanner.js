@@ -16,9 +16,58 @@ jQuery(document).ready(function($) {
     var html5QrCode;
     var scannerStarted = false;
     var scanInProgress = false;
+    var scanCanvas = null;
+    var scanCtx = null;
+    var scanAnimFrame = null;
 
     var $btnStart = $('#dfn-btn-start');
     var $modalContainer = $('#dfn-scan-modal-container');
+
+    function startFrameAnalyzer(videoElem) {
+        if (!videoElem) return;
+        if (!scanCanvas) {
+            scanCanvas = document.createElement('canvas');
+            scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
+        }
+
+        function analyzeFrame() {
+            if (!scannerStarted) return;
+            if (!scanInProgress && videoElem && videoElem.readyState >= 2 && videoElem.videoWidth > 0 && videoElem.videoHeight > 0) {
+                var vw = videoElem.videoWidth;
+                var vh = videoElem.videoHeight;
+                var scale = Math.min(1.0, 720 / Math.max(vw, vh));
+                var targetW = Math.max(200, Math.floor(vw * scale));
+                var targetH = Math.max(200, Math.floor(vh * scale));
+
+                if (scanCanvas.width !== targetW || scanCanvas.height !== targetH) {
+                    scanCanvas.width = targetW;
+                    scanCanvas.height = targetH;
+                }
+
+                try {
+                    scanCtx.drawImage(videoElem, 0, 0, targetW, targetH);
+                    var imgData = scanCtx.getImageData(0, 0, targetW, targetH);
+                    if (typeof jsQR !== 'undefined') {
+                        var code = jsQR(imgData.data, targetW, targetH, { inversionAttempts: "dontInvert" });
+                        if (code && code.data && code.data.trim().length > 0) {
+                            onScanSuccess(code.data.trim());
+                        }
+                    }
+                } catch (e) {}
+            }
+            scanAnimFrame = requestAnimationFrame(analyzeFrame);
+        }
+
+        stopFrameAnalyzer();
+        scanAnimFrame = requestAnimationFrame(analyzeFrame);
+    }
+
+    function stopFrameAnalyzer() {
+        if (scanAnimFrame) {
+            cancelAnimationFrame(scanAnimFrame);
+            scanAnimFrame = null;
+        }
+    }
 
     // Configurazione camera
     var config = {
@@ -94,7 +143,11 @@ jQuery(document).ready(function($) {
                 videoElem.setAttribute('webkit-playsinline', 'true');
                 videoElem.setAttribute('muted', 'true');
                 videoElem.setAttribute('autoplay', 'true');
+                videoElem.muted = true;
+                videoElem.playsInline = true;
                 if (videoElem.paused) videoElem.play().catch(function() {});
+                startFrameAnalyzer(videoElem);
+                videoElem.addEventListener('play', function() { startFrameAnalyzer(videoElem); });
             }
         }).catch(function(err) {
             $btnStart.text("📷 Avvia Fotocamera").prop('disabled', false);
@@ -103,6 +156,7 @@ jQuery(document).ready(function($) {
     }
 
     function stopScanner() {
+        stopFrameAnalyzer();
         if (html5QrCode) {
             html5QrCode.stop().then(function() {
                 html5QrCode.clear();
