@@ -162,46 +162,221 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // -------------------------------------------------------------------
-    // 4. SCANNER QR CODE AUTOMATICO (Html5Qrcode Engine)
+    // 4. SCANNER QR CODE AUTOMATICO (Html5Qrcode Engine - iOS & Android Optimized)
     // -------------------------------------------------------------------
     let html5QrScanner = null;
     let isScanningActive = false;
     let isProcessingScan = false;
+    let availableCameras = [];
+    let currentCameraIndex = 0;
+    let isTorchOn = false;
 
-    function startHtml5Scanner() {
+    async function startHtml5Scanner() {
         if (isScanningActive || typeof Html5Qrcode === 'undefined') return;
 
         const readerElem = document.getElementById('dfn-mobile-qr-reader');
         if (!readerElem) return;
 
         try {
-            html5QrScanner = new Html5Qrcode("dfn-mobile-qr-reader");
+            if (!html5QrScanner) {
+                html5QrScanner = new Html5Qrcode("dfn-mobile-qr-reader", {
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    },
+                    verbose: false
+                });
+            }
             isScanningActive = true;
 
-            html5QrScanner.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 200, height: 200 } },
+            // Rileva le fotocamere per selezionare la migliore camera posteriore (evita la 0.5x ultra-wide di default su iPhone)
+            let cameraConfig = { facingMode: "environment" };
+
+            try {
+                const devices = await Html5Qrcode.getCameras();
+                if (devices && devices.length > 0) {
+                    availableCameras = devices;
+
+                    const switchBtn = document.getElementById('dfn-btn-switch-camera');
+                    if (switchBtn && devices.length > 1) {
+                        switchBtn.style.display = 'inline-flex';
+                    }
+
+                    // Identifica le fotocamere posteriori
+                    let backCameras = devices.filter(d => {
+                        const lbl = (d.label || '').toLowerCase();
+                        return lbl.includes('back') || lbl.includes('rear') || lbl.includes('posteriore') || lbl.includes('environment');
+                    });
+
+                    // Su iPhone escludiamo la 0.5x ultra-wide e telephoto, privilegiando la 1x standard
+                    let primaryBack = backCameras.find(d => {
+                        const lbl = (d.label || '').toLowerCase();
+                        return !lbl.includes('ultra') && !lbl.includes('0.5') && !lbl.includes('telephoto') && !lbl.includes('zoom');
+                    });
+
+                    if (primaryBack) {
+                        currentCameraIndex = devices.findIndex(d => d.id === primaryBack.id);
+                        cameraConfig = { deviceId: { exact: primaryBack.id } };
+                    } else if (backCameras.length > 0) {
+                        currentCameraIndex = devices.findIndex(d => d.id === backCameras[0].id);
+                        cameraConfig = { deviceId: { exact: backCameras[0].id } };
+                    } else {
+                        currentCameraIndex = 0;
+                        cameraConfig = { deviceId: { exact: devices[0].id } };
+                    }
+                }
+            } catch (camErr) {
+                console.warn('Impossibile enumerare le fotocamere, fallback su facingMode:', camErr);
+                cameraConfig = { facingMode: "environment" };
+            }
+
+            const scanConfig = {
+                fps: 15,
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    const edge = Math.min(viewfinderWidth, viewfinderHeight);
+                    const size = Math.floor(edge * 0.8);
+                    return {
+                        width: Math.max(180, size),
+                        height: Math.max(180, size)
+                    };
+                },
+                aspectRatio: 1.0,
+                videoConstraints: {
+                    facingMode: { ideal: "environment" },
+                    focusMode: { ideal: "continuous" },
+                    width: { min: 640, ideal: 1280, max: 1920 },
+                    height: { min: 480, ideal: 720, max: 1080 }
+                }
+            };
+
+            await html5QrScanner.start(
+                cameraConfig,
+                scanConfig,
                 onQrScanSuccess,
                 onQrScanError
-            ).catch(err => {
-                console.warn('Errore avvio fotocamera scanner:', err);
-                showToast('Impossibile accedere alla fotocamera.', 'info');
-                isScanningActive = false;
-            });
-        } catch (e) {
-            console.error('Errore inizializzazione Html5Qrcode:', e);
+            );
+
+            // Ottimizzazione iOS WebKit: forza playsinline e autoplay
+            const videoElem = readerElem.querySelector('video');
+            if (videoElem) {
+                videoElem.setAttribute('playsinline', 'true');
+                videoElem.setAttribute('webkit-playsinline', 'true');
+                videoElem.setAttribute('muted', 'true');
+                videoElem.setAttribute('autoplay', 'true');
+                if (videoElem.paused) {
+                    videoElem.play().catch(() => {});
+                }
+            }
+
+            checkTorchSupport();
+
+        } catch (err) {
+            console.warn('Errore avvio fotocamera scanner:', err);
+            showToast('Impossibile accedere alla fotocamera. Verifica i permessi.', 'info');
+            isScanningActive = false;
         }
     }
 
-    function stopHtml5Scanner() {
+    async function stopHtml5Scanner() {
         if (html5QrScanner && isScanningActive) {
-            html5QrScanner.stop().then(() => {
-                html5QrScanner.clear();
+            try {
+                await html5QrScanner.stop();
+                await html5QrScanner.clear();
+            } catch (err) {
+                console.warn('Errore stop scanner:', err);
+            } finally {
                 isScanningActive = false;
-            }).catch(err => {
-                isScanningActive = false;
-            });
+                isTorchOn = false;
+                const torchBtn = document.getElementById('dfn-btn-toggle-torch');
+                if (torchBtn) {
+                    torchBtn.style.display = 'none';
+                    torchBtn.textContent = '🔦 Torcia';
+                    torchBtn.style.background = '';
+                }
+            }
         }
+    }
+
+    async function switchCamera() {
+        if (!isScanningActive || !html5QrScanner || availableCameras.length <= 1) return;
+
+        currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
+        const nextCam = availableCameras[currentCameraIndex];
+
+        try {
+            await html5QrScanner.stop();
+            await html5QrScanner.clear();
+            isScanningActive = false;
+
+            const scanConfig = {
+                fps: 15,
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    const edge = Math.min(viewfinderWidth, viewfinderHeight);
+                    const size = Math.floor(edge * 0.8);
+                    return {
+                        width: Math.max(180, size),
+                        height: Math.max(180, size)
+                    };
+                },
+                aspectRatio: 1.0
+            };
+
+            await html5QrScanner.start(
+                { deviceId: { exact: nextCam.id } },
+                scanConfig,
+                onQrScanSuccess,
+                onQrScanError
+            );
+            isScanningActive = true;
+            showToast('Camera: ' + (nextCam.label ? nextCam.label.split('(')[0].trim() : ('#' + (currentCameraIndex + 1))), 'info');
+            checkTorchSupport();
+        } catch (e) {
+            console.warn('Errore durante switch camera:', e);
+            startHtml5Scanner();
+        }
+    }
+
+    function checkTorchSupport() {
+        const torchBtn = document.getElementById('dfn-btn-toggle-torch');
+        if (!torchBtn) return;
+
+        try {
+            if (html5QrScanner && typeof html5QrScanner.getRunningTrackCapabilities === 'function') {
+                const caps = html5QrScanner.getRunningTrackCapabilities();
+                if (caps && caps.torch) {
+                    torchBtn.style.display = 'inline-flex';
+                    return;
+                }
+            }
+        } catch (e) {}
+        torchBtn.style.display = 'none';
+    }
+
+    async function toggleTorch() {
+        if (!html5QrScanner || !isScanningActive) return;
+        const torchBtn = document.getElementById('dfn-btn-toggle-torch');
+        try {
+            isTorchOn = !isTorchOn;
+            await html5QrScanner.applyVideoConstraints({
+                advanced: [{ torch: isTorchOn }]
+            });
+            if (torchBtn) {
+                torchBtn.textContent = isTorchOn ? '🔦 Accesa' : '🔦 Torcia';
+                torchBtn.style.background = isTorchOn ? '#f59e0b' : '';
+                torchBtn.style.color = isTorchOn ? '#ffffff' : '';
+            }
+        } catch (e) {
+            console.warn('Torcia non supportata:', e);
+        }
+    }
+
+    // Event listeners per controlli camera
+    const switchCamBtn = document.getElementById('dfn-btn-switch-camera');
+    if (switchCamBtn) {
+        switchCamBtn.addEventListener('click', switchCamera);
+    }
+    const torchToggleBtn = document.getElementById('dfn-btn-toggle-torch');
+    if (torchToggleBtn) {
+        torchToggleBtn.addEventListener('click', toggleTorch);
     }
 
     function onQrScanSuccess(decodedText, decodedResult) {
@@ -217,7 +392,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function onQrScanError(errorMessage) {
-        // Ignora gli errori di frame intermedi senza QR
+        // Ignora i frame intermedi privi di QR per mantenere elevate performance
     }
 
     function checkInToken(token, callback) {
