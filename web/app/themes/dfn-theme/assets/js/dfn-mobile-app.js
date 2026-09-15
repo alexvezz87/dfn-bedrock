@@ -252,6 +252,8 @@ document.addEventListener('DOMContentLoaded', function () {
     async function startHtml5Scanner() {
         if (isScanningActive || typeof Html5Qrcode === 'undefined') return;
 
+        resetScannerState();
+
         const readerElem = document.getElementById('dfn-mobile-qr-reader');
         if (!readerElem) return;
 
@@ -369,6 +371,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } finally {
                 isScanningActive = false;
                 isTorchOn = false;
+                resetScannerState();
                 const torchBtn = document.getElementById('dfn-btn-toggle-torch');
                 if (torchBtn) {
                     torchBtn.style.display = 'none';
@@ -479,24 +482,41 @@ document.addEventListener('DOMContentLoaded', function () {
         torchToggleBtn.addEventListener('click', toggleTorch);
     }
 
+    let autoResetTimer = null;
+
+    function resetScannerState() {
+        if (autoResetTimer) {
+            clearTimeout(autoResetTimer);
+            autoResetTimer = null;
+        }
+        const resultBox = document.getElementById('dfn-scanner-result-box');
+        if (resultBox) {
+            resultBox.style.display = 'none';
+            resultBox.innerHTML = '';
+            resultBox.className = 'dfn-scanner-result-box';
+        }
+        isProcessingScan = false;
+    }
+
     function onQrScanSuccess(decodedText, decodedResult) {
         if (!decodedText || isProcessingScan) return;
         isProcessingScan = true;
 
         vibrate([100, 50, 100]);
-        checkInToken(decodedText, function() {
-            setTimeout(() => {
-                isProcessingScan = false;
-            }, 2500);
-        });
+        checkInToken(decodedText);
     }
 
     function onQrScanError(errorMessage) {
         // Ignora i frame intermedi privi di QR per mantenere elevate performance
     }
 
-    function checkInToken(token, callback) {
+    function checkInToken(token) {
         if (!token) return;
+
+        if (autoResetTimer) {
+            clearTimeout(autoResetTimer);
+            autoResetTimer = null;
+        }
 
         const resultBox = document.getElementById('dfn-scanner-result-box');
         if (resultBox) {
@@ -528,17 +548,33 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <p>📅 ${data.event_title}</p>
                                     <p>👥 <strong>${data.total_persons} Persone</strong> (Interi: ${data.persons_standard}, FAI: ${data.persons_fai})</p>
                                     <div class="dfn-scan-amount-due">Quota da versare: <strong>${data.amount_due_formatted}</strong></div>
-                                    <button type="button" class="dfn-mobile-btn success large btn-collect-in-loco" style="margin-top:10px;">
-                                        💶 Incassa & Valida Check-in
-                                    </button>
+                                    <div style="display:flex; gap:8px; margin-top:10px;">
+                                        <button type="button" class="dfn-mobile-btn success large btn-collect-in-loco" style="flex:1;">
+                                            💶 Incassa & Valida
+                                        </button>
+                                        <button type="button" class="dfn-mobile-btn secondary large btn-cancel-in-loco" style="width:auto; padding: 0 16px;">
+                                            ✕ Annulla
+                                        </button>
+                                    </div>
                                 </div>
                             `;
 
-                            resultBox.querySelector('.btn-collect-in-loco').addEventListener('click', function() {
-                                this.disabled = true;
-                                this.textContent = 'Registrazione incasso...';
-                                consolidatePayment(token, resultBox);
-                            });
+                            const collectBtn = resultBox.querySelector('.btn-collect-in-loco');
+                            if (collectBtn) {
+                                collectBtn.addEventListener('click', function() {
+                                    this.disabled = true;
+                                    this.textContent = 'Registrazione incasso...';
+                                    consolidatePayment(token, resultBox);
+                                });
+                            }
+
+                            const cancelBtn = resultBox.querySelector('.btn-cancel-in-loco');
+                            if (cancelBtn) {
+                                cancelBtn.addEventListener('click', function() {
+                                    vibrate(30);
+                                    resetScannerState();
+                                });
+                            }
                         }
                         showToast('💶 Pagamento in loco necessario', 'info');
                     } 
@@ -553,10 +589,23 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <h4>${data.customer_name}</h4>
                                     <p>👥 ${data.total_persons} Persone</p>
                                     <p>⏰ Entrato il: <strong>${data.checked_in_at}</strong> (${data.checked_in_by || 'Staff'})</p>
+                                    <button type="button" class="dfn-mobile-btn secondary btn-dismiss-scan" style="margin-top:10px; width:100%; justify-content:center;">
+                                        ✕ Chiudi Avviso e Riprova Scansione
+                                    </button>
                                 </div>
                             `;
+                            const dismissBtn = resultBox.querySelector('.btn-dismiss-scan');
+                            if (dismissBtn) {
+                                dismissBtn.addEventListener('click', () => {
+                                    vibrate(30);
+                                    resetScannerState();
+                                });
+                            }
                         }
                         showToast('ℹ️ Biglietto già validato', 'info');
+                        autoResetTimer = setTimeout(() => {
+                            resetScannerState();
+                        }, 4000);
                     } 
                     // CASO 3: Check-in confermato con successo (pagato online / omaggio)
                     else {
@@ -569,33 +618,72 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <h4>${data.customer_name || 'Biglietto Valido'}</h4>
                                     <p>📅 ${data.event_title || ''}</p>
                                     <p>👥 <strong>${data.total_persons || 1} Persone</strong> — Stato: Pagato</p>
+                                    <button type="button" class="dfn-mobile-btn secondary compact btn-dismiss-scan" style="margin-top:10px; width:100%; justify-content:center;">
+                                        🔄 Prossima Scansione
+                                    </button>
                                 </div>
                             `;
+                            const dismissBtn = resultBox.querySelector('.btn-dismiss-scan');
+                            if (dismissBtn) {
+                                dismissBtn.addEventListener('click', () => {
+                                    vibrate(30);
+                                    resetScannerState();
+                                });
+                            }
                         }
                         showToast('✅ Check-in effettuato!', 'success');
+                        autoResetTimer = setTimeout(() => {
+                            resetScannerState();
+                        }, 3000);
                     }
                 } else {
+                    // BLOCCO SU ERRORE: Nessun timer automatico, richiede chiusura manuale per ripartire puliti
                     vibrate([200, 100, 200]);
-                    const msg = (res.data && res.data.message) ? res.data.message : (res.data || 'Codice non riconosciuto.');
+                    const msg = (res.data && res.data.message) ? res.data.message : (res.data || 'Codice QR non riconosciuto o non valido.');
                     if (resultBox) {
                         resultBox.className = 'dfn-scanner-result-box error';
                         resultBox.innerHTML = `
                             <div class="dfn-scan-card danger">
                                 <span class="dfn-scan-badge danger">❌ QR NON VALIDO</span>
-                                <p style="margin-top:6px;">${msg}</p>
+                                <p style="margin: 6px 0 12px; font-size: 14px; font-weight: 500;">${msg}</p>
+                                <button type="button" class="dfn-mobile-btn secondary btn-dismiss-scan" style="width:100%; justify-content:center; font-weight:700;">
+                                    ✕ Chiudi Avviso e Riprova Scansione
+                                </button>
                             </div>
                         `;
+                        const dismissBtn = resultBox.querySelector('.btn-dismiss-scan');
+                        if (dismissBtn) {
+                            dismissBtn.addEventListener('click', () => {
+                                vibrate(30);
+                                resetScannerState();
+                            });
+                        }
                     }
                     showToast('❌ Codice non valido', 'error');
                 }
-                if (callback) callback();
             })
             .catch(() => {
+                // BLOCCO SU ERRORE DI RETE: Nessun timer automatico, richiede chiusura manuale
                 if (resultBox) {
                     resultBox.className = 'dfn-scanner-result-box error';
-                    resultBox.innerHTML = '<div class="dfn-scan-card danger">⚠️ Errore di connessione col server.</div>';
+                    resultBox.innerHTML = `
+                        <div class="dfn-scan-card danger">
+                            <span class="dfn-scan-badge danger">⚠️ ERRORE CONNESSIONE</span>
+                            <p style="margin: 6px 0 12px; font-size: 14px;">Impossibile contattare il server. Verifica la connessione.</p>
+                            <button type="button" class="dfn-mobile-btn secondary btn-dismiss-scan" style="width:100%; justify-content:center; font-weight:700;">
+                                ✕ Chiudi Avviso e Riprova Scansione
+                            </button>
+                        </div>
+                    `;
+                    const dismissBtn = resultBox.querySelector('.btn-dismiss-scan');
+                    if (dismissBtn) {
+                        dismissBtn.addEventListener('click', () => {
+                            vibrate(30);
+                            resetScannerState();
+                        });
+                    }
                 }
-                if (callback) callback();
+                showToast('⚠️ Errore di connessione', 'error');
             });
     }
 
@@ -617,13 +705,68 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <span class="dfn-scan-badge success">✅ INCASSO & CHECK-IN COMPLETATI!</span>
                                 <h4>${res.data.customer_name || 'Acquirente'}</h4>
                                 <p>💶 Pagamento registrato in loco con successo.</p>
+                                <button type="button" class="dfn-mobile-btn secondary compact btn-dismiss-scan" style="margin-top:10px; width:100%; justify-content:center;">
+                                    🔄 Prossima Scansione
+                                </button>
                             </div>
                         `;
+                        const dismissBtn = resultBox.querySelector('.btn-dismiss-scan');
+                        if (dismissBtn) {
+                            dismissBtn.addEventListener('click', () => {
+                                vibrate(30);
+                                resetScannerState();
+                            });
+                        }
                     }
                     showToast('✅ Incasso completato!', 'success');
+                    autoResetTimer = setTimeout(() => {
+                        resetScannerState();
+                    }, 3500);
                 } else {
-                    showToast('⚠️ Errore incasso: ' + (res.data ? res.data.message : ''), 'error');
+                    const errText = (res.data && res.data.message) ? res.data.message : 'Impossibile completare l\'incasso.';
+                    if (resultBox) {
+                        resultBox.className = 'dfn-scanner-result-box error';
+                        resultBox.innerHTML = `
+                            <div class="dfn-scan-card danger">
+                                <span class="dfn-scan-badge danger">⚠️ ERRORE INCASSO</span>
+                                <p style="margin: 6px 0 12px; font-size: 14px;">${errText}</p>
+                                <button type="button" class="dfn-mobile-btn secondary btn-dismiss-scan" style="width:100%; justify-content:center;">
+                                    ✕ Chiudi Avviso e Riprova
+                                </button>
+                            </div>
+                        `;
+                        const dismissBtn = resultBox.querySelector('.btn-dismiss-scan');
+                        if (dismissBtn) {
+                            dismissBtn.addEventListener('click', () => {
+                                vibrate(30);
+                                resetScannerState();
+                            });
+                        }
+                    }
+                    showToast('⚠️ Errore incasso: ' + errText, 'error');
                 }
+            })
+            .catch(() => {
+                if (resultBox) {
+                    resultBox.className = 'dfn-scanner-result-box error';
+                    resultBox.innerHTML = `
+                        <div class="dfn-scan-card danger">
+                            <span class="dfn-scan-badge danger">⚠️ ERRORE DI RETE</span>
+                            <p style="margin: 6px 0 12px; font-size: 14px;">Errore di connessione durante la registrazione dell'incasso.</p>
+                            <button type="button" class="dfn-mobile-btn secondary btn-dismiss-scan" style="width:100%; justify-content:center;">
+                                ✕ Chiudi Avviso e Riprova
+                            </button>
+                        </div>
+                    `;
+                    const dismissBtn = resultBox.querySelector('.btn-dismiss-scan');
+                    if (dismissBtn) {
+                        dismissBtn.addEventListener('click', () => {
+                            vibrate(30);
+                            resetScannerState();
+                        });
+                    }
+                }
+                showToast('⚠️ Errore di rete', 'error');
             });
     }
 
