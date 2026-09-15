@@ -107,6 +107,14 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             );
 
             wp_enqueue_script(
+                'jsqr',
+                trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/jsqr.min.js',
+                [],
+                '1.4.0',
+                true
+            );
+
+            wp_enqueue_script(
                 'html5-qrcode',
                 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
                 [],
@@ -117,7 +125,7 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             wp_enqueue_script(
                 'dfn-mobile-app-js',
                 trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-mobile-app.js',
-                [ 'html5-qrcode' ],
+                [ 'html5-qrcode', 'jsqr' ],
                 (string) time(),
                 true
             );
