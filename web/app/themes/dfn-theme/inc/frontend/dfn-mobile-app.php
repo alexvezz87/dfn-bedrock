@@ -1296,8 +1296,20 @@ function dfn_render_mobile_app(): void
             <section id="dfn-tab-scanner" class="dfn-mobile-tab-pane <?php echo $default_tab === 'scanner' ? 'active' : ''; ?>">
                 <div class="dfn-mobile-card dfn-scanner-card">
                     <div class="dfn-scanner-header">
-                        <h3>🔍 Scanner QR Code Live</h3>
-                        <p>Inquadra il codice QR del biglietto: la convalida avverrà in automatico.</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <div>
+                                <h3>🔍 Scanner QR Code Live</h3>
+                                <p>Inquadra il codice QR del biglietto: la convalida avverrà in automatico.</p>
+                            </div>
+                            <div class="dfn-scanner-header-actions" style="display: flex; gap: 6px; flex-shrink: 0;">
+                                <button type="button" id="dfn-btn-switch-camera" class="dfn-mobile-btn secondary compact" style="display: none; padding: 6px 10px; font-size: 13px;" title="Cambia Fotocamera">
+                                    🔄 Camera
+                                </button>
+                                <button type="button" id="dfn-btn-toggle-torch" class="dfn-mobile-btn secondary compact" style="display: none; padding: 6px 10px; font-size: 13px;" title="Torcia / Flash">
+                                    🔦 Torcia
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Contenitore Videocamera Html5Qrcode Full Width -->

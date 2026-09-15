@@ -637,13 +637,13 @@ html {
     gap: 10px;
 }
 
-/* SCANNER VIEWPORT COMPATTO */
+/* SCANNER VIEWPORT COMPATTO & OTTIMIZZATO PER iOS/ANDROID */
 .dfn-scanner-card {
     padding: 10px 12px;
 }
 
 .dfn-scanner-header {
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 .dfn-scanner-header h3 {
@@ -660,25 +660,42 @@ html {
 .dfn-scanner-camera-viewport {
     position: relative;
     width: 100%;
-    height: 230px;
-    max-height: 230px;
+    min-height: 250px;
     background: #000000;
-    border-radius: 12px;
+    border-radius: 14px;
     overflow: hidden;
     margin: 6px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 #dfn-mobile-qr-reader {
-    width: 100%;
-    height: 230px;
-    max-height: 230px;
+    width: 100% !important;
+    border-radius: 14px;
+    overflow: hidden;
+    border: none !important;
 }
 
 #dfn-mobile-qr-reader video {
     width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
+    height: auto !important;
+    max-height: 380px !important;
+    object-fit: contain !important;
+    border-radius: 14px;
+    display: block;
+}
+
+#dfn-mobile-qr-reader canvas {
+    border-radius: 14px;
+}
+
+#dfn-mobile-qr-reader__scan_region {
     border-radius: 12px;
+}
+
+#dfn-mobile-qr-reader__dashboard_section {
+    padding: 4px 0 !important;
 }
 
 /* SCANNER RESULT BOX & CARDS */
