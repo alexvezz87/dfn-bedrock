@@ -36,7 +36,16 @@ function dfn_enqueue_scanner_assets($hook): void
         '2.0.0',
     );
 
-    // Libreria esterna per la decodifica dei QR Code via camera
+    // Libreria di decodifica QR ad altissima affidabilità (iOS & Android)
+    wp_enqueue_script(
+        'jsqr',
+        get_stylesheet_directory_uri() . '/assets/js/jsqr.min.js',
+        [],
+        '1.4.0',
+        false
+    );
+
+    // Libreria per gestione stream fotocamera
     wp_enqueue_script(
         'html5-qrcode',
         'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
@@ -49,7 +58,7 @@ function dfn_enqueue_scanner_assets($hook): void
     wp_enqueue_script(
         'dfn-scanner-js',
         get_stylesheet_directory_uri() . '/assets/js/dfn-scanner.js',
-        [ 'html5-qrcode', 'jquery' ],
+        [ 'html5-qrcode', 'jsqr', 'jquery' ],
         '2.0.0',
         true,
     );
