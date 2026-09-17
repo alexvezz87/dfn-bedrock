@@ -21,24 +21,31 @@
             });
         }
 
-        // 1b. Logica condizionale per la creazione automatica del prodotto WooCommerce
-        function toggleAutoProductTitleField() {
-            var selectedProduct = $('#product_id').val();
-            if (selectedProduct === 'new') {
-                $('#dfn-auto-product-title-group').slideDown(250);
-                $('#event_title').prop('required', true);
-            } else {
-                $('#dfn-auto-product-title-group').slideUp(200);
-                $('#event_title').prop('required', false);
-            }
-        }
-
-        if ($('#product_id').length > 0) {
-            toggleAutoProductTitleField();
-        }
-
+        // 1b. Sincronizzazione automatica del titolo con la selezione del prodotto WooCommerce
         $(document).on('change', '#product_id', function() {
-            toggleAutoProductTitleField();
+            var selectedProduct = $(this).val();
+            var $eventTitle = $('#event_title');
+            if (!$eventTitle.length) return;
+
+            if (selectedProduct && selectedProduct !== 'new') {
+                var selectedOption = $(this).find('option:selected');
+                var productTitle = selectedOption.data('product-title');
+                if (!productTitle) {
+                    productTitle = selectedOption.text().replace(/\s*\(ID:\s*\d+\)\s*$/, '').trim();
+                }
+                if (productTitle && (!$eventTitle.val() || $eventTitle.data('auto-synced'))) {
+                    $eventTitle.val(productTitle).data('auto-synced', true);
+                }
+            } else if (selectedProduct === 'new') {
+                if ($eventTitle.data('auto-synced')) {
+                    $eventTitle.val('').data('auto-synced', false);
+                }
+                $eventTitle.focus();
+            }
+        });
+
+        $(document).on('input', '#event_title', function() {
+            $(this).data('auto-synced', false);
         });
 
         // 2. Logica condizionale dei campi del form in base alla modalità di accesso
