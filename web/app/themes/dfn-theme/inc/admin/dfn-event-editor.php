@@ -97,8 +97,9 @@ function dfn_render_event_editor()
                 $message_type = 'error';
             } else {
                 $product_id = 0;
+                $event_title = isset($_POST['event_title']) ? sanitize_text_field(wp_unslash($_POST['event_title'])) : '';
+
                 if ($product_id_raw === 'new') {
-                    $event_title = isset($_POST['event_title']) ? sanitize_text_field(wp_unslash($_POST['event_title'])) : '';
                     if (empty($event_title)) {
                         $event_title = 'Evento FAI - ' . date_i18n('d M Y', strtotime($event_date_start));
                     }
@@ -149,6 +150,17 @@ function dfn_render_event_editor()
                     }
                 } else {
                     $product_id = intval($product_id_raw);
+
+                    // Se il titolo dell'evento è stato modificato, aggiorna il titolo del prodotto WooCommerce collegato
+                    if ($product_id > 0 && ! empty($event_title)) {
+                        $current_product_post = get_post($product_id);
+                        if ($current_product_post && $current_product_post->post_title !== $event_title) {
+                            wp_update_post([
+                                'ID'         => $product_id,
+                                'post_title' => $event_title,
+                            ]);
+                        }
+                    }
                 }
 
                 // Associa l'immagine in evidenza al prodotto WooCommerce
@@ -260,6 +272,9 @@ function dfn_render_event_editor()
     $is_post = ($_SERVER['REQUEST_METHOD'] === 'POST');
 
     $p_id             = $is_post && isset($_POST['product_id']) ? sanitize_text_field($_POST['product_id']) : ($event ? $event->product_id : 0);
+    $current_event_title = $is_post && isset($_POST['event_title'])
+        ? sanitize_text_field(wp_unslash($_POST['event_title']))
+        : ($p_id > 0 ? get_the_title($p_id) : '');
     $date_start       = $is_post && isset($_POST['event_date_start']) ? sanitize_text_field($_POST['event_date_start']) : ($event ? $event->event_date_start : '');
     $date_end         = $is_post && isset($_POST['event_date_end']) ? sanitize_text_field($_POST['event_date_end']) : ($event ? $event->event_date_end : '');
     $time_start       = $is_post && isset($_POST['event_time_start']) ? sanitize_text_field($_POST['event_time_start']) : ($event ? $event->event_time_start : '');
@@ -325,32 +340,38 @@ function dfn_render_event_editor()
             <div class="dfn-layout-columns">
                 <!-- Colonna Principale (Configurazioni) -->
                 <div class="dfn-column-main">
-                    <!-- Blocco 1: Associazione WooCommerce -->
+                    <!-- Blocco 1: Titolo Evento & Associazione WooCommerce -->
                     <div class="dfn-card">
                         <div class="dfn-card-header">
-                            <h2>⚙️ <?php esc_html_e('Associazione Prodotto', 'dfn-theme'); ?></h2>
+                            <h2>⚙️ <?php esc_html_e('Titolo Evento & Associazione Prodotto', 'dfn-theme'); ?></h2>
                         </div>
                         <div class="dfn-card-body">
-                            <p class="description"><?php esc_html_e('Collega questa configurazione di turni e listino ad un Prodotto WooCommerce esistente. Il prodotto funge da carrello per il check-out.', 'dfn-theme'); ?></p>
-                            
+                            <div class="dfn-form-group" style="margin-bottom: 20px;">
+                                <label for="event_title" class="dfn-label" style="font-size: 14px; font-weight: 700; color: #004b23;">
+                                    🏷️ <?php esc_html_e('Titolo dell\'Evento / Biglietto', 'dfn-theme'); ?> <span class="required">*</span>
+                                </label>
+                                <input type="text" name="event_title" id="event_title" value="<?php echo esc_attr($current_event_title); ?>" required class="dfn-input" style="font-size: 15px; font-weight: 600; padding: 10px 14px;" placeholder="<?php esc_attr_e('Es: Visita al Castello Visconteo', 'dfn-theme'); ?>">
+                                <p class="description" style="margin-top: 6px; font-size: 12px; color: #64748b;">
+                                    <?php esc_html_e('Puoi modificare il titolo dell\'evento in qualsiasi momento. La modifica aggiornerà automaticamente anche il nome del Prodotto WooCommerce collegato.', 'dfn-theme'); ?>
+                                </p>
+                            </div>
+
                             <div class="dfn-form-group">
                                 <label for="product_id" class="dfn-label"><?php esc_html_e('Prodotto WooCommerce Collegato', 'dfn-theme'); ?> <span class="required">*</span><?php dfn_tooltip_icon('dfn-tip-product', 'Informazioni: Prodotto WooCommerce Collegato'); ?></label>
                                 <select name="product_id" id="product_id" class="dfn-select2" required style="width:100%;">
                                     <option value=""><?php esc_html_e('Seleziona un prodotto...', 'dfn-theme'); ?></option>
                                     <?php if ($event_id === 0) : ?>
-                                        <option value="new"><?php esc_html_e('🆕 Crea automaticamente un nuovo Prodotto WooCommerce', 'dfn-theme'); ?></option>
+                                        <option value="new" <?php selected($p_id, 'new'); ?>><?php esc_html_e('🆕 Crea automaticamente un nuovo Prodotto WooCommerce', 'dfn-theme'); ?></option>
                                     <?php endif; ?>
                                     <?php foreach ($products as $prod) : ?>
-                                        <option value="<?php echo $prod->ID; ?>" <?php selected($p_id, $prod->ID); ?>><?php echo esc_html($prod->post_title); ?> (ID: <?php echo $prod->ID; ?>)</option>
+                                        <option value="<?php echo $prod->ID; ?>" <?php selected((string)$p_id, (string)$prod->ID); ?> data-product-title="<?php echo esc_attr($prod->post_title); ?>">
+                                            <?php echo esc_html($prod->post_title); ?> (ID: <?php echo $prod->ID; ?>)
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
-
-                                <?php if ($event_id === 0) : ?>
-                                    <div class="dfn-form-group" id="dfn-auto-product-title-group" style="display:none; margin-top: 15px;">
-                                        <label for="event_title" class="dfn-label"><?php esc_html_e('Titolo del Nuovo Evento / Biglietto', 'dfn-theme'); ?> <span class="required">*</span></label>
-                                        <input type="text" name="event_title" id="event_title" class="dfn-input" placeholder="<?php esc_attr_e('Es: Visita al Castello Visconteo', 'dfn-theme'); ?>">
-                                    </div>
-                                <?php endif; ?>
+                                <p class="description" style="margin-top: 6px; font-size: 12px; color: #64748b;">
+                                    <?php esc_html_e('Collega questa configurazione di turni e listino ad un Prodotto WooCommerce esistente. Il prodotto funge da carrello per il check-out.', 'dfn-theme'); ?>
+                                </p>
                             </div>
                         </div>
                     </div>
