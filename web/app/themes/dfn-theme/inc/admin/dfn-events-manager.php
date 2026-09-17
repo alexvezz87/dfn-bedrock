@@ -317,6 +317,25 @@ function dfn_render_events_manager()
             }
         }
 
+        if ('duplicate' === $_GET['action']) {
+            if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'dfn_dup_event_' . $event_id)) {
+                if (! function_exists('dfn_db_duplicate_event')) {
+                    require_once get_template_directory() . '/inc/core/dfn-database.php';
+                }
+                $new_event_id = dfn_db_duplicate_event($event_id);
+                if ($new_event_id) {
+                    wp_safe_redirect(admin_url('admin.php?page=dfn-event-edit&id=' . $new_event_id . '&duplicated=1'));
+                    exit;
+                } else {
+                    $message = __('Impossibile duplicare l\'evento selezionato.', 'dfn-theme');
+                    $message_type = 'error';
+                }
+            } else {
+                $message = __('Errore di sicurezza durante la duplicazione.', 'dfn-theme');
+                $message_type = 'error';
+            }
+        }
+
         if ('recalculate_slots' === $_GET['action']) {
             if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'dfn_recalc_slots_' . $event_id)) {
                 if (! function_exists('dfn_db_recalculate_event_slots_booked_count')) {
@@ -432,6 +451,7 @@ function dfn_render_events_manager()
                                     <strong><a class="row-title" href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php echo esc_html($product_name); ?></a></strong>
                                     <div class="row-actions">
                                         <span class="edit"><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php esc_html_e('Modifica', 'dfn-theme'); ?></a> | </span>
+                                        <span class="duplicate"><a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=duplicate&event_id=' . $event->id), 'dfn_dup_event_' . $event->id)); ?>" style="color:#004b23; font-weight:600;"><?php esc_html_e('Duplica', 'dfn-theme'); ?></a> | </span>
                                         <span class="view"><a href="<?php echo esc_url(get_permalink($event->product_id)); ?>" target="_blank"><?php esc_html_e('Vedi Prodotto', 'dfn-theme'); ?></a> | </span>
                                         <span class="trash"><a class="submitdelete dfn-btn-delete" href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=delete&event_id=' . $event->id), 'dfn_del_event_' . $event->id)); ?>"><?php esc_html_e('Elimina', 'dfn-theme'); ?></a></span>
                                     </div>
@@ -486,6 +506,12 @@ function dfn_render_events_manager()
                                 </td>
                                 <td class="column-actions">
                                     <div class="dfn-actions-row">
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>" class="button button-small dfn-action-btn" title="<?php esc_attr_e('Modifica la configurazione dell\'evento', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-edit"></span> <?php esc_html_e('Modifica', 'dfn-theme'); ?>
+                                        </a>
+                                        <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=duplicate&event_id=' . $event->id), 'dfn_dup_event_' . $event->id)); ?>" class="button button-small dfn-action-btn" style="color:#004b23; font-weight:600;" title="<?php esc_attr_e('Crea una copia esatta di questo evento in stato Bozza', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-admin-page"></span> <?php esc_html_e('Duplica', 'dfn-theme'); ?>
+                                        </a>
                                         <?php if ('time_slots' === $event->access_type) : ?>
                                             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-slot-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-turni" title="<?php esc_attr_e('Gestione Visuale dei Turni e delle Prenotazioni', 'dfn-theme'); ?>">
                                                 <span class="dashicons dashicons-admin-generic"></span> <?php esc_html_e('Turni', 'dfn-theme'); ?>

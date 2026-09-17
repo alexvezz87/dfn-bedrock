@@ -285,6 +285,7 @@ function dfn_render_event_editor()
     $layout_sel       = $is_post && isset($_POST['detail_layout']) ? sanitize_text_field($_POST['detail_layout']) : ($event && ! empty($event->detail_layout) ? $event->detail_layout : 'auto');
     $booking_opening  = $is_post && isset($_POST['booking_opening_date']) ? sanitize_text_field($_POST['booking_opening_date']) : ($event && ! empty($event->booking_opening_date) ? date('Y-m-d\TH:i', strtotime($event->booking_opening_date)) : '');
     $booking_stat     = $is_post && isset($_POST['booking_status']) ? sanitize_text_field($_POST['booking_status']) : ($event && ! empty($event->booking_status) ? $event->booking_status : 'open');
+    $is_duplicated    = isset($_GET['duplicated']) && $_GET['duplicated'] === '1';
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header">
@@ -292,10 +293,27 @@ function dfn_render_event_editor()
                 <span class="dashicons dashicons-edit-page"></span>
                 <h1><?php echo $event_id > 0 ? esc_html__('Modifica Evento FAI', 'dfn-theme') : esc_html__('Configura Nuovo Evento FAI', 'dfn-theme'); ?></h1>
             </div>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-events')); ?>" class="page-title-action dfn-btn dfn-btn-secondary">
-                <span class="dashicons dashicons-arrow-left-alt"></span> <?php esc_html_e('Torna al Tabellone', 'dfn-theme'); ?>
-            </a>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <?php if ($event_id > 0) : ?>
+                    <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=duplicate&event_id=' . $event_id), 'dfn_dup_event_' . $event_id)); ?>" class="page-title-action dfn-btn dfn-btn-secondary" style="color:#004b23; font-weight:700;">
+                        <span class="dashicons dashicons-admin-page"></span> <?php esc_html_e('Duplica questo Evento', 'dfn-theme'); ?>
+                    </a>
+                <?php endif; ?>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-events')); ?>" class="page-title-action dfn-btn dfn-btn-secondary">
+                    <span class="dashicons dashicons-arrow-left-alt"></span> <?php esc_html_e('Torna al Tabellone', 'dfn-theme'); ?>
+                </a>
+            </div>
         </header>
+
+        <?php if ($is_duplicated) : ?>
+            <div class="notice notice-success is-dismissible" style="border-left-color: #004b23; padding: 12px 16px;">
+                <p style="font-size: 14px; margin: 0;">
+                    <strong>📋 <?php esc_html_e('Evento duplicato con successo!', 'dfn-theme'); ?></strong>
+                    <br>
+                    <?php esc_html_e('È stata creata una copia esatta dell\'evento e dei suoi turni in stato "Bozza". Modifica le date, gli orari o il titolo desiderati e clicca su "Salva Modifiche".', 'dfn-theme'); ?>
+                </p>
+            </div>
+        <?php endif; ?>
 
         <?php if (! empty($message)) : ?>
             <div class="notice notice-<?php echo esc_attr($message_type); ?> is-dismissible"><p><?php echo esc_html($message); ?></p></div>

@@ -768,6 +768,30 @@ function dfn_render_fai_members_page(): void
                                         </td>
                                         <td style="white-space: nowrap;">
                                             <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                                <?php
+                                                $fai_wp_uid = 0;
+                                                if (! empty($m->user_id)) {
+                                                    $fai_wp_uid = intval($m->user_id);
+                                                } elseif (! empty($m->email)) {
+                                                    $found_u = get_user_by('email', $m->email);
+                                                    if ($found_u) {
+                                                        $fai_wp_uid = $found_u->ID;
+                                                    }
+                                                }
+                                                if ($fai_wp_uid > 0 && current_user_can('manage_options') && $fai_wp_uid !== get_current_user_id()) :
+                                                    $switch_fai_url = wp_nonce_url(
+                                                        add_query_arg([
+                                                            'action'      => 'dfn_switch_to_user',
+                                                            'user_id'     => $fai_wp_uid,
+                                                            'redirect_to' => urlencode(wc_get_page_permalink('myaccount')),
+                                                        ], home_url('/')),
+                                                        'dfn_switch_to_user_' . $fai_wp_uid
+                                                    );
+                                                ?>
+                                                    <a href="<?php echo esc_url($switch_fai_url); ?>" style="color: #0284c7; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Accedi immediatamente con l\'account di questo Socio', 'dfn-theme'); ?>">
+                                                        <span class="dashicons dashicons-admin-users" style="font-size: 18px; width: 18px; height: 18px;"></span>
+                                                    </a>
+                                                <?php endif; ?>
                                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=edit&member_id=' . $m->id)); ?>" style="color: #004b23; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Modifica dati socio', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-edit" style="font-size: 18px; width: 18px; height: 18px;"></span>
                                                 </a>
