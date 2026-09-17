@@ -925,12 +925,11 @@ function dfn_db_duplicate_event(int $event_id)
                 'slot_date'       => $slot->slot_date,
                 'slot_time_start' => $slot->slot_time_start,
                 'slot_time_end'   => $slot->slot_time_end,
-                'slot_capacity'   => $slot->slot_capacity,
+                'capacity'        => $slot->capacity,
+                'bonus_capacity'  => $slot->bonus_capacity,
                 'booked_count'    => 0,
-                'status'          => 'available',
-                'staff_config'    => $slot->staff_config,
+                'is_locked'       => 0,
                 'created_at'      => current_time('mysql'),
-                'updated_at'      => current_time('mysql'),
             ]);
         }
     }
