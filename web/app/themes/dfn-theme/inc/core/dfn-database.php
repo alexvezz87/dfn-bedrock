@@ -1443,3 +1443,155 @@ function dfn_get_volunteer_role_by_key(string $role_key)
 }
 
 
+/**
+ * Duplica un evento esistente, il relativo prodotto WooCommerce e gli slot orari.
+ * L'evento duplicato viene creato con stato 'draft' (Bozza) e con prenotazioni azzerate.
+ *
+ * @param int $event_id ID dell'evento originale da duplicare.
+ * @return int|false ID del nuovo evento creato, oppure false in caso di errore.
+ */
+function dfn_db_duplicate_event(int $event_id)
+{
+    global $wpdb;
+    $table_events = $wpdb->prefix . 'dfn_events';
+    $table_slots  = $wpdb->prefix . 'dfn_event_slots';
+
+    $event = dfn_db_get_event($event_id);
+    if (! $event) {
+        return false;
+    }
+
+    $new_product_id = 0;
+
+    // 1. Duplica il prodotto WooCommerce associato se presente
+    if (! empty($event->product_id)) {
+        $orig_product_post = get_post($event->product_id);
+        if ($orig_product_post) {
+            $new_title = sprintf(__('Copia di %s', 'dfn-theme'), $orig_product_post->post_title);
+
+            $new_product_id = wp_insert_post([
+                'post_title'   => $new_title,
+                'post_content' => $orig_product_post->post_content,
+                'post_excerpt' => $orig_product_post->post_excerpt,
+                'post_status'  => 'publish',
+                'post_type'    => 'product',
+                'post_author'  => get_current_user_id(),
+            ]);
+
+            if (! is_wp_error($new_product_id) && $new_product_id > 0) {
+                // Clona le tassonomie del prodotto (tipo, categorie, tag)
+                $taxonomies = get_object_taxonomies('product');
+                foreach ($taxonomies as $tax) {
+                    $terms = wp_get_object_terms($event->product_id, $tax, ['fields' => 'slugs']);
+                    if (! empty($terms) && ! is_wp_error($terms)) {
+                        wp_set_object_terms($new_product_id, $terms, $tax);
+                    }
+                }
+
+                // Clona i metadati del prodotto
+                $meta_keys = [
+                    '_price',
+                    '_regular_price',
+                    '_sale_price',
+                    '_virtual',
+                    '_sold_individually',
+                    '_thumbnail_id',
+                    '_product_image_gallery',
+                    '_manage_stock',
+                    '_stock_status',
+                    '_dfn_is_fai_event',
+                    '_dfn_event_pricing_type',
+                    '_dfn_price_standard',
+                    '_dfn_price_fai',
+                    '_dfn_event_location',
+                    '_dfn_event_city',
+                    '_dfn_event_date_start',
+                    '_dfn_event_date_end',
+                ];
+
+                foreach ($meta_keys as $key) {
+                    $val = get_post_meta($event->product_id, $key, true);
+                    if ($val !== '') {
+                        update_post_meta($new_product_id, $key, $val);
+                    }
+                }
+
+                // Assicura tipo simple e virtuale
+                wp_set_object_terms($new_product_id, 'simple', 'product_type');
+                update_post_meta($new_product_id, '_virtual', 'yes');
+                update_post_meta($new_product_id, '_sold_individually', 'yes');
+            } else {
+                $new_product_id = 0;
+            }
+        }
+    }
+
+    // 2. Inserisci la nuova riga in wp_dfn_events con stato 'draft'
+    $event_data = [
+        'product_id'           => $new_product_id,
+        'event_date_start'     => $event->event_date_start,
+        'event_date_end'       => $event->event_date_end ?: $event->event_date_start,
+        'event_time_start'     => $event->event_time_start,
+        'event_time_end'       => $event->event_time_end,
+        'location'             => $event->location,
+        'city'                 => $event->city ?? '',
+        'description'          => $event->description,
+        'access_type'          => $event->access_type,
+        'allocation_mode'      => $event->allocation_mode,
+        'approval_workflow'    => $event->approval_workflow,
+        'payment_mode'         => $event->payment_mode,
+        'slot_duration'        => $event->slot_duration,
+        'slot_capacity'        => $event->slot_capacity,
+        'slot_bonus'           => $event->slot_bonus,
+        'first_slot_time'      => $event->first_slot_time,
+        'last_slot_time'       => $event->last_slot_time,
+        'total_capacity'       => $event->total_capacity,
+        'price_standard'       => $event->price_standard,
+        'price_fai'            => $event->price_fai,
+        'staff_config'         => $event->staff_config,
+        'status'               => 'draft', // Sempre bozza per consentire controllo date
+        'auto_cancel_hours'    => $event->auto_cancel_hours,
+        'detail_layout'        => $event->detail_layout ?? 'auto',
+        'booking_opening_date' => $event->booking_opening_date,
+        'booking_status'       => $event->booking_status ?? 'open',
+        'created_at'           => current_time('mysql'),
+        'updated_at'           => current_time('mysql'),
+    ];
+
+    $inserted = $wpdb->insert($table_events, $event_data);
+    if (! $inserted) {
+        return false;
+    }
+
+    $new_event_id = (int) $wpdb->insert_id;
+
+    // Collega l'ID evento al prodotto WooCommerce
+    if ($new_product_id > 0) {
+        update_post_meta($new_product_id, '_dfn_event_id', $new_event_id);
+    }
+
+    // 3. Duplica i turni orari (wp_dfn_event_slots) con prenotazioni a zero
+    $orig_slots = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM {$table_slots} WHERE event_id = %d ORDER BY slot_date ASC, slot_time_start ASC",
+        $event_id
+    ));
+
+    if (! empty($orig_slots)) {
+        foreach ($orig_slots as $slot) {
+            $wpdb->insert($table_slots, [
+                'event_id'        => $new_event_id,
+                'slot_date'       => $slot->slot_date,
+                'slot_time_start' => $slot->slot_time_start,
+                'slot_time_end'   => $slot->slot_time_end,
+                'capacity'        => $slot->capacity,
+                'bonus_capacity'  => $slot->bonus_capacity,
+                'booked_count'    => 0,
+                'is_locked'       => 0,
+                'created_at'      => current_time('mysql'),
+            ]);
+        }
+    }
+
+    return $new_event_id;
+}
+
