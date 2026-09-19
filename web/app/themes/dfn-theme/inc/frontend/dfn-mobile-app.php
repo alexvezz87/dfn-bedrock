@@ -168,6 +168,67 @@ function dfn_ajax_mobile_search_events(): void
 }
 add_action('wp_ajax_dfn_mobile_search_events', 'dfn_ajax_mobile_search_events');
 
+if (! function_exists('dfn_get_booking_payment_info')) {
+    /**
+     * Calcola lo stato del pagamento reale e il metodo di pagamento per una prenotazione.
+     * Allinea perfettamente desktop e mobile verificando lo stato dell'ordine WooCommerce se presente.
+     */
+    function dfn_get_booking_payment_info($b, $order = null): array
+    {
+        if (! $order && ! empty($b->order_id)) {
+            $order = wc_get_order($b->order_id);
+        }
+
+        $is_paid        = false;
+        $payment_status = 'da_pagare';
+        $payment_label  = 'Da pagare';
+        $payment_method = '';
+
+        if ($order) {
+            $order_status   = $order->get_status();
+            $payment_method = $order->get_payment_method_title() ?: $order->get_payment_method();
+
+            if (in_array($order_status, ['completed', 'processing'], true) || (method_exists($order, 'is_paid') && $order->is_paid())) {
+                $is_paid        = true;
+                $payment_status = 'pagato';
+                $payment_label  = 'Pagato';
+            } elseif (in_array($order_status, ['failed', 'cancelled', 'refunded'], true)) {
+                $is_paid        = false;
+                $payment_status = 'fallito';
+                $payment_label  = 'Fallito';
+            } else {
+                // 'pending', 'on-hold', ecc.
+                $is_paid        = false;
+                $payment_status = 'da_pagare';
+                $payment_label  = 'Da pagare';
+            }
+        } else {
+            // Nessun ordine WooCommerce (prenotazione manuale / cassa diretta)
+            $payment_method = ! empty($b->payment_method) ? $b->payment_method : 'In loco';
+            if (floatval($b->amount_due) > 0) {
+                $is_paid        = false;
+                $payment_status = 'da_pagare';
+                $payment_label  = 'Da pagare in loco';
+            } else {
+                $is_paid        = true;
+                $payment_status = 'pagato';
+                $payment_label  = 'Pagato';
+            }
+        }
+
+        if (empty($payment_method)) {
+            $payment_method = ! empty($b->payment_method) ? $b->payment_method : 'N/D';
+        }
+
+        return [
+            'is_paid'        => $is_paid,
+            'payment_status' => $payment_status,
+            'payment_label'  => $payment_label,
+            'payment_method' => $payment_method,
+        ];
+    }
+}
+
 /**
  * AJAX Handler per recuperare i dettagli del check-in mobile di un evento.
  */
@@ -333,8 +394,12 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
             $total_checked_in += intval($b->total_persons);
         }
 
+        $order    = ! empty($b->order_id) ? wc_get_order($b->order_id) : null;
+        $pay_info = dfn_get_booking_payment_info($b, $order);
+
         $formatted_bookings[] = [
             'id'              => intval($b->id),
+            'order_id'        => intval($b->order_id),
             'customer_name'   => esc_html($b->customer_name),
             'customer_email'  => esc_html($b->customer_email),
             'customer_phone'  => esc_html($b->customer_phone ?: ''),
@@ -343,6 +408,10 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
             'persons_fai'     => intval($b->persons_fai),
             'amount_due'      => floatval($b->amount_due),
             'amount_paid'     => floatval($b->amount_paid),
+            'is_paid'         => $pay_info['is_paid'],
+            'payment_status'  => $pay_info['payment_status'],
+            'payment_label'   => $pay_info['payment_label'],
+            'payment_method'  => $pay_info['payment_method'],
             'checked_in'      => $is_checked,
             'checked_in_time' => ($is_checked && ! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') ? date('H:i', strtotime($b->checked_in_at)) : '',
             'qr_token'        => esc_html($b->qr_token),
@@ -798,6 +867,7 @@ function dfn_ajax_mobile_get_booking_details(): void
     }
 
     $is_checked = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in';
+    $pay_info   = dfn_get_booking_payment_info($b, $order);
 
     $data = [
         'id'                 => intval($b->id),
@@ -808,8 +878,9 @@ function dfn_ajax_mobile_get_booking_details(): void
         'customer_phone'     => esc_html($b->customer_phone ?: 'Non fornito'),
         'status'             => $b->status,
         'status_label'       => ('cancelled' === $b->status ? 'Annullata' : ($is_checked ? 'Validato / Entrato' : 'In Attesa')),
-        'payment_method'     => esc_html($b->payment_method ?: 'stripe'),
-        'payment_status'     => ($b->amount_due > 0 ? 'Da pagare in loco' : 'Pagato'),
+        'payment_method'     => esc_html($pay_info['payment_method']),
+        'payment_status'     => esc_html($pay_info['payment_label']),
+        'is_paid'            => $pay_info['is_paid'],
         'total_persons'      => intval($b->total_persons),
         'persons_std'        => intval($b->persons_standard),
         'persons_fai'        => intval($b->persons_fai),
