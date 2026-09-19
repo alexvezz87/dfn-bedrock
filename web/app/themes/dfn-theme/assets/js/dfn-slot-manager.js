@@ -1476,6 +1476,11 @@
                         displayName += '<div style="font-size:9px; color:#334155; font-style:italic; margin-top:2px; font-weight:normal;">💬 Note: ' + b.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
                     }
 
+                    var contribution = (b.order_total !== undefined && b.order_total !== null) ? parseFloat(b.order_total).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' }) : '€ 0,00';
+                    var isPaid = (b.payment_status === 'pagato');
+                    var paymentStatusText = isPaid ? 'Pagato' : 'Da pagare';
+                    var paymentStatusClass = isPaid ? 'payment-status-pagato' : 'payment-status-non-pagato';
+
                     printHtml += '<tr>';
                     printHtml += '<td>' + (idx + 1) + '</td>';
                     printHtml += '<td><strong>' + displayName + '</strong></td>';

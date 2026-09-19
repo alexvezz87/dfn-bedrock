@@ -966,6 +966,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const isCancelled = b.status === 'cancelled';
         const statusBadgeClass = isCancelled ? 'danger' : (b.checked_in ? 'success' : 'pending');
+        const payClass = b.is_paid ? 'dfn-pay-badge--paid' : 'dfn-pay-badge--unpaid';
+        const payIcon = b.is_paid ? '✅' : '⏳';
+        const payMethod = b.payment_method ? ` <small style="color:#64748b; font-weight:normal;">(${b.payment_method})</small>` : '';
 
         let html = `
             <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:14px; border-radius:10px; margin-bottom:14px;">
@@ -976,7 +979,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 <p style="margin:3px 0; font-size:13px; color:#475569;">📧 <strong>Email:</strong> ${b.customer_email}</p>
                 <p style="margin:3px 0; font-size:13px; color:#475569;">📞 <strong>Telefono:</strong> ${b.customer_phone}</p>
                 <p style="margin:3px 0; font-size:13px; color:#475569;">🧾 <strong>Ordine WC:</strong> #${b.order_id || 'N/D'} (${b.created_at})</p>
-                <p style="margin:3px 0; font-size:13px; color:#475569;">💳 <strong>Pagamento:</strong> ${b.payment_status} <small>(${b.payment_method})</small></p>
+                <p style="margin:3px 0; font-size:13px; color:#475569; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    💳 <strong>Pagamento:</strong> 
+                    <span class="dfn-pay-badge ${payClass}" style="font-size:11px;">${payIcon} ${b.payment_status}</span>
+                    ${payMethod}
+                </p>
                 <p style="margin:3px 0; font-size:13px; color:#475569;">👥 <strong>Persone:</strong> ${b.total_persons} (Interi: ${b.persons_std}, FAI: ${b.persons_fai})</p>
                 <p style="margin:3px 0; font-size:13px; color:#2563eb;">📅 <strong>Turno Assegnato:</strong> ${b.current_slot_info}</p>
                 ${b.notes && b.notes !== 'Nessuna nota richiesta.' ? '<div style="margin-top:8px; padding:8px; background:#fffbeb; border:1px solid #fef3c7; border-radius:6px; font-size:12px; color:#92400e;">💬 <strong>Note:</strong> ' + b.notes + '</div>' : ''}
@@ -1183,17 +1190,27 @@ document.addEventListener('DOMContentLoaded', function () {
         filtered.forEach(b => {
             const statusClass = b.checked_in ? 'success' : 'pending';
             const statusLabel = b.checked_in ? '✅ Entrato (' + b.checked_in_time + ')' : '⏳ In Attesa';
+            const payClass    = b.is_paid ? 'dfn-pay-badge--paid' : 'dfn-pay-badge--unpaid';
+            const payIcon     = b.is_paid ? '✅' : '⏳';
+            const payLabel    = b.payment_label || (b.is_paid ? 'Pagato' : 'Da pagare');
+            const payMethod   = b.payment_method ? ` <small style="color:#64748b; font-weight:normal;">(${b.payment_method})</small>` : '';
 
             html += `
                 <div class="dfn-mobile-card dfn-mci-booking-card" id="dfn-mci-card-${b.id}">
                     <div class="dfn-booking-card-header">
                         <strong class="dfn-customer-name">${b.customer_name}</strong>
-                        <span class="dfn-event-status-pill ${statusClass}">${statusLabel}</span>
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+                            <span class="dfn-pay-badge ${payClass}">${payIcon} ${payLabel}</span>
+                            <span class="dfn-event-status-pill ${statusClass}">${statusLabel}</span>
+                        </div>
                     </div>
                     <div class="dfn-booking-details">
                         <p>📧 ${b.customer_email}</p>
                         ${b.customer_phone ? '<p>📞 ' + b.customer_phone + '</p>' : ''}
                         <p>👥 <strong>${b.total_persons} Persone</strong> (Interi: ${b.persons_std}, FAI: ${b.persons_fai})</p>
+                        <p style="margin: 4px 0 0; font-size:12.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            💳 <strong>Pagamento:</strong> <span class="dfn-pay-badge ${payClass}">${payIcon} ${payLabel}</span>${payMethod}
+                        </p>
                     </div>
                     <div class="dfn-booking-actions three-col" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top:10px;">
                         <button type="button" class="dfn-mobile-btn ${b.checked_in ? 'secondary' : 'success'} btn-mci-do-checkin" data-booking-id="${b.id}" data-token="${b.qr_token}">

@@ -1562,6 +1562,7 @@ function dfn_enrich_booking_data($b, $order) {
     $fai_cards = [];
     $order_total = 0.00;
     $payment_status = 'ancora da pagare';
+    $payment_method_title = 'In loco';
     $first_name = '';
     $last_name = '';
     $qualifica_html = '<span style="color:#aaa; font-size:12px;">Standard</span>';
@@ -1583,9 +1584,10 @@ function dfn_enrich_booking_data($b, $order) {
 
         $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
         $order_total = floatval($order->get_total());
-        if (in_array($status, ['completed', 'processing'], true)) {
+        $payment_method_title = $order->get_payment_method_title() ?: $order->get_payment_method() ?: 'N/D';
+        if (in_array($status, ['completed', 'processing'], true) || (method_exists($order, 'is_paid') && $order->is_paid())) {
             $payment_status = 'pagato';
-        } elseif ($status === 'failed') {
+        } elseif (in_array($status, ['failed', 'cancelled', 'refunded'], true)) {
             $payment_status = 'fallito (annullato)';
         } else {
             $payment_status = 'ancora da pagare';
@@ -1645,6 +1647,13 @@ function dfn_enrich_booking_data($b, $order) {
             $html_history_popup .= '<p style="color:#666; font-style:italic; padding:10px 0; text-align:center;">Nessuna interazione registrata per questo ordine.</p>';
         }
         $html_history_popup .= '</div>';
+    } else {
+        if (floatval($b->amount_due) <= 0) {
+            $payment_status = 'pagato';
+        } else {
+            $payment_status = 'ancora da pagare';
+        }
+        $payment_method_title = ! empty($b->payment_method) ? $b->payment_method : 'In loco';
     }
 
     if (empty($first_name) && empty($last_name)) {
@@ -1681,6 +1690,7 @@ function dfn_enrich_booking_data($b, $order) {
         'fai_cards'        => $fai_cards,
         'order_total'      => $order_total,
         'payment_status'   => $payment_status,
+        'payment_method_title' => $payment_method_title,
         'qualifica_html'   => $qualifica_html,
         'checkin_fatti'    => $checkin_fatti,
         'operatori_html'   => $operatori_html,
