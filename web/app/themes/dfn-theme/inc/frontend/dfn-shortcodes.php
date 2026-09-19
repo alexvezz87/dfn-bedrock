@@ -59,6 +59,11 @@ function dfn_render_evento_shortcode($atts): string
         return '<p class="dfn-error-msg">' . esc_html__('Questo evento è privato ed accessibile solo ad uso interno.', 'dfn-theme') . '</p>';
     }
 
+    // Se l'evento è in modalità TEST, mostralo solo agli utenti con privilegi amministrativi
+    if (! empty($event->is_test_event) && ! current_user_can('dfn_manage_events') && ! current_user_can('manage_options')) {
+        return '<p class="dfn-error-msg">' . esc_html__('Questo evento è attualmente in fase di test ed è visibile solo agli amministratori.', 'dfn-theme') . '</p>';
+    }
+
     global $wpdb;
     if ('free_flow' === $event->access_type) {
         $total_booked = (int) $wpdb->get_var($wpdb->prepare(
