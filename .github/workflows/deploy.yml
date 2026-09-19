@@ -1,4 +1,4 @@
-name: 🚀 Deploy Remoto Bedrock via FTP
+name: 🚀 Deploy Remoto Bedrock via Direct HTTP Sync
 
 on:
   push:
@@ -21,26 +21,48 @@ jobs:
         php-version: '8.3'
         extensions: gd, zip, mysqli, mbstring, xml, curl
 
-    - name: 📦 Install Composer Dependencies
+    - name: 🚀 Sync Theme Files to Production
       run: |
-        composer install --no-ansi --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-reqs
+        python3 -c "
+        import os, sys, base64, urllib.request, json
 
-    - name: 📂 Sync changed files via FTP (Delta Upload)
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: /
-        protocol: ftp
-        security: loose
-        exclude: |
-          **/.git**
-          **/.git*/**
-          **/node_modules/**
-          **/vendor/**
-          web/app/uploads/**
-          web/wp/**
-          *.sql
-          *.zip
-          *.gz
+        base_dir = os.path.join(os.getcwd(), 'web', 'app', 'themes', 'dfn-theme')
+        target_url = 'https://dfnprenotazioni.it/deploy_file.php?t=202605300020'
+
+        count = 0
+        for root, dirs, files in os.walk(base_dir):
+            for f in files:
+                if f.startswith('.'):
+                    continue
+                abs_path = os.path.join(root, f)
+                rel_path = os.path.relpath(abs_path, os.path.join(os.getcwd(), 'web'))
+                rel_path_posix = rel_path.replace('\\\\', '/')
+                
+                with open(abs_path, 'rb') as fp:
+                    content = fp.read()
+                
+                b64 = base64.b64encode(content).decode('utf-8')
+                payload = json.dumps({'filepath': rel_path_posix, 'content_b64': b64}).encode('utf-8')
+                
+                success = False
+                for attempt in range(3):
+                    try:
+                        req = urllib.request.Request(
+                            target_url,
+                            data=payload,
+                            headers={'Content-Type': 'application/json'},
+                            method='POST'
+                        )
+                        with urllib.request.urlopen(req, timeout=30) as res:
+                            count += 1
+                            success = True
+                            break
+                    except Exception as e:
+                        print(f'Attempt {attempt+1} failed uploading {rel_path_posix}: {e}')
+                        time.sleep(1)
+
+                if not success:
+                    print(f'❌ CRITICAL: Failed to upload {rel_path_posix}')
+
+        print(f'✅ Total files synced directly to production: {count}')
+        "
