@@ -743,6 +743,13 @@ function dfn_ajax_admin_move_booking(): void
                 $to_slot_id,
                 $formatted_time,
             ));
+
+            if (function_exists('dfn_log_slot_change')) {
+                $from_slot = $wpdb->get_row($wpdb->prepare("SELECT slot_date, slot_time_start, slot_time_end FROM {$table_slots} WHERE id = %d", $from_slot_id));
+                $from_str  = $from_slot ? "{$from_slot->slot_date} " . substr($from_slot->slot_time_start, 0, 5) . '-' . substr($from_slot->slot_time_end, 0, 5) : "Slot #{$from_slot_id}";
+                $to_str    = "{$to_slot->slot_date} {$formatted_time}";
+                dfn_log_slot_change($booking_id, $from_str, $to_str);
+            }
         }
 
         // Invia email di notifica al visitatore se richiesto (e se l'email non è quella fittizia)
@@ -820,6 +827,10 @@ function dfn_ajax_admin_delete_booking(): void
             $order->save();
             $order->update_status('cancelled', __('Prenotazione cancellata dall\'amministratore via Gestione Turni.', 'dfn-theme'));
         }
+    }
+
+    if (function_exists('dfn_log_cancellation')) {
+        dfn_log_cancellation((int) $booking->id, 'Staff (Gestione Turni)', 'Cancellazione manuale admin via pannello', (int) $booking->total_persons);
     }
 
     wp_send_json_success([ 'message' => esc_html__('Prenotazione cancellata con successo.', 'dfn-theme') ]);

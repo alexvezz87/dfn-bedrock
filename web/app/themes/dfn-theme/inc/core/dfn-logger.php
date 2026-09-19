@@ -130,7 +130,13 @@ function dfn_log_wp_mail_succeeded(array $mail_data): void
     $executor = dfn_log_detect_executor();
     $from     = dfn_log_extract_from_address($headers, $executor);
 
-    $description = "Oggetto: {$subject} | Mittente: {$from} | Destinatario: {$to}";
+    // Cerca di estrarre ID ordine o ID prenotazione per arricchire la ricerca nei log
+    $context_tag = $GLOBALS['dfn_current_email_context'] ?? '';
+    if (empty($context_tag) && preg_match('/#(\d{3,7})\b/', $subject, $m_sub)) {
+        $context_tag = "[Ordine #{$m_sub[1]}] ";
+    }
+
+    $description = "{$context_tag}Oggetto: {$subject} | Mittente: {$from} | Destinatario: {$to}";
 
     dfn_log_write(
         'email',
@@ -138,6 +144,207 @@ function dfn_log_wp_mail_succeeded(array $mail_data): void
         $description,
         'success'
     );
+}
+
+/**
+ * Registra un'azione di business relativa a una prenotazione (creazione, conferma, approvazione).
+ *
+ * @param int    $booking_id ID della prenotazione.
+ * @param string $action     Etichetta dell'azione (es. 'Creata', 'Approvata dallo staff').
+ * @param string $details    Eventuali note o dettagli aggiuntivi.
+ * @param string $actor      Chi ha eseguito l'azione (se vuoto, deduce dall'utente o dal cliente).
+ */
+function dfn_log_booking(int $booking_id, string $action, string $details = '', string $actor = ''): void
+{
+    global $wpdb;
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    if (! $booking) {
+        return;
+    }
+
+    $order_id    = ! empty($booking->order_id) ? (string) $booking->order_id : 'N/D';
+    $event       = function_exists('dfn_db_get_event') ? dfn_db_get_event((int) $booking->event_id) : null;
+    $event_title = $event ? get_the_title($event->product_id) : 'Evento #' . $booking->event_id;
+
+    if (empty($actor)) {
+        $user = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : ($booking->customer_name ?: 'Visitatore');
+    }
+
+    $desc = sprintf(
+        "Prenotazione #%d (Ordine #%s) | Evento: %s | Cliente: %s (%s) | Posti: %d (Interi: %d, FAI: %d) | Azione: %s",
+        $booking_id,
+        $order_id,
+        $event_title,
+        $booking->customer_name,
+        $booking->customer_email,
+        (int) $booking->total_persons,
+        (int) $booking->persons_standard,
+        (int) $booking->persons_fai,
+        $action
+    );
+
+    if (! empty($details)) {
+        $desc .= " | Dettagli: " . $details;
+    }
+
+    dfn_log_write('prenotazione', $actor, $desc, 'success');
+}
+
+/**
+ * Registra l'annullamento di una prenotazione.
+ *
+ * @param int    $booking_id      ID della prenotazione.
+ * @param string $cancelled_by    Autore dell'annullamento (es. Visitatore, Staff, Cron Timeout).
+ * @param string $reason          Motivo o modalità di annullamento.
+ * @param int    $seats_restored  Numero di posti ripristinati in capienza / magazzino.
+ */
+function dfn_log_cancellation(int $booking_id, string $cancelled_by, string $reason = '', int $seats_restored = 0): void
+{
+    global $wpdb;
+    $booking     = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    $order_id    = $booking && ! empty($booking->order_id) ? (string) $booking->order_id : 'N/D';
+    $event_id    = $booking ? (int) $booking->event_id : 0;
+    $event       = $event_id && function_exists('dfn_db_get_event') ? dfn_db_get_event($event_id) : null;
+    $event_title = $event ? get_the_title($event->product_id) : ($event_id ? 'Evento #' . $event_id : 'N/D');
+    $customer    = $booking ? "{$booking->customer_name} ({$booking->customer_email})" : 'N/D';
+
+    $desc = sprintf(
+        "Annullamento Prenotazione #%d (Ordine #%s) | Evento: %s | Cliente: %s | Annullato da: %s",
+        $booking_id,
+        $order_id,
+        $event_title,
+        $customer,
+        $cancelled_by
+    );
+
+    if (! empty($reason)) {
+        $desc .= " | Motivo: " . $reason;
+    }
+    if ($seats_restored > 0) {
+        $desc .= sprintf(" | Posti ripristinati: +%d", $seats_restored);
+    }
+
+    dfn_log_write('annullamento', $cancelled_by, $desc, 'success');
+}
+
+/**
+ * Registra la convalida o il rifiuto di una tessera FAI.
+ *
+ * @param string $card_number Numero tessera FAI.
+ * @param string $action      Azione eseguita ('Convalidata', 'Rifiutata').
+ * @param string $actor       Chi ha eseguito l'azione.
+ * @param string $details     Dettagli opzionali (es. nominativo socio, motivazione o ordine).
+ */
+function dfn_log_fai_card(string $card_number, string $action, string $actor = '', string $details = ''): void
+{
+    if (empty($actor)) {
+        $user  = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff FAI';
+    }
+
+    $is_rejection = (stripos($action, 'rifiut') !== false || stripos($action, 'reject') !== false);
+    $outcome      = $is_rejection ? 'failure' : 'success';
+
+    $desc = sprintf("Tessera FAI n° %s | Azione: %s", $card_number, $action);
+    if (! empty($details)) {
+        $desc .= " | " . $details;
+    }
+
+    dfn_log_write('tessera_fai', $actor, $desc, $outcome);
+}
+
+/**
+ * Registra la scansione del biglietto / check-in al varco d'ingresso.
+ *
+ * @param int    $booking_id ID della prenotazione.
+ * @param string $actor      Operatore o volontario allo scanner.
+ * @param string $details    Dettagli (es. varchi, posti convalidati).
+ */
+function dfn_log_checkin(int $booking_id, string $actor = '', string $details = ''): void
+{
+    global $wpdb;
+    $booking     = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    $order_id    = $booking && ! empty($booking->order_id) ? (string) $booking->order_id : 'N/D';
+    $event_id    = $booking ? (int) $booking->event_id : 0;
+    $event       = $event_id && function_exists('dfn_db_get_event') ? dfn_db_get_event($event_id) : null;
+    $event_title = $event ? get_the_title($event->product_id) : ($event_id ? 'Evento #' . $event_id : 'N/D');
+
+    if (empty($actor)) {
+        $user  = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Volontario / Scanner';
+    }
+
+    $desc = sprintf(
+        "Check-in QR convalidato | Prenotazione #%d (Ordine #%s) | Evento: %s | Ospite: %s | Posti: %d",
+        $booking_id,
+        $order_id,
+        $event_title,
+        $booking ? $booking->customer_name : 'N/D',
+        $booking ? (int) $booking->total_persons : 0
+    );
+
+    if (! empty($details)) {
+        $desc .= " | " . $details;
+    }
+
+    dfn_log_write('checkin', $actor, $desc, 'success');
+}
+
+/**
+ * Registra lo spostamento di turno o orario di una prenotazione.
+ *
+ * @param int    $booking_id    ID della prenotazione.
+ * @param string $old_slot_info Info slot originario.
+ * @param string $new_slot_info Info nuovo slot assegnato.
+ * @param string $actor         Operatore che ha effettuato lo spostamento.
+ */
+function dfn_log_slot_change(int $booking_id, string $old_slot_info, string $new_slot_info, string $actor = ''): void
+{
+    global $wpdb;
+    $booking  = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    $order_id = $booking && ! empty($booking->order_id) ? (string) $booking->order_id : 'N/D';
+
+    if (empty($actor)) {
+        $user  = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff';
+    }
+
+    $desc = sprintf(
+        "Spostamento Turno | Prenotazione #%d (Ordine #%s) | Ospite: %s | Da: %s | A: %s",
+        $booking_id,
+        $order_id,
+        $booking ? $booking->customer_name : 'N/D',
+        $old_slot_info,
+        $new_slot_info
+    );
+
+    dfn_log_write('spostamento', $actor, $desc, 'success');
+}
+
+/**
+ * Registra variazioni o ripristini manuali/automatici delle scorte di posti.
+ *
+ * @param int    $event_id   ID evento DFN.
+ * @param int    $product_id ID prodotto WooCommerce.
+ * @param int    $qty_diff   Differenza posti (+N o -N).
+ * @param string $reason     Motivo dell'aggiornamento.
+ * @param string $actor      Chi ha effettuato la variazione.
+ */
+function dfn_log_stock(int $event_id, int $product_id, int $qty_diff, string $reason, string $actor = 'Sistema'): void
+{
+    $product_name = get_the_title($product_id) ?: 'Prodotto #' . $product_id;
+    $diff_str     = ($qty_diff > 0 ? "+{$qty_diff}" : "{$qty_diff}") . " posti";
+
+    $desc = sprintf(
+        "Variazione Disponibilità (%s) | Evento #%d (%s) | Motivo: %s",
+        $diff_str,
+        $event_id,
+        $product_name,
+        $reason
+    );
+
+    dfn_log_write('stock', $actor, $desc, 'success');
 }
 
 /**

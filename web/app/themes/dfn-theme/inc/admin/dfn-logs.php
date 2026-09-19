@@ -157,15 +157,21 @@ function dfn_render_logs_page(): void
                             <option value="">— Tutte —</option>
                             <?php 
                             $type_labels = [
-                                'email'     => '📧 Email',
-                                'login'     => '🔐 Login',
-                                'logout'    => '🚪 Logout',
-                                'sicurezza' => '🛡️ Sicurezza & Password',
-                                'profilo'   => '👤 Profilo Utente',
-                                'sistema'   => '⚙️ Sistema',
+                                'prenotazione' => '🎟️ Prenotazioni',
+                                'annullamento' => '🚫 Annullamenti',
+                                'tessera_fai'  => '🪪 Tessere FAI',
+                                'checkin'      => '📱 Check-in / Scanner',
+                                'spostamento'  => '⏱️ Spostamenti Turno',
+                                'stock'        => '📦 Magazzino / Posti',
+                                'email'        => '📧 Email',
+                                'login'        => '🔐 Login',
+                                'logout'       => '🚪 Logout',
+                                'sicurezza'    => '🛡️ Sicurezza & Password',
+                                'profilo'      => '👤 Profilo Utente',
+                                'sistema'      => '⚙️ Sistema',
                             ];
                             foreach ($types as $t) : 
-                                $lbl = $type_labels[$t] ?? ucfirst($t);
+                                $lbl = $type_labels[$t] ?? ucfirst(str_replace('_', ' ', $t));
                             ?>
                                 <option value="<?php echo esc_attr($t); ?>" <?php selected($filter_type, $t); ?>><?php echo esc_html($lbl); ?></option>
                             <?php endforeach; ?>
@@ -182,7 +188,7 @@ function dfn_render_logs_page(): void
                         <input type="date" name="filter_date" value="<?php echo esc_attr($filter_date); ?>" class="dfn-text-input">
                     </label>
                     <label class="dfn-filter-label dfn-filter-wide">Cerca
-                        <input type="text" name="filter_search" value="<?php echo esc_attr($filter_search); ?>" placeholder="Cerca in descrizione o esecutore…" class="dfn-text-input">
+                        <input type="text" name="filter_search" value="<?php echo esc_attr($filter_search); ?>" placeholder="Cerca per #ordine, #booking, cliente, email o esecutore…" class="dfn-text-input">
                     </label>
                     <label class="dfn-filter-label">Righe per pagina
                         <select name="per_page" onchange="document.getElementById('dfn-logs-filter-form').submit()" class="dfn-select-input">
@@ -231,7 +237,7 @@ function dfn_render_logs_page(): void
                                 </td>
                                 <td>
                                     <span class="dfn-log-badge <?php echo esc_attr($badge_class); ?>">
-                                        <?php echo esc_html(strtoupper($log->type)); ?>
+                                        <?php echo esc_html(strtoupper(str_replace('_', ' ', $log->type))); ?>
                                     </span>
                                 </td>
                                 <td>
@@ -349,6 +355,12 @@ function dfn_render_logs_page(): void
 
         /* Badge Tipologia Log */
         .dfn-log-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-align: center; }
+        .dfn-log-badge--prenotazione { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .dfn-log-badge--annullamento { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .dfn-log-badge--tessera_fai  { background: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; }
+        .dfn-log-badge--checkin      { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+        .dfn-log-badge--spostamento  { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
+        .dfn-log-badge--stock        { background: #f1f5f9; color: #334155; border: 1px solid #94a3b8; }
         .dfn-log-badge--email { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
         .dfn-log-badge--login { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
         .dfn-log-badge--logout { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
