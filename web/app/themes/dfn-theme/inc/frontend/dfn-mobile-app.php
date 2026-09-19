@@ -816,7 +816,9 @@ function dfn_ajax_mobile_get_booking_details(): void
         'amount_due'         => floatval($b->amount_due),
         'amount_paid'        => floatval($b->amount_paid),
         'notes'              => esc_html($b->notes ?: 'Nessuna nota richiesta.'),
-        'created_at'         => date('d/m/Y H:i', strtotime($b->created_at)),
+        'created_at'         => ($order && method_exists($order, 'get_date_created') && $order->get_date_created()) 
+                                    ? $order->get_date_created()->date_i18n('d/m/Y H:i') 
+                                    : (! empty($b->created_at) && $b->created_at !== '0000-00-00 00:00:00' ? date_i18n('d/m/Y H:i', strtotime($b->created_at)) : '-'),
         'checked_in'         => $is_checked,
         'checked_in_time'    => ($is_checked && ! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') ? date('d/m/Y H:i', strtotime($b->checked_in_at)) : '',
         'current_slot_info'  => $current_slot_info,
