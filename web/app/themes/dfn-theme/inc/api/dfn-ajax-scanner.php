@@ -205,6 +205,10 @@ function dfn_process_scan_ajax_handler(): void
                 );
             }
 
+            if (function_exists('dfn_log_checkin')) {
+                dfn_log_checkin((int) $booking->id, '', "Scansione singolo biglietto {$ticket_index} di {$booking->total_persons}");
+            }
+
             wp_send_json_success([
                 'status'         => 'success',
                 'customer_name'  => sprintf(esc_html__('%s (Biglietto %d di %d)', 'dfn-theme'), $booking->customer_name, $ticket_index, $booking->total_persons),
@@ -247,6 +251,10 @@ function dfn_process_scan_ajax_handler(): void
                 );
             }
 
+            if (function_exists('dfn_log_checkin')) {
+                dfn_log_checkin((int) $booking->id, '', "Scansione turno slot ID #{$target_slot_id}");
+            }
+
             wp_send_json_success([
                 'status'         => 'success',
                 'customer_name'  => $booking->customer_name . ' (Turno)',
@@ -279,6 +287,10 @@ function dfn_process_scan_ajax_handler(): void
                 [ '%s', '%d' ],
                 [ '%d' ],
             );
+
+            if (function_exists('dfn_log_checkin')) {
+                dfn_log_checkin((int) $booking->id, '', "Scansione ingresso gruppo ({$booking->total_persons} persone)");
+            }
 
             wp_send_json_success([
                 'status'         => 'success',
@@ -408,6 +420,11 @@ function dfn_consolidate_in_loco_payment_ajax_handler(): void
     $user_info = get_userdata(get_current_user_id());
     if ($user_info) {
         $validated_by = $user_info->display_name;
+    }
+
+    if (function_exists('dfn_log_checkin')) {
+        $pay_desc = sprintf('Incasso al botteghino (%s: €%s) e check-in', strtoupper($method), number_format((float) $booking->amount_due, 2));
+        dfn_log_checkin((int) $booking->id, $validated_by, $pay_desc);
     }
 
     wp_send_json_success([

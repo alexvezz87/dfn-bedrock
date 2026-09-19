@@ -324,6 +324,11 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
 
                 $wpdb->query('COMMIT');
 
+                if (function_exists('dfn_log_booking')) {
+                    $slot_info = sprintf('%s %s-%s', $booking_date, substr($selected_slot->slot_time_start, 0, 5), substr($selected_slot->slot_time_end, 0, 5));
+                    dfn_log_booking($booking_id, 'Creata', "Stato: {$booking_status} | Turno: {$slot_info}");
+                }
+
                 // Invio notifica centralizzata in base al workflow o stato pagamento
                 if ($booking_status === 'pending_approval') {
                     // Tessere FAI non verificate: invia solo mail di attesa all'utente e notifica admin dedicata
@@ -491,6 +496,10 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
 
                     $wpdb->query('COMMIT');
 
+                    if (function_exists('dfn_log_booking')) {
+                        dfn_log_booking($booking_id, 'Creata (Suddivisa)', "Stato: {$booking_status} | Turni: " . implode(', ', $allocated_slots_notes));
+                    }
+
                     // Aggiungi nota riassuntiva sul frazionamento all'ordine
                     $split_note = sprintf(
                         __('🎟️ Prenotazione FAI suddivisa su più turni: %s', 'dfn-theme'),
@@ -591,6 +600,10 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
 
                 $booking_id = $wpdb->insert_id;
                 $wpdb->query('COMMIT');
+
+                if (function_exists('dfn_log_booking')) {
+                    dfn_log_booking($booking_id, 'Creata', "Ingresso libero (free flow) | Stato: {$booking_status}");
+                }
 
                 if ($booking_status === 'pending_approval') {
                     dfn_send_booking_pending_approval($booking_id);
@@ -1676,6 +1689,10 @@ function dfn_ajax_approve_pending_booking(): void
         wp_get_current_user()->display_name
     ));
 
+    if (function_exists('dfn_log_booking')) {
+        dfn_log_booking($booking_id, 'Approvata dallo staff', 'Stato aggiornato a In Attesa di Pagamento Online con invio link di pagamento');
+    }
+
     wp_send_json_success([
         'message'  => __('Prenotazione approvata. Mail di pagamento inviata al cliente.', 'dfn-theme'),
         'new_status' => 'pending_payment',
@@ -1738,6 +1755,10 @@ function dfn_ajax_validate_single_fai_card(): void
         ['%d', '%d', '%s'],
         ['%s']
     );
+
+    if (function_exists('dfn_log_fai_card')) {
+        dfn_log_fai_card($card_number, 'Convalidata dallo staff', '', "Ordine #{$booking->order_id} (Prenotazione #{$booking_id} - {$booking->customer_name})");
+    }
 
     wp_send_json_success([
         'message' => sprintf(__('Tessera FAI n° %s convalidata.', 'dfn-theme'), $card_number),
@@ -1853,6 +1874,10 @@ function dfn_ajax_reject_single_fai_card(): void
         wc_price($new_total)
     ));
     $order->save();
+
+    if (function_exists('dfn_log_fai_card')) {
+        dfn_log_fai_card($card_number, 'Rifiutata dallo staff', '', "Ordine #{$booking->order_id} (Prenotazione #{$booking_id} - Convertito 1 posto a Intero)");
+    }
 
     wp_send_json_success([
         'message'          => sprintf(__('Tessera FAI n° %s rifiutata. Convertita a tariffa Intera (+%s). Nuovo totale: %s', 'dfn-theme'), $card_number, wc_price($unit_discount), wc_price($new_total)),

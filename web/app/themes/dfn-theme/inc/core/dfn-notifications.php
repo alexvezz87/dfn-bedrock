@@ -20,11 +20,16 @@ if (! defined('ABSPATH')) {
  * @param string $subject     Oggetto dell'email.
  * @param string $title       Titolo visivo all'interno del template.
  * @param string $content_html Contenuto HTML principale.
- * @param array  $attachments Allegati (opzionale).
+ * @param array  $attachments  Allegati (opzionale).
+ * @param string $context_info Tag di contesto opzionale per il logger (es. '[Ordine #123] [Booking #45]').
  * @return bool True se l'invio ha avuto successo, false altrimenti.
  */
-function dfn_send_notification_email($to, $subject, $title, $content_html, $attachments = [])
+function dfn_send_notification_email($to, $subject, $title, $content_html, $attachments = [], string $context_info = '')
 {
+    if (! empty($context_info)) {
+        $GLOBALS['dfn_current_email_context'] = rtrim($context_info) . ' ';
+    }
+
     $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
 
     // Gestione Cc (Copia Visibile)
@@ -61,6 +66,7 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
     // Evita l'invio all'indirizzo fittizio no-email@dfn.it
     if (is_string($to)) {
         if (trim(strtolower($to)) === 'no-email@dfn.it') {
+            $GLOBALS['dfn_current_email_context'] = '';
             return true;
         }
     } elseif (is_array($to)) {
@@ -68,6 +74,7 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
             return trim(strtolower($email)) !== 'no-email@dfn.it';
         });
         if (empty($to)) {
+            $GLOBALS['dfn_current_email_context'] = '';
             return true;
         }
     }
@@ -75,7 +82,10 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
     // Genera il template HTML completo
     $body = dfn_get_email_html_template($title, $content_html);
 
-    return wp_mail($to, $subject, $body, $headers, $attachments);
+    $sent = wp_mail($to, $subject, $body, $headers, $attachments);
+    $GLOBALS['dfn_current_email_context'] = '';
+
+    return $sent;
 }
 
 
@@ -355,7 +365,8 @@ function dfn_send_booking_confirmation(int $booking_id)
     $subject = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_subject'), $replacements);
     $title   = dfn_replace_email_placeholders(dfn_get_setting('email_confirm_title'), $replacements);
 
-    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
+    $context_tag = "[Ordine #" . ($booking->order_id ?: 'N/D') . "] [Booking #{$booking_id}]";
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content, [], $context_tag);
 }
 
 /**
@@ -409,7 +420,8 @@ function dfn_send_booking_pending_approval(int $booking_id)
     $subject = dfn_replace_email_placeholders(dfn_get_setting('email_pending_subject'), $replacements);
     $title   = dfn_replace_email_placeholders(dfn_get_setting('email_pending_title'), $replacements);
 
-    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
+    $context_tag = "[Ordine #" . ($booking->order_id ?: 'N/D') . "] [Booking #{$booking_id}]";
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content, [], $context_tag);
 }
 
 /**
@@ -527,7 +539,8 @@ function dfn_send_booking_cancellation(int $booking_id)
     $subject = dfn_replace_email_placeholders(dfn_get_setting('email_cancelled_subject'), $replacements);
     $title   = dfn_replace_email_placeholders(dfn_get_setting('email_cancelled_title'), $replacements);
 
-    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content);
+    $context_tag = "[Ordine #" . ($booking->order_id ?: 'N/D') . "] [Booking #{$booking_id}]";
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content, [], $context_tag);
 }
 
 /**
@@ -798,7 +811,8 @@ function dfn_send_fai_card_approved_email(string $email, string $first_name, str
         ]
     );
 
-    return dfn_send_notification_email($email, $subject, $title, $content);
+    $context_tag = "[Tessera #{$card_number}]";
+    return dfn_send_notification_email($email, $subject, $title, $content, [], $context_tag);
 }
 
 /**
@@ -851,7 +865,8 @@ function dfn_send_fai_card_rejected_email(string $email, string $first_name, str
         $content .= '</div>';
     }
 
-    return dfn_send_notification_email($email, $subject, $title, $content);
+    $context_tag = "[Tessera #{$card_number}]";
+    return dfn_send_notification_email($email, $subject, $title, $content, [], $context_tag);
 }
 
 /**
@@ -953,7 +968,8 @@ function dfn_send_admin_new_booking_notification(int $booking_id)
     $order_url = admin_url('post.php?post=' . $booking->order_id . '&action=edit');
     $content .= '<div class="text-center"><a href="' . esc_url($order_url) . '" class="button">Visualizza Ordine in WordPress</a></div>';
 
-    return dfn_send_notification_email($admin_email, $subject, 'Notifica Nuova Prenotazione', $content);
+    $context_tag = "[Ordine #" . ($booking->order_id ?: 'N/D') . "] [Booking #{$booking_id}]";
+    return dfn_send_notification_email($admin_email, $subject, 'Notifica Nuova Prenotazione', $content, [], $context_tag);
 }
 
 /**
@@ -1109,7 +1125,8 @@ function dfn_send_admin_fai_booking_pending_notification(int $booking_id): bool
     $content .= '<div class="text-center" style="text-align:center; margin: 25px 0;"><a href="' . esc_url($verify_url) . '" class="button" style="background-color:' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; color:#fff; padding:14px 28px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:15px;">Verifica Prenotazione FAI</a></div>';
     $content .= '<p style="font-size:13px; color:#718096; text-align:center;">Se non intervieni, la prenotazione resterà in attesa e i posti rimarranno riservati fino alla tua decisione.</p>';
 
-    return dfn_send_notification_email($admin_email, $subject, '🔍 Nuova Prenotazione FAI da Verificare', $content);
+    $context_tag = "[Ordine #" . ($booking->order_id ?: 'N/D') . "] [Booking #{$booking_id}]";
+    return dfn_send_notification_email($admin_email, $subject, '🔍 Nuova Prenotazione FAI da Verificare', $content, [], $context_tag);
 }
 
 add_filter('woocommerce_send_email', 'dfn_prevent_dummy_email_notifications', 10, 6);

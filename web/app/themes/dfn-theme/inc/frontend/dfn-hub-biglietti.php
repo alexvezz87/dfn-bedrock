@@ -992,6 +992,15 @@ function dfn_cancel_booking_by_id(int $booking_id, string $note = ''): bool
 
     $order->update_status('cancelled', ! empty($note) ? $note : __('Prenotazione annullata.', 'dfn-theme'));
 
+    if (function_exists('dfn_log_cancellation')) {
+        $actor = 'Visitatore';
+        $user  = wp_get_current_user();
+        if ($user && $user->exists()) {
+            $actor = in_array('administrator', (array)$user->roles, true) ? "Admin ({$user->display_name})" : "Cliente ({$user->display_name})";
+        }
+        dfn_log_cancellation((int) $booking->id, $actor, $note, (int) $booking->total_persons);
+    }
+
     if (function_exists('dfn_send_booking_cancellation')) {
         dfn_send_booking_cancellation($booking->id);
     }
@@ -1133,6 +1142,10 @@ function dfn_process_booking_modification($booking, $order, int $new_qty_standar
             );
             $order->add_order_note($note_text);
             $order->save();
+
+            if (function_exists('dfn_log_booking')) {
+                dfn_log_booking((int) $booking->id, 'Modifica posti', sprintf('Partecipanti aggiornati a %d (Interi: %d, FAI: %d) da precedente totale: %d', $new_total_qty, $new_qty_standard, $new_qty_fai, (int) $booking->total_persons));
+            }
         }
     }
 

@@ -83,6 +83,9 @@ function dfn_render_fai_members_page(): void
                     if ($m && ! empty($m->email)) {
                         dfn_send_fai_card_approved_email($m->email, $m->first_name, $m->last_name, $m->card_number);
                     }
+                    if ($m && function_exists('dfn_log_fai_card')) {
+                        dfn_log_fai_card($m->card_number, 'Approvata (azione massiva)', '', "Socio: {$m->first_name} {$m->last_name} ({$m->email})");
+                    }
                 }
                 $message = sprintf(esc_html__('Selezionati %d soci FAI approvati con successo.', 'dfn-theme'), $count);
             } elseif ('reject' === $bulk_action) {
@@ -92,6 +95,9 @@ function dfn_render_fai_members_page(): void
                     if ($m) {
                         if (! empty($m->email)) {
                             dfn_send_fai_card_rejected_email($m->email, $m->first_name, $m->last_name, $m->card_number, $reason);
+                        }
+                        if (function_exists('dfn_log_fai_card')) {
+                            dfn_log_fai_card($m->card_number, 'Rifiutata (azione massiva)', '', "Socio: {$m->first_name} {$m->last_name} | Motivo: {$reason}");
                         }
                         $wpdb->delete($table, [ 'id' => $m_id ], [ '%d' ]);
                         if (! function_exists('dfn_cancel_pending_bookings_for_rejected_fai_card')) {
@@ -145,6 +151,9 @@ function dfn_render_fai_members_page(): void
             if ($m && ! empty($m->email)) {
                 dfn_send_fai_card_approved_email($m->email, $m->first_name, $m->last_name, $m->card_number);
             }
+            if ($m && function_exists('dfn_log_fai_card')) {
+                dfn_log_fai_card($m->card_number, 'Approvata dallo staff', '', "Socio: {$m->first_name} {$m->last_name} ({$m->email})");
+            }
 
             $message = esc_html__('Socio FAI approvato e notificato con successo.', 'dfn-theme');
         } else {
@@ -165,6 +174,9 @@ function dfn_render_fai_members_page(): void
                 // Invia notifica email di rifiuto se l'email esiste
                 if (! empty($m->email)) {
                     dfn_send_fai_card_rejected_email($m->email, $m->first_name, $m->last_name, $m->card_number, $reason);
+                }
+                if (function_exists('dfn_log_fai_card')) {
+                    dfn_log_fai_card($m->card_number, 'Rifiutata dallo staff', '', "Socio: {$m->first_name} {$m->last_name} | Motivo: {$reason}");
                 }
 
                 // Rimuovi la tessera non valida dal database
