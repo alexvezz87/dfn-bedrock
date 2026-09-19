@@ -594,6 +594,29 @@ html {
     color: #991b1b;
 }
 
+/* Badge Stato Pagamento Mobile */
+.dfn-pay-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    line-height: 1.2;
+    letter-spacing: 0.2px;
+}
+.dfn-pay-badge--paid {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+}
+.dfn-pay-badge--unpaid {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
 /* PULSANTI MOBILE */
 .dfn-mobile-btn {
     width: 100%;
