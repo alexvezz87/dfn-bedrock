@@ -181,26 +181,25 @@ function dfn_email_cliente_ordine_scaduto($order_id, $order)
         return;
     }
 
-    // Se l'ordine è stato annullato manualmente dall'utente, non inviare l'email di scadenza automatica
-    if ('yes' === $order->get_meta('_dfn_cancelled_manually')) {
-        return;
-    }
-
     // Evita il raddoppio del ripristino stock di WooCommerce
     remove_action('woocommerce_order_status_pending_to_cancelled', 'wc_maybe_increase_stock_levels');
     remove_action('woocommerce_order_status_cancelled', 'wc_maybe_increase_stock_levels');
 
     // Se l'ordine era con saldo "In Loco" e viene cancellato,
-    // o se viene annullato un ordine online scaduto, ripristiniamo le scorte
-    foreach ($order->get_items() as $item) {
-        $product = $item->get_product();
-        if ($product && $product->managing_stock()) {
-            $qty = $item->get_quantity();
-            $vecchio_stock = $product->get_stock_quantity();
-            $nuovo_stock = wc_update_product_stock($product, $qty, 'increase');
-            $nota = sprintf('🎟️ Magazzino ripristinato dal sistema: %s (%d &rarr; %d).', $product->get_name(), $vecchio_stock, $nuovo_stock);
-            $order->add_order_note($nota);
+    // o se viene annullato un ordine online scaduto/manuale, ripristiniamo le scorte
+    if ('yes' !== $order->get_meta('_dfn_stock_restored')) {
+        foreach ($order->get_items() as $item) {
+            $product = $item->get_product();
+            if ($product && $product->managing_stock()) {
+                $qty = $item->get_quantity();
+                $vecchio_stock = $product->get_stock_quantity();
+                $nuovo_stock = wc_update_product_stock($product, $qty, 'increase');
+                $nota = sprintf('🎟️ Magazzino ripristinato dal sistema: %s (%d &rarr; %d).', $product->get_name(), $vecchio_stock, $nuovo_stock);
+                $order->add_order_note($nota);
+            }
         }
+        $order->update_meta_data('_dfn_stock_restored', 'yes');
+        $order->save();
     }
 
     // Se esiste un booking per questo ordine, gestiamo l'annullamento della prenotazione e il rilascio della capienza
@@ -242,6 +241,11 @@ function dfn_email_cliente_ordine_scaduto($order_id, $order)
             // 3. Invia email di cancellazione centralizzata
             dfn_send_booking_cancellation($booking->id);
         }
+        return;
+    }
+
+    // Se l'ordine è stato annullato manualmente dall'utente, non inviare l'email di scadenza automatica
+    if ('yes' === $order->get_meta('_dfn_cancelled_manually')) {
         return;
     }
 

@@ -968,6 +968,25 @@ function dfn_cancel_booking_by_id(int $booking_id, string $note = ''): bool
 
     $wpdb->query('COMMIT');
 
+    // Ripristina il magazzino WooCommerce per i prodotti gestiti a stock se non già ripristinato
+    if ('yes' !== $order->get_meta('_dfn_stock_restored')) {
+        foreach ($order->get_items() as $item) {
+            $product = $item->get_product();
+            if ($product && $product->managing_stock()) {
+                $qty = $item->get_quantity();
+                $vecchio_stock = $product->get_stock_quantity();
+                $nuovo_stock = wc_update_product_stock($product, $qty, 'increase');
+                $order->add_order_note(sprintf(
+                    __('🎟️ Magazzino ripristinato a seguito di annullamento prenotazione: %s (%d &rarr; %d).', 'dfn-theme'),
+                    $product->get_name(),
+                    $vecchio_stock,
+                    $nuovo_stock
+                ));
+            }
+        }
+        $order->update_meta_data('_dfn_stock_restored', 'yes');
+    }
+
     $order->update_meta_data('_dfn_cancelled_manually', 'yes');
     $order->save();
 
