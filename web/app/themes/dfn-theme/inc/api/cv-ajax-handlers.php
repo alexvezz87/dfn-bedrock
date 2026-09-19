@@ -15,8 +15,18 @@ if (!defined('ABSPATH')) {
 add_action('wp_ajax_cv_search_customers', 'cv_search_customers_ajax');
 function cv_search_customers_ajax()
 {
-    check_ajax_referer('cv_ricerca_clienti_nonce', 'security');
-    $term = isset($_GET['term']) ? wc_clean(wp_unslash($_GET['term'])) : '';
+    $sec = $_REQUEST['security'] ?? $_REQUEST['nonce'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'cv_ricerca_clienti_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_booking_nonce')
+    ) {
+        if (! is_user_logged_in()) {
+            wp_send_json_error(['message' => 'Non autorizzato'], 401);
+        }
+    }
+    $term = isset($_REQUEST['term']) ? wc_clean(wp_unslash($_REQUEST['term'])) : (isset($_REQUEST['q']) ? wc_clean(wp_unslash($_REQUEST['q'])) : '');
     if (empty($term)) {
         wp_send_json([]);
     }
@@ -49,7 +59,17 @@ function cv_search_customers_ajax()
 add_action('wp_ajax_cv_get_customer_data', 'cv_get_customer_data_ajax');
 function cv_get_customer_data_ajax()
 {
-    check_ajax_referer('cv_ricerca_clienti_nonce', 'security');
+    $sec = $_REQUEST['security'] ?? $_REQUEST['nonce'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'cv_ricerca_clienti_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_booking_nonce')
+    ) {
+        if (! is_user_logged_in()) {
+            wp_send_json_error(['message' => 'Non autorizzato'], 401);
+        }
+    }
     $customer_id_raw = isset($_POST['customer_id']) ? sanitize_text_field(wp_unslash($_POST['customer_id'])) : '';
 
     if (is_numeric($customer_id_raw) && $customer_id_raw > 0) {
@@ -259,7 +279,7 @@ function cv_fetch_report_data_ajax()
                     return strtotime($b['time']) - strtotime($a['time']);
                 });
                 foreach ($history_meta as $log) {
-                    $html_history_popup .= '<div class="cv-history-item"><span style="color:#777; margin-right:10px;">🕒 ' . date_i18n('d/m/Y - H:i:s', strtotime($log['time'])) . '</span> <strong>' . esc_html($log['action']) . '</strong></div>';
+                    $html_history_popup .= '<div class="cv-history-item" style="border-bottom:1px solid #e2e8f0; padding:8px 0; white-space:nowrap;"><span style="color:#64748b; margin-right:12px;">🕒 ' . date_i18n('d/m/Y - H:i:s', strtotime($log['time'])) . '</span> <strong>' . esc_html($log['action']) . '</strong></div>';
                 }
             }
             $html_history_popup .= '</div>';

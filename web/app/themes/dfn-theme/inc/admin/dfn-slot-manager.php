@@ -105,9 +105,21 @@ function dfn_render_slot_manager()
         </div>
         <?php endif; ?>
 
-        <!-- Dashboard Operativa -->
-        <!-- Per free_flow sempre visibile; per time_slots nascosta finché non ci sono slot -->
-        <div id="dfn-sm-dashboard" style="<?php echo (! $is_free_flow && $slots_count === 0) ? 'display:none;' : ''; ?>">
+        <!-- Main Tab Navigation -->
+        <div class="dfn-main-tabs-bar" style="margin-bottom: 20px; display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+            <button type="button" class="dfn-main-tab-btn active" data-tab="active-bookings" style="background: none; border: none; border-bottom: 3px solid #0284c7; padding: 10px 16px; font-weight: 700; font-size: 15px; color: #0284c7; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                <span class="dashicons dashicons-tickets-alt"></span>
+                <?php esc_html_e('Prenotazioni Attive & Confermate', 'dfn-theme'); ?>
+            </button>
+            <button type="button" class="dfn-main-tab-btn" data-tab="unsuccessful-attempts" style="background: none; border: none; border-bottom: 3px solid transparent; padding: 10px 16px; font-weight: 600; font-size: 15px; color: #64748b; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                <span class="dashicons dashicons-warning" style="color:#eab308;"></span>
+                <?php esc_html_e('Storico Movimenti & Tentativi (Incompleti / Annullati)', 'dfn-theme'); ?>
+                <span class="dfn-badge-count" id="dfn-badge-failed-count" style="background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">0</span>
+            </button>
+        </div>
+
+        <!-- Dashboard Operativa (TAB 1: Prenotazioni Attive) -->
+        <div id="dfn-sm-dashboard" class="dfn-tab-view" data-view="active-bookings" style="<?php echo (! $is_free_flow && $slots_count === 0) ? 'display:none;' : ''; ?>">
             
             <!-- Riepilogo Statistico -->
             <div class="dfn-stats-row">
@@ -169,6 +181,33 @@ function dfn_render_slot_manager()
                 </div>
             </div>
 
+        </div>
+
+        <!-- Dashboard Movimenti & Tentativi (TAB 2) -->
+        <div id="dfn-sm-attempts-dashboard" class="dfn-tab-view" data-view="unsuccessful-attempts" style="display:none; margin-top:20px;">
+            <div class="dfn-card" style="background:#fff; border-radius:8px; border:1px solid #e2e8f0; padding:20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <div>
+                        <h3 style="margin:0; font-size:18px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
+                            <span class="dashicons dashicons-warning" style="color:#eab308;"></span>
+                            <?php esc_html_e('Storico Movimenti & Tentativi Non Completati / Annullati', 'dfn-theme'); ?>
+                        </h3>
+                        <p style="margin:4px 0 0 0; color:#64748b; font-size:13px;">
+                            <?php esc_html_e('Qui trovi l\'elenco di tutti i tentativi di pagamento falliti, in sospeso o cancellati per questo evento.', 'dfn-theme'); ?>
+                        </p>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="text" id="dfn-sm-attempts-search" placeholder="<?php esc_html_e('Cerca nei tentativi...', 'dfn-theme'); ?>" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; width:220px;">
+                        <button type="button" id="dfn-btn-refresh-attempts" class="dfn-btn dfn-btn-outline" style="padding:6px 12px; font-size:13px; cursor:pointer;">
+                            <span class="dashicons dashicons-update"></span> <?php esc_html_e('Aggiorna', 'dfn-theme'); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="dfn-sm-attempts-table-wrapper">
+                    <!-- Popolato via JS -->
+                </div>
+            </div>
         </div>
     </div>
 
@@ -387,11 +426,16 @@ function dfn_render_slot_manager()
                     <div id="dfn-details-fai-cards-list"></div>
                 </div>
             </div>
-            <div class="dfn-sm-modal-footer" style="padding: 16px 24px; background:#f8fafc; display:flex; justify-content:space-between; align-items:center;">
-                <a href="#" id="dfn-btn-view-order-wc" target="_blank" class="dfn-btn dfn-btn-secondary">
-                    <span class="dashicons dashicons-external"></span> <?php esc_html_e('Vedi Ordine WooCommerce', 'dfn-theme'); ?>
-                </a>
-                <div style="display:flex; gap:8px;">
+            <div class="dfn-sm-modal-footer" style="padding: 16px 24px; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <a href="#" id="dfn-btn-view-order-wc" target="_blank" class="dfn-btn dfn-btn-secondary">
+                        <span class="dashicons dashicons-external"></span> <?php esc_html_e('Vedi Ordine WooCommerce', 'dfn-theme'); ?>
+                    </a>
+                    <button type="button" id="dfn-btn-resend-confirmation-email" class="dfn-btn" style="background:#1e40af; color:#fff; border:none; display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:8px 14px; border-radius:6px; cursor:pointer;">
+                        <span class="dashicons dashicons-email-alt"></span> <?php esc_html_e('Reinvia Email Conferma', 'dfn-theme'); ?>
+                    </button>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
                     <button type="button" class="dfn-btn dfn-btn-secondary dfn-modal-close-btn" data-modal="dfn-modal-booking-details"><?php esc_html_e('Annulla', 'dfn-theme'); ?></button>
                     <button type="button" id="dfn-btn-save-payment-status" class="dfn-btn dfn-btn-primary" style="display:none;"><?php esc_html_e('Salva Stato Pagamento', 'dfn-theme'); ?></button>
                 </div>
@@ -410,11 +454,30 @@ function dfn_render_slot_manager()
     </div>
 
     <div id="cv-history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:999999; align-items:center; justify-content:center;">
-        <div style="background:#fff; padding:25px; border-radius:10px; width:90%; max-width:500px; box-shadow:0 10px 30px rgba(0,0,0,0.4); max-height:85vh; display:flex; flex-direction:column;">
+        <div style="background:#fff; padding:25px; border-radius:10px; width:92%; max-width:700px; box-shadow:0 10px 30px rgba(0,0,0,0.4); max-height:85vh; display:flex; flex-direction:column;">
             <h2 style="margin-top:0; font-size:22px; border-bottom: 2px solid #eee; padding-bottom: 10px;"><?php esc_html_e('📜 Log Operazioni Cliente', 'dfn-theme'); ?></h2>
             <p style="font-size:16px;"><?php esc_html_e('Ordine Cliente:', 'dfn-theme'); ?> <strong id="cv-history-cliente-name" style="color:#2271b1;"></strong></p>
-            <div id="cv-history-content-area" style="flex-grow:1; overflow-y:auto; margin: 10px 0; padding:10px; background:#f9f9f9; border:1px solid #ddd; border-radius:5px;"></div>
+            <div id="cv-history-content-area" style="flex-grow:1; overflow-y:auto; overflow-x:auto; margin: 10px 0; padding:10px; background:#f9f9f9; border:1px solid #ddd; border-radius:5px; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: nowrap;"></div>
             <button type="button" class="button cv-close-modal-btn" style="text-align:center; width:100%; padding: 10px; height: auto; font-size: 16px; margin-top:10px;"><?php esc_html_e('Chiudi Log', 'dfn-theme'); ?></button>
+        </div>
+    </div>
+
+    <!-- MODALE 7: Visualizzazione Nota Completa del Visitatore -->
+    <div id="dfn-modal-view-note" class="dfn-sm-modal">
+        <div class="dfn-sm-modal-content" style="max-width: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);">
+            <div class="dfn-sm-modal-header" style="background:#fffdf5; border-bottom:1px solid #ffeeba; padding: 16px 20px;">
+                <h3 style="margin:0; font-size:16px; color:#856404; display:flex; align-items:center; gap:8px;">
+                    <span>💬</span> <?php esc_html_e('Nota del Visitatore', 'dfn-theme'); ?>
+                </h3>
+                <span class="dfn-modal-close" data-modal="dfn-modal-view-note" style="font-size:24px; cursor:pointer; color:#856404; line-height:1;">&times;</span>
+            </div>
+            <div class="dfn-sm-modal-body" style="padding: 20px;">
+                <div id="dfn-note-modal-subtitle" style="font-size:12px; color:#64748b; margin-bottom:12px; font-weight:600;"></div>
+                <div id="dfn-note-modal-content" style="font-size:13.5px; color:#1e293b; line-height:1.6; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:16px; white-space:pre-wrap; max-height:280px; overflow-y:auto; word-break:break-word;"></div>
+            </div>
+            <div class="dfn-sm-modal-footer" style="padding: 12px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; text-align:right;">
+                <button type="button" class="dfn-btn dfn-btn-secondary dfn-modal-close-btn" data-modal="dfn-modal-view-note" style="padding: 6px 16px; font-weight:600;"><?php esc_html_e('Chiudi', 'dfn-theme'); ?></button>
+            </div>
         </div>
     </div>
     <?php

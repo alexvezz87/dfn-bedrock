@@ -127,18 +127,61 @@
         },
 
         show: function () {
+            if (!this.overlay || !this.banner) return;
+
+            // Il banner deve vedersi OVUNQUE tranne nella pagina /gestione-eventi/ da mobile (<768px)
+            var isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            var isMobileAppPage = window.location.pathname.indexOf('gestione-eventi') !== -1 || !!document.getElementById('dfn-mobile-app-root');
+
+            if (isMobile && isMobileAppPage) {
+                this.hide();
+                return;
+            }
+
             this.overlay.classList.add('dfn-banner-visible');
-            document.body.style.overflow = 'hidden';
+            this.overlay.style.setProperty('display', 'flex', 'important');
+            this.overlay.style.setProperty('opacity', '1', 'important');
+            this.overlay.style.setProperty('visibility', 'visible', 'important');
+            this.overlay.style.setProperty('pointer-events', 'auto', 'important');
+
+            if (this.banner) {
+                this.banner.style.setProperty('display', 'block', 'important');
+                this.banner.style.setProperty('opacity', '1', 'important');
+                this.banner.style.setProperty('visibility', 'visible', 'important');
+                this.banner.style.setProperty('pointer-events', 'auto', 'important');
+            }
+
+            // CONTROLLO DI SICUREZZA ASSOLUTO: Se l'overlay risulta nascosto per qualsiasi motivo, SBLOCCA LO SCROLL
+            var computedStyle = window.getComputedStyle(this.overlay);
+            if (computedStyle.display === 'none' || computedStyle.pointerEvents === 'none' || computedStyle.visibility === 'hidden') {
+                document.body.style.overflow = '';
+            } else {
+                document.body.style.overflow = 'hidden';
+            }
         },
 
         hide: function () {
-            this.overlay.classList.remove('dfn-banner-visible');
+            if (this.overlay) {
+                this.overlay.classList.remove('dfn-banner-visible');
+                this.overlay.style.setProperty('display', 'none', 'important');
+                this.overlay.style.setProperty('opacity', '0', 'important');
+                this.overlay.style.setProperty('visibility', 'hidden', 'important');
+                this.overlay.style.setProperty('pointer-events', 'none', 'important');
+            }
             document.body.style.overflow = '';
             this.showManageLink();
         },
 
         showManageLink: function () {
             if (this.manageLink) {
+                var isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                var isMobileAppPage = window.location.pathname.indexOf('gestione-eventi') !== -1 || !!document.getElementById('dfn-mobile-app-root');
+
+                if (isMobile && isMobileAppPage) {
+                    this.manageLink.classList.remove('visible');
+                    this.manageLink.style.setProperty('display', 'none', 'important');
+                    return;
+                }
                 this.manageLink.classList.add('visible');
             }
         },

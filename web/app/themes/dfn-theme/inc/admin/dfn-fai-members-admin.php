@@ -37,7 +37,7 @@ function dfn_fai_members_register_menu(): void
         'dfn-events',
         esc_html__('Anagrafica Soci FAI', 'dfn-theme'),
         $menu_title,
-        'dfn_manage_events',
+        'dfn_act_fai_members',
         'dfn-fai-members',
         'dfn_render_fai_members_page',
     );

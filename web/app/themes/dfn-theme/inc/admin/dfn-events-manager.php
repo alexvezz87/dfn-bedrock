@@ -21,15 +21,15 @@ add_action('admin_menu', 'dfn_admin_register_menus');
  */
 function dfn_admin_register_menus()
 {
-    // Menu principale (Top-level)
+    // Menu principale (Top-level) — Visibile se l'utente ha accesso al modulo prenotazioni
     add_menu_page(
         __('FAI Prenotazioni', 'dfn-theme'),
         __('FAI Prenotazioni', 'dfn-theme'),
-        'dfn_manage_events',
+        'read',
         'dfn-events',
         'dfn_render_events_manager',
         'dashicons-calendar-alt',
-        56,
+        55,
     );
 
     // Sottomenu principale (duplica per avere lo stesso URL come primo elemento)
@@ -37,7 +37,7 @@ function dfn_admin_register_menus()
         'dfn-events',
         __('Gestione Eventi', 'dfn-theme'),
         __('Eventi', 'dfn-theme'),
-        'dfn_manage_events',
+        'dfn_act_events_manage',
         'dfn-events',
         'dfn_render_events_manager',
     );
@@ -47,7 +47,7 @@ function dfn_admin_register_menus()
         'dfn-events',
         __('Aggiungi Nuovo Evento', 'dfn-theme'),
         __('Aggiungi Evento', 'dfn-theme'),
-        'dfn_manage_events',
+        'dfn_act_events_manage',
         'dfn-event-edit',
         'dfn_render_event_editor',
     );
@@ -57,7 +57,7 @@ function dfn_admin_register_menus()
         'dfn-events',
         __('Scanner Live', 'dfn-theme'),
         __('Scanner Live', 'dfn-theme'),
-        'dfn_use_scanner',
+        'dfn_act_scanner',
         'dfn-scanner-live',
         'dfn_render_pagina_scanner_live',
     );
@@ -67,7 +67,7 @@ function dfn_admin_register_menus()
         null, // null lo nasconde dalla barra laterale di default
         __('Gestione Turni', 'dfn-theme'),
         __('Gestione Turni', 'dfn-theme'),
-        'dfn_manage_events',
+        'dfn_act_events_manage',
         'dfn-slot-manager',
         'dfn_render_slot_manager',
     );
@@ -76,8 +76,8 @@ function dfn_admin_register_menus()
     add_submenu_page(
         'dfn-events',
         __('Check-in Banchetto', 'dfn-theme'),
-        __('🎟️ Check-in', 'dfn-theme'),
-        'dfn_manage_events',
+        __('Check-in', 'dfn-theme'),
+        'dfn_act_checkin',
         'dfn-checkin-manager',
         'dfn_render_checkin_manager',
     );
@@ -86,8 +86,8 @@ function dfn_admin_register_menus()
     add_submenu_page(
         'dfn-events',
         __('Inserimento Rapido', 'dfn-theme'),
-        __('✏️ Inserimento Rapido', 'dfn-theme'),
-        'dfn_quick_booking',
+        __('Inserimento Rapido', 'dfn-theme'),
+        'dfn_act_quick_booking',
         'dfn-quick-booking',
         'dfn_render_quick_booking',
     );
@@ -110,7 +110,7 @@ function dfn_admin_register_menus()
         'dfn-events',
         __('Verifica Prenotazioni FAI', 'dfn-theme'),
         $pending_label,
-        'dfn_manage_events',
+        'dfn_act_verify_bookings',
         'dfn-fai-pending-bookings',
         'dfn_render_fai_pending_bookings',
     );
@@ -449,6 +449,9 @@ function dfn_render_events_manager()
                             <tr>
                                 <td class="column-title">
                                     <strong><a class="row-title" href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php echo esc_html($product_name); ?></a></strong>
+                                    <?php if (! empty($event->is_test_event)) : ?>
+                                        <span class="dfn-badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:11px; font-weight:bold; padding:2px 6px; border-radius:4px; margin-left:6px; vertical-align:middle;">🧪 TEST</span>
+                                    <?php endif; ?>
                                     <div class="row-actions">
                                         <span class="edit"><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php esc_html_e('Modifica', 'dfn-theme'); ?></a> | </span>
                                         <span class="duplicate"><a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=duplicate&event_id=' . $event->id), 'dfn_dup_event_' . $event->id)); ?>" style="color:#004b23; font-weight:600;"><?php esc_html_e('Duplica', 'dfn-theme'); ?></a> | </span>

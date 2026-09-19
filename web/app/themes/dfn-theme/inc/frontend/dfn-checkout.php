@@ -221,8 +221,31 @@ function dfn_prefill_checkout_billing_fields($value, $input)
                     return $session_val;
                 }
                 break;
+            case 'order_comments':
+                $session_val = WC()->session->get('dfn_checkout_notes');
+                if ($session_val) {
+                    return $session_val;
+                }
+                break;
         }
     }
     return $value;
 }
 add_filter('woocommerce_checkout_get_value', 'dfn_prefill_checkout_billing_fields', 10, 2);
+
+/**
+ * Garantisce che le note inserite nella modale del widget vengano trasferite all'ordine WooCommerce al checkout.
+ *
+ * @param WC_Order $order Oggetto ordine WooCommerce in creazione.
+ */
+function dfn_sync_customer_notes_to_order($order)
+{
+    if (empty($order->get_customer_note()) && WC()->session) {
+        $session_notes = WC()->session->get('dfn_checkout_notes');
+        if (! empty($session_notes)) {
+            $order->set_customer_note($session_notes);
+        }
+    }
+}
+add_action('woocommerce_checkout_create_order', 'dfn_sync_customer_notes_to_order', 10, 1);
+

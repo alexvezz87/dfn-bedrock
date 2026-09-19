@@ -39,6 +39,12 @@ function dfn_render_event_editor()
     global $wpdb;
     $table_events = $wpdb->prefix . 'dfn_events';
 
+    // Self-healing DB check: assicura che le nuove colonne per gli Eventi Test esistano nella tabella
+    $col_test_check = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'is_test_event'");
+    if (empty($col_test_check)) {
+        $wpdb->query("ALTER TABLE {$table_events} ADD COLUMN is_test_event tinyint(1) NOT NULL DEFAULT 0, ADD COLUMN test_notification_email varchar(255) DEFAULT NULL");
+    }
+
     // Determina se stiamo modificando o creando
     $event_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
     $event = null;
@@ -88,6 +94,8 @@ function dfn_render_event_editor()
             $booking_status       = in_array($_POST['booking_status'] ?? '', ['open', 'closed', 'email'], true)
                 ? $_POST['booking_status']
                 : 'open';
+            $is_test_event           = isset($_POST['is_test_event']) ? 1 : 0;
+            $test_notification_email = ! empty($_POST['test_notification_email']) ? sanitize_email($_POST['test_notification_email']) : null;
 
             if ($price_fai !== null && $price_fai > $price_standard) {
                 $message = __('Errore: Il contributo Socio FAI non può essere superiore a quello Standard.', 'dfn-theme');
@@ -163,18 +171,32 @@ function dfn_render_event_editor()
                     }
                 }
 
-                // Associa l'immagine in evidenza al prodotto WooCommerce
+                // Associa l'immagine in evidenza o il segnaposto predefinito al prodotto WooCommerce
                 if ($product_id > 0) {
                     $image_id = isset($_POST['dfn_event_image_id']) ? intval($_POST['dfn_event_image_id']) : 0;
                     if ($image_id > 0) {
                         set_post_thumbnail($product_id, $image_id);
                     } else {
-                        set_post_thumbnail($product_id, 2223);
+                        $default_placeholder_id = intval(dfn_get_setting('default_placeholder_image_id', 0));
+                        if ($default_placeholder_id > 0 && wp_attachment_is_image($default_placeholder_id)) {
+                            set_post_thumbnail($product_id, $default_placeholder_id);
+                        } else {
+                            delete_post_thumbnail($product_id);
+                        }
                     }
 
                     // Associa la galleria al prodotto WooCommerce
                     $gallery_ids = isset($_POST['dfn_event_gallery_ids']) ? sanitize_text_field($_POST['dfn_event_gallery_ids']) : '';
                     update_post_meta($product_id, '_product_image_gallery', $gallery_ids);
+
+                    // Se l'evento è in modalità TEST, nasconde il prodotto dal catalogo pubblico e dai motori di ricerca
+                    if ($is_test_event) {
+                        update_post_meta($product_id, '_visibility', 'hidden');
+                        wp_set_post_terms($product_id, ['exclude-from-search', 'exclude-from-catalog'], 'product_visibility');
+                    } else {
+                        update_post_meta($product_id, '_visibility', 'visible');
+                        wp_remove_object_terms($product_id, ['exclude-from-search', 'exclude-from-catalog'], 'product_visibility');
+                    }
                 }
 
                 $data = [
@@ -204,54 +226,59 @@ function dfn_render_event_editor()
                     'booking_opening_date' => $booking_opening_date,
                     'booking_status'       => $booking_status,
                     'status'               => $status,
+                    'is_test_event'           => $is_test_event,
+                    'test_notification_email' => $test_notification_email,
                 ];
 
-                $format = [
-                    '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s',
-                    '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%s', '%s',
-                ];
-
+                $saved = false;
                 if ($event_id > 0) {
                     // Modifica
-                    $wpdb->update($table_events, $data, [ 'id' => $event_id ], $format, [ '%d' ]);
-                    $message = __('Evento aggiornato con successo nel database.', 'dfn-theme');
+                    $saved = $wpdb->update($table_events, $data, [ 'id' => $event_id ]) !== false;
                 } else {
                     // Inserimento
-                    $wpdb->insert($table_events, $data, $format);
-                    $event_id = $wpdb->insert_id;
-                    $message = __('Nuovo evento creato con successo!', 'dfn-theme');
+                    $saved = $wpdb->insert($table_events, $data) !== false;
+                    $event_id = (int) $wpdb->insert_id;
 
                     // Genera gli slot iniziali se previsto
-                    if ('time_slots' === $access_type) {
+                    if ($saved && $event_id > 0 && 'time_slots' === $access_type) {
                         dfn_db_generate_slots_for_event($event_id);
                     }
                 }
 
-                // Sincronizza la giacenza ed il magazzino sul prodotto WooCommerce associato
-                if ($product_id > 0) {
-                    if ('free_flow' === $access_type) {
-                        $total_booked = (int) $wpdb->get_var($wpdb->prepare(
-                            "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
-                            $event_id
-                        ));
-                        $remaining_stock = max(0, $total_capacity - $total_booked);
-                    } else {
-                        $remaining_stock = (int) $wpdb->get_var($wpdb->prepare(
-                            "SELECT SUM(GREATEST(0, (capacity + bonus_capacity) - booked_count)) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d AND is_locked = 0",
-                            $event_id
-                        ));
-                        if ($remaining_stock === 0) {
-                            $remaining_stock = $total_capacity > 0 ? $total_capacity : ($slot_capacity * 10);
-                        }
-                    }
-                    update_post_meta($product_id, '_manage_stock', 'yes');
-                    update_post_meta($product_id, '_stock', $remaining_stock);
-                    update_post_meta($product_id, '_stock_status', ($remaining_stock > 0 ? 'instock' : 'outofstock'));
-                }
+                if (! $saved || $event_id <= 0) {
+                    $message = __('Errore durante il salvataggio dell\'evento nel database: ', 'dfn-theme') . ($wpdb->last_error ?: __('Operazione fallita.', 'dfn-theme'));
+                    $message_type = 'error';
+                } else {
+                    // Sincronizza la giacenza ed il magazzino sul prodotto WooCommerce associato
+                    if ($product_id > 0) {
+                        update_post_meta($product_id, '_regular_price', $price_standard);
+                        update_post_meta($product_id, '_price', $price_standard);
+                        wc_delete_product_transients($product_id);
 
-                // Reindirizza al tabellone principale con messaggio di successo
-                wp_safe_redirect(admin_url('admin.php?page=dfn-events&action=saved&event_id=' . $event_id));
-                exit;
+                        if ('free_flow' === $access_type) {
+                            $total_booked = (int) $wpdb->get_var($wpdb->prepare(
+                                "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+                                $event_id
+                            ));
+                            $remaining_stock = max(0, $total_capacity - $total_booked);
+                        } else {
+                            $remaining_stock = (int) $wpdb->get_var($wpdb->prepare(
+                                "SELECT SUM(GREATEST(0, (capacity + bonus_capacity) - booked_count)) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d AND is_locked = 0",
+                                $event_id
+                            ));
+                            if ($remaining_stock === 0) {
+                                $remaining_stock = $total_capacity > 0 ? $total_capacity : ($slot_capacity * 10);
+                            }
+                        }
+                        update_post_meta($product_id, '_manage_stock', 'yes');
+                        update_post_meta($product_id, '_stock', $remaining_stock);
+                        update_post_meta($product_id, '_stock_status', ($remaining_stock > 0 ? 'instock' : 'outofstock'));
+                    }
+
+                    // Reindirizza al tabellone principale con messaggio di successo
+                    wp_safe_redirect(admin_url('admin.php?page=dfn-events&action=saved&event_id=' . $event_id));
+                    exit;
+                }
             }
         } else {
             $message = __('Errore di sicurezza durante il salvataggio dei dati.', 'dfn-theme');
@@ -300,6 +327,8 @@ function dfn_render_event_editor()
     $layout_sel       = $is_post && isset($_POST['detail_layout']) ? sanitize_text_field($_POST['detail_layout']) : ($event && ! empty($event->detail_layout) ? $event->detail_layout : 'auto');
     $booking_opening  = $is_post && isset($_POST['booking_opening_date']) ? sanitize_text_field($_POST['booking_opening_date']) : ($event && ! empty($event->booking_opening_date) ? date('Y-m-d\TH:i', strtotime($event->booking_opening_date)) : '');
     $booking_stat     = $is_post && isset($_POST['booking_status']) ? sanitize_text_field($_POST['booking_status']) : ($event && ! empty($event->booking_status) ? $event->booking_status : 'open');
+    $is_test_evt      = $is_post ? (isset($_POST['is_test_event']) ? 1 : 0) : ($event && isset($event->is_test_event) ? (int) $event->is_test_event : 0);
+    $test_email       = $is_post && isset($_POST['test_notification_email']) ? sanitize_email($_POST['test_notification_email']) : ($event && isset($event->test_notification_email) ? $event->test_notification_email : '');
     $is_duplicated    = isset($_GET['duplicated']) && $_GET['duplicated'] === '1';
     ?>
     <div class="wrap dfn-admin-wrap">
@@ -564,6 +593,24 @@ function dfn_render_event_editor()
                                 </p>
                             </div>
 
+                            <!-- Blocco Evento di Test -->
+                            <div class="dfn-form-group" style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px 14px; border-radius:8px; margin-top:15px;">
+                                <label for="is_test_event" class="dfn-label" style="display:flex; align-items:center; gap:8px; font-weight:700; color:#15803d; cursor:pointer; margin-bottom:4px;">
+                                    <input type="checkbox" name="is_test_event" id="is_test_event" value="1" <?php checked($is_test_evt, 1); ?> onchange="document.getElementById('dfn-test-email-wrap').style.display = this.checked ? 'block' : 'none';" />
+                                    🧪 Modalità Evento di Test
+                                </label>
+                                <p class="description" style="font-size:12px; color:#166534; margin:2px 0 8px 24px;">
+                                    Se attivo, le notifiche per lo Staff verranno inviate <strong>solo all'email di test</strong> specificata sotto per non intasare la casella ufficiale.
+                                </p>
+
+                                <div id="dfn-test-email-wrap" style="display: <?php echo $is_test_evt ? 'block' : 'none'; ?>; margin-left:24px; margin-top:6px;">
+                                    <label for="test_notification_email" class="dfn-label" style="font-size:12px; font-weight:600; color:#166534;">
+                                        Email Notifiche di Test:
+                                    </label>
+                                    <input type="email" name="test_notification_email" id="test_notification_email" value="<?php echo esc_attr($test_email); ?>" placeholder="es. tua.email@dominio.it" class="dfn-input" style="width:100%; margin-top:4px;" />
+                                </div>
+                            </div>
+
                             <div class="divider"></div>
 
                             <button type="submit" class="dfn-btn dfn-btn-primary dfn-btn-block">
@@ -580,17 +627,28 @@ function dfn_render_event_editor()
                         <div class="dfn-card-body" style="text-align: center;">
                             <?php
                             $image_id = 0;
-    $image_url = '';
-    if ($p_id > 0) {
-        $image_id = get_post_thumbnail_id($p_id);
-        if ($image_id) {
-            $image_url = wp_get_attachment_image_url($image_id, 'medium');
-        }
-    }
-    ?>
+                            $image_url = '';
+                            $is_placeholder = false;
+                            if ($p_id > 0) {
+                                $image_id = get_post_thumbnail_id($p_id);
+                                if ($image_id) {
+                                    $image_url = wp_get_attachment_image_url($image_id, 'medium');
+                                }
+                            }
+                            if (! $image_url) {
+                                $default_placeholder_id = intval(dfn_get_setting('default_placeholder_image_id', 0));
+                                if ($default_placeholder_id > 0) {
+                                    $image_url = wp_get_attachment_image_url($default_placeholder_id, 'medium');
+                                    if ($image_url) {
+                                        $is_placeholder = true;
+                                    }
+                                }
+                            }
+                            ?>
                             <div class="dfn-event-image-preview" style="margin-bottom: 15px; min-height: 150px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden; position: relative;">
                                 <?php if ($image_url) : ?>
                                     <img src="<?php echo esc_url($image_url); ?>" style="max-width: 100%; max-height: 150px; display: block;" id="dfn-event-image-img">
+                                    <span style="display: <?php echo $is_placeholder ? 'inline-block' : 'none'; ?>; position: absolute; bottom: 4px; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px;" id="dfn-event-image-placeholder-label"><?php esc_html_e('Segnaposto Predefinito', 'dfn-theme'); ?></span>
                                 <?php else : ?>
                                     <span style="color: #64748b; font-size: 13px;" id="dfn-event-image-placeholder"><?php esc_html_e('Nessuna immagine impostata', 'dfn-theme'); ?></span>
                                     <img src="" style="max-width: 100%; max-height: 150px; display: none;" id="dfn-event-image-img">
@@ -746,12 +804,12 @@ function dfn_render_event_editor()
                             
                             <div class="dfn-form-group">
                                 <label for="price_standard" class="dfn-label"><?php esc_html_e('Biglietto Standard (€)', 'dfn-theme'); ?> <span class="required">*</span></label>
-                                <input type="number" name="price_standard" id="price_standard" value="<?php echo esc_attr($price_std); ?>" step="0.50" min="0" required class="dfn-input">
+                                <input type="number" name="price_standard" id="price_standard" value="<?php echo esc_attr($price_std); ?>" step="0.01" min="0" required class="dfn-input">
                             </div>
 
                             <div class="dfn-form-group">
                                 <label for="price_fai" class="dfn-label"><?php esc_html_e('Socio FAI / Scontato (€)', 'dfn-theme'); ?> <span style="font-weight:normal; color:#64748b;">(opzionale)</span></label>
-                                <input type="number" name="price_fai" id="price_fai" value="<?php echo esc_attr($price_fai_member); ?>" step="0.50" min="0" class="dfn-input" placeholder="Es. 8.00">
+                                <input type="number" name="price_fai" id="price_fai" value="<?php echo esc_attr($price_fai_member); ?>" step="0.01" min="0" class="dfn-input" placeholder="Es. 8.00">
                             </div>
                         </div>
                     </div>

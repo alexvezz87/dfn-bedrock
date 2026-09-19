@@ -142,17 +142,35 @@ function dfn_distribute_slots_balanced($total_qty, $slots)
 }
 
 add_action('woocommerce_checkout_order_processed', 'dfn_allocate_slots_on_checkout', 10, 3);
+add_action('woocommerce_store_api_checkout_order_processed', 'dfn_allocate_slots_on_checkout', 10, 1);
+add_action('woocommerce_new_order', 'dfn_allocate_slots_on_checkout', 20, 1);
 /**
  * Trigger primario all'atto della creazione dell'ordine.
  * Esegue le query transazionali con row-locking, applicando l'algoritmo di allocazione.
  *
- * @param int      $order_id ID dell'ordine appena creato.
- * @param array    $posted_data Dati inviati.
- * @param WC_Order $order Oggetto ordine WooCommerce.
+ * @param int           $order_id ID dell'ordine appena creato.
+ * @param array         $posted_data Dati inviati.
+ * @param WC_Order|null $order Oggetto ordine WooCommerce.
  */
-function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
+function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order = null)
 {
     global $wpdb;
+
+    if (! $order && $order_id > 0) {
+        $order = wc_get_order($order_id);
+    }
+    if (! $order) {
+        return;
+    }
+
+    // Idempotenza: garantisce che per ciascun ordine WooCommerce venga creata una sola prenotazione master
+    $existing_booking_id = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}dfn_bookings WHERE order_id = %d LIMIT 1",
+        $order->get_id()
+    ));
+    if ($existing_booking_id > 0) {
+        return;
+    }
 
     // Rileva se l'ordine contiene elementi legati a eventi
     foreach ($order->get_items() as $item_id => $item) {
@@ -564,7 +582,7 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
                         'amount_due'       => $amount_due,
                         'amount_paid'      => $amount_paid,
                         'notes'            => $order->get_customer_note(),
-                        'created_at'       => $booking_date . ' ' . date('H:i:s'),
+                        'created_at'       => current_time('mysql'),
                     ],
                     [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
                 );
@@ -617,6 +635,7 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data, $order)
         WC()->session->set('dfn_checkout_last_name', null);
         WC()->session->set('dfn_checkout_email', null);
         WC()->session->set('dfn_checkout_phone', null);
+        WC()->session->set('dfn_checkout_notes', null);
         WC()->session->set('dfn_checkout_fai_cards', null);
     }
 }
@@ -660,6 +679,13 @@ function dfn_ajax_create_direct_booking(): void
     if (! $event) {
         wp_send_json_error([ 'message' => esc_html__('Evento non valido.', 'dfn-theme') ]);
     }
+
+    // Blocco anti-duplicati / invii simultanei
+    $lock_key = 'dfn_booking_lock_' . md5($event_id . '_' . $date . '_' . $slot_id . '_' . strtolower($email) . '_' . strtolower($first_name . $last_name));
+    if (get_transient($lock_key)) {
+        wp_send_json_error([ 'message' => esc_html__('Una richiesta di prenotazione per questi dati è già in corso. Attendi qualche istante.', 'dfn-theme') ]);
+    }
+    set_transient($lock_key, 1, 10);
 
     global $wpdb;
 
@@ -881,12 +907,13 @@ function dfn_ajax_create_direct_booking(): void
         // Aggiungi il prodotto al carrello con i dati della prenotazione
         WC()->cart->add_to_cart($product_id, $total_qty, 0, [], $cart_item_data);
 
-        // Salva i dati di contatto e le tessere nella sessione di WooCommerce
+        // Salva i dati di contatto, note e tessere nella sessione di WooCommerce
         if (WC()->session) {
             WC()->session->set('dfn_checkout_first_name', $first_name);
             WC()->session->set('dfn_checkout_last_name', $last_name);
             WC()->session->set('dfn_checkout_email', $email);
             WC()->session->set('dfn_checkout_phone', $phone);
+            WC()->session->set('dfn_checkout_notes', $notes);
             if (! empty($fai_cards)) {
                 WC()->session->set('dfn_checkout_fai_cards', $fai_cards);
             }
@@ -900,6 +927,70 @@ function dfn_ajax_create_direct_booking(): void
         exit;
     }
 
+add_action('woocommerce_before_calculate_totals', 'dfn_override_cart_item_prices', 10, 1);
+/**
+ * Imposta il prezzo unitario del carrello in base al prezzo standard dell'evento DFN.
+ */
+function dfn_override_cart_item_prices($cart)
+{
+    if (is_admin() && ! defined('DOING_AJAX')) {
+        return;
+    }
+    if (did_action('woocommerce_before_calculate_totals') >= 2) {
+        return;
+    }
+
+    foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+        if (isset($cart_item['dfn_booking_slot_id'])) {
+            $slot_id = intval($cart_item['dfn_booking_slot_id']);
+            $slot    = dfn_db_get_slot($slot_id);
+            if ($slot) {
+                $event = dfn_db_get_event($slot->event_id);
+                if ($event && isset($event->price_standard)) {
+                    $price_standard = floatval($event->price_standard);
+                    $cart_item['data']->set_price($price_standard);
+                }
+            }
+        }
+    }
+}
+
+add_action('woocommerce_cart_calculate_fees', 'dfn_add_fai_discount_fee_to_cart', 10, 1);
+/**
+ * Applica eventuale sconto o adeguamento Soci FAI alle commissioni del carrello WooCommerce.
+ */
+function dfn_add_fai_discount_fee_to_cart($cart)
+{
+    if (is_admin() && ! defined('DOING_AJAX')) {
+        return;
+    }
+
+    foreach ($cart->get_cart() as $cart_item) {
+        if (isset($cart_item['dfn_booking_slot_id'])) {
+            $slot_id = intval($cart_item['dfn_booking_slot_id']);
+            $slot    = dfn_db_get_slot($slot_id);
+            if ($slot) {
+                $event = dfn_db_get_event($slot->event_id);
+                if ($event) {
+                    $qty_fai = isset($cart_item['dfn_qty_fai']) ? intval($cart_item['dfn_qty_fai']) : 0;
+                    if ($qty_fai > 0) {
+                        $price_standard = floatval($event->price_standard);
+                        $price_fai      = floatval($event->price_fai);
+                        $unit_discount  = $price_standard - $price_fai;
+                        $total_discount = $unit_discount * $qty_fai;
+                        if ($total_discount !== 0.00) {
+                            $fee_name = $total_discount > 0.00
+                                ? sprintf(__('Sconto Soci FAI (%d tessere)', 'dfn-theme'), $qty_fai)
+                                : sprintf(__('Adeguamento Soci FAI (%d tessere)', 'dfn-theme'), $qty_fai);
+                            $cart->add_fee($fee_name, -$total_discount);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
     // 2. Creazione programmatica dell'ordine WooCommerce
     try {
         $order = wc_create_order();
@@ -908,7 +999,11 @@ function dfn_ajax_create_direct_booking(): void
             throw new \Exception('Prodotto WooCommerce non trovato.');
         }
 
-        $order->add_product($product, $total_qty);
+        $price_standard = floatval($event->price_standard);
+        $order->add_product($product, $total_qty, [
+            'subtotal' => $price_standard * $total_qty,
+            'total'    => $price_standard * $total_qty,
+        ]);
 
         // Applica i dati di fatturazione minimi
         $order->set_billing_first_name($first_name);
@@ -1121,24 +1216,93 @@ function dfn_confirm_booking_on_payment(int $order_id): void
     
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_bookings';
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        return;
+    }
     
-    // Cerca se esiste una prenotazione associata a questo ordine con stato 'pending_payment'.
-    // NOTA: le prenotazioni in 'pending_approval' (tessere FAI non verificate) non devono
-    // essere confermate automaticamente al pagamento: richiedono prima l'approvazione dello staff.
+    // 1. Cerca se esiste una prenotazione attiva o in attesa legata a questo ordine
     $booking = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$table} WHERE order_id = %d AND status = 'pending_payment'",
+        "SELECT * FROM {$table} WHERE order_id = %d AND status != 'cancelled'",
         $order_id,
     ));
     
-    if ($booking) {
+    // 2. Se NON esiste una prenotazione attiva per questo ordine (es. pagamento con Apple Pay / Express Checkout che ha generato un nuovo ID ordine)
+    if (! $booking) {
+        $target_event_id = 0;
+        $target_total_qty = 0;
+        foreach ($order->get_items() as $item) {
+            if (is_a($item, 'WC_Order_Item_Product')) {
+                $evt = dfn_db_get_event_by_product($item->get_product_id());
+                if ($evt) {
+                    $target_event_id = intval($evt->id);
+                    $meta_std = $item->get_meta('_dfn_qty_standard');
+                    $std = ($meta_std !== '' && $meta_std !== false && $meta_std !== null) ? intval($meta_std) : intval($item->get_quantity());
+                    $fai = intval($item->get_meta('_dfn_qty_fai'));
+                    $target_total_qty = $std + $fai;
+                    break;
+                }
+            }
+        }
+
+        $billing_email = $order->get_billing_email();
+        $recent_cancelled = null;
+        if (! empty($billing_email)) {
+            // Priorità 1: Cerca la prenotazione annullata più recente (ORDER BY id DESC) con STESSA EMAIL, STESSO EVENTO e STESSO NUMERO DI PERSONE
+            if ($target_event_id > 0 && $target_total_qty > 0) {
+                $recent_cancelled = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM {$table} 
+                     WHERE customer_email = %s 
+                       AND event_id = %d 
+                       AND total_persons = %d 
+                       AND status = 'cancelled' 
+                       AND created_at >= NOW() - INTERVAL 2 HOUR 
+                     ORDER BY id DESC LIMIT 1",
+                    $billing_email,
+                    $target_event_id,
+                    $target_total_qty
+                ));
+            }
+
+            // Priorità 2: Fallback se non c'è corrispondenza di quantitativo (pesca comunque il tentativo annullato più recente)
+            if (! $recent_cancelled) {
+                $recent_cancelled = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM {$table} 
+                     WHERE customer_email = %s 
+                       AND status = 'cancelled' 
+                       AND created_at >= NOW() - INTERVAL 2 HOUR 
+                     ORDER BY id DESC LIMIT 1",
+                    $billing_email
+                ));
+            }
+        }
+
+        if ($recent_cancelled) {
+            // Ripristina la prenotazione associandola al nuovo ordine pagato!
+            $booking = $recent_cancelled;
+            $wpdb->update(
+                $table,
+                ['order_id' => $order_id, 'status' => 'pending_payment'],
+                ['id' => $booking->id],
+                ['%d', '%s'],
+                ['%d']
+            );
+        } else {
+            // Altrimenti, alloca e crea la prenotazione per questo nuovo ordine
+            dfn_allocate_slots_on_checkout($order_id, [], $order);
+            $booking = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$table} WHERE order_id = %d AND status != 'cancelled'",
+                $order_id
+            ));
+        }
+    }
+    
+    if ($booking && in_array($booking->status, ['pending_payment', 'cancelled'], true)) {
         $event = dfn_db_get_event($booking->event_id);
         if ($event) {
             $new_status = 'confirmed';
-            
-            // Aggiorna lo stato della prenotazione e imposta il metodo e importo pagato
-            $order = wc_get_order($order_id);
-            $pay_method = $order ? $order->get_payment_method() : 'online';
-            $total_paid = $order ? floatval($order->get_total()) : 0.00;
+            $pay_method = $order->get_payment_method() ?: 'online';
+            $total_paid = floatval($order->get_total());
 
             $wpdb->update(
                 $table,
@@ -1153,14 +1317,63 @@ function dfn_confirm_booking_on_payment(int $order_id): void
                 [ '%d' ],
             );
             
-            // Invia le notifiche via email
+            // Recalculate booked_count on slots
+            if (function_exists('dfn_db_recalculate_event_slots_booked_count')) {
+                dfn_db_recalculate_event_slots_booked_count($booking->event_id);
+            }
+
+            // Invia le notifiche via email con i biglietti ed il QR code PDF
             dfn_send_booking_confirmation($booking->id);
             dfn_send_admin_new_booking_notification($booking->id);
             
             // Aggiunge una nota riepilogativa all'ordine
-            if ($order) {
-                $order->add_order_note(sprintf(__('🎟️ Pagamento online ricevuto. Prenotazione FAI confermata (Stato: %s).', 'dfn-theme'), $new_status));
-            }
+            $order->add_order_note(sprintf(__('🎟️ Pagamento online ricevuto. Prenotazione FAI #%d confermata con successo (Stato: %s).', 'dfn-theme'), $booking->id, $new_status));
+        }
+    }
+}
+
+/**
+ * Hook per annullare automaticamente la prenotazione e liberare i posti nel turno
+ * quando un ordine WooCommerce passa a Fallito, Annullato o Rimborsato.
+ */
+add_action('woocommerce_order_status_failed', 'dfn_cancel_booking_on_failed_order', 10, 1);
+add_action('woocommerce_order_status_cancelled', 'dfn_cancel_booking_on_failed_order', 10, 1);
+add_action('woocommerce_order_status_refunded', 'dfn_cancel_booking_on_failed_order', 10, 1);
+function dfn_cancel_booking_on_failed_order(int $order_id): void
+{
+    if (! $order_id) {
+        return;
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_bookings';
+
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table} WHERE order_id = %d AND status != 'cancelled'",
+        $order_id
+    ));
+
+    if ($booking) {
+        $wpdb->update(
+            $table,
+            ['status' => 'cancelled'],
+            ['id' => $booking->id],
+            ['%s'],
+            ['%d']
+        );
+
+        if (function_exists('dfn_db_recalculate_event_slots_booked_count')) {
+            dfn_db_recalculate_event_slots_booked_count($booking->event_id);
+        }
+
+        if (function_exists('dfn_log_event')) {
+            dfn_log_event(
+                'BOOKING_CANCELLED',
+                sprintf('Prenotazione #%d annullata automaticamente (Posti liberati): Ordine WooCommerce #%d in stato Fallito/Annullato', $booking->id, $order_id),
+                ['booking_id' => $booking->id, 'order_id' => $order_id],
+                $booking->event_id,
+                'warning'
+            );
         }
     }
 }

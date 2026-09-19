@@ -93,43 +93,47 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             true,
         );
 
-        // Enqueue Mobile Web App (CSS & JS)
-        wp_enqueue_style(
-            'dfn-mobile-app-css',
-            trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-mobile-app.css',
-            [ 'dashicons' ],
-            file_exists(get_stylesheet_directory() . '/assets/css/dfn-mobile-app.css')
-                ? filemtime(get_stylesheet_directory() . '/assets/css/dfn-mobile-app.css')
-                : '2.1.0'
-        );
+        // Enqueue Mobile Web App (CSS & JS) - Soltanto sulla pagina /gestione-eventi/
+        $is_mobile_app_page = is_page('gestione-eventi') 
+            || is_page_template('template-mobile-app.php') 
+            || (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'gestione-eventi') !== false);
 
-        wp_enqueue_script(
-            'jsqr',
-            trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/jsqr.min.js',
-            [],
-            '1.4.0',
-            true
-        );
+        if ($is_mobile_app_page) {
+            wp_enqueue_style(
+                'dfn-mobile-app-css',
+                trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-mobile-app.css',
+                [ 'dashicons' ],
+                (string) time()
+            );
 
-        wp_enqueue_script(
-            'html5-qrcode',
-            'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
-            [],
-            '2.3.8',
-            true
-        );
+            wp_enqueue_script(
+                'jsqr',
+                trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/jsqr.min.js',
+                [],
+                '1.4.0',
+                true
+            );
 
-        wp_enqueue_script(
-            'dfn-mobile-app-js',
-            trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-mobile-app.js',
-            [ 'html5-qrcode', 'jsqr' ],
-            (string) time(),
-            true
-        );
+            wp_enqueue_script(
+                'html5-qrcode',
+                'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
+                [],
+                '2.3.8',
+                true
+            );
 
-        wp_localize_script('dfn-mobile-app-js', 'dfn_mobile_params', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-        ]);
+            wp_enqueue_script(
+                'dfn-mobile-app-js',
+                trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-mobile-app.js',
+                [ 'html5-qrcode', 'jsqr' ],
+                (string) time(),
+                true
+            );
+
+            wp_localize_script('dfn-mobile-app-js', 'dfn_mobile_params', [
+                'ajax_url' => admin_url('admin-ajax.php'),
+            ]);
+        }
 
         $user_logged_in = is_user_logged_in();
         $user_data = [
@@ -524,5 +528,45 @@ function dfn_mobile_pwa_head_tags(): void
     <?php
 }
 add_action('wp_head', 'dfn_mobile_pwa_head_tags', 2);
+
+/**
+ * ========================================================================
+ * ORDINAMENTO CENTRALIZZATO DEL MENU ADMIN FAI
+ * Raggruppa tutte le voci FAI consecutive subito sotto Commenti
+ * ========================================================================
+ */
+add_filter('custom_menu_order', '__return_true');
+add_filter('menu_order', 'dfn_custom_admin_menu_order', 999);
+
+function dfn_custom_admin_menu_order(array $menu_order): array
+{
+    // Raccoglie e rimuove le voci FAI dalla loro posizione originale
+    $fai_items = [
+        'dfn-events',           // FAI Prenotazioni
+        'cv-scanner-live',      // 🔴 Scanner Live
+        'dfn-volunteers',       // Volontari FAI
+        'dfn-roles',            // FAI Ruoli & Permessi
+    ];
+
+    $clean_menu = [];
+    foreach ($menu_order as $item) {
+        if (! in_array($item, $fai_items, true)) {
+            $clean_menu[] = $item;
+        }
+    }
+
+    // Trova la posizione dopo i commenti (edit-comments.php) per inserire il blocco FAI compatto
+    $comments_pos = array_search('edit-comments.php', $clean_menu, true);
+    if ($comments_pos !== false) {
+        $insert_index = $comments_pos + 1;
+    } else {
+        $insert_index = 3;
+    }
+
+    array_splice($clean_menu, $insert_index, 0, $fai_items);
+
+    return $clean_menu;
+}
+
 
 

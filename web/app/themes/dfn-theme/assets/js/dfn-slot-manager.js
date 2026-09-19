@@ -13,6 +13,16 @@
             return;
         }
 
+        function escHtml(str) {
+            if (!str) return '';
+            return str.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         var eventId = parseInt($wrapper.data('event-id'), 10);
         var nonce = $wrapper.data('nonce');
         var accessType = $wrapper.data('access-type') || 'time_slots'; // 'free_flow' o 'time_slots'
@@ -30,6 +40,175 @@
         if (activeDate) {
             loadSlots(activeDate);
         }
+
+        // ========================================================================
+        // TAB SWITCHING & GESTIONE STORICO MOVIMENTI / TENTATIVI NON COMPLETATI
+        // ========================================================================
+        var cachedAttempts = [];
+
+        $(document).on('click', '.dfn-main-tab-btn', function() {
+            var targetTab = $(this).data('tab');
+            $('.dfn-main-tab-btn').removeClass('active').css({'border-bottom-color': 'transparent', 'color': '#64748b', 'font-weight': '600'});
+            $(this).addClass('active').css({'border-bottom-color': '#0284c7', 'color': '#0284c7', 'font-weight': '700'});
+
+            $('.dfn-tab-view').hide();
+            $('[data-view="' + targetTab + '"]').show();
+
+            if (targetTab === 'unsuccessful-attempts') {
+                loadFailedAttempts(false);
+            }
+        });
+
+        // Carica contatore tentativi all'avvio
+        loadFailedAttempts(true);
+
+        function loadFailedAttempts(silentCountOnly) {
+            var $wrapper = $('#dfn-sm-attempts-table-wrapper');
+            if (!silentCountOnly) {
+                $wrapper.html('<div class="dfn-loading" style="padding:20px; text-align:center;"><span class="dashicons dashicons-update spin"></span> Caricamento storico tentativi...</div>');
+            }
+
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'dfn_admin_get_failed_attempts',
+                    event_id: eventId,
+                    nonce: nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        cachedAttempts = response.data.attempts || [];
+                        $('#dfn-badge-failed-count').text(response.data.count || 0);
+                        if (!silentCountOnly) {
+                            renderAttemptsTable(cachedAttempts);
+                        }
+                    } else {
+                        if (!silentCountOnly) {
+                            $wrapper.html('<div class="notice notice-error"><p>' + (response.data ? response.data.message : 'Errore') + '</p></div>');
+                        }
+                    }
+                },
+                error: function() {
+                    if (!silentCountOnly) {
+                        $wrapper.html('<div class="notice notice-error"><p>Errore durante il caricamento dello storico tentativi.</p></div>');
+                    }
+                }
+            });
+        }
+
+        $(document).on('click', '#dfn-btn-refresh-attempts', function() {
+            loadFailedAttempts(false);
+        });
+
+        $(document).on('keyup input', '#dfn-sm-attempts-search', function() {
+            var query = $(this).val().toLowerCase().trim();
+            if (!query) {
+                renderAttemptsTable(cachedAttempts);
+                return;
+            }
+            var filtered = cachedAttempts.filter(function(item) {
+                return (item.customer_name && item.customer_name.toLowerCase().indexOf(query) !== -1) ||
+                       (item.customer_email && item.customer_email.toLowerCase().indexOf(query) !== -1) ||
+                       (item.customer_phone && item.customer_phone.toLowerCase().indexOf(query) !== -1) ||
+                       (item.id && item.id.toString().indexOf(query) !== -1) ||
+                       (item.status && item.status.toLowerCase().indexOf(query) !== -1);
+            });
+            renderAttemptsTable(filtered);
+        });
+
+        function renderAttemptsTable(items) {
+            var $wrapper = $('#dfn-sm-attempts-table-wrapper');
+            $wrapper.empty();
+
+            if (!items || items.length === 0) {
+                $wrapper.html('<div style="text-align:center; padding:40px; color:#64748b;"><span class="dashicons dashicons-yes-alt" style="font-size:36px; width:36px; height:36px; color:#10b981;"></span><p style="margin-top:10px; font-weight:600;">Nessun movimento non completato o fallito registrato per questo evento.</p></div>');
+                return;
+            }
+
+            var html = '<table class="wp-list-table widefat fixed striped" style="border:1px solid #e2e8f0; border-radius:6px; overflow:hidden;">';
+            html += '<thead><tr>';
+            html += '<th style="font-weight:700; width:90px;">Rif. / ID</th>';
+            html += '<th style="font-weight:700;">Data e Ora</th>';
+            html += '<th style="font-weight:700;">Cliente</th>';
+            html += '<th style="font-weight:700;">Stato Movimento</th>';
+            html += '<th style="font-weight:700;">Metodo Pagamento</th>';
+            html += '<th style="font-weight:700;">Posti / Importo</th>';
+            html += '<th style="font-weight:700; text-align:right;">Azioni</th>';
+            html += '</tr></thead><tbody>';
+
+            $.each(items, function(i, item) {
+                var statusBadge = '';
+                if (item.status === 'pending') {
+                    statusBadge = '<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700;">In Attesa di Pagamento</span>';
+                } else if (item.status === 'failed') {
+                    statusBadge = '<span style="background:#fee2e2; color:#b91c1c; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700;">Pagamento Fallito</span>';
+                } else if (item.status === 'cancelled' || item.booking_status === 'cancelled') {
+                    statusBadge = '<span style="background:#f1f5f9; color:#64748b; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700;">Annullato</span>';
+                } else {
+                    statusBadge = '<span style="background:#e2e8f0; color:#475569; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700;">' + escHtml(item.status) + '</span>';
+                }
+
+                html += '<tr>';
+                html += '<td><strong>#' + escHtml(item.id) + '</strong></td>';
+                html += '<td>' + escHtml(item.date_created) + '</td>';
+                html += '<td>';
+                html += '<strong>' + escHtml(item.customer_name) + '</strong>';
+                if (item.customer_email) {
+                    html += '<br><small style="color:#64748b;">' + escHtml(item.customer_email) + '</small>';
+                }
+                if (item.customer_phone) {
+                    html += ' <small style="color:#64748b;">(' + escHtml(item.customer_phone) + ')</small>';
+                }
+                html += '</td>';
+                html += '<td>' + statusBadge + '</td>';
+                html += '<td>' + escHtml(item.payment_method_title) + '</td>';
+                html += '<td>' + (item.persons ? item.persons + ' pers. — ' : '') + '<strong>' + item.total + '</strong></td>';
+                html += '<td style="text-align:right; white-space:nowrap;">';
+                if (item.order_id > 0) {
+                    html += '<a href="/wp/wp-admin/post.php?post=' + item.order_id + '&action=edit" target="_blank" class="dfn-table-btn-order" style="margin-right:6px;" title="Vedi Ordine WooCommerce"><span class="dashicons dashicons-visibility" style="font-size:14px; width:14px; height:14px;"></span> Ordine</a>';
+                }
+                html += '<button type="button" class="dfn-table-btn-delete dfn-btn-delete-attempt" data-order-id="' + item.order_id + '" data-booking-id="' + item.booking_id + '" title="Elimina definitivamente"><span class="dashicons dashicons-trash" style="font-size:14px; width:14px; height:14px;"></span> Elimina</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            $wrapper.html(html);
+        }
+
+        $(document).on('click', '.dfn-btn-delete-attempt', function() {
+            var orderId = $(this).data('order-id');
+            var bookingId = $(this).data('booking-id');
+
+            if (!confirm('Sei sicuro di voler eliminare definitivamente questo tentativo dal database?')) {
+                return;
+            }
+
+            var $btn = $(this);
+            $btn.prop('disabled', true).text('Eliminazione...');
+
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'dfn_admin_delete_failed_attempt',
+                    order_id: orderId,
+                    booking_id: bookingId,
+                    nonce: nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        loadFailedAttempts(false);
+                    } else {
+                        alert(response.data ? response.data.message : 'Errore durante l\'eliminazione');
+                    }
+                },
+                error: function() {
+                    alert('Errore di rete durante l\'eliminazione del tentativo.');
+                }
+            });
+        });
 
         // ========================================================================
         // 1. CARICAMENTO DATI SLOT
@@ -141,20 +320,22 @@
                 // ── Tabella Gestione Prenotazioni (senza colonne check-in) ──
                 var tableHtml =
                     '<div style="overflow-x:auto;">' +
-                    '<table class="wp-list-table widefat fixed striped dfn-bookings-rich-table" style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1;">' +
+                    '<table class="wp-list-table widefat striped dfn-bookings-rich-table" style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1; table-layout:auto;">' +
                     '<thead><tr style="background:#f1f5f9;">' +
-                        '<th style="padding:10px; font-weight:700; width:80px;">Ordine #</th>' +
-                        '<th style="padding:10px; font-weight:700;">Cliente</th>' +
-                        '<th style="padding:10px; font-weight:700; width:120px;">Qualifica</th>' +
-                        '<th style="padding:10px; font-weight:700; width:130px;">Telefono</th>' +
-                        '<th style="padding:10px; font-weight:700; width:90px; text-align:center;">Biglietti</th>' +
-                        '<th style="padding:10px; font-weight:700; width:130px; text-align:center;">Pagamento</th>' +
-                        '<th style="padding:10px; font-weight:700; width:140px; text-align:center;">Azioni</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:75px;">Ordine #</th>' +
+                        '<th style="padding:10px 8px; font-weight:700;">Cliente</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:100px;">Qualifica</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:110px;">Telefono</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:75px; text-align:center;">Biglietti</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:105px; text-align:center;">Pagamento</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:140px; text-align:center;">Prenotazione registrata</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:130px;">Note</th>' +
+                        '<th style="padding:10px 8px; font-weight:700; width:125px; text-align:center;">Azioni</th>' +
                     '</tr></thead>' +
                     '<tbody>';
 
                 if (filteredBookings.length === 0) {
-                    tableHtml += '<tr><td colspan="7" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
+                    tableHtml += '<tr><td colspan="9" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
                 } else {
                     filteredBookings.forEach(function(b) {
                         var orderEditUrl = dfnAdminVars.ajaxurl.replace('admin-ajax.php', 'post.php?post=' + b.order_id + '&action=edit');
@@ -163,19 +344,33 @@
                         var payBadge     = b.payment_status === 'pagato'
                             ? '<span style="background:#dcfce7; color:#166534; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9989; Pagato</span>'
                             : '<span style="background:#fef2f2; color:#991b1b; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:700;">&#9203; Da pagare</span>';
+                        
+                        var noteRaw = b.notes ? b.notes.trim() : '';
+                        var isLongNote = noteRaw.length > 25;
+                        var noteDisplay = isLongNote ? noteRaw.substring(0, 25) + '…' : noteRaw;
+
+                        var notesCell = noteRaw
+                            ? '<div class="dfn-note-balloon" data-full-note="' + escHtml(noteRaw) + '" data-customer="' + escHtml(b.customer_name) + '" data-order="' + (b.order_id || '-') + '" style="font-size:11px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:4px 7px; border-radius:5px; font-style:italic; line-height:1.2; max-width:125px; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:3px; transition:all 0.15s ease;" title="Clicca per visualizzare la nota completa">' +
+                                  '<span>💬</span> <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100px;">' + escHtml(noteDisplay) + '</span>' +
+                              '</div>'
+                            : '<span style="color:#cbd5e1;">-</span>';
+
+                        var dateRegistered = b.created_at_formatted || b.created_at || '-';
 
                         tableHtml +=
                             '<tr class="dfn-slot-booking-row" data-booking-id="' + b.id + '" data-persons="' + b.slot_persons + '" data-name="' + b.customer_name + '" data-slot-id="' + slot.id + '">' +
-                                '<td style="padding:10px; vertical-align:middle;">' + orderLink + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle;">' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' + orderLink + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' +
                                     '<div style="font-weight:700;">' + b.customer_name + '</div>' +
                                     '<div style="font-size:11px; color:#64748b;">' + (b.customer_email !== 'no-email@dfn.it' ? b.customer_email : '') + '</div>' +
                                 '</td>' +
-                                '<td style="padding:10px; vertical-align:middle;">' + (b.qualifica_html || '') + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle;">' + telLink + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle; text-align:center; font-weight:700;">' + b.slot_persons + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle; text-align:center;">' + payBadge + '</td>' +
-                                '<td style="padding:10px; vertical-align:middle; text-align:center;">' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' + (b.qualifica_html || '') + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' + telLink + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle; text-align:center; font-weight:700;">' + b.slot_persons + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle; text-align:center;">' + payBadge + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle; text-align:center; font-size:12px; color:#334155; white-space:nowrap;">' + dateRegistered + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle;">' + notesCell + '</td>' +
+                                '<td style="padding:10px 8px; vertical-align:middle; text-align:center;">' +
                                     '<div style="display:flex; gap:5px; justify-content:center;">' +
                                         '<button class="dfn-btn dfn-btn-secondary slot-booking-info" title="Dettagli" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-visibility" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
                                         '<button class="dfn-btn dfn-btn-secondary dfn-btn-move-booking" title="Sposta turno" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-randomize" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
@@ -437,6 +632,7 @@
                             '<div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + b.customer_name + '</div>' +
                             '<div style="font-size:11px; color:#64748b;">' + orderLink + ' &bull; ' + b.slot_persons + ' posti &bull; ' + paymentBadge + '</div>' +
                             (b.customer_phone ? '<div style="font-size:11px; color:#64748b;"><a href="tel:' + b.customer_phone + '">' + b.customer_phone + '</a></div>' : '') +
+                            (b.notes ? '<div class="dfn-note-balloon" data-full-note="' + escHtml(b.notes) + '" data-customer="' + escHtml(b.customer_name) + '" data-order="' + (b.order_id || '-') + '" style="font-size:11px; color:#334155; background:#fffbe6; border:1px solid #ffe58f; padding:4px 8px; border-radius:4px; margin-top:4px; font-style:italic; cursor:pointer; display:inline-block;" title="Clicca per visualizzare la nota completa">💬 <strong>Note:</strong> ' + escHtml(b.notes.length > 35 ? b.notes.substring(0, 35) + '…' : b.notes) + '</div>' : '') +
                         '</div>' +
                         '<div class="slot-booking-actions" style="display:flex; gap:6px; flex-shrink:0;">' +
                             '<button type="button" class="dfn-btn dfn-btn-secondary dfn-btn-move-booking" title="Sposta turno" style="font-size:11px; padding:4px 8px;"><span class="dashicons dashicons-randomize" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span></button>' +
@@ -580,6 +776,40 @@
                 });
             });
 
+            // Listener click pulsante "Reinvia Email Conferma"
+            $('#dfn-btn-resend-confirmation-email').off('click').on('click', function() {
+                var $btn = $(this);
+                var bookingId = booking.id;
+
+                if (!confirm('Vuoi reinviare l\'email di conferma prenotazione con i biglietti a ' + booking.customer_email + '?')) {
+                    return;
+                }
+
+                $btn.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> Reinviando...');
+
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'dfn_admin_resend_confirmation_email',
+                        booking_id: bookingId,
+                        nonce: nonce
+                    },
+                    success: function(res) {
+                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-email-alt"></span> Reinvia Email Conferma');
+                        if (res.success) {
+                            alert(res.data.message || 'Email di conferma reinviata con successo!');
+                        } else {
+                            alert('Errore: ' + (res.data.message || 'impossibile reinviare l\'email.'));
+                        }
+                    },
+                    error: function() {
+                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-email-alt"></span> Reinvia Email Conferma');
+                        alert('Errore di rete durante il reinvio dell\'email.');
+                    }
+                });
+            });
+
             function escHtml(str) {
                 if (!str) return '';
                 return str.toString()
@@ -685,6 +915,26 @@
             if ($(e.target).hasClass('dfn-sm-modal')) {
                 closeModal($(e.target));
             }
+        });
+
+        // Apertura popup nota completa
+        $(document).on('click', '.dfn-note-balloon', function(e) {
+            e.stopPropagation();
+            var fullNote = $(this).data('full-note');
+            var customer = $(this).data('customer');
+            var orderId  = $(this).data('order');
+
+            var $modal = $('#dfn-modal-view-note');
+            $modal.find('#dfn-note-modal-subtitle').text('Cliente: ' + customer + (orderId && orderId !== '-' ? ' • Ordine #' + orderId : ''));
+            $modal.find('#dfn-note-modal-content').text(fullNote);
+
+            openModal($modal, 3);
+        });
+
+        $(document).on('mouseenter', '.dfn-note-balloon', function() {
+            $(this).css({ 'background': '#fff1b8', 'border-color': '#ffd666', 'transform': 'translateY(-1px)' });
+        }).on('mouseleave', '.dfn-note-balloon', function() {
+            $(this).css({ 'background': '#fffbe6', 'border-color': '#ffe58f', 'transform': 'translateY(0)' });
         });
 
         // ========================================================================
@@ -1222,9 +1472,9 @@
                         displayName = b.customer_name;
                     }
 
-                    var contribution = parseFloat(b.order_total || 0).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-                    var paymentStatusText = b.payment_status === 'pagato' ? 'Pagato' : 'Ancora da pagare';
-                    var paymentStatusClass = b.payment_status === 'pagato' ? 'payment-status-pagato' : 'payment-status-non-pagato';
+                    if (b.notes) {
+                        displayName += '<div style="font-size:9px; color:#334155; font-style:italic; margin-top:2px; font-weight:normal;">💬 Note: ' + b.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    }
 
                     printHtml += '<tr>';
                     printHtml += '<td>' + (idx + 1) + '</td>';
@@ -1292,7 +1542,12 @@
         $(document).on("click", ".cv-open-history-btn", function(e) {
             e.preventDefault();
             $("#cv-history-cliente-name").text($(this).data("cliente"));
-            $("#cv-history-content-area").html($(this).siblings(".cv-history-data-container").html());
+            var container = $(this).parent().find(".cv-history-data-container");
+            if (container.length > 0 && container.html().trim() !== "") {
+                $("#cv-history-content-area").html(container.html());
+            } else {
+                $("#cv-history-content-area").html('<p style="color:#666; font-style:italic; padding:10px; text-align:center;">Nessuna interazione registrata per questo ordine.</p>');
+            }
             $("#cv-history-modal").css("display", "flex");
         });
 

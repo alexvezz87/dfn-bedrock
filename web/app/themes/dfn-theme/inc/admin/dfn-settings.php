@@ -25,7 +25,7 @@ function dfn_settings_register_menu(): void
         'dfn-events',
         esc_html__('Impostazioni FAI Prenotazioni', 'dfn-theme'),
         esc_html__('Impostazioni', 'dfn-theme'),
-        'dfn_manage_events',
+        'dfn_act_settings',
         'dfn-settings',
         'dfn_render_settings_page',
     );
@@ -56,6 +56,7 @@ function dfn_settings_save_fields(): void
         'delegation_email'            => 'sanitize_email',
         'delegation_footer'           => 'sanitize_text_field',
         'email_staff_signature'       => 'sanitize_text_field',
+        'default_placeholder_image_id'=> 'absint',
 
         // Tab Email & Notifiche
         'email_new_booking'           => 'sanitize_email_list',
@@ -145,36 +146,54 @@ function dfn_settings_save_fields(): void
         'enable_auto_verify_fai'      => 'sanitize_text_field', // 'yes' o 'no' — default 'no'
     ];
 
-    $new_settings = [];
-    foreach ($fields_to_sanitize as $key => $sanitize_func) {
-        if (isset($_POST['dfn_settings'][$key])) {
-            $val = wp_unslash($_POST['dfn_settings'][$key]);
+    $merged_settings = $existing_settings;
+    $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'generale';
+
+    if (isset($_POST['dfn_settings']) && is_array($_POST['dfn_settings'])) {
+        foreach ($_POST['dfn_settings'] as $key => $raw_val) {
+            if (! isset($fields_to_sanitize[$key])) {
+                continue;
+            }
+            $sanitize_func = $fields_to_sanitize[$key];
+            $val = wp_unslash($raw_val);
+
             if ($sanitize_func === 'absint') {
-                $new_settings[$key] = absint($val);
+                $merged_settings[$key] = absint($val);
             } elseif ($sanitize_func === 'sanitize_hex_color') {
-                $new_settings[$key] = sanitize_hex_color($val);
+                $merged_settings[$key] = sanitize_hex_color($val);
             } elseif ($sanitize_func === 'sanitize_email_list') {
                 $emails = array_map('sanitize_email', array_map('trim', explode(',', $val)));
                 $emails = array_filter($emails);
-                $new_settings[$key] = implode(', ', $emails);
+                $merged_settings[$key] = implode(', ', $emails);
             } elseif ($sanitize_func === 'sanitize_textarea_field') {
-                $new_settings[$key] = sanitize_textarea_field($val);
+                $merged_settings[$key] = sanitize_textarea_field($val);
             } else {
-                $new_settings[$key] = sanitize_text_field($val);
+                $merged_settings[$key] = sanitize_text_field($val);
             }
-        } else {
-            // Se un checkbox non è inviato, assumiamo sia 'no' se appartiene ai toggle
-            if (strpos($key, 'enable_') === 0) {
-                $new_settings[$key] = 'no';
+        }
+    }
+
+    // Se ci troviamo nel tab avanzate, aggiorna anche i toggle non spuntati
+    if ($active_tab === 'avanzate') {
+        $toggle_keys = [
+            'enable_admin_notification',
+            'enable_reminder_24h',
+            'enable_auto_waitlist',
+            'enable_auto_complete_paid',
+            'enable_auto_verify_fai',
+        ];
+        foreach ($toggle_keys as $t_key) {
+            if (! isset($_POST['dfn_settings'][$t_key])) {
+                $merged_settings[$t_key] = 'no';
             }
         }
     }
 
     // Mantieni i campi di sola lettura non inviabili/modificabili direttamente
-    $new_settings['setup_roles_version'] = '2.0';
-    $new_settings['setup_fai_discount']  = 5;
+    $merged_settings['setup_roles_version'] = '2.0';
+    $merged_settings['setup_fai_discount']  = 5;
 
-    $updated = update_option('dfn_settings', $new_settings);
+    $updated = update_option('dfn_settings', $merged_settings);
 
     if ($updated) {
         add_settings_error(
@@ -210,6 +229,7 @@ function dfn_render_settings_page(): void
     // Carica gli stili specifici dell'admin se non sono già stati inclusi
     wp_enqueue_style('wp-color-picker');
     wp_enqueue_script('wp-color-picker');
+    wp_enqueue_media();
 
     // Mostra i messaggi di notifica/errore
     settings_errors('dfn_settings_messages');
@@ -291,6 +311,27 @@ function dfn_render_settings_page(): void
                                 <td>
                                     <input name="dfn_settings[email_staff_signature]" type="text" id="email_staff_signature" value="<?php echo esc_attr(dfn_get_setting('email_staff_signature')); ?>" class="regular-text" />
                                     <p class="description"><strong>Comportamento:</strong> La firma testuale predefinita (es. "Lo Staff della Delegazione FAI Novara") utilizzata per chiudere i messaggi automatici o inviati a mano dai gestori.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="default_placeholder_image_id">🖼️ Immagine Segnaposto Eventi (Placeholder)</label></th>
+                                <td>
+                                    <?php
+                                    $placeholder_id = intval(dfn_get_setting('default_placeholder_image_id', 0));
+                                    $placeholder_url = $placeholder_id > 0 ? wp_get_attachment_image_url($placeholder_id, 'medium') : '';
+                                    ?>
+                                    <div class="dfn-placeholder-image-preview" style="margin-bottom: 10px; min-height: 120px; max-width: 250px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden;">
+                                        <?php if ($placeholder_url) : ?>
+                                            <img src="<?php echo esc_url($placeholder_url); ?>" style="max-width: 100%; max-height: 120px; display: block;" id="dfn-placeholder-img">
+                                        <?php else : ?>
+                                            <span style="color: #64748b; font-size: 13px;" id="dfn-placeholder-text">Nessun segnaposto impostato</span>
+                                            <img src="" style="max-width: 100%; max-height: 120px; display: none;" id="dfn-placeholder-img">
+                                        <?php endif; ?>
+                                    </div>
+                                    <input type="hidden" name="dfn_settings[default_placeholder_image_id]" id="default_placeholder_image_id" value="<?php echo intval($placeholder_id); ?>">
+                                    <button type="button" class="button button-secondary" id="dfn-upload-placeholder-btn">Seleziona Immagine</button>
+                                    <button type="button" class="button" id="dfn-remove-placeholder-btn" style="color: #ef4444; border-color: #fca5a5; display: <?php echo $placeholder_id ? 'inline-block' : 'none'; ?>;">Rimuovi</button>
+                                    <p class="description" style="margin-top: 6px;"><strong>Comportamento:</strong> L'immagine predefinita della libreria media usata come copertina quando un evento viene creato senza inserire un'immagine in evidenza.</p>
                                 </td>
                             </tr>
                         </table>
@@ -816,48 +857,23 @@ function dfn_render_settings_page(): void
                         </table>
 
                     <?php elseif ($active_tab === 'ruoli') : ?>
-                        <!-- TAB RUOLI & AZIONI -->
-                        <h2 style="color:#004b23; border-bottom:1px solid #eee; padding-bottom:10px; margin-top:0;">&#128100; Ruoli &amp; Azioni</h2>
-                        <p class="description" style="margin-bottom:25px;">Configura i ruoli utente e le azioni che ciascun ruolo può eseguire all'interno del sistema FAI Prenotazioni.</p>
+                        <!-- TAB RUOLI & AZIONI -> REDIRECT / LINK AL NUOVO MENU CENTRALIZZATO -->
+                        <h2 style="color:#004b23; border-bottom:1px solid #eee; padding-bottom:10px; margin-top:0;">🛡️ FAI — Ruoli &amp; Permessi</h2>
+                        <p class="description" style="margin-bottom:25px;">La gestione dei ruoli e dei permessi è ora centralizzata in un modulo dedicato di primo livello per supportare FAI Prenotazioni, FAI Convenzioni e tutte le future estensioni.</p>
 
-                        <div style="background:#f0f9ff; border:1px solid #bfdbfe; border-radius:6px; padding:20px; margin-bottom:25px;">
-                            <strong style="color:#1e40af;">&#128274; Funzionalità in arrivo</strong>
-                            <p style="margin:8px 0 0; color:#1e3a8a;">Questa sezione permetterà di gestire <strong>dinamicamente</strong> i permessi per ruolo. Ad esempio:</p>
-                            <ul style="margin:10px 0 0 20px; color:#1e3a8a; line-height:1.8;">
-                                <li>Definire chi può accedere alla <strong>Gestione Prenotazioni</strong> (annullamento, spostamento turno)</li>
-                                <li>Definire chi può accedere al <strong>Check-in Banchetto</strong> (validazione biglietti, reminder)</li>
-                                <li>Assegnare ruoli personalizzati agli utenti WordPress direttamente da qui</li>
-                                <li>Gestire la visibilità delle singole azioni per utenti scanner, cassa, segreteria, ecc.</li>
-                            </ul>
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:24px; margin-bottom:25px; display:flex; align-items:center; justify-content:space-between;">
+                            <div>
+                                <h3 style="margin:0 0 8px; color:#166534; font-size:16px;">✨ Nuovo Modulo Centralizzato Attivo</h3>
+                                <p style="margin:0; color:#15803d; font-size:14px; line-height:1.5;">
+                                    Puoi configurare la matrice dinamica dei permessi per ogni attività, creare nuovi ruoli personalizzati e visualizzare gli utenti associati nel menu dedicato.
+                                </p>
+                            </div>
+                            <div style="margin-left:20px; flex-shrink:0;">
+                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles')); ?>" class="button button-primary button-large" style="background:#004b23; border-color:#003318; font-weight:700; padding:6px 18px; height:auto;">
+                                    🛡️ Apri FAI Ruoli &amp; Permessi &rarr;
+                                </a>
+                            </div>
                         </div>
-
-                        <h3 style="color:#004b23;">Ruoli attuali registrati</h3>
-                        <table class="wp-list-table widefat fixed striped" style="max-width:700px;">
-                            <thead><tr>
-                                <th style="padding:10px; width:200px;">Ruolo</th>
-                                <th style="padding:10px;">Permessi attuali</th>
-                            </tr></thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding:10px; font-weight:700;">dfn_admin</td>
-                                    <td style="padding:10px;">Accesso completo a tutte le funzioni: Gestione Prenotazioni, Check-in, Impostazioni, Scanner</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:10px; font-weight:700;">dfn_event_manager</td>
-                                    <td style="padding:10px;">Gestione Prenotazioni + Check-in Banchetto (identico a dfn_admin per ora)</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:10px; font-weight:700;">dfn_secretary</td>
-                                    <td style="padding:10px;">Inserimento Rapido prenotazioni + lista ordini WooCommerce</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:10px; font-weight:700;">dfn_scanner</td>
-                                    <td style="padding:10px;">Solo accesso allo Scanner Live (validazione QR in ingresso)</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <p style="margin-top:20px; color:#64748b; font-size:12px;">&#128221; I permessi sopra elencati sono attualmente hardcoded nel tema. La gestione dinamica sarà disponibile in una versione futura.</p>
 
                     <?php endif; ?>
 
@@ -918,6 +934,35 @@ function dfn_render_settings_page(): void
                         alert('Si è verificato un errore di connessione col server.');
                     }
                 });
+            });
+
+            var placeholderUploader;
+            $('#dfn-upload-placeholder-btn').on('click', function(e) {
+                e.preventDefault();
+                if (placeholderUploader) {
+                    placeholderUploader.open();
+                    return;
+                }
+                placeholderUploader = wp.media({
+                    title: 'Seleziona Immagine Segnaposto Predefinita',
+                    button: { text: 'Usa come Segnaposto' },
+                    multiple: false
+                });
+                placeholderUploader.on('select', function() {
+                    var attachment = placeholderUploader.state().get('selection').first().toJSON();
+                    $('#default_placeholder_image_id').val(attachment.id);
+                    $('#dfn-placeholder-img').attr('src', attachment.url).show();
+                    $('#dfn-placeholder-text').hide();
+                    $('#dfn-remove-placeholder-btn').show();
+                });
+                placeholderUploader.open();
+            });
+            $('#dfn-remove-placeholder-btn').on('click', function(e) {
+                e.preventDefault();
+                $('#default_placeholder_image_id').val('0');
+                $('#dfn-placeholder-img').attr('src', '').hide();
+                $('#dfn-placeholder-text').show();
+                $(this).hide();
             });
         });
     </script>

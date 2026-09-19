@@ -50,23 +50,29 @@
     --dfn-mobile-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
-/* NASCONDI COMPONENTI INTRUSIVI IN MOBILE APP (WP Admin Bar, Cookiebot, Recaptcha) */
-#wpadminbar,
-.grecaptcha-badge,
-#cookiebot-widget,
-.cookiebot-banner,
-#CookiebotWidget,
-.cookie-bar,
-#CybotCookiebotDialog,
-#CybotCookiebotDialogBodyUnderlay,
-#dfn-cookie-manage-link,
-#dfn-cookie-banner-overlay,
-#dfn-cookie-banner,
-.dfn-privacy-consent-wrapper + .dfn-privacy-error-msg {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
+/* NASCONDI COMPONENTI INTRUSIVI (COOKIE BADGE, BANNER E RECAPTCHA) SOLTANTO SULLA PAGINA DELL'APP MOBILE SU DISPOSITIVI MOBILI (<768px) */
+@media (max-width: 768px) {
+    #dfn-cookie-manage-link,
+    .grecaptcha-badge,
+    #dfn-cookie-banner-overlay,
+    #dfn-cookie-banner,
+    #cookiebot-widget,
+    .cookiebot-banner,
+    #CookiebotWidget,
+    .cookie-bar,
+    iframe[src*="recaptcha"],
+    div[style*="grecaptcha"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        top: -9999px !important;
+        left: -9999px !important;
+    }
 }
 
 html {
@@ -527,6 +533,17 @@ html {
     margin-top: 12px;
 }
 
+.dfn-booking-actions.three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+}
+
+.dfn-event-status-pill.danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
 /* PULSANTI MOBILE */
 .dfn-mobile-btn {
     width: 100%;
@@ -921,4 +938,90 @@ html {
     font-size: 13px;
     font-weight: 600;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* PROFILE & AVATAR STYLES */
+.dfn-profile-card-header {
+    text-align: center;
+    padding: 12px 0 16px 0;
+    border-bottom: 1px solid var(--dfn-mobile-card-border);
+}
+
+.dfn-profile-avatar-wrapper {
+    position: relative;
+    display: inline-block;
+    margin: 0 auto 12px auto;
+}
+
+.dfn-user-avatar.large {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: #047857;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 700;
+    overflow: hidden;
+    border: 3px solid #ffffff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    margin: 0 auto;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dfn-user-avatar.large:hover,
+.dfn-user-avatar.large:active {
+    transform: scale(1.03);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.dfn-user-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dfn-avatar-edit-badge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #059669;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    font-size: 14px;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.dfn-avatar-edit-badge:active {
+    transform: scale(0.9);
+    background: #047857;
+}
+
+.dfn-user-email {
+    font-size: 13px;
+    color: var(--dfn-mobile-text-sub);
+    margin: 4px 0 8px 0;
+}
+
+.dfn-role-name-tag {
+    display: inline-block;
+    background: #047857;
+    color: #ffffff;
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }

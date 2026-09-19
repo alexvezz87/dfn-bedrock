@@ -24,7 +24,7 @@ function dfn_admin_register_report_menu(): void
         'dfn-events',
         esc_html__('Report & Cassa Ingressi', 'dfn-theme'),
         esc_html__('Report Ingressi', 'dfn-theme'),
-        'dfn_manage_events',
+        'dfn_act_reports',
         'dfn-report-checkin',
         'dfn_render_admin_report_page',
     );
@@ -35,7 +35,7 @@ function dfn_admin_register_report_menu(): void
  */
 function dfn_render_admin_report_page(): void
 {
-    if (! current_user_can('dfn_manage_events')) {
+    if (! current_user_can('dfn_act_reports')) {
         wp_die(esc_html__('Non hai i permessi necessari per accedere a questa pagina.', 'dfn-theme'));
     }
 

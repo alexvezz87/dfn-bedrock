@@ -118,6 +118,21 @@ add_action('woocommerce_before_customer_login_form', 'dfn_show_activation_welcom
 add_action('woocommerce_before_my_account', 'dfn_show_activation_welcome_banner', 5);
 add_action('woocommerce_account_content', 'dfn_show_activation_welcome_banner', 5);
 
+function dfn_is_local_environment(): bool
+{
+    // Verifica se siamo in ambiente locale / development
+    if (defined('WP_ENV') && WP_ENV === 'development') {
+        return true;
+    }
+
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if (strpos($host, 'dfn-bedrock.local') !== false || strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false) {
+        return true;
+    }
+
+    return false;
+}
+
 /**
  * Verifica un token Google reCAPTCHA v3 tramite API HTTPS.
  *
@@ -127,6 +142,11 @@ add_action('woocommerce_account_content', 'dfn_show_activation_welcome_banner', 
  */
 function dfn_verify_recaptcha(string $token, string $action = ''): bool
 {
+    // Disattivato in ambiente locale/sviluppo
+    if (dfn_is_local_environment()) {
+        return true;
+    }
+
     if (empty($token)) {
         return false;
     }
@@ -137,18 +157,22 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
             'response' => $token,
             'remoteip' => $_SERVER['REMOTE_ADDR'] ?? '',
         ],
-        'timeout' => 10,
+        'timeout' => 8,
     ]);
 
     if (is_wp_error($response)) {
         error_log('DFN reCAPTCHA Error: ' . $response->get_error_message());
-        return true; // In caso di timeout temporaneo di Google, non blocchiamo l'utente
+        return true; // In caso di timeout o errore temporaneo di rete verso Google, non blocchiamo l'utente
     }
 
     $body = json_decode(wp_remote_retrieve_body($response), true);
     if (! empty($body['success'])) {
-        $score = floatval($body['score'] ?? 0.5);
-        return $score >= 0.3;
+        // Il token è autentico, emesso da Google per il nostro dominio.
+        return true;
+    } else {
+        // Logga l'errore specifico restituito da Google per diagnostica
+        $err_codes = isset($body['error-codes']) ? implode(', ', (array) $body['error-codes']) : 'unknown';
+        error_log('DFN reCAPTCHA verification failed: ' . $err_codes);
     }
 
     return false;
@@ -159,7 +183,7 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
  */
 function dfn_enqueue_recaptcha_scripts(): void
 {
-    if (is_admin()) {
+    if (is_admin() || dfn_is_local_environment()) {
         return;
     }
 
@@ -185,10 +209,17 @@ function dfn_enqueue_recaptcha_scripts(): void
             if (form.getAttribute('data-recaptcha-bypassed') === 'true') return;
 
             var input = form.querySelector('input[name="g-recaptcha-response"]');
-            if (input && input.value) return;
 
             e.preventDefault();
             e.stopPropagation();
+
+            // Determina l'azione appropriata (login, register o submit)
+            var actionName = 'submit';
+            if (form.classList.contains('login') || form.id === 'loginform' || form.querySelector('input[name="pwd"]') || form.querySelector('input[name="log"]')) {
+                actionName = 'login';
+            } else if (form.classList.contains('register') || form.id === 'registerform' || form.querySelector('input[name="password_confirm"]')) {
+                actionName = 'register';
+            }
 
             // Preserva il valore del pulsante di submit che ha scatenato l'invio (es. name="register" o name="login")
             var submitter = e.submitter || document.activeElement;
@@ -201,7 +232,7 @@ function dfn_enqueue_recaptcha_scripts(): void
             }
 
             grecaptcha.ready(function() {
-                grecaptcha.execute(siteKey, { action: 'submit' }).then(function(token) {
+                grecaptcha.execute(siteKey, { action: actionName }).then(function(token) {
                     if (!input) {
                         input = document.createElement('input');
                         input.type = 'hidden';

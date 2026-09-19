@@ -129,9 +129,10 @@ function dfn_render_waitlist_page(): void
                                 'payment_method'   => $order->get_payment_method(),
                                 'amount_due'       => floatval($order->get_total()),
                                 'amount_paid'      => 0.00,
-                                'created_at'       => $booking_date . ' ' . date('H:i:s'),
+                                'notes'            => esc_html__('Convertito da lista d\'attesa', 'dfn-theme'),
+                                'created_at'       => current_time('mysql'),
                             ],
-                            [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s' ],
+                            [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
                         );
                         $booking_id = $wpdb->insert_id;
 

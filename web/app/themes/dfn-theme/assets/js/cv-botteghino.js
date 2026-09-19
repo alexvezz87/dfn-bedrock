@@ -325,62 +325,46 @@ jQuery(document).ready(function ($) {
     // =========================================================================
 
     function bindButtons() {
-        // 💵 Contanti
-        $('#cv-btn-submit-cash').on('click', function () {
+        $('#cv-btn-submit-botteghino').on('click', function () {
             if (isSubmitting) return;
-            if (!validateForm()) return;
 
-            var isAutoCheckin = $('#fai_auto_checkin').is(':checked');
-            var autoCheckinMsg = isAutoCheckin
-                ? '\n\n✅ ATTENZIONE: Hai spuntato la validazione automatica. I biglietti non saranno scansionabili all\'ingresso.'
-                : '';
+            var payMethod = $('#cv-bott-payment-method').val();
 
-            if (!confirm('Confermi di aver incassato l\'importo in CONTANTI?' + autoCheckinMsg)) return;
-
-            submitBooking('contanti');
-        });
-
-        // 💳 Link Pagamento
-        $('#cv-btn-submit-link').on('click', function () {
-            if (isSubmitting) return;
-            if (!validateForm()) return;
-
-            var email = $('#fai_email').val();
-            if (!email || email.indexOf('@fainovara.local') !== -1 || email.indexOf('@dfn.local') !== -1) {
-                alert('Per inviare il link di pagamento è necessario un indirizzo email valido.');
+            if (payMethod === 'autorita') {
+                if (!currentEvent || !currentDate) {
+                    alert('Seleziona un evento e una data per riservare i posti.');
+                    return;
+                }
+                var qtyStd = parseInt($qtyStd.val(), 10) || 0;
+                var qtyFai = parseInt($qtyFai.val(), 10) || 0;
+                if ((qtyStd + qtyFai) <= 0) {
+                    alert('Specifica almeno un posto da riservare.');
+                    return;
+                }
+                if (!confirm('Confermi di voler bloccare i posti come OMAGGIO PER AUTORITÀ?\nI biglietti verranno scalati e inseriti nel tabellone senza inviare nessuna mail.')) return;
+                submitBooking('autorita');
                 return;
             }
 
-            submitBooking('link');
-        });
-
-        // 📋 Solo Prenotazione
-        $('#cv-btn-submit-booking').on('click', function () {
-            if (isSubmitting) return;
             if (!validateForm()) return;
 
-            submitBooking('prenotazione');
-        });
-
-        // 🎁 Autorità
-        $('#cv-btn-submit-auth').on('click', function () {
-            if (isSubmitting) return;
-
-            if (!currentEvent || !currentDate) {
-                alert('Seleziona un evento e una data per riservare i posti.');
-                return;
+            if (payMethod === 'contanti') {
+                var isAutoCheckin = $('#fai_auto_checkin').is(':checked');
+                var autoCheckinMsg = isAutoCheckin
+                    ? '\n\n✅ ATTENZIONE: Hai spuntato la validazione automatica. I biglietti non saranno scansionabili all\'ingresso.'
+                    : '';
+                if (!confirm('Confermi di aver incassato l\'importo in CONTANTI?' + autoCheckinMsg)) return;
+                submitBooking('contanti');
+            } else if (payMethod === 'link') {
+                var email = $('#fai_email').val();
+                if (!email || email.indexOf('@fainovara.local') !== -1 || email.indexOf('@dfn.local') !== -1) {
+                    alert('Per inviare il link di pagamento è necessario un indirizzo email valido.');
+                    return;
+                }
+                submitBooking('link');
+            } else if (payMethod === 'prenotazione') {
+                submitBooking('prenotazione');
             }
-
-            var qtyStd = parseInt($qtyStd.val(), 10) || 0;
-            var qtyFai = parseInt($qtyFai.val(), 10) || 0;
-            if ((qtyStd + qtyFai) <= 0) {
-                alert('Specifica almeno un posto da riservare.');
-                return;
-            }
-
-            if (!confirm('Confermi di voler bloccare i posti come OMAGGIO PER AUTORITÀ?\nI biglietti verranno scalati e inseriti nel tabellone senza inviare nessuna mail.')) return;
-
-            submitBooking('autorita');
         });
     }
 
@@ -394,10 +378,9 @@ jQuery(document).ready(function ($) {
             return false;
         }
 
-        var nome = $('#fai_nome').val().trim();
         var cognome = $('#fai_cognome').val().trim();
-        if (!nome || !cognome) {
-            alert('Nome e Cognome sono obbligatori.');
+        if (!cognome) {
+            alert('Il cognome è obbligatorio.');
             return false;
         }
 

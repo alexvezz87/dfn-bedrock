@@ -373,6 +373,11 @@ jQuery(document).ready(function($) {
         });
 
         function submitBooking(confirmSplit) {
+            if ($widget.data('is-submitting')) {
+                return;
+            }
+            $widget.data('is-submitting', true);
+
             $feedbackArea.html('');
             
             var $form = $widget.find('.dfn-booking-form');
@@ -408,7 +413,7 @@ jQuery(document).ready(function($) {
             };
 
             // Disabilita UI
-            $submit.prop('disabled', true).html('<span class="dashicons dashicons-update spin" style="animation: spin 1s linear infinite;"></span> Attendi...');
+            $submit.prop('disabled', true).css('pointer-events', 'none').html('<span class="dashicons dashicons-update spin" style="animation: spin 1s linear infinite;"></span> Attendi...');
             $widget.find('.dfn-widget-btn-prev').prop('disabled', true);
 
             $.ajax({
@@ -460,7 +465,8 @@ jQuery(document).ready(function($) {
                             $modal.find('.dfn-modal-btn-cancel').on('click', function() {
                                 $modal.removeClass('active');
                                 setTimeout(function() { $modal.remove(); }, 200);
-                                $submit.prop('disabled', false).html(originalSubmitHtml);
+                                $widget.data('is-submitting', false);
+                                $submit.prop('disabled', false).css('pointer-events', 'auto').html(originalSubmitHtml);
                                 $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
                             });
 
@@ -537,14 +543,16 @@ jQuery(document).ready(function($) {
 
                     } else {
                         // Errore logico
+                        $widget.data('is-submitting', false);
                         $feedbackArea.html('<div style="color:#b91c1c; font-size:13px; font-weight:700; background:#fee2e2; border:1px solid #fecaca; border-radius:6px; padding:10px; margin-top:12px;">❌ Errore: ' + (response.data ? response.data.message : 'Impossibile completare la richiesta.') + '</div>');
-                        $submit.prop('disabled', false).html('<span class="dashicons dashicons-calendar-alt"></span> Riprova');
+                        $submit.prop('disabled', false).css('pointer-events', 'auto').html('<span class="dashicons dashicons-calendar-alt"></span> Riprova');
                         $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
                     }
                 },
                 error: function() {
+                    $widget.data('is-submitting', false);
                     $feedbackArea.html('<div style="color:#b91c1c; font-size:13px; font-weight:700; background:#fee2e2; border:1px solid #fecaca; border-radius:6px; padding:10px; margin-top:12px;">❌ Errore di connessione al server. Riprova.</div>');
-                    $submit.prop('disabled', false).html('<span class="dashicons dashicons-calendar-alt"></span> Riprova');
+                    $submit.prop('disabled', false).css('pointer-events', 'auto').html('<span class="dashicons dashicons-calendar-alt"></span> Riprova');
                     $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
                 }
             });

@@ -17,8 +17,8 @@ function cv_aggiungi_pagina_liste_attesa()
     add_submenu_page(
         'dfn-events',
         'Liste di Attesa',
-        '⏳ Liste di Attesa',
-        'manage_woocommerce',
+        'Liste di Attesa',
+        'dfn_act_waitlist',
         'cv-liste-attesa',
         'cv_render_pagina_liste_attesa',
     );
@@ -26,7 +26,7 @@ function cv_aggiungi_pagina_liste_attesa()
 
 function cv_render_pagina_liste_attesa()
 {
-    if (! current_user_can('manage_woocommerce')) {
+    if (! current_user_can('dfn_act_waitlist')) {
         return;
     }
 
