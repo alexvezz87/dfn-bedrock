@@ -300,8 +300,9 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                         'amount_due'       => $amount_due,
                         'amount_paid'      => $amount_paid,
                         'notes'            => $order->get_customer_note(),
+                        'created_at'       => ($order && method_exists($order, 'get_date_created') && $order->get_date_created()) ? $order->get_date_created()->date('Y-m-d H:i:s') : current_time('mysql'),
                     ],
-                    [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s' ],
+                    [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
                 );
 
                 $booking_id = $wpdb->insert_id;
@@ -446,8 +447,9 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                             'amount_due'       => $amount_due,
                             'amount_paid'      => $amount_paid,
                             'notes'            => $order->get_customer_note(),
+                            'created_at'       => ($order && method_exists($order, 'get_date_created') && $order->get_date_created()) ? $order->get_date_created()->date('Y-m-d H:i:s') : current_time('mysql'),
                         ],
-                        [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s' ],
+                        [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
                     );
 
                     $booking_id = $wpdb->insert_id;
@@ -582,7 +584,7 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                         'amount_due'       => $amount_due,
                         'amount_paid'      => $amount_paid,
                         'notes'            => $order->get_customer_note(),
-                        'created_at'       => current_time('mysql'),
+                        'created_at'       => ($order && method_exists($order, 'get_date_created') && $order->get_date_created()) ? $order->get_date_created()->date('Y-m-d H:i:s') : current_time('mysql'),
                     ],
                     [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
                 );
