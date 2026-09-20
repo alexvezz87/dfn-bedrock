@@ -105,3 +105,158 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/CascadeStyleSheet.css to ed
     color: #0284c7 !important;
     opacity: 1 !important;
 }
+
+/* ==========================================================================
+   FILTRI STATO INGRESSI (CHECK-IN MANAGER)
+   ========================================================================== */
+.dfn-stat-card-clickable {
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+    position: relative;
+    user-select: none;
+}
+.dfn-stat-card-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    border-color: #94a3b8 !important;
+}
+.dfn-stat-card-clickable.active-filter {
+    border-color: #004b23 !important;
+    background: #f8fafc !important;
+    box-shadow: 0 0 0 2px #004b23 !important;
+}
+
+.dfn-ci-filters-card {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.dfn-ci-filters-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.dfn-ci-filter-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.dfn-ci-pills-wrap {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.dfn-ci-status-pill {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.15s ease-in-out;
+    user-select: none;
+}
+.dfn-ci-status-pill:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+.dfn-ci-status-pill .ci-pill-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.ci-pill-dot.dot-all { background: #64748b; }
+.ci-pill-dot.dot-pending { background: #ef4444; }
+.ci-pill-dot.dot-partial { background: #f59e0b; }
+.ci-pill-dot.dot-completed { background: #10b981; }
+
+.dfn-ci-status-pill .ci-pill-badge {
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 9999px;
+    transition: all 0.15s ease;
+}
+
+/* Stati pillola attiva */
+.dfn-ci-status-pill.active {
+    background: #0f172a;
+    border-color: #0f172a;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+}
+.dfn-ci-status-pill.active .ci-pill-badge {
+    background: #ffffff;
+    color: #0f172a;
+}
+.dfn-ci-status-pill.pill-pending.active {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+}
+.dfn-ci-status-pill.pill-pending.active .ci-pill-badge {
+    background: #ffffff;
+    color: #dc2626;
+}
+.dfn-ci-status-pill.pill-partial.active {
+    background: #d97706;
+    border-color: #d97706;
+    color: #ffffff;
+}
+.dfn-ci-status-pill.pill-partial.active .ci-pill-badge {
+    background: #ffffff;
+    color: #d97706;
+}
+.dfn-ci-status-pill.pill-completed.active {
+    background: #15803d;
+    border-color: #15803d;
+    color: #ffffff;
+}
+.dfn-ci-status-pill.pill-completed.active .ci-pill-badge {
+    background: #ffffff;
+    color: #15803d;
+}
+
+.dfn-ci-filters-right {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* Intestazioni tabella ordinabili */
+.dfn-ci-sortable-th {
+    cursor: pointer !important;
+    user-select: none !important;
+    transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+.dfn-ci-sortable-th:hover {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+}
+.dfn-ci-sortable-th .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    margin-left: 3px;
+    vertical-align: middle;
+}

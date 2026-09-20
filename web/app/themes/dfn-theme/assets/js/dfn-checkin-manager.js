@@ -19,6 +19,62 @@
         var ajaxurl   = typeof dfnCheckinVars !== 'undefined' ? dfnCheckinVars.ajaxurl : '/wp/wp-admin/admin-ajax.php';
         var currentData = null;
         var activeDate  = $('.dfn-pill-date.active').data('date') || $wrapper.data('first-date');
+        var activeStatus = 'all'; // 'all', 'pending', 'partial', 'completed'
+        var sortCol      = 'date'; // 'date', 'order', 'customer', 'tickets', 'status'
+        var sortDir      = 'desc'; // Default: più recente in alto
+
+        // Helper: rendering intestazione ordinabile
+        function renderSortableTh(colKey, label, currentCol, currentDir, extraStyle, alignCenter) {
+            var isCurrent = (currentCol === colKey);
+            var icon = '';
+            if (isCurrent) {
+                icon = (currentDir === 'asc')
+                    ? '<span class="dashicons dashicons-arrow-up-alt2" style="font-size:14px; width:14px; height:14px; vertical-align:middle; margin-left:3px;"></span>'
+                    : '<span class="dashicons dashicons-arrow-down-alt2" style="font-size:14px; width:14px; height:14px; vertical-align:middle; margin-left:3px;"></span>';
+            } else {
+                icon = '<span class="dashicons dashicons-sort" style="font-size:14px; width:14px; height:14px; vertical-align:middle; margin-left:3px; opacity:0.35;"></span>';
+            }
+            var alignStyle = alignCenter ? 'text-align:center;' : 'text-align:left;';
+            return '<th class="dfn-ci-sortable-th" data-col="' + colKey + '" style="padding:12px 10px; font-weight:700; ' + (extraStyle || '') + ' ' + alignStyle + '">' +
+                label + ' ' + icon +
+            '</th>';
+        }
+
+        // Helper: ordinamento prenotazioni
+        function sortBookings(items, col, dir) {
+            return items.slice().sort(function(a, b) {
+                var valA, valB;
+                if (col === 'order') {
+                    valA = parseInt(a.order_id || a.id, 10) || 0;
+                    valB = parseInt(b.order_id || b.id, 10) || 0;
+                    return dir === 'asc' ? (valA - valB) : (valB - valA);
+                } else if (col === 'customer') {
+                    valA = (a.customer_name || '').toLowerCase();
+                    valB = (b.customer_name || '').toLowerCase();
+                    return dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else if (col === 'tickets') {
+                    valA = parseInt(a.slot_persons || a.total_persons, 10) || 0;
+                    valB = parseInt(b.slot_persons || b.total_persons, 10) || 0;
+                    return dir === 'asc' ? (valA - valB) : (valB - valA);
+                } else if (col === 'status') {
+                    var pA = parseInt(a.slot_persons || a.total_persons, 10) || 1;
+                    var pB = parseInt(b.slot_persons || b.total_persons, 10) || 1;
+                    valA = (a.checkin_fatti || 0) / pA;
+                    valB = (b.checkin_fatti || 0) / pB;
+                    return dir === 'asc' ? (valA - valB) : (valB - valA);
+                } else {
+                    // Default: 'date' (timestamp registrazione più recente in alto)
+                    valA = parseInt(a.timestamp, 10) || 0;
+                    valB = parseInt(b.timestamp, 10) || 0;
+                    if (valA !== valB) {
+                        return dir === 'asc' ? (valA - valB) : (valB - valA);
+                    }
+                    var idA = parseInt(a.order_id || a.id, 10) || 0;
+                    var idB = parseInt(b.order_id || b.id, 10) || 0;
+                    return dir === 'asc' ? (idA - idB) : (idB - idA);
+                }
+            });
+        }
 
         // Caricamento iniziale
         loadSlots(activeDate);
@@ -66,6 +122,38 @@
             loadSlots(activeDate);
         });
 
+        // Click su pillola stato ingressi
+        $(document).on('click', '.dfn-ci-status-pill', function() {
+            var status = $(this).data('status');
+            activeStatus = status;
+            $('.dfn-ci-status-pill').removeClass('active');
+            $(this).addClass('active');
+            if (currentData) renderCheckinView(currentData);
+        });
+
+        // Click rapido su card statistica in alto
+        $(document).on('click', '.dfn-stat-card-clickable', function() {
+            var targetStatus = $(this).data('status-target');
+            if (targetStatus) {
+                activeStatus = targetStatus;
+                $('.dfn-ci-status-pill').removeClass('active');
+                $('.dfn-ci-status-pill[data-status="' + targetStatus + '"]').addClass('active');
+                if (currentData) renderCheckinView(currentData);
+            }
+        });
+
+        // Click su intestazione ordinabile della tabella
+        $(document).on('click', '.dfn-ci-sortable-th', function() {
+            var col = $(this).data('col');
+            if (sortCol === col) {
+                sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+            } else {
+                sortCol = col;
+                sortDir = (col === 'order' || col === 'tickets' || col === 'date') ? 'desc' : 'asc';
+            }
+            if (currentData) renderCheckinView(currentData);
+        });
+
         // ====================================================================
         // 2. RENDERING INTERFACCIA
         // ====================================================================
@@ -79,14 +167,31 @@
 
             // Calcola totali aggregati per tutti gli slot
             var totVenduti = 0, totCheckin = 0, totCapacita = 0;
+            var countAll = 0, countPending = 0, countPartial = 0, countCompleted = 0;
+            var persPending = 0;
+
             slots.forEach(function(slot) {
                 totVenduti    += slot.booked_count;
                 totCapacita   += (slot.capacity + slot.bonus_capacity);
                 slot.bookings.forEach(function(b) {
-                    if (b.checkin_fatti) totCheckin += b.checkin_fatti;
+                    var nPers = parseInt(b.slot_persons || b.total_persons, 10) || 1;
+                    var nCheck = parseInt(b.checkin_fatti, 10) || 0;
+
+                    if (nCheck > 0) totCheckin += nCheck;
+                    countAll++;
+
+                    if (nCheck === 0) {
+                        countPending++;
+                        persPending += nPers;
+                    } else if (nCheck < nPers) {
+                        countPartial++;
+                        persPending += (nPers - nCheck);
+                    } else {
+                        countCompleted++;
+                    }
                 });
             });
-            var totAttesa  = totVenduti - totCheckin;
+            var totAttesa  = Math.max(0, totVenduti - totCheckin);
             var totLiberi  = Math.max(0, totCapacita - totVenduti);
 
             // Aggiorna contatori statistici in alto
@@ -95,25 +200,85 @@
             $('#dfn-ci-stat-attesa').text(totAttesa);
             $('#dfn-ci-stat-liberi').text(totLiberi);
 
+            // Aggiorna badge pillole filtri
+            $('#dfn-ci-count-all').text(countAll);
+            $('#dfn-ci-count-pending').text(countPending);
+            $('#dfn-ci-count-partial').text(countPartial);
+            $('#dfn-ci-count-completed').text(countCompleted);
+
+            // Evidenziazione sincronizzata card statistiche
+            $('.dfn-stat-card-clickable').removeClass('active-filter');
+            if (activeStatus === 'all') {
+                $('.dfn-stat-card-clickable[data-status-target="all"]').addClass('active-filter');
+            } else if (activeStatus === 'pending') {
+                $('.dfn-stat-card-clickable[data-status-target="pending"]').addClass('active-filter');
+            } else if (activeStatus === 'completed') {
+                $('.dfn-stat-card-clickable[data-status-target="completed"]').addClass('active-filter');
+            }
+
+            // Info testo descrittivo
+            var infoText = '';
+            if (activeStatus === 'pending') {
+                infoText = '🔍 Visualizzando <strong>' + countPending + '</strong> prenotazioni ancora da validare (<strong>' + persPending + '</strong> persone in attesa)';
+            } else if (activeStatus === 'partial') {
+                infoText = '🔍 Visualizzando <strong>' + countPartial + '</strong> prenotazioni con ingressi parziali';
+            } else if (activeStatus === 'completed') {
+                infoText = '🔍 Visualizzando <strong>' + countCompleted + '</strong> prenotazioni convalidate al 100% (' + totCheckin + ' persone entrate)';
+            } else {
+                infoText = 'Mostrando tutte le <strong>' + countAll + '</strong> prenotazioni (' + totVenduti + ' posti)';
+            }
+            $('#dfn-ci-filter-status-info').html(infoText);
+
             var html = '';
 
             // Per ogni slot: titolo card con progress bar + tabella
             slots.forEach(function(slot) {
                 var filteredBookings = slot.bookings;
+
+                // 1. Filtro per stato check-in
+                if (activeStatus === 'pending') {
+                    filteredBookings = filteredBookings.filter(function(b) {
+                        return !b.checkin_fatti || b.checkin_fatti === 0;
+                    });
+                } else if (activeStatus === 'partial') {
+                    filteredBookings = filteredBookings.filter(function(b) {
+                        return b.checkin_fatti > 0 && b.checkin_fatti < b.slot_persons;
+                    });
+                } else if (activeStatus === 'completed') {
+                    filteredBookings = filteredBookings.filter(function(b) {
+                        return b.checkin_fatti >= b.slot_persons;
+                    });
+                }
+
+                // 2. Filtro per ricerca testuale
                 if (searchQuery !== '') {
-                    filteredBookings = slot.bookings.filter(function(b) {
+                    filteredBookings = filteredBookings.filter(function(b) {
                         var name  = b.customer_name  ? b.customer_name.toLowerCase()  : '';
                         var email = b.customer_email ? b.customer_email.toLowerCase() : '';
                         var phone = b.customer_phone ? b.customer_phone.toLowerCase() : '';
+                        var order = b.order_id       ? b.order_id.toString()          : '';
                         return name.indexOf(searchQuery) !== -1 ||
                                email.indexOf(searchQuery) !== -1 ||
-                               phone.indexOf(searchQuery) !== -1;
+                               phone.indexOf(searchQuery) !== -1 ||
+                               order.indexOf(searchQuery) !== -1;
                     });
                 }
+
+                // 3. Ordinamento
+                var sortedBookings = sortBookings(filteredBookings, sortCol, sortDir);
 
                 var totalCapacity = slot.capacity + slot.bonus_capacity;
                 var booked = slot.booked_count;
                 var percent = totalCapacity > 0 ? Math.min(100, Math.round((booked / totalCapacity) * 100)) : 0;
+
+                var filterBadge = '';
+                if (activeStatus === 'pending') {
+                    filterBadge = ' &bull; <span style="color:#dc2626; font-weight:700;">Filtro: Da validare (' + sortedBookings.length + ')</span>';
+                } else if (activeStatus === 'partial') {
+                    filterBadge = ' &bull; <span style="color:#d97706; font-weight:700;">Filtro: In corso (' + sortedBookings.length + ')</span>';
+                } else if (activeStatus === 'completed') {
+                    filterBadge = ' &bull; <span style="color:#15803d; font-weight:700;">Filtro: Validate (' + sortedBookings.length + ')</span>';
+                }
 
                 var headerHtml =
                     '<div class="dfn-slot-header-card" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:15px 20px; margin-bottom:15px; margin-top:20px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">' +
@@ -123,7 +288,7 @@
                         '<div class="slot-progress-info">' +
                             '<div class="progress-labels" style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px; color:#64748b;">' +
                                 '<span>' + (slot.is_locked ? 'Bloccato' : percent + '% occupato') + '</span>' +
-                                '<span><strong>' + booked + '</strong> / ' + totalCapacity + ' posti &bull; ' + filteredBookings.length + ' prenotazioni</span>' +
+                                '<span><strong>' + booked + '</strong> / ' + totalCapacity + ' posti &bull; ' + sortedBookings.length + ' visualizzate' + filterBadge + '</span>' +
                             '</div>' +
                             '<div class="progress-bar-bg" style="height:8px; background:#f1f5f9; border-radius:9999px; overflow:hidden;">' +
                                 '<div class="progress-bar-fill" style="height:100%; border-radius:9999px; background:linear-gradient(90deg, #16a34a, #4ade80); width:' + percent + '%;"></div>' +
@@ -132,7 +297,7 @@
                     '</div>';
 
                 html += headerHtml;
-                html += generateCheckinTableHtml(filteredBookings, slot);
+                html += generateCheckinTableHtml(sortedBookings, slot);
             });
 
             $('#dfn-ci-grid').html(html);
@@ -150,12 +315,12 @@
             var html = '<div style="overflow-x:auto; margin-bottom:30px;">';
             html += '<table class="wp-list-table widefat fixed striped dfn-bookings-rich-table" style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1;">';
             html += '<thead><tr style="background:#f1f5f9;">' +
-                '<th style="padding:12px 10px; font-weight:700; width:80px; text-align:left;">Ordine #</th>' +
-                '<th style="padding:12px 10px; font-weight:700; text-align:left;">Cliente</th>' +
+                renderSortableTh('order', 'Ordine #', sortCol, sortDir, 'width:85px;', false) +
+                renderSortableTh('customer', 'Cliente', sortCol, sortDir, '', false) +
                 '<th style="padding:12px 10px; font-weight:700; width:120px; text-align:left;">Qualifica</th>' +
                 '<th style="padding:12px 10px; font-weight:700; width:130px; text-align:left;">Telefono</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:80px; text-align:center;">Biglietti</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:130px; text-align:center;">Stato Arrivi</th>' +
+                renderSortableTh('tickets', 'Biglietti', sortCol, sortDir, 'width:80px;', true) +
+                renderSortableTh('status', 'Stato Arrivi', sortCol, sortDir, 'width:130px;', true) +
                 '<th style="padding:12px 10px; font-weight:700; width:140px; text-align:left;">Validato da</th>' +
                 '<th style="padding:12px 10px; font-weight:700; width:160px; text-align:center;">Azioni Cassa</th>' +
                 '<th style="padding:12px 10px; font-weight:700; width:160px; text-align:center;">Messaggi</th>' +
@@ -164,7 +329,18 @@
             html += '<tbody>';
 
             if (!bookings || bookings.length === 0) {
-                html += '<tr><td colspan="10" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
+                var searchQuery = $('#dfn-ci-search').val().trim();
+                var emptyMsg = 'Nessuna prenotazione trovata.';
+                if (searchQuery !== '') {
+                    emptyMsg = 'Nessuna prenotazione trovata per "<strong>' + searchQuery + '</strong>".';
+                } else if (activeStatus === 'pending') {
+                    emptyMsg = '🎉 <strong>Tutti i partecipanti sono già entrati!</strong> Nessuna prenotazione in attesa di validazione.';
+                } else if (activeStatus === 'partial') {
+                    emptyMsg = 'Nessun gruppo con ingressi parziali in questo momento.';
+                } else if (activeStatus === 'completed') {
+                    emptyMsg = 'Nessuna prenotazione convalidata al 100% per ora.';
+                }
+                html += '<tr><td colspan="10" style="padding:30px; text-align:center; color:#64748b; font-size:14px;">' + emptyMsg + '</td></tr>';
             } else {
                 bookings.forEach(function(b) {
                     var orderEditUrl = ajaxurl.replace('admin-ajax.php', 'post.php?post=' + b.order_id + '&action=edit');

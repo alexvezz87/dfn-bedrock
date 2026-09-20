@@ -259,15 +259,15 @@ function dfn_render_checkin_manager()
 
         <!-- Riepilogo Statistico -->
         <div class="dfn-stats-row">
-            <div class="dfn-stat-card">
+            <div class="dfn-stat-card dfn-stat-card-clickable active-filter" data-status-target="all" title="<?php esc_attr_e('Clicca per mostrare tutte le prenotazioni', 'dfn-theme'); ?>">
                 <div class="stat-value" id="dfn-ci-stat-venduti">-</div>
                 <div class="stat-label"><?php esc_html_e('Posti Venduti', 'dfn-theme'); ?></div>
             </div>
-            <div class="dfn-stat-card">
+            <div class="dfn-stat-card dfn-stat-card-clickable" data-status-target="completed" title="<?php esc_attr_e('Clicca per filtrare i partecipanti già entrati', 'dfn-theme'); ?>">
                 <div class="stat-value" id="dfn-ci-stat-entrati" style="color: var(--dfn-success);">-</div>
                 <div class="stat-label"><?php esc_html_e('Posti Entrati', 'dfn-theme'); ?></div>
             </div>
-            <div class="dfn-stat-card">
+            <div class="dfn-stat-card dfn-stat-card-clickable" data-status-target="pending" title="<?php esc_attr_e('Clicca per filtrare chi deve ancora entrare', 'dfn-theme'); ?>">
                 <div class="stat-value" id="dfn-ci-stat-attesa" style="color: var(--dfn-danger);">-</div>
                 <div class="stat-label"><?php esc_html_e('Posti in Attesa', 'dfn-theme'); ?></div>
             </div>
@@ -295,7 +295,7 @@ function dfn_render_checkin_manager()
                 <div class="dfn-actions-container">
                     <div class="search-box">
                         <span class="dashicons dashicons-search"></span>
-                        <input type="text" id="dfn-ci-search" placeholder="<?php esc_attr_e('Cerca prenotazione...', 'dfn-theme'); ?>">
+                        <input type="text" id="dfn-ci-search" placeholder="<?php esc_attr_e('Cerca cliente, ordine, email, tel...', 'dfn-theme'); ?>">
                     </div>
                     <button type="button" id="dfn-ci-refresh" class="dfn-btn dfn-btn-secondary">
                         <span class="dashicons dashicons-update"></span> <?php esc_html_e('Aggiorna', 'dfn-theme'); ?>
@@ -306,6 +306,40 @@ function dfn_render_checkin_manager()
                     <button type="button" id="cv-send-feedback-btn" class="dfn-btn" style="background:#e74f30; border-color:#e74f30; color:#fff;">
                         <span class="dashicons dashicons-star-filled"></span> <?php esc_html_e('Richiedi Recensioni', 'dfn-theme'); ?>
                     </button>
+                </div>
+            </div>
+
+            <!-- Barra Filtri Rapidi Stato Ingressi -->
+            <div class="dfn-ci-filters-card">
+                <div class="dfn-ci-filters-left">
+                    <span class="dfn-ci-filter-title">
+                        <span class="dashicons dashicons-filter"></span> <?php esc_html_e('Filtro Ingressi:', 'dfn-theme'); ?>
+                    </span>
+                    <div class="dfn-ci-pills-wrap">
+                        <button type="button" class="dfn-ci-status-pill active" data-status="all">
+                            <span class="ci-pill-dot dot-all"></span>
+                            <span class="ci-pill-label"><?php esc_html_e('Tutte', 'dfn-theme'); ?></span>
+                            <span class="ci-pill-badge" id="dfn-ci-count-all">0</span>
+                        </button>
+                        <button type="button" class="dfn-ci-status-pill pill-pending" data-status="pending">
+                            <span class="ci-pill-dot dot-pending"></span>
+                            <span class="ci-pill-label"><?php esc_html_e('Ancora da validare', 'dfn-theme'); ?></span>
+                            <span class="ci-pill-badge badge-pending" id="dfn-ci-count-pending">0</span>
+                        </button>
+                        <button type="button" class="dfn-ci-status-pill pill-partial" data-status="partial">
+                            <span class="ci-pill-dot dot-partial"></span>
+                            <span class="ci-pill-label"><?php esc_html_e('In corso (parziali)', 'dfn-theme'); ?></span>
+                            <span class="ci-pill-badge badge-partial" id="dfn-ci-count-partial">0</span>
+                        </button>
+                        <button type="button" class="dfn-ci-status-pill pill-completed" data-status="completed">
+                            <span class="ci-pill-dot dot-completed"></span>
+                            <span class="ci-pill-label"><?php esc_html_e('Validate', 'dfn-theme'); ?></span>
+                            <span class="ci-pill-badge badge-completed" id="dfn-ci-count-completed">0</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="dfn-ci-filters-right" id="dfn-ci-filter-status-info">
+                    <!-- Info dinamica compilata via JS -->
                 </div>
             </div>
 
