@@ -492,6 +492,22 @@ function dfn_ajax_mobile_do_checkin(): void
             [ 'booking_id' => $booking->id ]
         );
 
+        if (! empty($booking->order_id)) {
+            $order = wc_get_order($booking->order_id);
+            if ($order) {
+                $order->delete_meta_data('_cv_checked_in');
+                $order->delete_meta_data('_cv_checked_in_at');
+                $order->delete_meta_data('_cv_checked_in_by');
+                $qty = intval($booking->total_persons);
+                for ($i = 1; $i <= $qty; $i++) {
+                    $order->delete_meta_data('_cv_ticket_validato_' . $i);
+                    $order->delete_meta_data('_cv_ticket_validato_' . $i . '_orario');
+                    $order->delete_meta_data('_cv_ticket_validato_' . $i . '_operatore');
+                }
+                $order->save();
+            }
+        }
+
         wp_send_json_success([
             'checked_in' => false,
             'message'    => __('Check-in annullato.', 'dfn-theme'),
@@ -527,6 +543,12 @@ function dfn_ajax_mobile_do_checkin(): void
                 $order->update_meta_data('_cv_checked_in', 'yes');
                 $order->update_meta_data('_cv_checked_in_at', $now);
                 $order->update_meta_data('_cv_checked_in_by', $user_id);
+                $qty = intval($booking->total_persons);
+                for ($i = 1; $i <= $qty; $i++) {
+                    $order->update_meta_data('_cv_ticket_validato_' . $i, 'yes');
+                    $order->update_meta_data('_cv_ticket_validato_' . $i . '_orario', $now);
+                    $order->update_meta_data('_cv_ticket_validato_' . $i . '_operatore', $user_id);
+                }
                 $order->save();
             }
         }
