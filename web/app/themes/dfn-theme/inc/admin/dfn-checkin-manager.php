@@ -259,21 +259,127 @@ function dfn_render_checkin_manager()
 
         <!-- Riepilogo Statistico -->
         <div class="dfn-stats-row">
-            <div class="dfn-stat-card">
+            <div class="dfn-stat-card dfn-stat-card-clickable active-filter" data-status-target="all" title="<?php esc_attr_e('Clicca per mostrare tutte le prenotazioni', 'dfn-theme'); ?>">
                 <div class="stat-value" id="dfn-ci-stat-venduti">-</div>
                 <div class="stat-label"><?php esc_html_e('Posti Venduti', 'dfn-theme'); ?></div>
             </div>
-            <div class="dfn-stat-card">
+            <div class="dfn-stat-card dfn-stat-card-clickable" data-status-target="completed" title="<?php esc_attr_e('Clicca per filtrare i partecipanti già entrati', 'dfn-theme'); ?>">
                 <div class="stat-value" id="dfn-ci-stat-entrati" style="color: var(--dfn-success);">-</div>
                 <div class="stat-label"><?php esc_html_e('Posti Entrati', 'dfn-theme'); ?></div>
             </div>
-            <div class="dfn-stat-card">
+            <div class="dfn-stat-card dfn-stat-card-clickable" data-status-target="pending" title="<?php esc_attr_e('Clicca per filtrare chi deve ancora entrare', 'dfn-theme'); ?>">
                 <div class="stat-value" id="dfn-ci-stat-attesa" style="color: var(--dfn-danger);">-</div>
                 <div class="stat-label"><?php esc_html_e('Posti in Attesa', 'dfn-theme'); ?></div>
             </div>
             <div class="dfn-stat-card">
                 <div class="stat-value" id="dfn-ci-stat-liberi" style="color: var(--dfn-warning);">-</div>
                 <div class="stat-label"><?php esc_html_e('Posti Liberi', 'dfn-theme'); ?></div>
+            </div>
+        </div>
+
+        <!-- SEZIONE ANALYTICS FLUSSO & PODIO VOLONTARI -->
+        <div class="dfn-analytics-panel" id="dfn-analytics-panel">
+            <div class="dfn-analytics-header">
+                <div class="dfn-analytics-title-group">
+                    <span class="dashicons dashicons-chart-area"></span>
+                    <h2><?php esc_html_e('Monitoraggio Ingressi & Squadra Volontari', 'dfn-theme'); ?></h2>
+                    <span class="dfn-live-badge" id="dfn-live-indicator" style="display:none;">
+                        <span class="dfn-pulse-dot"></span> LIVE
+                    </span>
+                </div>
+                <div class="dfn-analytics-header-actions">
+                    <button type="button" id="dfn-toggle-autorefresh" class="dfn-btn dfn-btn-sm dfn-btn-secondary" title="<?php esc_attr_e('Aggiorna automaticamente i dati ogni 30 secondi', 'dfn-theme'); ?>">
+                        <span class="dashicons dashicons-controls-play"></span> <span class="btn-text"><?php esc_html_e('Auto-refresh: OFF', 'dfn-theme'); ?></span>
+                    </button>
+                    <button type="button" id="dfn-toggle-analytics-panel" class="dfn-btn dfn-btn-sm dfn-btn-secondary">
+                        <span class="dashicons dashicons-arrow-up-alt2"></span> <span class="toggle-text"><?php esc_html_e('Comprimi', 'dfn-theme'); ?></span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="dfn-analytics-content" id="dfn-analytics-content">
+                <div class="dfn-analytics-grid">
+                    
+                    <!-- COLONNA SINISTRA: GRAFICO AFFLUSSO CODE -->
+                    <div class="dfn-analytics-card dfn-chart-card">
+                        <div class="dfn-card-subhead">
+                            <div class="dfn-subhead-left">
+                                <h3><span class="dashicons dashicons-clock"></span> <?php esc_html_e('Smaltimento Coda — Ingressi nel Tempo', 'dfn-theme'); ?></h3>
+                                <span class="dfn-card-subdesc"><?php esc_html_e('Rilevazione presenze convalidate per intervallo', 'dfn-theme'); ?></span>
+                            </div>
+                            <div class="dfn-granularity-pills">
+                                <span class="dfn-granularity-label"><?php esc_html_e('Intervallo:', 'dfn-theme'); ?></span>
+                                <button type="button" class="dfn-gran-btn active" data-interval="1">1 min</button>
+                                <button type="button" class="dfn-gran-btn" data-interval="2">2 min</button>
+                                <button type="button" class="dfn-gran-btn" data-interval="5">5 min</button>
+                            </div>
+                        </div>
+
+                        <!-- KPI Highlights -->
+                        <div class="dfn-flow-kpi-bar">
+                            <div class="dfn-flow-kpi-item">
+                                <div class="flow-kpi-icon">⚡</div>
+                                <div class="flow-kpi-data">
+                                    <div class="flow-kpi-val" id="dfn-kpi-peak">-</div>
+                                    <div class="flow-kpi-label"><?php esc_html_e('Picco Massimo', 'dfn-theme'); ?></div>
+                                </div>
+                            </div>
+                            <div class="dfn-flow-kpi-item">
+                                <div class="flow-kpi-icon">⏱️</div>
+                                <div class="flow-kpi-data">
+                                    <div class="flow-kpi-val" id="dfn-kpi-speed">-</div>
+                                    <div class="flow-kpi-label"><?php esc_html_e('Ritmo Medio', 'dfn-theme'); ?></div>
+                                </div>
+                            </div>
+                            <div class="dfn-flow-kpi-item">
+                                <div class="flow-kpi-icon">⏳</div>
+                                <div class="flow-kpi-data">
+                                    <div class="flow-kpi-val" id="dfn-kpi-duration">-</div>
+                                    <div class="flow-kpi-label"><?php esc_html_e('Finestra Afflusso', 'dfn-theme'); ?></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Canvas Grafico -->
+                        <div class="dfn-chart-wrapper">
+                            <canvas id="dfnFlowChart" height="230"></canvas>
+                            <div id="dfn-chart-empty" class="dfn-chart-empty" style="display:none;">
+                                <span class="dashicons dashicons-chart-line"></span>
+                                <p><?php esc_html_e('Nessun ingresso convalidato registrato per questo turno/data.', 'dfn-theme'); ?></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COLONNA DESTRA: PODIO E CLASSIFICA VOLONTARI -->
+                    <div class="dfn-analytics-card dfn-gamification-card">
+                        <div class="dfn-card-subhead">
+                            <div class="dfn-subhead-left">
+                                <h3><span class="dashicons dashicons-awards"></span> <?php esc_html_e('Podio & Convalide Volontari', 'dfn-theme'); ?></h3>
+                                <span class="dfn-card-subdesc"><?php esc_html_e('Gamification e merito dello staff al desk', 'dfn-theme'); ?></span>
+                            </div>
+                            <div class="dfn-team-total-badge" id="dfn-team-total-badge" title="<?php esc_attr_e('Totale check-in convalidati dal team', 'dfn-theme'); ?>">
+                                <span class="dashicons dashicons-groups"></span> <span id="dfn-team-validations-count">0</span> check-in
+                            </div>
+                        </div>
+
+                        <!-- Podio Olimpico Top 3 -->
+                        <div class="dfn-podium-container" id="dfn-podium-area">
+                            <!-- Popolato dinamicamente da JS -->
+                        </div>
+
+                        <!-- Classifica Estesa Squadra -->
+                        <div class="dfn-leaderboard-container">
+                            <div class="dfn-leaderboard-title">
+                                <span><?php esc_html_e('Classifica Completa Squadra', 'dfn-theme'); ?></span>
+                                <span id="dfn-leaderboard-active-staff-count" style="font-size:11px; color:#64748b; font-weight:600;"></span>
+                            </div>
+                            <div class="dfn-leaderboard-list" id="dfn-leaderboard-list">
+                                <!-- Righe popolate da JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
 
@@ -295,7 +401,7 @@ function dfn_render_checkin_manager()
                 <div class="dfn-actions-container">
                     <div class="search-box">
                         <span class="dashicons dashicons-search"></span>
-                        <input type="text" id="dfn-ci-search" placeholder="<?php esc_attr_e('Cerca prenotazione...', 'dfn-theme'); ?>">
+                        <input type="text" id="dfn-ci-search" placeholder="<?php esc_attr_e('Cerca cliente, ordine, email, tel...', 'dfn-theme'); ?>">
                     </div>
                     <button type="button" id="dfn-ci-refresh" class="dfn-btn dfn-btn-secondary">
                         <span class="dashicons dashicons-update"></span> <?php esc_html_e('Aggiorna', 'dfn-theme'); ?>
@@ -306,6 +412,40 @@ function dfn_render_checkin_manager()
                     <button type="button" id="cv-send-feedback-btn" class="dfn-btn" style="background:#e74f30; border-color:#e74f30; color:#fff;">
                         <span class="dashicons dashicons-star-filled"></span> <?php esc_html_e('Richiedi Recensioni', 'dfn-theme'); ?>
                     </button>
+                </div>
+            </div>
+
+            <!-- Barra Filtri Rapidi Stato Ingressi -->
+            <div class="dfn-ci-filters-card">
+                <div class="dfn-ci-filters-left">
+                    <span class="dfn-ci-filter-title">
+                        <span class="dashicons dashicons-filter"></span> <?php esc_html_e('Filtro Ingressi:', 'dfn-theme'); ?>
+                    </span>
+                    <div class="dfn-ci-pills-wrap">
+                        <button type="button" class="dfn-ci-status-pill active" data-status="all">
+                            <span class="ci-pill-dot dot-all"></span>
+                            <span class="ci-pill-label"><?php esc_html_e('Tutte', 'dfn-theme'); ?></span>
+                            <span class="ci-pill-badge" id="dfn-ci-count-all">0</span>
+                        </button>
+                        <button type="button" class="dfn-ci-status-pill pill-pending" data-status="pending">
+                            <span class="ci-pill-dot dot-pending"></span>
+                            <span class="ci-pill-label"><?php esc_html_e('Ancora da validare', 'dfn-theme'); ?></span>
+                            <span class="ci-pill-badge badge-pending" id="dfn-ci-count-pending">0</span>
+                        </button>
+                        <button type="button" class="dfn-ci-status-pill pill-partial" data-status="partial">
+                            <span class="ci-pill-dot dot-partial"></span>
+                            <span class="ci-pill-label"><?php esc_html_e('In corso (parziali)', 'dfn-theme'); ?></span>
+                            <span class="ci-pill-badge badge-partial" id="dfn-ci-count-partial">0</span>
+                        </button>
+                        <button type="button" class="dfn-ci-status-pill pill-completed" data-status="completed">
+                            <span class="ci-pill-dot dot-completed"></span>
+                            <span class="ci-pill-label"><?php esc_html_e('Validate', 'dfn-theme'); ?></span>
+                            <span class="ci-pill-badge badge-completed" id="dfn-ci-count-completed">0</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="dfn-ci-filters-right" id="dfn-ci-filter-status-info">
+                    <!-- Info dinamica compilata via JS -->
                 </div>
             </div>
 

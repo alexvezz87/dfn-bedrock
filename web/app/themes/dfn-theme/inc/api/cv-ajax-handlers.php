@@ -368,10 +368,46 @@ function cv_process_manual_checkin_ajax()
     $lock_key = 'cv_ticket_lock_' . $order_id . '_' . $ticket_index;
     set_transient($lock_key, 1, 5);
     $meta_key = '_cv_ticket_validato_' . $ticket_index;
+    $now = current_time('mysql');
+    $user_id = get_current_user_id();
+
     $order->update_meta_data($meta_key, 'yes');
-    $order->update_meta_data($meta_key . '_orario', current_time('mysql'));
-    $order->update_meta_data($meta_key . '_operatore', get_current_user_id());
+    $order->update_meta_data($meta_key . '_orario', $now);
+    $order->update_meta_data($meta_key . '_operatore', $user_id);
+    $order->update_meta_data('_cv_checked_in', 'yes');
+    $order->update_meta_data('_cv_checked_in_at', $now);
+    $order->update_meta_data('_cv_checked_in_by', $user_id);
     $order->save();
+
+    // Sincronizza anche su wp_dfn_bookings e wp_dfn_booking_slots
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+
+    $booking_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM {$table_bookings} WHERE order_id = %d AND status != 'cancelled' LIMIT 1",
+        $order_id
+    ));
+    if ($booking_id) {
+        $wpdb->update(
+            $table_bookings,
+            [
+                'status'        => 'checked_in',
+                'checked_in_at' => $now,
+                'checked_in_by' => $user_id,
+            ],
+            [ 'id' => $booking_id ]
+        );
+        $wpdb->update(
+            $table_booking_slots,
+            [
+                'checked_in_at' => $now,
+                'checked_in_by' => $user_id,
+            ],
+            [ 'booking_id' => $booking_id ]
+        );
+    }
+
     delete_transient($lock_key);
     wp_send_json_success();
 }
@@ -400,6 +436,50 @@ function cv_process_undo_checkin_ajax()
     $order->delete_meta_data($meta_key . '_operatore');
     $current_user = wp_get_current_user();
     $order->add_order_note("🔄 Validazione annullata dal pannello Check-in dall'utente: {$current_user->display_name}");
+
+    // Verifica se ci sono ancora biglietti validati per questo ordine
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table_bookings} WHERE order_id = %d AND status != 'cancelled' LIMIT 1",
+        $order_id
+    ));
+
+    $has_remaining_valid = false;
+    $qty = $booking ? intval($booking->total_persons) : 10;
+    for ($i = 1; $i <= $qty; $i++) {
+        if ($i !== $ticket_index && $order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
+            $has_remaining_valid = true;
+            break;
+        }
+    }
+
+    if (! $has_remaining_valid) {
+        $order->delete_meta_data('_cv_checked_in');
+        $order->delete_meta_data('_cv_checked_in_at');
+        $order->delete_meta_data('_cv_checked_in_by');
+        if ($booking) {
+            $wpdb->update(
+                $table_bookings,
+                [
+                    'status'        => 'confirmed',
+                    'checked_in_at' => null,
+                    'checked_in_by' => null,
+                ],
+                [ 'id' => $booking->id ]
+            );
+            $wpdb->update(
+                $table_booking_slots,
+                [
+                    'checked_in_at' => null,
+                    'checked_in_by' => null,
+                ],
+                [ 'booking_id' => $booking->id ]
+            );
+        }
+    }
     $order->save();
     wp_send_json_success();
 }

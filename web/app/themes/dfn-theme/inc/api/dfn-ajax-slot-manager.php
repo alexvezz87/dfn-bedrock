@@ -107,27 +107,100 @@ function dfn_ajax_admin_get_slots(): void
 
     // --- Gestione speciale per eventi a Flusso Libero (free_flow) ---
     // Questi eventi non hanno slot fisici: costruiamo uno slot virtuale
-    // contenente tutte le prenotazioni dell'evento (con created_at nella data richiesta)
+    // contenente le prenotazioni valide per la data richiesta
     $event = dfn_db_get_event($event_id);
     if ($event && 'free_flow' === $event->access_type) {
-        $bookings_raw = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$table_bookings}
-             WHERE event_id = %d
-               AND DATE(created_at) = %s
-               AND status != 'cancelled'
-             ORDER BY created_at DESC, id DESC",
-            $event_id,
-            $date,
-        ));
+        $table_oi  = $wpdb->prefix . 'woocommerce_order_items';
+        $table_oim = $wpdb->prefix . 'woocommerce_order_itemmeta';
 
-        // Se nessuna prenotazione nella data specifica, mostra comunque tutte le prenotazioni dell'evento
-        if (empty($bookings_raw)) {
+        $is_single_day = empty($event->event_date_end) || $event->event_date_start === $event->event_date_end;
+
+        if ($is_single_day) {
+            // Per eventi a data singola, tutte le prenotazioni appartengono all'evento di questa giornata
             $bookings_raw = $wpdb->get_results($wpdb->prepare(
                 "SELECT * FROM {$table_bookings}
                  WHERE event_id = %d AND status != 'cancelled'
                  ORDER BY created_at DESC, id DESC",
-                $event_id,
+                $event_id
             ));
+        } else {
+            // Per eventi a date multiple a flusso libero, filtra in base a _dfn_booking_date nei metadati dell'ordine
+            $b_ids_meta = $wpdb->get_col($wpdb->prepare(
+                "SELECT DISTINCT b.id 
+                 FROM {$table_bookings} b
+                 INNER JOIN {$table_oi} oi ON b.order_id = oi.order_id
+                 INNER JOIN {$table_oim} oim ON oi.order_item_id = oim.order_item_id
+                 WHERE b.event_id = %d 
+                   AND oim.meta_key = '_dfn_booking_date' 
+                   AND oim.meta_value = %s
+                   AND b.status != 'cancelled'",
+                $event_id,
+                $date
+            ));
+
+            // Se la data richiesta è la data di inizio evento, includi anche prenotazioni prive di metadato data specifico
+            $b_ids_fallback = [];
+            if ($date === $event->event_date_start) {
+                $b_ids_other_dates = $wpdb->get_col($wpdb->prepare(
+                    "SELECT DISTINCT b.id 
+                     FROM {$table_bookings} b
+                     INNER JOIN {$table_oi} oi ON b.order_id = oi.order_id
+                     INNER JOIN {$table_oim} oim ON oi.order_item_id = oim.order_item_id
+                     WHERE b.event_id = %d 
+                       AND oim.meta_key = '_dfn_booking_date' 
+                       AND oim.meta_value != %s
+                       AND b.status != 'cancelled'",
+                    $event_id,
+                    $date
+                ));
+
+                if (! empty($b_ids_other_dates)) {
+                    $other_in = implode(',', array_map('absint', $b_ids_other_dates));
+                    $b_ids_fallback = $wpdb->get_col($wpdb->prepare(
+                        "SELECT id FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled' AND id NOT IN ({$other_in})",
+                        $event_id
+                    ));
+                } else {
+                    $b_ids_fallback = $wpdb->get_col($wpdb->prepare(
+                        "SELECT id FROM {$table_bookings} WHERE event_id = %d AND status != 'cancelled'",
+                        $event_id
+                    ));
+                }
+            }
+
+            $all_matching_b_ids = array_values(array_unique(array_filter(array_merge(
+                $b_ids_meta ?: [],
+                $b_ids_fallback ?: []
+            ))));
+
+            if (! empty($all_matching_b_ids)) {
+                $in_sql = implode(',', array_map('absint', $all_matching_b_ids));
+                $bookings_raw = $wpdb->get_results(
+                    "SELECT * FROM {$table_bookings} WHERE id IN ({$in_sql}) AND status != 'cancelled' ORDER BY created_at DESC, id DESC"
+                );
+            } else {
+                $bookings_raw = [];
+            }
+
+            // Fallback di sicurezza: se non trova nulla e l'evento non ha metadati _dfn_booking_date
+            if (empty($bookings_raw)) {
+                $has_any_date_meta = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) 
+                     FROM {$table_bookings} b
+                     INNER JOIN {$table_oi} oi ON b.order_id = oi.order_id
+                     INNER JOIN {$table_oim} oim ON oi.order_item_id = oim.order_item_id
+                     WHERE b.event_id = %d AND oim.meta_key = '_dfn_booking_date'",
+                    $event_id
+                ));
+                if (! $has_any_date_meta) {
+                    $bookings_raw = $wpdb->get_results($wpdb->prepare(
+                        "SELECT * FROM {$table_bookings}
+                         WHERE event_id = %d AND status != 'cancelled'
+                         ORDER BY created_at DESC, id DESC",
+                        $event_id
+                    ));
+                }
+            }
         }
 
         $bookings_list = [];
@@ -136,8 +209,13 @@ function dfn_ajax_admin_get_slots(): void
             $bookings_list[] = dfn_enrich_booking_data($b, $order);
         }
 
-        // Ordinamento rigoroso dal più recente al meno recente (per Order ID o ID Prenotazione)
+        // Ordinamento rigoroso dal più recente al meno recente (Data Registrazione / Timestamp, poi ID)
         usort($bookings_list, function ($a, $b) {
+            $time_a = ! empty($a['timestamp']) ? intval($a['timestamp']) : 0;
+            $time_b = ! empty($b['timestamp']) ? intval($b['timestamp']) : 0;
+            if ($time_a !== $time_b) {
+                return $time_b <=> $time_a;
+            }
             $id_a = ! empty($a['order_id']) ? intval($a['order_id']) : intval($a['id']);
             $id_b = ! empty($b['order_id']) ? intval($b['order_id']) : intval($b['id']);
             return $id_b <=> $id_a;
@@ -188,6 +266,11 @@ function dfn_ajax_admin_get_slots(): void
         }
 
         usort($bookings_list, function ($a, $b) {
+            $time_a = ! empty($a['timestamp']) ? intval($a['timestamp']) : 0;
+            $time_b = ! empty($b['timestamp']) ? intval($b['timestamp']) : 0;
+            if ($time_a !== $time_b) {
+                return $time_b <=> $time_a;
+            }
             $id_a = ! empty($a['order_id']) ? intval($a['order_id']) : intval($a['id']);
             $id_b = ! empty($b['order_id']) ? intval($b['order_id']) : intval($b['id']);
             return $id_b <=> $id_a;
@@ -1606,19 +1689,43 @@ function dfn_enrich_booking_data($b, $order) {
         $qty_prodotto = intval($b->total_persons);
         $operatori_coinvolti = [];
         $user_cache = [];
+        $validations = [];
+        $is_booking_checked_in = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in' || ($order && $order->get_meta('_cv_checked_in') === 'yes');
+
         $html_bottoni_popup = '<div class="cv-popup-data-container" style="display:none;">';
         for ($i = 1; $i <= $qty_prodotto; $i++) {
-            if ($order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
-                $checkin_fatti++;
+            $is_ticket_valid = false;
+            $op_id = null;
+            $time_valid = null;
+            if ($order && $order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
+                $is_ticket_valid = true;
                 $op_id = $order->get_meta('_cv_ticket_validato_' . $i . '_operatore');
+                $time_valid = $order->get_meta('_cv_ticket_validato_' . $i . '_orario');
+            } elseif ($is_booking_checked_in) {
+                // Sincronizzazione automatica: convalidato da Mobile / Scanner QR
+                $is_ticket_valid = true;
+                $op_id = ! empty($b->checked_in_by) ? $b->checked_in_by : ($order ? $order->get_meta('_cv_checked_in_by') : null);
+                $time_valid = ! empty($b->checked_in_at) ? $b->checked_in_at : ($order ? $order->get_meta('_cv_checked_in_at') : null);
+            }
+
+            if ($is_ticket_valid) {
+                $checkin_fatti++;
                 if ($op_id) {
                     if (! isset($user_cache[ $op_id ])) {
                         $user_info = get_userdata($op_id);
-                        $user_cache[ $op_id ] = $user_info ? $user_info->display_name : 'Sconosciuto';
+                        $user_cache[ $op_id ] = $user_info ? $user_info->display_name : 'Staff';
                     }
                     $nome_op = $user_cache[ $op_id ];
                     isset($operatori_coinvolti[$nome_op]) ? $operatori_coinvolti[$nome_op]++ : $operatori_coinvolti[$nome_op] = 1;
+                } else {
+                    $nome_op = 'App Mobile / QR';
+                    isset($operatori_coinvolti[$nome_op]) ? $operatori_coinvolti[$nome_op]++ : $operatori_coinvolti[$nome_op] = 1;
                 }
+                $validations[] = [
+                    'ticket'   => $i,
+                    'operator' => $nome_op,
+                    'time'     => $time_valid ?: (! empty($b->created_at) ? $b->created_at : ''),
+                ];
                 $html_bottoni_popup .= '<div style="margin-bottom:8px; padding:10px; background:#eaf7ea; color:#166534; border: 1px solid #c3e6c3; border-radius: 4px; display:flex; justify-content:space-between; align-items:center;"><span>✅ Biglietto ' . $i . ' validato</span><button class="button cv-undo-checkin-btn" data-order="' . esc_attr($order->get_id()) . '" data-ticket="' . esc_attr($i) . '" style="color:#d63638; border-color:#d63638; padding:0 8px; min-height:26px; line-height:24px;">Annulla</button></div>';
             } else {
                 $html_bottoni_popup .= '<button class="button cv-manual-checkin-btn" data-order="' . esc_attr($order->get_id()) . '" data-ticket="' . esc_attr($i) . '" style="margin-bottom:8px; display:block; width:100%; border-color:#00a32a; color:#00a32a; height: 40px; cursor:pointer;">✔️ Valida Biglietto ' . $i . '</button>';
@@ -1648,6 +1755,26 @@ function dfn_enrich_booking_data($b, $order) {
         }
         $html_history_popup .= '</div>';
     } else {
+        $validations = [];
+        $is_booking_checked_in = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in';
+        if ($is_booking_checked_in) {
+            $checkin_fatti = intval($b->total_persons);
+            $nome_op = 'Staff / App';
+            if (! empty($b->checked_in_by)) {
+                $u = get_userdata($b->checked_in_by);
+                if ($u) {
+                    $nome_op = $u->display_name;
+                }
+            }
+            $operatori_html = '<span style="display:block; margin-bottom:4px; font-size:12px;">👤 ' . esc_html($nome_op) . '</span>';
+            for ($i = 1; $i <= $checkin_fatti; $i++) {
+                $validations[] = [
+                    'ticket'   => $i,
+                    'operator' => $nome_op,
+                    'time'     => ! empty($b->checked_in_at) ? $b->checked_in_at : (! empty($b->created_at) ? $b->created_at : ''),
+                ];
+            }
+        }
         if (floatval($b->amount_due) <= 0) {
             $payment_status = 'pagato';
         } else {
@@ -1681,12 +1808,13 @@ function dfn_enrich_booking_data($b, $order) {
         'total_persons'    => intval($b->total_persons),
         'persons_standard' => intval($b->persons_standard),
         'persons_fai'      => intval($b->persons_fai),
-        'slot_persons'     => intval($b->total_persons),
+        'slot_persons'     => isset($b->slot_persons) ? intval($b->slot_persons) : intval($b->total_persons),
         'status'           => esc_html($b->status),
         'qr_token'         => esc_html($b->qr_token),
         'notes'            => esc_html($b->notes),
         'created_at'       => esc_html($b->created_at),
         'created_at_formatted' => $created_at_formatted,
+        'timestamp'        => ! empty($b->created_at) ? strtotime(str_replace('/', '-', $b->created_at)) : 0,
         'fai_cards'        => $fai_cards,
         'order_total'      => $order_total,
         'payment_status'   => $payment_status,
@@ -1694,6 +1822,7 @@ function dfn_enrich_booking_data($b, $order) {
         'qualifica_html'   => $qualifica_html,
         'checkin_fatti'    => $checkin_fatti,
         'operatori_html'   => $operatori_html,
+        'validations'      => $validations,
         'html_bottoni_popup'=> $html_bottoni_popup,
         'html_history_popup'=> $html_history_popup,
         'reminder_sent'    => $reminder_sent,
@@ -1920,11 +2049,16 @@ function dfn_ajax_admin_get_failed_attempts()
             }
             $reason = ! empty($note_texts) ? implode(' | ', $note_texts) : '';
 
+            $dt = $order->get_date_created();
+            $timestamp = $dt ? $dt->getTimestamp() : 0;
+            $date_created = $dt ? $dt->date('d/m/Y H:i') : '';
+
             $attempts[] = [
                 'id'                   => $order->get_id(),
                 'order_id'             => $order->get_id(),
                 'booking_id'           => $booking ? intval($booking->id) : 0,
-                'date_created'         => $order->get_date_created() ? $order->get_date_created()->date('d/m/Y H:i') : '',
+                'date_created'         => $date_created,
+                'timestamp'            => $timestamp,
                 'status'               => $status,
                 'booking_status'       => $booking_status,
                 'total'                => wc_price($order->get_total()),
@@ -1945,11 +2079,13 @@ function dfn_ajax_admin_get_failed_attempts()
         $event_id
     ));
     foreach ($cancelled_bookings as $cb) {
+        $cb_time = ! empty($cb->created_at) ? strtotime(str_replace('/', '-', $cb->created_at)) : 0;
         $attempts[] = [
             'id'                   => intval($cb->id),
             'order_id'             => 0,
             'booking_id'           => intval($cb->id),
-            'date_created'         => date('d/m/Y H:i', strtotime($cb->created_at)),
+            'date_created'         => $cb_time ? date('d/m/Y H:i', $cb_time) : '',
+            'timestamp'            => $cb_time,
             'status'               => $cb->status,
             'booking_status'       => $cb->status,
             'total'                => wc_price(floatval($cb->amount_paid)),
@@ -1963,9 +2099,9 @@ function dfn_ajax_admin_get_failed_attempts()
         ];
     }
 
-    // Ordinamento dal più recente al meno recente
+    // Ordinamento dal più recente al meno recente (default: data decrescente)
     usort($attempts, function ($a, $b) {
-        return strtotime($b['date_created']) <=> strtotime($a['date_created']);
+        return ($b['timestamp'] ?? 0) <=> ($a['timestamp'] ?? 0);
     });
 
     wp_send_json_success([
