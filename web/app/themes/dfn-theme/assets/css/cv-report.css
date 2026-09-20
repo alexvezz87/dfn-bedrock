@@ -81,3 +81,27 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/CascadeStyleSheet.css to ed
 #dfn-slot-bookings-list {
     display: block !important;
 }
+
+/* ==========================================================================
+   INTESTAZIONI COLONNE ORDINABILI (SLOT MANAGER)
+   ========================================================================== */
+.dfn-attempts-sortable-th,
+.dfn-bookings-sortable-th {
+    cursor: pointer !important;
+    user-select: none !important;
+    transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+.dfn-attempts-sortable-th:hover,
+.dfn-bookings-sortable-th:hover {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+}
+.dfn-attempts-sortable-th .dashicons,
+.dfn-bookings-sortable-th .dashicons {
+    transition: color 0.15s ease, opacity 0.15s ease !important;
+}
+.dfn-attempts-sortable-th:hover .dashicons-sort,
+.dfn-bookings-sortable-th:hover .dashicons-sort {
+    color: #0284c7 !important;
+    opacity: 1 !important;
+}

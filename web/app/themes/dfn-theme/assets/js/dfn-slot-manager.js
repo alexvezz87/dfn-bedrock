@@ -23,6 +23,57 @@
                 .replace(/'/g, "&#039;");
         }
 
+        function parseDateToTimestamp(str) {
+            if (!str) return 0;
+            if (typeof str === 'number') return str;
+            var s = str.toString().trim();
+            var parts = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:(?:\s+|-\s*|\s*-\s*)(\d{1,2}):(\d{1,2}))?/);
+            if (parts) {
+                var d = parseInt(parts[1], 10);
+                var m = parseInt(parts[2], 10) - 1;
+                var y = parseInt(parts[3], 10);
+                var h = parts[4] ? parseInt(parts[4], 10) : 0;
+                var min = parts[5] ? parseInt(parts[5], 10) : 0;
+                return new Date(y, m, d, h, min).getTime();
+            }
+            var isoParts = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+            if (isoParts) {
+                var y2 = parseInt(isoParts[1], 10);
+                var m2 = parseInt(isoParts[2], 10) - 1;
+                var d2 = parseInt(isoParts[3], 10);
+                var h2 = isoParts[4] ? parseInt(isoParts[4], 10) : 0;
+                var min2 = isoParts[5] ? parseInt(isoParts[5], 10) : 0;
+                return new Date(y2, m2, d2, h2, min2).getTime();
+            }
+            var t = Date.parse(s);
+            return isNaN(t) ? 0 : t;
+        }
+
+        function renderSortableTh(colKey, label, currentCol, currentDir, extraStyle, alignRight, cssClass) {
+            var isActive = (currentCol === colKey);
+            var icon = '';
+            if (isActive) {
+                icon = (currentDir === 'asc')
+                    ? '<span class="dashicons dashicons-arrow-up-alt2" style="font-size:15px; width:15px; height:15px; vertical-align:middle; color:#0284c7; margin-left:4px;"></span>'
+                    : '<span class="dashicons dashicons-arrow-down-alt2" style="font-size:15px; width:15px; height:15px; vertical-align:middle; color:#0284c7; margin-left:4px;"></span>';
+            } else {
+                icon = '<span class="dashicons dashicons-sort" style="font-size:14px; width:14px; height:14px; vertical-align:middle; color:#94a3b8; margin-left:4px; opacity:0.6;"></span>';
+            }
+            var activeBg = isActive ? 'background:#e0f2fe;' : '';
+            var activeColor = isActive ? 'color:#0369a1;' : 'color:#1e293b;';
+            var style = 'font-weight:700; cursor:pointer; user-select:none; transition:all 0.15s ease; ' + activeBg + activeColor + (extraStyle || '');
+            return '<th class="' + cssClass + '" data-col="' + colKey + '" style="' + style + '" title="Clicca per ordinare">' +
+                   '<span style="display:inline-flex; align-items:center; gap:2px;' + (alignRight ? ' justify-content:flex-end; width:100%;' : '') + '">' +
+                       label + icon +
+                   '</span>' +
+                   '</th>';
+        }
+
+        var attemptsSortCol = 'date';
+        var attemptsSortDir = 'desc'; // Default: ordinato per data decrescente (più recente in alto)
+        var activeBookingsSortCol = 'date';
+        var activeBookingsSortDir = 'desc'; // Default: ordinato per data decrescente (più recente in alto)
+
         var eventId = parseInt($wrapper.data('event-id'), 10);
         var nonce = $wrapper.data('nonce');
         var accessType = $wrapper.data('access-type') || 'time_slots'; // 'free_flow' o 'time_slots'
@@ -81,7 +132,7 @@
                         cachedAttempts = response.data.attempts || [];
                         $('#dfn-badge-failed-count').text(response.data.count || 0);
                         if (!silentCountOnly) {
-                            renderAttemptsTable(cachedAttempts);
+                            renderAttemptsTable(getFilteredAttempts());
                         }
                     } else {
                         if (!silentCountOnly) {
@@ -101,20 +152,120 @@
             loadFailedAttempts(false);
         });
 
-        $(document).on('keyup input', '#dfn-sm-attempts-search', function() {
-            var query = $(this).val().toLowerCase().trim();
+        function getFilteredAttempts() {
+            var query = $('#dfn-sm-attempts-search').val();
             if (!query) {
-                renderAttemptsTable(cachedAttempts);
-                return;
+                return cachedAttempts;
             }
-            var filtered = cachedAttempts.filter(function(item) {
+            query = query.toLowerCase().trim();
+            return cachedAttempts.filter(function(item) {
                 return (item.customer_name && item.customer_name.toLowerCase().indexOf(query) !== -1) ||
                        (item.customer_email && item.customer_email.toLowerCase().indexOf(query) !== -1) ||
                        (item.customer_phone && item.customer_phone.toLowerCase().indexOf(query) !== -1) ||
                        (item.id && item.id.toString().indexOf(query) !== -1) ||
                        (item.status && item.status.toLowerCase().indexOf(query) !== -1);
             });
-            renderAttemptsTable(filtered);
+        }
+
+        $(document).on('keyup input', '#dfn-sm-attempts-search', function() {
+            renderAttemptsTable(getFilteredAttempts());
+        });
+
+        function sortAttempts(items, col, dir) {
+            return items.slice().sort(function(a, b) {
+                var valA, valB;
+                if (col === 'id') {
+                    valA = parseInt(a.id, 10) || 0;
+                    valB = parseInt(b.id, 10) || 0;
+                } else if (col === 'date') {
+                    valA = (typeof a.timestamp !== 'undefined' && a.timestamp > 0) ? a.timestamp : parseDateToTimestamp(a.date_created);
+                    valB = (typeof b.timestamp !== 'undefined' && b.timestamp > 0) ? b.timestamp : parseDateToTimestamp(b.date_created);
+                } else if (col === 'customer') {
+                    valA = (a.customer_name || '').toLowerCase();
+                    valB = (b.customer_name || '').toLowerCase();
+                } else if (col === 'status') {
+                    valA = (a.status || '').toLowerCase();
+                    valB = (b.status || '').toLowerCase();
+                } else if (col === 'payment') {
+                    valA = (a.payment_method_title || '').toLowerCase();
+                    valB = (b.payment_method_title || '').toLowerCase();
+                } else if (col === 'total') {
+                    valA = typeof a.raw_total !== 'undefined' ? parseFloat(a.raw_total) : (parseFloat(a.total) || 0);
+                    valB = typeof b.raw_total !== 'undefined' ? parseFloat(b.raw_total) : (parseFloat(b.total) || 0);
+                } else {
+                    return 0;
+                }
+
+                if (valA < valB) return dir === 'asc' ? -1 : 1;
+                if (valA > valB) return dir === 'asc' ? 1 : -1;
+                var idA = parseInt(a.id, 10) || 0;
+                var idB = parseInt(b.id, 10) || 0;
+                return dir === 'asc' ? (idA - idB) : (idB - idA);
+            });
+        }
+
+        function sortActiveBookings(items, col, dir) {
+            return items.slice().sort(function(a, b) {
+                var valA, valB;
+                if (col === 'order') {
+                    valA = parseInt(a.order_id, 10) || parseInt(a.id, 10) || 0;
+                    valB = parseInt(b.order_id, 10) || parseInt(b.id, 10) || 0;
+                } else if (col === 'date') {
+                    valA = (typeof a.timestamp !== 'undefined' && a.timestamp > 0) ? a.timestamp : parseDateToTimestamp(a.created_at_formatted || a.created_at);
+                    valB = (typeof b.timestamp !== 'undefined' && b.timestamp > 0) ? b.timestamp : parseDateToTimestamp(b.created_at_formatted || b.created_at);
+                } else if (col === 'customer') {
+                    valA = (a.customer_name || '').toLowerCase();
+                    valB = (b.customer_name || '').toLowerCase();
+                } else if (col === 'qualifica') {
+                    valA = (a.qualifica_html || '').replace(/<[^>]*>?/gm, '').toLowerCase();
+                    valB = (b.qualifica_html || '').replace(/<[^>]*>?/gm, '').toLowerCase();
+                } else if (col === 'phone') {
+                    valA = (a.customer_phone || '').toLowerCase();
+                    valB = (b.customer_phone || '').toLowerCase();
+                } else if (col === 'tickets') {
+                    valA = parseInt(a.slot_persons, 10) || 0;
+                    valB = parseInt(b.slot_persons, 10) || 0;
+                } else if (col === 'payment') {
+                    valA = (a.payment_status || '').toLowerCase();
+                    valB = (b.payment_status || '').toLowerCase();
+                } else if (col === 'notes') {
+                    valA = (a.notes || '').toLowerCase();
+                    valB = (b.notes || '').toLowerCase();
+                } else {
+                    return 0;
+                }
+
+                if (valA < valB) return dir === 'asc' ? -1 : 1;
+                if (valA > valB) return dir === 'asc' ? 1 : -1;
+
+                var idA = parseInt(a.order_id, 10) || parseInt(a.id, 10) || 0;
+                var idB = parseInt(b.order_id, 10) || parseInt(b.id, 10) || 0;
+                return dir === 'asc' ? (idA - idB) : (idB - idA);
+            });
+        }
+
+        $(document).on('click', '.dfn-attempts-sortable-th', function() {
+            var col = $(this).data('col');
+            if (attemptsSortCol === col) {
+                attemptsSortDir = (attemptsSortDir === 'asc') ? 'desc' : 'asc';
+            } else {
+                attemptsSortCol = col;
+                attemptsSortDir = (col === 'date' || col === 'id' || col === 'total') ? 'desc' : 'asc';
+            }
+            renderAttemptsTable(getFilteredAttempts());
+        });
+
+        $(document).on('click', '.dfn-bookings-sortable-th', function() {
+            var col = $(this).data('col');
+            if (activeBookingsSortCol === col) {
+                activeBookingsSortDir = (activeBookingsSortDir === 'asc') ? 'desc' : 'asc';
+            } else {
+                activeBookingsSortCol = col;
+                activeBookingsSortDir = (col === 'date' || col === 'order' || col === 'tickets') ? 'desc' : 'asc';
+            }
+            if (currentData) {
+                renderGrid(currentData);
+            }
         });
 
         function renderAttemptsTable(items) {
@@ -126,18 +277,20 @@
                 return;
             }
 
+            var sortedItems = sortAttempts(items, attemptsSortCol, attemptsSortDir);
+
             var html = '<table class="wp-list-table widefat fixed striped" style="border:1px solid #e2e8f0; border-radius:6px; overflow:hidden;">';
             html += '<thead><tr>';
-            html += '<th style="font-weight:700; width:90px;">Rif. / ID</th>';
-            html += '<th style="font-weight:700;">Data e Ora</th>';
-            html += '<th style="font-weight:700;">Cliente</th>';
-            html += '<th style="font-weight:700;">Stato Movimento</th>';
-            html += '<th style="font-weight:700;">Metodo Pagamento</th>';
-            html += '<th style="font-weight:700;">Posti / Importo</th>';
-            html += '<th style="font-weight:700; text-align:right;">Azioni</th>';
+            html += renderSortableTh('id', 'Rif. / ID', attemptsSortCol, attemptsSortDir, 'width:105px;', false, 'dfn-attempts-sortable-th');
+            html += renderSortableTh('date', 'Data e Ora', attemptsSortCol, attemptsSortDir, 'width:150px;', false, 'dfn-attempts-sortable-th');
+            html += renderSortableTh('customer', 'Cliente', attemptsSortCol, attemptsSortDir, '', false, 'dfn-attempts-sortable-th');
+            html += renderSortableTh('status', 'Stato Movimento', attemptsSortCol, attemptsSortDir, 'width:175px;', false, 'dfn-attempts-sortable-th');
+            html += renderSortableTh('payment', 'Metodo Pagamento', attemptsSortCol, attemptsSortDir, 'width:160px;', false, 'dfn-attempts-sortable-th');
+            html += renderSortableTh('total', 'Posti / Importo', attemptsSortCol, attemptsSortDir, 'width:145px;', false, 'dfn-attempts-sortable-th');
+            html += '<th style="font-weight:700; text-align:right; width:170px;">Azioni</th>';
             html += '</tr></thead><tbody>';
 
-            $.each(items, function(i, item) {
+            $.each(sortedItems, function(i, item) {
                 var statusBadge = '';
                 if (item.status === 'pending') {
                     statusBadge = '<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700;">In Attesa di Pagamento</span>';
@@ -288,6 +441,8 @@
                     });
                 }
 
+                var sortedBookings = sortActiveBookings(filteredBookings, activeBookingsSortCol, activeBookingsSortDir);
+
                 // ── Header: statistiche slot + azioni slot ──────────────────
                 var headerHtml =
                     '<div class="dfn-sm-card" data-slot-id="' + slot.id + '" data-time-start="' + slot.time_start + '" data-time-end="' + slot.time_end + '" data-capacity="' + slot.capacity + '" data-bonus="' + slot.bonus_capacity + '" style="margin-bottom:20px; border-radius:6px;">' +
@@ -322,22 +477,22 @@
                     '<div style="overflow-x:auto;">' +
                     '<table class="wp-list-table widefat striped dfn-bookings-rich-table" style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1; table-layout:auto;">' +
                     '<thead><tr style="background:#f1f5f9;">' +
-                        '<th style="padding:10px 8px; font-weight:700; width:75px;">Ordine #</th>' +
-                        '<th style="padding:10px 8px; font-weight:700;">Cliente</th>' +
-                        '<th style="padding:10px 8px; font-weight:700; width:100px;">Qualifica</th>' +
-                        '<th style="padding:10px 8px; font-weight:700; width:110px;">Telefono</th>' +
-                        '<th style="padding:10px 8px; font-weight:700; width:75px; text-align:center;">Biglietti</th>' +
-                        '<th style="padding:10px 8px; font-weight:700; width:105px; text-align:center;">Pagamento</th>' +
-                        '<th style="padding:10px 8px; font-weight:700; width:140px; text-align:center;">Prenotazione registrata</th>' +
-                        '<th style="padding:10px 8px; font-weight:700; width:130px;">Note</th>' +
+                        renderSortableTh('order', 'Ordine #', activeBookingsSortCol, activeBookingsSortDir, 'padding:10px 8px; width:95px;', false, 'dfn-bookings-sortable-th') +
+                        renderSortableTh('customer', 'Cliente', activeBookingsSortCol, activeBookingsSortDir, 'padding:10px 8px;', false, 'dfn-bookings-sortable-th') +
+                        renderSortableTh('qualifica', 'Qualifica', activeBookingsSortCol, activeBookingsSortDir, 'padding:10px 8px; width:105px;', false, 'dfn-bookings-sortable-th') +
+                        renderSortableTh('phone', 'Telefono', activeBookingsSortCol, activeBookingsSortDir, 'padding:10px 8px; width:115px;', false, 'dfn-bookings-sortable-th') +
+                        renderSortableTh('tickets', 'Biglietti', activeBookingsSortCol, activeBookingsSortDir, 'padding:10px 8px; width:90px;', true, 'dfn-bookings-sortable-th') +
+                        renderSortableTh('payment', 'Pagamento', activeBookingsSortCol, activeBookingsSortDir, 'padding:10px 8px; width:115px;', true, 'dfn-bookings-sortable-th') +
+                        renderSortableTh('date', 'Prenotazione registrata', activeBookingsSortCol, activeBookingsSortDir, 'padding:10px 8px; width:175px;', true, 'dfn-bookings-sortable-th') +
+                        renderSortableTh('notes', 'Note', activeBookingsSortCol, activeBookingsSortDir, 'padding:10px 8px; width:130px;', false, 'dfn-bookings-sortable-th') +
                         '<th style="padding:10px 8px; font-weight:700; width:125px; text-align:center;">Azioni</th>' +
                     '</tr></thead>' +
                     '<tbody>';
 
-                if (filteredBookings.length === 0) {
+                if (sortedBookings.length === 0) {
                     tableHtml += '<tr><td colspan="9" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
                 } else {
-                    filteredBookings.forEach(function(b) {
+                    sortedBookings.forEach(function(b) {
                         var orderEditUrl = dfnAdminVars.ajaxurl.replace('admin-ajax.php', 'post.php?post=' + b.order_id + '&action=edit');
                         var orderLink    = b.order_id > 0 ? '<a href="' + orderEditUrl + '" target="_blank"><strong>#' + b.order_id + '</strong></a>' : '-';
                         var telLink      = b.customer_phone ? '<a href="tel:' + b.customer_phone + '">' + b.customer_phone + '</a>' : '-';
@@ -597,9 +752,9 @@
                            email.indexOf(query) !== -1 ||
                            phone.indexOf(query) !== -1;
                 });
-                renderBookingsListInModal(filtered, slot);
+                renderBookingsListInModal(sortActiveBookings(filtered, activeBookingsSortCol, activeBookingsSortDir), slot);
             } else {
-                renderBookingsListInModal(slot.bookings, slot);
+                renderBookingsListInModal(sortActiveBookings(slot.bookings, activeBookingsSortCol, activeBookingsSortDir), slot);
             }
 
             openModal($modal);
@@ -655,7 +810,7 @@
             if (!slot) return;
 
             if (query === '') {
-                renderBookingsListInModal(slot.bookings, slot);
+                renderBookingsListInModal(sortActiveBookings(slot.bookings, activeBookingsSortCol, activeBookingsSortDir), slot);
             } else {
                 var filtered = slot.bookings.filter(function(b) {
                     var name = b.customer_name ? b.customer_name.toLowerCase() : '';
@@ -665,7 +820,7 @@
                            email.indexOf(query) !== -1 ||
                            phone.indexOf(query) !== -1;
                 });
-                renderBookingsListInModal(filtered, slot);
+                renderBookingsListInModal(sortActiveBookings(filtered, activeBookingsSortCol, activeBookingsSortDir), slot);
             }
         });
 

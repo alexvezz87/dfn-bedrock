@@ -136,8 +136,13 @@ function dfn_ajax_admin_get_slots(): void
             $bookings_list[] = dfn_enrich_booking_data($b, $order);
         }
 
-        // Ordinamento rigoroso dal più recente al meno recente (per Order ID o ID Prenotazione)
+        // Ordinamento rigoroso dal più recente al meno recente (Data Registrazione / Timestamp, poi ID)
         usort($bookings_list, function ($a, $b) {
+            $time_a = ! empty($a['timestamp']) ? intval($a['timestamp']) : 0;
+            $time_b = ! empty($b['timestamp']) ? intval($b['timestamp']) : 0;
+            if ($time_a !== $time_b) {
+                return $time_b <=> $time_a;
+            }
             $id_a = ! empty($a['order_id']) ? intval($a['order_id']) : intval($a['id']);
             $id_b = ! empty($b['order_id']) ? intval($b['order_id']) : intval($b['id']);
             return $id_b <=> $id_a;
@@ -188,6 +193,11 @@ function dfn_ajax_admin_get_slots(): void
         }
 
         usort($bookings_list, function ($a, $b) {
+            $time_a = ! empty($a['timestamp']) ? intval($a['timestamp']) : 0;
+            $time_b = ! empty($b['timestamp']) ? intval($b['timestamp']) : 0;
+            if ($time_a !== $time_b) {
+                return $time_b <=> $time_a;
+            }
             $id_a = ! empty($a['order_id']) ? intval($a['order_id']) : intval($a['id']);
             $id_b = ! empty($b['order_id']) ? intval($b['order_id']) : intval($b['id']);
             return $id_b <=> $id_a;
@@ -1687,6 +1697,7 @@ function dfn_enrich_booking_data($b, $order) {
         'notes'            => esc_html($b->notes),
         'created_at'       => esc_html($b->created_at),
         'created_at_formatted' => $created_at_formatted,
+        'timestamp'        => ! empty($b->created_at) ? strtotime(str_replace('/', '-', $b->created_at)) : 0,
         'fai_cards'        => $fai_cards,
         'order_total'      => $order_total,
         'payment_status'   => $payment_status,
@@ -1920,11 +1931,16 @@ function dfn_ajax_admin_get_failed_attempts()
             }
             $reason = ! empty($note_texts) ? implode(' | ', $note_texts) : '';
 
+            $dt = $order->get_date_created();
+            $timestamp = $dt ? $dt->getTimestamp() : 0;
+            $date_created = $dt ? $dt->date('d/m/Y H:i') : '';
+
             $attempts[] = [
                 'id'                   => $order->get_id(),
                 'order_id'             => $order->get_id(),
                 'booking_id'           => $booking ? intval($booking->id) : 0,
-                'date_created'         => $order->get_date_created() ? $order->get_date_created()->date('d/m/Y H:i') : '',
+                'date_created'         => $date_created,
+                'timestamp'            => $timestamp,
                 'status'               => $status,
                 'booking_status'       => $booking_status,
                 'total'                => wc_price($order->get_total()),
@@ -1945,11 +1961,13 @@ function dfn_ajax_admin_get_failed_attempts()
         $event_id
     ));
     foreach ($cancelled_bookings as $cb) {
+        $cb_time = ! empty($cb->created_at) ? strtotime(str_replace('/', '-', $cb->created_at)) : 0;
         $attempts[] = [
             'id'                   => intval($cb->id),
             'order_id'             => 0,
             'booking_id'           => intval($cb->id),
-            'date_created'         => date('d/m/Y H:i', strtotime($cb->created_at)),
+            'date_created'         => $cb_time ? date('d/m/Y H:i', $cb_time) : '',
+            'timestamp'            => $cb_time,
             'status'               => $cb->status,
             'booking_status'       => $cb->status,
             'total'                => wc_price(floatval($cb->amount_paid)),
@@ -1963,9 +1981,9 @@ function dfn_ajax_admin_get_failed_attempts()
         ];
     }
 
-    // Ordinamento dal più recente al meno recente
+    // Ordinamento dal più recente al meno recente (default: data decrescente)
     usort($attempts, function ($a, $b) {
-        return strtotime($b['date_created']) <=> strtotime($a['date_created']);
+        return ($b['timestamp'] ?? 0) <=> ($a['timestamp'] ?? 0);
     });
 
     wp_send_json_success([
