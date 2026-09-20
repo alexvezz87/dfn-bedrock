@@ -23,6 +23,19 @@
         var sortCol      = 'date'; // 'date', 'order', 'customer', 'tickets', 'status'
         var sortDir      = 'desc'; // Default: più recente in alto
 
+        // Variabili statistiche & gamification
+        var flowInterval = 1; // 1, 2, 5 minuti
+        var flowChartInstance = null;
+        var autoRefreshTimer = null;
+        var autoRefreshActive = false;
+
+        // Ripristino stato collassato pannello
+        if (localStorage.getItem('dfn_ci_panel_collapsed') === 'true') {
+            $('#dfn-analytics-panel').addClass('is-collapsed');
+            $('#dfn-toggle-analytics-panel .dashicons').removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+            $('#dfn-toggle-analytics-panel .toggle-text').text('Espandi');
+        }
+
         // Helper: rendering intestazione ordinabile
         function renderSortableTh(colKey, label, currentCol, currentDir, extraStyle, alignCenter) {
             var isCurrent = (currentCol === colKey);
@@ -82,10 +95,12 @@
         // ====================================================================
         // 1. CARICAMENTO DATI
         // ====================================================================
-        function loadSlots(date) {
+        function loadSlots(date, isSilent) {
             activeDate = date;
             var $grid = $('#dfn-ci-grid');
-            $grid.html('<div class="dfn-loading"><span class="dashicons dashicons-update spin"></span> Caricamento in corso...</div>');
+            if (!isSilent) {
+                $grid.html('<div class="dfn-loading"><span class="dashicons dashicons-update spin"></span> Caricamento in corso...</div>');
+            }
 
             $.ajax({
                 url: ajaxurl,
@@ -101,11 +116,15 @@
                         currentData = response.data.slots;
                         renderCheckinView(currentData);
                     } else {
-                        $grid.html('<div class="notice notice-error"><p>' + (response.data.message || 'Errore nel caricamento.') + '</p></div>');
+                        if (!isSilent) {
+                            $grid.html('<div class="notice notice-error"><p>' + (response.data.message || 'Errore nel caricamento.') + '</p></div>');
+                        }
                     }
                 },
                 error: function() {
-                    $grid.html('<div class="notice notice-error"><p>Errore di rete durante il caricamento.</p></div>');
+                    if (!isSilent) {
+                        $grid.html('<div class="notice notice-error"><p>Errore di rete durante il caricamento.</p></div>');
+                    }
                 }
             });
         }
@@ -199,6 +218,9 @@
             $('#dfn-ci-stat-entrati').text(totCheckin);
             $('#dfn-ci-stat-attesa').text(totAttesa);
             $('#dfn-ci-stat-liberi').text(totLiberi);
+
+            // Aggiorna grafico flusso ingressi e gamification volontari
+            updateFlowChartAndGamification(slots);
 
             // Aggiorna badge pillole filtri
             $('#dfn-ci-count-all').text(countAll);
@@ -388,6 +410,339 @@
             html += '</tbody></table></div>';
             return html;
         }
+
+        // ====================================================================
+        // 3. ANALYTICS & GAMIFICATION (GRAFICO FLUSSO & PODIO VOLONTARI)
+        // ====================================================================
+        function updateFlowChartAndGamification(slots) {
+            var allValidations = [];
+            if (slots && Array.isArray(slots)) {
+                slots.forEach(function(slot) {
+                    if (slot.bookings && Array.isArray(slot.bookings)) {
+                        slot.bookings.forEach(function(b) {
+                            if (b.validations && Array.isArray(b.validations)) {
+                                b.validations.forEach(function(v) {
+                                    allValidations.push(v);
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            // 1. Gamification Volontari (Podio e Classifica)
+            renderVolunteerGamification(allValidations);
+
+            // 2. Grafico Afflusso (Smaltimento Coda per minuto)
+            renderFlowChart(allValidations);
+        }
+
+        function renderVolunteerGamification(allValidations) {
+            var totalValidations = allValidations.length;
+            $('#dfn-team-validations-count').text(totalValidations);
+
+            var opCounts = {};
+            allValidations.forEach(function(v) {
+                var op = (v.operator || 'Staff').trim();
+                opCounts[op] = (opCounts[op] || 0) + 1;
+            });
+
+            var opList = [];
+            for (var opName in opCounts) {
+                opList.push({ name: opName, count: opCounts[opName] });
+            }
+            opList.sort(function(a, b) {
+                return b.count - a.count;
+            });
+
+            $('#dfn-leaderboard-active-staff-count').text(opList.length + (opList.length === 1 ? ' volontario' : ' volontari'));
+
+            var $podium = $('#dfn-podium-area');
+            var $lbList = $('#dfn-leaderboard-list');
+
+            if (opList.length === 0) {
+                $podium.html('<div style="color:#94a3b8; font-size:13px; text-align:center; padding:35px 10px; width:100%;"><span class="dashicons dashicons-awards" style="font-size:32px; width:32px; height:32px; opacity:0.4; margin-bottom:6px;"></span><p style="margin:0;">Nessun check-in ancora registrato.<br><small>Il podio si animerà non appena inizieranno le validazioni!</small></p></div>');
+                $lbList.html('<p style="color:#94a3b8; font-size:12px; text-align:center; margin:10px 0; font-style:italic;">In attesa di convalide...</p>');
+                return;
+            }
+
+            function getInitials(name) {
+                var parts = name.split(' ');
+                if (parts.length >= 2 && parts[1]) {
+                    return (parts[0][0] + parts[1][0]).toUpperCase();
+                }
+                return (name.substring(0, 2) || 'ST').toUpperCase();
+            }
+
+            function makePodiumCol(posClass, rank, medal, role, opData) {
+                if (!opData) {
+                    return '<div class="dfn-podium-col ' + posClass + '" style="opacity:0.35;">' +
+                        '<div class="dfn-podium-avatar-wrap"><div class="dfn-podium-avatar">-</div></div>' +
+                        '<div class="dfn-podium-name">-</div>' +
+                        '<div class="dfn-podium-role-badge">' + role + '</div>' +
+                        '<div class="dfn-podium-step"><div class="dfn-podium-rank">' + medal + '</div><div class="dfn-podium-count">0</div></div>' +
+                    '</div>';
+                }
+                var pct = totalValidations > 0 ? Math.round((opData.count / totalValidations) * 100) : 0;
+                var crown = (rank === 1) ? '<div class="dfn-podium-crown">👑</div>' : '';
+                return '<div class="dfn-podium-col ' + posClass + '">' +
+                    '<div class="dfn-podium-avatar-wrap">' +
+                        crown +
+                        '<div class="dfn-podium-avatar">' + getInitials(opData.name) + '</div>' +
+                    '</div>' +
+                    '<div class="dfn-podium-name" title="' + opData.name + '">' + opData.name + '</div>' +
+                    '<div class="dfn-podium-role-badge">' + role + '</div>' +
+                    '<div class="dfn-podium-step">' +
+                        '<div class="dfn-podium-rank">' + medal + '</div>' +
+                        '<div class="dfn-podium-count">' + opData.count + ' <small style="font-size:10px; font-weight:normal;">check-in</small></div>' +
+                        '<div class="dfn-podium-pct">' + pct + '% del totale</div>' +
+                    '</div>' +
+                '</div>';
+            }
+
+            // Costruzione Podio Olimpico: 2° (sinistra), 1° (centro), 3° (destra)
+            var podiumHtml = '';
+            podiumHtml += makePodiumCol('podium-2nd', 2, '🥈 2°', 'Vice Campione', opList[1] || null);
+            podiumHtml += makePodiumCol('podium-1st', 1, '🥇 1°', 'Top Scanner', opList[0] || null);
+            podiumHtml += makePodiumCol('podium-3rd', 3, '🥉 3°', 'Pilastro Desk', opList[2] || null);
+            $podium.html(podiumHtml);
+
+            // Costruzione Classifica Completa
+            var maxCount = opList[0].count;
+            var lbHtml = '';
+            opList.forEach(function(op, idx) {
+                var pos = idx + 1;
+                var posClass = pos <= 3 ? 'pos-' + pos : '';
+                var medalIcon = pos === 1 ? '🥇' : (pos === 2 ? '🥈' : (pos === 3 ? '🥉' : '#' + pos));
+                var barWidth = Math.max(8, Math.round((op.count / maxCount) * 100));
+                var pctTotal = totalValidations > 0 ? Math.round((op.count / totalValidations) * 100) : 0;
+
+                lbHtml += '<div class="dfn-leaderboard-item">' +
+                    '<div class="dfn-lb-pos ' + posClass + '">' + medalIcon + '</div>' +
+                    '<div class="dfn-lb-name" title="' + op.name + '">' + op.name + '</div>' +
+                    '<div class="dfn-lb-bar-wrap"><div class="dfn-lb-bar-fill" style="width:' + barWidth + '%;"></div></div>' +
+                    '<div class="dfn-lb-stat"><strong>' + op.count + '</strong> <span style="color:#64748b; font-size:10px;">(' + pctTotal + '%)</span></div>' +
+                '</div>';
+            });
+            $lbList.html(lbHtml);
+        }
+
+        function renderFlowChart(allValidations) {
+            var rawBuckets = {};
+            var minutePoints = [];
+
+            allValidations.forEach(function(v) {
+                if (!v.time) return;
+                var tStr = v.time.toString().trim();
+                var match = tStr.match(/(\d{1,2}):(\d{2})/);
+                if (match) {
+                    var h = parseInt(match[1], 10);
+                    var m = parseInt(match[2], 10);
+                    var totalMin = h * 60 + m;
+                    minutePoints.push(totalMin);
+                    
+                    var bucketM = flowInterval > 1 ? Math.floor(m / flowInterval) * flowInterval : m;
+                    var bucketTotalMin = h * 60 + bucketM;
+                    rawBuckets[bucketTotalMin] = (rawBuckets[bucketTotalMin] || 0) + 1;
+                }
+            });
+
+            var $canvas = $('#dfnFlowChart');
+            var $empty = $('#dfn-chart-empty');
+
+            if (minutePoints.length === 0) {
+                $canvas.hide();
+                $empty.show();
+                $('#dfn-kpi-peak').text('-');
+                $('#dfn-kpi-speed').text('-');
+                $('#dfn-kpi-duration').text('-');
+                if (flowChartInstance) {
+                    flowChartInstance.destroy();
+                    flowChartInstance = null;
+                }
+                return;
+            }
+
+            $empty.hide();
+            $canvas.show();
+
+            minutePoints.sort(function(a, b) { return a - b; });
+            var minMin = minutePoints[0];
+            var maxMin = minutePoints[minutePoints.length - 1];
+
+            var startMin = flowInterval > 1 ? Math.floor(minMin / flowInterval) * flowInterval : minMin;
+            var endMin   = flowInterval > 1 ? Math.floor(maxMin / flowInterval) * flowInterval : maxMin;
+
+            var labels = [];
+            var dataPoints = [];
+            var maxPeakVal = 0;
+            var peakTimeStr = '-';
+
+            for (var cur = startMin; cur <= endMin; cur += flowInterval) {
+                var curH = Math.floor(cur / 60);
+                var curM = cur % 60;
+                var timeLabel = (curH < 10 ? '0' + curH : '' + curH) + ':' + (curM < 10 ? '0' + curM : '' + curM);
+                var count = rawBuckets[cur] || 0;
+                
+                labels.push(timeLabel);
+                dataPoints.push(count);
+
+                if (count > maxPeakVal) {
+                    maxPeakVal = count;
+                    peakTimeStr = timeLabel;
+                }
+            }
+
+            var durationMinutes = (maxMin - minMin) + 1;
+            var durationLabel = durationMinutes + ' min';
+            var startH = Math.floor(minMin / 60), startM = minMin % 60;
+            var endH = Math.floor(maxMin / 60), endM = maxMin % 60;
+            var windowStr = (startH < 10 ? '0' + startH : '' + startH) + ':' + (startM < 10 ? '0' + startM : '' + startM) + ' - ' +
+                            (endH < 10 ? '0' + endH : '' + endH) + ':' + (endM < 10 ? '0' + endM : '' + endM);
+
+            var avgSpeed = durationMinutes > 0 ? (allValidations.length / durationMinutes).toFixed(1) : allValidations.length;
+
+            $('#dfn-kpi-peak').html(maxPeakVal + ' <small style="font-size:11px; font-weight:normal;">alle ' + peakTimeStr + '</small>');
+            $('#dfn-kpi-speed').html(avgSpeed + ' <small style="font-size:11px; font-weight:normal;">/ min</small>');
+            $('#dfn-kpi-duration').html(durationLabel + ' <small style="font-size:10px; color:#64748b;">(' + windowStr + ')</small>');
+
+            if (typeof Chart === 'undefined') {
+                return;
+            }
+
+            var canvasEl = document.getElementById('dfnFlowChart');
+            if (!canvasEl) return;
+
+            if (flowChartInstance) {
+                flowChartInstance.destroy();
+            }
+
+            var chartCtx = canvasEl.getContext('2d');
+            var gradient = chartCtx.createLinearGradient(0, 0, 0, 220);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.40)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.01)');
+
+            flowChartInstance = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Persone entrate',
+                        data: dataPoints,
+                        borderColor: '#004b23',
+                        backgroundColor: gradient,
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.35,
+                        pointBackgroundColor: '#004b23',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 1.5,
+                        pointRadius: labels.length > 25 ? 2.5 : 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyFont: { size: 13 },
+                            padding: 10,
+                            cornerRadius: 6,
+                            callbacks: {
+                                label: function(context) {
+                                    var val = context.parsed.y;
+                                    return ' ' + val + (val === 1 ? ' persona convalidata' : ' persone convalidate');
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 10, family: 'system-ui' },
+                                color: '#64748b',
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 12
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: { size: 10, family: 'system-ui' },
+                                color: '#64748b',
+                                precision: 0
+                            },
+                            grid: {
+                                color: '#f1f5f9'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event Listeners Sezione Analytics
+        $(document).on('click', '.dfn-gran-btn', function() {
+            var interval = parseInt($(this).data('interval'), 10) || 1;
+            flowInterval = interval;
+            $('.dfn-gran-btn').removeClass('active');
+            $(this).addClass('active');
+            if (currentData) {
+                updateFlowChartAndGamification(currentData);
+            }
+        });
+
+        $(document).on('click', '#dfn-toggle-analytics-panel', function() {
+            var $panel = $('#dfn-analytics-panel');
+            var isCollapsed = $panel.toggleClass('is-collapsed').hasClass('is-collapsed');
+            var $btn = $(this);
+            if (isCollapsed) {
+                $btn.find('.dashicons').removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+                $btn.find('.toggle-text').text('Espandi');
+            } else {
+                $btn.find('.dashicons').removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
+                $btn.find('.toggle-text').text('Comprimi');
+                if (currentData) {
+                    updateFlowChartAndGamification(currentData);
+                }
+            }
+            localStorage.setItem('dfn_ci_panel_collapsed', isCollapsed ? 'true' : 'false');
+        });
+
+        $(document).on('click', '#dfn-toggle-autorefresh', function() {
+            autoRefreshActive = !autoRefreshActive;
+            var $btn = $(this);
+            var $liveBadge = $('#dfn-live-indicator');
+
+            if (autoRefreshActive) {
+                $liveBadge.show();
+                $btn.css({ background: '#004b23', color: '#fff', borderColor: '#003b1c' });
+                $btn.find('.dashicons').removeClass('dashicons-controls-play').addClass('dashicons-controls-pause');
+                $btn.find('.btn-text').text('Auto-refresh: ON (30s)');
+                autoRefreshTimer = setInterval(function() {
+                    loadSlots(activeDate, true);
+                }, 30000);
+            } else {
+                $liveBadge.hide();
+                $btn.css({ background: '', color: '', borderColor: '' });
+                $btn.find('.dashicons').removeClass('dashicons-controls-pause').addClass('dashicons-controls-play');
+                $btn.find('.btn-text').text('Auto-refresh: OFF');
+                if (autoRefreshTimer) {
+                    clearInterval(autoRefreshTimer);
+                    autoRefreshTimer = null;
+                }
+            }
+        });
 
         // ====================================================================
         // 4. CASSA CHECK-IN HANDLERS

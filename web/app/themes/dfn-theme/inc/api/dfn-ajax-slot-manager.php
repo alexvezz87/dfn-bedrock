@@ -1689,19 +1689,23 @@ function dfn_enrich_booking_data($b, $order) {
         $qty_prodotto = intval($b->total_persons);
         $operatori_coinvolti = [];
         $user_cache = [];
+        $validations = [];
         $is_booking_checked_in = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in' || ($order && $order->get_meta('_cv_checked_in') === 'yes');
 
         $html_bottoni_popup = '<div class="cv-popup-data-container" style="display:none;">';
         for ($i = 1; $i <= $qty_prodotto; $i++) {
             $is_ticket_valid = false;
             $op_id = null;
+            $time_valid = null;
             if ($order && $order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
                 $is_ticket_valid = true;
                 $op_id = $order->get_meta('_cv_ticket_validato_' . $i . '_operatore');
+                $time_valid = $order->get_meta('_cv_ticket_validato_' . $i . '_orario');
             } elseif ($is_booking_checked_in) {
                 // Sincronizzazione automatica: convalidato da Mobile / Scanner QR
                 $is_ticket_valid = true;
                 $op_id = ! empty($b->checked_in_by) ? $b->checked_in_by : ($order ? $order->get_meta('_cv_checked_in_by') : null);
+                $time_valid = ! empty($b->checked_in_at) ? $b->checked_in_at : ($order ? $order->get_meta('_cv_checked_in_at') : null);
             }
 
             if ($is_ticket_valid) {
@@ -1717,6 +1721,11 @@ function dfn_enrich_booking_data($b, $order) {
                     $nome_op = 'App Mobile / QR';
                     isset($operatori_coinvolti[$nome_op]) ? $operatori_coinvolti[$nome_op]++ : $operatori_coinvolti[$nome_op] = 1;
                 }
+                $validations[] = [
+                    'ticket'   => $i,
+                    'operator' => $nome_op,
+                    'time'     => $time_valid ?: (! empty($b->created_at) ? $b->created_at : ''),
+                ];
                 $html_bottoni_popup .= '<div style="margin-bottom:8px; padding:10px; background:#eaf7ea; color:#166534; border: 1px solid #c3e6c3; border-radius: 4px; display:flex; justify-content:space-between; align-items:center;"><span>✅ Biglietto ' . $i . ' validato</span><button class="button cv-undo-checkin-btn" data-order="' . esc_attr($order->get_id()) . '" data-ticket="' . esc_attr($i) . '" style="color:#d63638; border-color:#d63638; padding:0 8px; min-height:26px; line-height:24px;">Annulla</button></div>';
             } else {
                 $html_bottoni_popup .= '<button class="button cv-manual-checkin-btn" data-order="' . esc_attr($order->get_id()) . '" data-ticket="' . esc_attr($i) . '" style="margin-bottom:8px; display:block; width:100%; border-color:#00a32a; color:#00a32a; height: 40px; cursor:pointer;">✔️ Valida Biglietto ' . $i . '</button>';
@@ -1746,10 +1755,25 @@ function dfn_enrich_booking_data($b, $order) {
         }
         $html_history_popup .= '</div>';
     } else {
+        $validations = [];
         $is_booking_checked_in = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in';
         if ($is_booking_checked_in) {
             $checkin_fatti = intval($b->total_persons);
-            $operatori_html = '<span style="display:block; margin-bottom:4px; font-size:12px;">👤 Staff / App</span>';
+            $nome_op = 'Staff / App';
+            if (! empty($b->checked_in_by)) {
+                $u = get_userdata($b->checked_in_by);
+                if ($u) {
+                    $nome_op = $u->display_name;
+                }
+            }
+            $operatori_html = '<span style="display:block; margin-bottom:4px; font-size:12px;">👤 ' . esc_html($nome_op) . '</span>';
+            for ($i = 1; $i <= $checkin_fatti; $i++) {
+                $validations[] = [
+                    'ticket'   => $i,
+                    'operator' => $nome_op,
+                    'time'     => ! empty($b->checked_in_at) ? $b->checked_in_at : (! empty($b->created_at) ? $b->created_at : ''),
+                ];
+            }
         }
         if (floatval($b->amount_due) <= 0) {
             $payment_status = 'pagato';
@@ -1798,6 +1822,7 @@ function dfn_enrich_booking_data($b, $order) {
         'qualifica_html'   => $qualifica_html,
         'checkin_fatti'    => $checkin_fatti,
         'operatori_html'   => $operatori_html,
+        'validations'      => $validations,
         'html_bottoni_popup'=> $html_bottoni_popup,
         'html_history_popup'=> $html_history_popup,
         'reminder_sent'    => $reminder_sent,

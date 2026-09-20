@@ -277,6 +277,112 @@ function dfn_render_checkin_manager()
             </div>
         </div>
 
+        <!-- SEZIONE ANALYTICS FLUSSO & PODIO VOLONTARI -->
+        <div class="dfn-analytics-panel" id="dfn-analytics-panel">
+            <div class="dfn-analytics-header">
+                <div class="dfn-analytics-title-group">
+                    <span class="dashicons dashicons-chart-area"></span>
+                    <h2><?php esc_html_e('Monitoraggio Ingressi & Squadra Volontari', 'dfn-theme'); ?></h2>
+                    <span class="dfn-live-badge" id="dfn-live-indicator" style="display:none;">
+                        <span class="dfn-pulse-dot"></span> LIVE
+                    </span>
+                </div>
+                <div class="dfn-analytics-header-actions">
+                    <button type="button" id="dfn-toggle-autorefresh" class="dfn-btn dfn-btn-sm dfn-btn-secondary" title="<?php esc_attr_e('Aggiorna automaticamente i dati ogni 30 secondi', 'dfn-theme'); ?>">
+                        <span class="dashicons dashicons-controls-play"></span> <span class="btn-text"><?php esc_html_e('Auto-refresh: OFF', 'dfn-theme'); ?></span>
+                    </button>
+                    <button type="button" id="dfn-toggle-analytics-panel" class="dfn-btn dfn-btn-sm dfn-btn-secondary">
+                        <span class="dashicons dashicons-arrow-up-alt2"></span> <span class="toggle-text"><?php esc_html_e('Comprimi', 'dfn-theme'); ?></span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="dfn-analytics-content" id="dfn-analytics-content">
+                <div class="dfn-analytics-grid">
+                    
+                    <!-- COLONNA SINISTRA: GRAFICO AFFLUSSO CODE -->
+                    <div class="dfn-analytics-card dfn-chart-card">
+                        <div class="dfn-card-subhead">
+                            <div class="dfn-subhead-left">
+                                <h3><span class="dashicons dashicons-clock"></span> <?php esc_html_e('Smaltimento Coda — Ingressi nel Tempo', 'dfn-theme'); ?></h3>
+                                <span class="dfn-card-subdesc"><?php esc_html_e('Rilevazione presenze convalidate per intervallo', 'dfn-theme'); ?></span>
+                            </div>
+                            <div class="dfn-granularity-pills">
+                                <span class="dfn-granularity-label"><?php esc_html_e('Intervallo:', 'dfn-theme'); ?></span>
+                                <button type="button" class="dfn-gran-btn active" data-interval="1">1 min</button>
+                                <button type="button" class="dfn-gran-btn" data-interval="2">2 min</button>
+                                <button type="button" class="dfn-gran-btn" data-interval="5">5 min</button>
+                            </div>
+                        </div>
+
+                        <!-- KPI Highlights -->
+                        <div class="dfn-flow-kpi-bar">
+                            <div class="dfn-flow-kpi-item">
+                                <div class="flow-kpi-icon">⚡</div>
+                                <div class="flow-kpi-data">
+                                    <div class="flow-kpi-val" id="dfn-kpi-peak">-</div>
+                                    <div class="flow-kpi-label"><?php esc_html_e('Picco Massimo', 'dfn-theme'); ?></div>
+                                </div>
+                            </div>
+                            <div class="dfn-flow-kpi-item">
+                                <div class="flow-kpi-icon">⏱️</div>
+                                <div class="flow-kpi-data">
+                                    <div class="flow-kpi-val" id="dfn-kpi-speed">-</div>
+                                    <div class="flow-kpi-label"><?php esc_html_e('Ritmo Medio', 'dfn-theme'); ?></div>
+                                </div>
+                            </div>
+                            <div class="dfn-flow-kpi-item">
+                                <div class="flow-kpi-icon">⏳</div>
+                                <div class="flow-kpi-data">
+                                    <div class="flow-kpi-val" id="dfn-kpi-duration">-</div>
+                                    <div class="flow-kpi-label"><?php esc_html_e('Finestra Afflusso', 'dfn-theme'); ?></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Canvas Grafico -->
+                        <div class="dfn-chart-wrapper">
+                            <canvas id="dfnFlowChart" height="230"></canvas>
+                            <div id="dfn-chart-empty" class="dfn-chart-empty" style="display:none;">
+                                <span class="dashicons dashicons-chart-line"></span>
+                                <p><?php esc_html_e('Nessun ingresso convalidato registrato per questo turno/data.', 'dfn-theme'); ?></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COLONNA DESTRA: PODIO E CLASSIFICA VOLONTARI -->
+                    <div class="dfn-analytics-card dfn-gamification-card">
+                        <div class="dfn-card-subhead">
+                            <div class="dfn-subhead-left">
+                                <h3><span class="dashicons dashicons-awards"></span> <?php esc_html_e('Podio & Convalide Volontari', 'dfn-theme'); ?></h3>
+                                <span class="dfn-card-subdesc"><?php esc_html_e('Gamification e merito dello staff al desk', 'dfn-theme'); ?></span>
+                            </div>
+                            <div class="dfn-team-total-badge" id="dfn-team-total-badge" title="<?php esc_attr_e('Totale check-in convalidati dal team', 'dfn-theme'); ?>">
+                                <span class="dashicons dashicons-groups"></span> <span id="dfn-team-validations-count">0</span> check-in
+                            </div>
+                        </div>
+
+                        <!-- Podio Olimpico Top 3 -->
+                        <div class="dfn-podium-container" id="dfn-podium-area">
+                            <!-- Popolato dinamicamente da JS -->
+                        </div>
+
+                        <!-- Classifica Estesa Squadra -->
+                        <div class="dfn-leaderboard-container">
+                            <div class="dfn-leaderboard-title">
+                                <span><?php esc_html_e('Classifica Completa Squadra', 'dfn-theme'); ?></span>
+                                <span id="dfn-leaderboard-active-staff-count" style="font-size:11px; color:#64748b; font-weight:600;"></span>
+                            </div>
+                            <div class="dfn-leaderboard-list" id="dfn-leaderboard-list">
+                                <!-- Righe popolate da JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
         <div id="dfn-ci-dashboard">
             <!-- Barra Controlli -->
             <div class="dfn-controls-bar">
