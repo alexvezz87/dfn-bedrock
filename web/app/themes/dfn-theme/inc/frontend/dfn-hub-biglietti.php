@@ -213,9 +213,15 @@ function dfn_render_group_ticket_hub(): void
                                     <div class="dfn-hub-qr-container">
                                         <img src="<?php echo esc_url($qr_api_url); ?>" class="dfn-hub-qr-image" alt="<?php esc_attr_e('Codice QR Singolo d\'Ingresso', 'dfn-theme'); ?>" />
                                     </div>
-                                    <div style="text-align: center; margin-top: 10px;" class="dfn-no-print">
+                                    <div style="text-align: center; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center;" class="dfn-no-print">
                                         <a href="<?php echo esc_url($download_url_ticket); ?>" style="font-size: 13px; color: #004b23; font-weight: 600; text-decoration: underline;">
                                             💾 Scarica QR di questo biglietto
+                                        </a>
+                                        <?php
+                                        $wa_single_text = urlencode(sprintf(__('Ecco il tuo biglietto (%d di %d) per l\'evento "%s". Mostra questo QR Code all\'ingresso: %s', 'dfn-theme'), $t['index'], $booking->total_persons, $event_title, $download_url_ticket));
+                                        ?>
+                                        <a href="https://wa.me/?text=<?php echo $wa_single_text; ?>" target="_blank" style="font-size: 13px; color: #16a34a; font-weight: 600; text-decoration: none;">
+                                            💬 Invia a questo partecipante (WhatsApp)
                                         </a>
                                     </div>
                                 <?php endif; ?>
@@ -390,7 +396,6 @@ function dfn_handle_qr_download(): void
         return;
     }
 
-    $filename = 'Ingresso-Gruppo-Ordine-' . $order_id . '.png';
     header('Content-Description: File Transfer');
     header('Content-Type: ' . $content_type);
     header('Content-Disposition: attachment; filename="' . $filename . '"');
