@@ -388,14 +388,25 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
 
     $formatted_bookings = [];
     foreach ($bookings as $b) {
-        $total_booked += intval($b->total_persons);
-        $is_checked   = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in';
+        $order      = ! empty($b->order_id) ? wc_get_order($b->order_id) : null;
+        $is_checked = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00')
+            || $b->status === 'checked_in'
+            || ($order && $order->get_meta('_cv_checked_in') === 'yes');
+
         if ($is_checked) {
             $total_checked_in += intval($b->total_persons);
         }
 
-        $order    = ! empty($b->order_id) ? wc_get_order($b->order_id) : null;
         $pay_info = dfn_get_booking_payment_info($b, $order);
+
+        $checkin_time_val = '';
+        if ($is_checked) {
+            if (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') {
+                $checkin_time_val = date('H:i', strtotime($b->checked_in_at));
+            } elseif ($order && $order->get_meta('_cv_checked_in_at')) {
+                $checkin_time_val = date('H:i', strtotime($order->get_meta('_cv_checked_in_at')));
+            }
+        }
 
         $formatted_bookings[] = [
             'id'              => intval($b->id),
@@ -413,7 +424,7 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
             'payment_label'   => $pay_info['payment_label'],
             'payment_method'  => $pay_info['payment_method'],
             'checked_in'      => $is_checked,
-            'checked_in_time' => ($is_checked && ! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') ? date('H:i', strtotime($b->checked_in_at)) : '',
+            'checked_in_time' => $checkin_time_val,
             'qr_token'        => esc_html($b->qr_token),
         ];
     }
@@ -888,8 +899,19 @@ function dfn_ajax_mobile_get_booking_details(): void
         }
     }
 
-    $is_checked = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') || $b->status === 'checked_in';
+    $is_checked = (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00')
+        || $b->status === 'checked_in'
+        || ($order && $order->get_meta('_cv_checked_in') === 'yes');
     $pay_info   = dfn_get_booking_payment_info($b, $order);
+
+    $checkin_time_detail = '';
+    if ($is_checked) {
+        if (! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') {
+            $checkin_time_detail = date('d/m/Y H:i', strtotime($b->checked_in_at));
+        } elseif ($order && $order->get_meta('_cv_checked_in_at')) {
+            $checkin_time_detail = date('d/m/Y H:i', strtotime($order->get_meta('_cv_checked_in_at')));
+        }
+    }
 
     $data = [
         'id'                 => intval($b->id),
@@ -913,7 +935,7 @@ function dfn_ajax_mobile_get_booking_details(): void
                                     ? $order->get_date_created()->date_i18n('d/m/Y H:i') 
                                     : (! empty($b->created_at) && $b->created_at !== '0000-00-00 00:00:00' ? date_i18n('d/m/Y H:i', strtotime($b->created_at)) : '-'),
         'checked_in'         => $is_checked,
-        'checked_in_time'    => ($is_checked && ! empty($b->checked_in_at) && $b->checked_in_at !== '0000-00-00 00:00:00') ? date('d/m/Y H:i', strtotime($b->checked_in_at)) : '',
+        'checked_in_time'    => $checkin_time_detail,
         'current_slot_info'  => $current_slot_info,
         'current_slot_id'    => $current_slot_id,
         'available_slots'    => $available_slots_formatted,

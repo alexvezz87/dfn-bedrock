@@ -1324,12 +1324,26 @@ function dfn_ajax_botteghino_create_booking(): void
             wc_reduce_stock_levels($order->get_id());
 
             // Auto-checkin
+            $now = current_time('mysql');
+            $user_id = get_current_user_id() ?: 1;
+
             if ($auto_checkin) {
+                $order->update_meta_data('_cv_checked_in', 'yes');
+                $order->update_meta_data('_cv_checked_in_at', $now);
+                $order->update_meta_data('_cv_checked_in_by', $user_id);
+
                 for ($i = 1; $i <= $total_qty; $i++) {
                     $order->update_meta_data('_cv_ticket_validato_' . $i, 'yes');
-                    $order->update_meta_data('_cv_ticket_validato_' . $i . '_orario', current_time('mysql'));
-                    $order->update_meta_data('_cv_ticket_validato_' . $i . '_operatore', get_current_user_id());
+                    $order->update_meta_data('_cv_ticket_validato_' . $i . '_orario', $now);
+                    $order->update_meta_data('_cv_ticket_validato_' . $i . '_operatore', $user_id);
                 }
+
+                $history_logs = $order->get_meta('_cv_ticket_history') ?: [];
+                $history_logs[] = [
+                    'time'   => $now,
+                    'action' => sprintf(__('Check-in immediato eseguito dal Botteghino Live (%d biglietti convalidati).', 'dfn-theme'), $total_qty),
+                ];
+                $order->update_meta_data('_cv_ticket_history', $history_logs);
                 $order->add_order_note('✅ Check-in immediato eseguito dal Botteghino Live.');
             } elseif ($has_real_email) {
                 // Nota: L'email di completamento ordine (con biglietti/QR) viene già inviata automaticamente da WooCommerce al cambio stato 'completed'.
@@ -1388,6 +1402,34 @@ function dfn_ajax_botteghino_create_booking(): void
 
         // Verifica esito allocazione
         $booking = dfn_db_get_booking_by_order($order->get_id());
+
+        // Se era abilitato l'auto-checkin, sincronizza immediatamente la tabella wp_dfn_bookings e wp_dfn_booking_slots
+        if ($booking && $auto_checkin) {
+            $wpdb->update(
+                $wpdb->prefix . 'dfn_bookings',
+                [
+                    'status'        => 'checked_in',
+                    'checked_in_at' => $now,
+                    'checked_in_by' => $user_id,
+                ],
+                [ 'id' => $booking->id ],
+                [ '%s', '%s', '%d' ],
+                [ '%d' ]
+            );
+
+            $wpdb->update(
+                $wpdb->prefix . 'dfn_booking_slots',
+                [
+                    'checked_in_at' => $now,
+                    'checked_in_by' => $user_id,
+                ],
+                [ 'booking_id' => $booking->id ],
+                [ '%s', '%d' ],
+                [ '%d' ]
+            );
+
+            $booking = dfn_db_get_booking_by_order($order->get_id());
+        }
 
         // Invia email di conferma prenotazione DFN se c'è una mail reale
         // (per 'prenotazione' e 'link', l'email di conferma booking è gestita internamente dall'allocatore)
