@@ -10,11 +10,14 @@
         var $month   = $('#dfn-filter-month');
         var $city    = $('#dfn-filter-city');
         var $reset   = $('#dfn-filter-reset');
-        var $cards   = $('.dfn-event-card');
+        var $cards = $('.dfn-events-grid--upcoming .dfn-event-card');
+        if (!$cards.length) {
+            $cards = $('.dfn-event-card');
+        }
 
         if (!$cards.length) return;
 
-        var $grid = $cards.parent();
+        var $grid = $cards.closest('.dfn-events-grid');
         $grid.css('position', 'relative');
 
         // Leggi parametri URL se presenti (es. ?comune=Novara)
