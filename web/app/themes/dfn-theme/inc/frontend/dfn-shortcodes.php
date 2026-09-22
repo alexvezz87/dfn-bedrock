@@ -70,7 +70,8 @@ function dfn_get_event_reviews_data(int $product_id): array
             pm_review.meta_value as review_text,
             pm_date.meta_value as rating_date,
             pm_fname.meta_value as first_name,
-            pm_lname.meta_value as last_name
+            pm_lname.meta_value as last_name,
+            pm_pub.meta_value as is_published
         FROM {$wpdb->prefix}posts p
         INNER JOIN {$wpdb->prefix}woocommerce_order_items oi 
             ON p.ID = oi.order_id AND oi.order_item_type = 'line_item'
@@ -86,6 +87,8 @@ function dfn_get_event_reviews_data(int $product_id): array
             ON p.ID = pm_fname.post_id AND pm_fname.meta_key = '_billing_first_name'
         LEFT JOIN {$wpdb->prefix}postmeta pm_lname 
             ON p.ID = pm_lname.post_id AND pm_lname.meta_key = '_billing_last_name'
+        LEFT JOIN {$wpdb->prefix}postmeta pm_pub
+            ON p.ID = pm_pub.post_id AND pm_pub.meta_key = '_cv_review_published_frontend'
         WHERE oim.meta_value = %d
           AND p.post_status IN ('wc-processing', 'wc-completed')
         ORDER BY p.ID DESC
@@ -115,16 +118,20 @@ function dfn_get_event_reviews_data(int $product_id): array
                 $formatted_date = date_i18n('d F Y', strtotime($row->rating_date));
             }
 
+            // Pubblicata nel carosello solo se approvata/spuntata (default 'yes' per recensioni pregresse non ancora moderate)
+            $is_published = ($row->is_published !== 'no');
+
             $rev_data = [
-                'order_id' => (int) $row->order_id,
-                'author'   => $author,
-                'rating'   => $stars,
-                'text'     => $clean_text,
-                'date'     => $formatted_date,
+                'order_id'     => (int) $row->order_id,
+                'author'       => $author,
+                'rating'       => $stars,
+                'text'         => $clean_text,
+                'date'         => $formatted_date,
+                'is_published' => $is_published,
             ];
 
             $all_reviews[] = $rev_data;
-            if (! empty($clean_text)) {
+            if (! empty($clean_text) && $is_published) {
                 $text_reviews[] = $rev_data;
             }
         }

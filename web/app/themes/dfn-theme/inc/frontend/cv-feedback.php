@@ -54,6 +54,7 @@ function cv_render_feedback_page()
                     $order->update_meta_data('_cv_event_rating', $rating);
                     $order->update_meta_data('_cv_event_review', $review);
                     $order->update_meta_data('_cv_event_rating_date', current_time('mysql'));
+                    $order->update_meta_data('_cv_review_published_frontend', 'no');
 
                     $note = sprintf('⭐ Recensione ricevuta dal visitatore: %d/5 stelle.%s', $rating, $review ? ' Commento: ' . $review : '');
                     $order->add_order_note($note);

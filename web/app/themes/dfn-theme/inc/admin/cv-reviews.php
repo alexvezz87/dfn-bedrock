@@ -23,6 +23,37 @@ function cv_aggiungi_pagina_recensioni()
     );
 }
 
+// AJAX: Modifica istantanea dello stato di pubblicazione frontend
+add_action('wp_ajax_cv_toggle_review_published', 'cv_ajax_toggle_review_published');
+function cv_ajax_toggle_review_published()
+{
+    if (! current_user_can('dfn_act_reviews') && ! current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Permessi non sufficienti.']);
+    }
+
+    check_ajax_referer('cv_toggle_published_nonce', 'security');
+
+    $order_id     = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+    $is_published = (isset($_POST['published']) && $_POST['published'] === 'yes') ? 'yes' : 'no';
+
+    if ($order_id <= 0) {
+        wp_send_json_error(['message' => 'ID Ordine non valido.']);
+    }
+
+    $order = wc_get_order($order_id);
+    if (! $order) {
+        wp_send_json_error(['message' => 'Ordine non trovato.']);
+    }
+
+    $order->update_meta_data('_cv_review_published_frontend', $is_published);
+    $order->save();
+
+    wp_send_json_success([
+        'order_id'     => $order_id,
+        'is_published' => ($is_published === 'yes'),
+    ]);
+}
+
 function cv_render_pagina_recensioni()
 {
     if (! current_user_can('dfn_act_reviews')) {
@@ -86,6 +117,7 @@ function cv_render_pagina_recensioni()
                 $order_to_update->delete_meta_data('_cv_event_rating');
                 $order_to_update->delete_meta_data('_cv_event_review');
                 $order_to_update->delete_meta_data('_cv_event_rating_date');
+                $order_to_update->delete_meta_data('_cv_review_published_frontend');
 
                 // Opzionale: Aggiungiamo una nota all'ordine per tracciabilità
                 $current_user = wp_get_current_user();
@@ -96,6 +128,22 @@ function cv_render_pagina_recensioni()
                 echo '<div class="notice notice-success is-dismissible"><p>✅ Recensione eliminata con successo. La media voti è stata ricalcolata.</p></div>';
             }
         }
+    }
+
+    // --- LOGICA DI SALVATAGGIO STATO PUBBLICAZIONE (BULK / FORM FALLBACK) ---
+    if (isset($_POST['cv_save_published_nonce']) && wp_verify_nonce($_POST['cv_save_published_nonce'], 'cv_save_published')) {
+        $published_map = isset($_POST['cv_published']) && is_array($_POST['cv_published']) ? $_POST['cv_published'] : [];
+        $all_ids       = isset($_POST['cv_order_ids']) && is_array($_POST['cv_order_ids']) ? array_map('intval', $_POST['cv_order_ids']) : [];
+
+        foreach ($all_ids as $oid) {
+            $ord = wc_get_order($oid);
+            if ($ord) {
+                $val = isset($published_map[$oid]) ? 'yes' : 'no';
+                $ord->update_meta_data('_cv_review_published_frontend', $val);
+                $ord->save();
+            }
+        }
+        echo '<div class="notice notice-success is-dismissible"><p>✅ Visibilità delle recensioni aggiornata con successo!</p></div>';
     }
     // ------------------------------------------------
 
@@ -137,9 +185,11 @@ function cv_render_pagina_recensioni()
 
             $rating = $order->get_meta('_cv_event_rating');
             if (! empty($rating)) {
-                // IL FIX È QUI: Usiamo wp_unslash per rimuovere i backslash dai testi salvati nel database
                 $review_text = wp_unslash($order->get_meta('_cv_event_review'));
                 $review_date = $order->get_meta('_cv_event_rating_date');
+                $is_pub_meta = $order->get_meta('_cv_review_published_frontend');
+                // Se non ancora impostato nello storico, consideriamo pubblicata (default pregresso)
+                $is_published = ($is_pub_meta !== 'no');
 
                 if (! empty($review_date)) {
                     $data_mostrata = date_i18n('d/m/Y H:i', strtotime($review_date));
@@ -156,6 +206,7 @@ function cv_render_pagina_recensioni()
                     'testo'     => $review_text,
                     'data'      => $data_mostrata,
                     'timestamp' => $timestamp,
+                    'published' => $is_published,
                 ];
 
                 $somma_voti += intval($rating);
@@ -177,16 +228,47 @@ function cv_render_pagina_recensioni()
             echo '<p style="margin:5px 0 0 0; color:#777;">Basata su <strong>' . $tot_voti . '</strong> recensioni rilasciate.</p>';
             echo '</div>';
 
+            // Form nascosto per il salvataggio cumulativo con supporto HTML5 form attribute
+            echo '<form id="cv-bulk-published-form" method="POST" action="" style="display:none;">';
+            wp_nonce_field('cv_save_published', 'cv_save_published_nonce');
+            echo '<input type="hidden" name="event_id" value="' . esc_attr($selected_event) . '">';
+            echo '</form>';
+
             echo '<table class="wp-list-table widefat fixed striped">';
-            echo '<thead><tr><th style="width:160px;">Data</th><th style="width:200px;">Cliente</th><th style="width:150px;">Voto</th><th>Commento / Suggerimento</th><th style="width:80px; text-align:center;">Azioni</th></tr></thead><tbody>';
+            echo '<thead><tr>';
+            echo '<th style="width:140px;">Data</th>';
+            echo '<th style="width:180px;">Cliente</th>';
+            echo '<th style="width:120px;">Voto</th>';
+            echo '<th>Commento / Suggerimento</th>';
+            echo '<th style="width:140px; text-align:center;">Pubblica sul Sito</th>';
+            echo '<th style="width:70px; text-align:center;">Azioni</th>';
+            echo '</tr></thead><tbody>';
 
             foreach ($recensioni as $rec) {
                 $stelle_html = str_repeat('⭐', $rec['voto']) . str_repeat('☆', 5 - $rec['voto']);
+                $has_text    = ! empty($rec['testo']);
+
                 echo '<tr>';
                 echo '<td style="vertical-align: middle;">' . $rec['data'] . '</td>';
                 echo '<td style="vertical-align: middle;"><strong>' . esc_html($rec['cliente']) . '</strong></td>';
                 echo '<td style="vertical-align: middle;"><span style="font-size:16px;">' . $stelle_html . '</span></td>';
-                echo '<td style="vertical-align: middle;">' . esc_html(empty($rec['testo']) ? 'Nessun commento testuale rilasciato.' : $rec['testo']) . '</td>';
+                echo '<td style="vertical-align: middle;">' . esc_html($has_text ? $rec['testo'] : 'Nessun commento testuale rilasciato.') . '</td>';
+
+                // Colonna selezione/cernita pubblicazione frontend
+                echo '<td style="text-align:center; vertical-align: middle;">';
+                if ($has_text) {
+                    echo '<label class="dfn-admin-switch" title="' . esc_attr__('Spunta per pubblicare questa recensione sul sito', 'dfn-theme') . '">';
+                    echo '<input type="checkbox" class="cv-toggle-published" data-order-id="' . esc_attr($rec['order_id']) . '" name="cv_published[' . esc_attr($rec['order_id']) . ']" form="cv-bulk-published-form" value="yes" ' . checked($rec['published'], true, false) . '>';
+                    echo '<span class="dfn-admin-slider"></span>';
+                    echo '</label>';
+                    echo '<input type="hidden" name="cv_order_ids[]" form="cv-bulk-published-form" value="' . esc_attr($rec['order_id']) . '">';
+                    echo '<div class="cv-pub-status" style="font-size:11px; margin-top:3px; font-weight:600; color:' . ($rec['published'] ? '#004b23' : '#64748b') . ';">';
+                    echo $rec['published'] ? '✓ Pubblicata' : '✗ Nascosta';
+                    echo '</div>';
+                } else {
+                    echo '<span style="color:#94a3b8; font-size:11px;"><em>Solo voto</em></span>';
+                }
+                echo '</td>';
 
                 // Bottone di eliminazione con finestra di conferma
                 echo '<td style="text-align:center; vertical-align: middle;">';
@@ -200,6 +282,91 @@ function cv_render_pagina_recensioni()
                 echo '</tr>';
             }
             echo '</tbody></table>';
+
+            echo '<div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:12px 16px; border:1px solid #ccd0d4; border-radius:4px;">';
+            echo '<span style="font-size:13px; color:#475569;">💡 <em>Le modifiche alla spunta vengono salvate <strong>istantaneamente</strong> via AJAX, oppure puoi cliccare il pulsante qui a fianco.</em></span>';
+            echo '<button type="submit" form="cv-bulk-published-form" class="button button-primary" style="background:#004b23; border-color:#004b23;">💾 Salva Tutte le Modifiche</button>';
+            echo '</div>';
+            ?>
+            <style>
+            .dfn-admin-switch {
+              position: relative;
+              display: inline-block;
+              width: 44px;
+              height: 24px;
+            }
+            .dfn-admin-switch input {
+              opacity: 0;
+              width: 0;
+              height: 0;
+            }
+            .dfn-admin-slider {
+              position: absolute;
+              cursor: pointer;
+              top: 0; left: 0; right: 0; bottom: 0;
+              background-color: #cbd5e1;
+              transition: .25s ease;
+              border-radius: 24px;
+            }
+            .dfn-admin-slider:before {
+              position: absolute;
+              content: "";
+              height: 18px;
+              width: 18px;
+              left: 3px;
+              bottom: 3px;
+              background-color: white;
+              transition: .25s ease;
+              border-radius: 50%;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            }
+            .dfn-admin-switch input:checked + .dfn-admin-slider {
+              background-color: #004b23;
+            }
+            .dfn-admin-switch input:checked + .dfn-admin-slider:before {
+              transform: translateX(20px);
+            }
+            </style>
+            <script>
+            jQuery(document).ready(function($) {
+                $('.cv-toggle-published').on('change', function() {
+                    var $checkbox = $(this);
+                    var orderId = $checkbox.data('order-id');
+                    var isChecked = $checkbox.is(':checked');
+                    var $status = $checkbox.closest('td').find('.cv-pub-status');
+
+                    $status.html('<span class="spinner is-active" style="float:none; margin:0 4px 0 0; vertical-align:middle; width:12px; height:12px;"></span> Salvataggio...');
+
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'cv_toggle_review_published',
+                            security: '<?php echo wp_create_nonce("cv_toggle_published_nonce"); ?>',
+                            order_id: orderId,
+                            published: isChecked ? 'yes' : 'no'
+                        },
+                        success: function(resp) {
+                            if (resp && resp.success) {
+                                if (isChecked) {
+                                    $status.css('color', '#004b23').html('✓ Pubblicata');
+                                } else {
+                                    $status.css('color', '#64748b').html('✗ Nascosta');
+                                }
+                            } else {
+                                alert('Errore: ' + (resp.data ? resp.data.message : 'Impossibile aggiornare.'));
+                                $checkbox.prop('checked', !isChecked);
+                            }
+                        },
+                        error: function() {
+                            alert('Errore di connessione durante il salvataggio.');
+                            $checkbox.prop('checked', !isChecked);
+                        }
+                    });
+                });
+            });
+            </script>
+            <?php
         } else {
             echo '<div class="notice notice-info"><p>Nessuna recensione ricevuta per questo evento al momento.</p></div>';
         }
