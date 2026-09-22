@@ -54,8 +54,30 @@ function cv_render_feedback_page()
                     $order->update_meta_data('_cv_event_rating', $rating);
                     $order->update_meta_data('_cv_event_review', $review);
                     $order->update_meta_data('_cv_event_rating_date', current_time('mysql'));
+
+                    $note = sprintf('⭐ Recensione ricevuta dal visitatore: %d/5 stelle.%s', $rating, $review ? ' Commento: ' . $review : '');
+                    $order->add_order_note($note);
                     $order->save();
                     $voto_esistente = $rating;
+
+                    // Log di sistema DFN
+                    $customer_full_name = trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()) ?: 'Visitatore';
+                    $review_log = $review ? " | Commento: \"{$review}\"" : "";
+                    if (function_exists('dfn_db_get_booking_by_order')) {
+                        $booking_rec = dfn_db_get_booking_by_order($order->get_id());
+                        if ($booking_rec && function_exists('dfn_log_booking')) {
+                            dfn_log_booking(
+                                (int) $booking_rec->id,
+                                'Recensione Ricevuta',
+                                sprintf('Voto: %d/5 stelle%s', $rating, $review_log),
+                                $customer_full_name
+                            );
+                        } elseif (function_exists('dfn_log_write')) {
+                            dfn_log_write('recensioni', $customer_full_name, sprintf('Recensione rilasciata per Ordine #%d: %d/5 stelle%s', $order_id, $rating, $review_log), 'success');
+                        }
+                    } elseif (function_exists('dfn_log_write')) {
+                        dfn_log_write('recensioni', $customer_full_name, sprintf('Recensione rilasciata per Ordine #%d: %d/5 stelle%s', $order_id, $rating, $review_log), 'success');
+                    }
                 }
             }
         }
