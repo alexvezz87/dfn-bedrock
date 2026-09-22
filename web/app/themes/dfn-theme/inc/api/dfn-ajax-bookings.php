@@ -204,6 +204,10 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
             $booking_date = $event->event_date_start;
         }
 
+        $is_auto_checked_in = ($order->get_meta('_cv_checked_in') === 'yes');
+        $checked_in_at_val  = $is_auto_checked_in ? ($order->get_meta('_cv_checked_in_at') ?: current_time('mysql')) : null;
+        $checked_in_by_val  = $is_auto_checked_in ? (intval($order->get_meta('_cv_checked_in_by')) ?: null) : null;
+
         // -------------------------------------------------------------------
         // ALGORITMO DI ALLOCAZIONE DI VOLTA IN VOLTA SELEZIONATO (Fasce Orarie)
         // -------------------------------------------------------------------
@@ -271,7 +275,9 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                 // 2. Crea il record master di prenotazione
                 $qr_token = wp_hash($order_id . '|' . $event->id . '|' . time());
                 $booking_status = 'confirmed';
-                if ($order->get_meta('_dfn_has_unverified_fai_cards') === 'yes') {
+                if ($is_auto_checked_in) {
+                    $booking_status = 'checked_in';
+                } elseif ($order->get_meta('_dfn_has_unverified_fai_cards') === 'yes') {
                     $booking_status = 'pending_approval';
                 } elseif ('manual' === $event->approval_workflow) {
                     $booking_status = 'pending_approval';
@@ -300,9 +306,11 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                         'amount_due'       => $amount_due,
                         'amount_paid'      => $amount_paid,
                         'notes'            => $order->get_customer_note(),
+                        'checked_in_at'    => $checked_in_at_val,
+                        'checked_in_by'    => $checked_in_by_val,
                         'created_at'       => ($order && method_exists($order, 'get_date_created') && $order->get_date_created()) ? $order->get_date_created()->date('Y-m-d H:i:s') : current_time('mysql'),
                     ],
-                    [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
+                    [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s', '%d', '%s' ],
                 );
 
                 $booking_id = $wpdb->insert_id;
@@ -311,11 +319,13 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                 $wpdb->insert(
                     $wpdb->prefix . 'dfn_booking_slots',
                     [
-                        'booking_id' => $booking_id,
-                        'slot_id'    => $slot_id,
-                        'persons'    => $total_qty,
+                        'booking_id'    => $booking_id,
+                        'slot_id'       => $slot_id,
+                        'persons'       => $total_qty,
+                        'checked_in_at' => $checked_in_at_val,
+                        'checked_in_by' => $checked_in_by_val,
                     ],
-                    [ '%d', '%d', '%d' ],
+                    [ '%d', '%d', '%d', '%s', '%d' ],
                 );
 
                 // Aggiorna metadati riga ordine
@@ -423,7 +433,9 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                     // Eseguiamo gli inserimenti
                     $qr_token = wp_hash($order_id . '|' . $event->id . '|' . time());
                     $booking_status = 'confirmed';
-                    if ($order->get_meta('_dfn_has_unverified_fai_cards') === 'yes') {
+                    if ($is_auto_checked_in) {
+                        $booking_status = 'checked_in';
+                    } elseif ($order->get_meta('_dfn_has_unverified_fai_cards') === 'yes') {
                         $booking_status = 'pending_approval';
                     } elseif ('manual' === $event->approval_workflow) {
                         $booking_status = 'pending_approval';
@@ -452,9 +464,11 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                             'amount_due'       => $amount_due,
                             'amount_paid'      => $amount_paid,
                             'notes'            => $order->get_customer_note(),
+                            'checked_in_at'    => $checked_in_at_val,
+                            'checked_in_by'    => $checked_in_by_val,
                             'created_at'       => ($order && method_exists($order, 'get_date_created') && $order->get_date_created()) ? $order->get_date_created()->date('Y-m-d H:i:s') : current_time('mysql'),
                         ],
-                        [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
+                        [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s', '%d', '%s' ],
                     );
 
                     $booking_id = $wpdb->insert_id;
@@ -476,11 +490,13 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                             $wpdb->insert(
                                 $wpdb->prefix . 'dfn_booking_slots',
                                 [
-                                    'booking_id' => $booking_id,
-                                    'slot_id'    => $s->id,
-                                    'persons'    => $to_allocate,
+                                    'booking_id'    => $booking_id,
+                                    'slot_id'       => $s->id,
+                                    'persons'       => $to_allocate,
+                                    'checked_in_at' => $checked_in_at_val,
+                                    'checked_in_by' => $checked_in_by_val,
                                 ],
-                                [ '%d', '%d', '%d' ],
+                                [ '%d', '%d', '%d', '%s', '%d' ],
                             );
 
                             $time_formatted = substr($s->slot_time_start, 0, 5) . '-' . substr($s->slot_time_end, 0, 5);
@@ -564,7 +580,9 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
 
                 $qr_token = wp_hash($order_id . '|' . $event->id . '|' . time());
                 $booking_status = 'confirmed';
-                if ($order->get_meta('_dfn_has_unverified_fai_cards') === 'yes') {
+                if ($is_auto_checked_in) {
+                    $booking_status = 'checked_in';
+                } elseif ($order->get_meta('_dfn_has_unverified_fai_cards') === 'yes') {
                     $booking_status = 'pending_approval';
                 } elseif ('manual' === $event->approval_workflow) {
                     $booking_status = 'pending_approval';
@@ -593,9 +611,11 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                         'amount_due'       => $amount_due,
                         'amount_paid'      => $amount_paid,
                         'notes'            => $order->get_customer_note(),
+                        'checked_in_at'    => $checked_in_at_val,
+                        'checked_in_by'    => $checked_in_by_val,
                         'created_at'       => ($order && method_exists($order, 'get_date_created') && $order->get_date_created()) ? $order->get_date_created()->date('Y-m-d H:i:s') : current_time('mysql'),
                     ],
-                    [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s' ],
+                    [ '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%s', '%s', '%d', '%s' ],
                 );
 
                 $booking_id = $wpdb->insert_id;

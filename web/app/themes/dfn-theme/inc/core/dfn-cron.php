@@ -181,26 +181,9 @@ function dfn_email_cliente_ordine_scaduto($order_id, $order)
         return;
     }
 
-    // Evita il raddoppio del ripristino stock di WooCommerce
-    remove_action('woocommerce_order_status_pending_to_cancelled', 'wc_maybe_increase_stock_levels');
-    remove_action('woocommerce_order_status_cancelled', 'wc_maybe_increase_stock_levels');
-
-    // Se l'ordine era con saldo "In Loco" e viene cancellato,
-    // o se viene annullato un ordine online scaduto/manuale, ripristiniamo le scorte
-    if ('yes' !== $order->get_meta('_dfn_stock_restored')) {
-        foreach ($order->get_items() as $item) {
-            $product = $item->get_product();
-            if ($product && $product->managing_stock()) {
-                $qty = $item->get_quantity();
-                $vecchio_stock = $product->get_stock_quantity();
-                $nuovo_stock = wc_update_product_stock($product, $qty, 'increase');
-                $nota = sprintf('🎟️ Magazzino ripristinato dal sistema: %s (%d &rarr; %d).', $product->get_name(), $vecchio_stock, $nuovo_stock);
-                $order->add_order_note($nota);
-            }
-        }
-        $order->update_meta_data('_dfn_stock_restored', 'yes');
-        $order->save();
-    }
+    // Nota: il ripristino del magazzino WooCommerce avviene nativamente ed in modo
+    // corretto quando lo stato dell'ordine transita a 'cancelled' (wc_maybe_increase_stock_levels).
+    // Non occorre alcun intervento manuale su wc_update_product_stock().
 
     // Se esiste un booking per questo ordine, gestiamo l'annullamento della prenotazione e il rilascio della capienza
     $booking = dfn_db_get_booking_by_order($order_id);

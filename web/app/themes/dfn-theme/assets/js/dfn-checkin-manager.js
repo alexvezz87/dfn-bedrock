@@ -19,6 +19,75 @@
         var ajaxurl   = typeof dfnCheckinVars !== 'undefined' ? dfnCheckinVars.ajaxurl : '/wp/wp-admin/admin-ajax.php';
         var currentData = null;
         var activeDate  = $('.dfn-pill-date.active').data('date') || $wrapper.data('first-date');
+        var activeStatus = 'all'; // 'all', 'pending', 'partial', 'completed'
+        var sortCol      = 'date'; // 'date', 'order', 'customer', 'tickets', 'status'
+        var sortDir      = 'desc'; // Default: più recente in alto
+
+        // Variabili statistiche & gamification
+        var flowInterval = 1; // 1, 2, 5 minuti
+        var flowChartInstance = null;
+        var autoRefreshTimer = null;
+        var autoRefreshActive = false;
+
+        // Ripristino stato collassato pannello
+        if (localStorage.getItem('dfn_ci_panel_collapsed') === 'true') {
+            $('#dfn-analytics-panel').addClass('is-collapsed');
+            $('#dfn-toggle-analytics-panel .dashicons').removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+            $('#dfn-toggle-analytics-panel .toggle-text').text('Espandi');
+        }
+
+        // Helper: rendering intestazione ordinabile
+        function renderSortableTh(colKey, label, currentCol, currentDir, extraStyle, alignCenter) {
+            var isCurrent = (currentCol === colKey);
+            var icon = '';
+            if (isCurrent) {
+                icon = (currentDir === 'asc')
+                    ? '<span class="dashicons dashicons-arrow-up-alt2" style="font-size:14px; width:14px; height:14px; vertical-align:middle; margin-left:3px;"></span>'
+                    : '<span class="dashicons dashicons-arrow-down-alt2" style="font-size:14px; width:14px; height:14px; vertical-align:middle; margin-left:3px;"></span>';
+            } else {
+                icon = '<span class="dashicons dashicons-sort" style="font-size:14px; width:14px; height:14px; vertical-align:middle; margin-left:3px; opacity:0.35;"></span>';
+            }
+            var alignStyle = alignCenter ? 'text-align:center;' : 'text-align:left;';
+            return '<th class="dfn-ci-sortable-th" data-col="' + colKey + '" style="padding:12px 10px; font-weight:700; ' + (extraStyle || '') + ' ' + alignStyle + '">' +
+                label + ' ' + icon +
+            '</th>';
+        }
+
+        // Helper: ordinamento prenotazioni
+        function sortBookings(items, col, dir) {
+            return items.slice().sort(function(a, b) {
+                var valA, valB;
+                if (col === 'order') {
+                    valA = parseInt(a.order_id || a.id, 10) || 0;
+                    valB = parseInt(b.order_id || b.id, 10) || 0;
+                    return dir === 'asc' ? (valA - valB) : (valB - valA);
+                } else if (col === 'customer') {
+                    valA = (a.customer_name || '').toLowerCase();
+                    valB = (b.customer_name || '').toLowerCase();
+                    return dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else if (col === 'tickets') {
+                    valA = parseInt(a.slot_persons || a.total_persons, 10) || 0;
+                    valB = parseInt(b.slot_persons || b.total_persons, 10) || 0;
+                    return dir === 'asc' ? (valA - valB) : (valB - valA);
+                } else if (col === 'status') {
+                    var pA = parseInt(a.slot_persons || a.total_persons, 10) || 1;
+                    var pB = parseInt(b.slot_persons || b.total_persons, 10) || 1;
+                    valA = (a.checkin_fatti || 0) / pA;
+                    valB = (b.checkin_fatti || 0) / pB;
+                    return dir === 'asc' ? (valA - valB) : (valB - valA);
+                } else {
+                    // Default: 'date' (timestamp registrazione più recente in alto)
+                    valA = parseInt(a.timestamp, 10) || 0;
+                    valB = parseInt(b.timestamp, 10) || 0;
+                    if (valA !== valB) {
+                        return dir === 'asc' ? (valA - valB) : (valB - valA);
+                    }
+                    var idA = parseInt(a.order_id || a.id, 10) || 0;
+                    var idB = parseInt(b.order_id || b.id, 10) || 0;
+                    return dir === 'asc' ? (idA - idB) : (idB - idA);
+                }
+            });
+        }
 
         // Caricamento iniziale
         loadSlots(activeDate);
@@ -26,10 +95,12 @@
         // ====================================================================
         // 1. CARICAMENTO DATI
         // ====================================================================
-        function loadSlots(date) {
+        function loadSlots(date, isSilent) {
             activeDate = date;
             var $grid = $('#dfn-ci-grid');
-            $grid.html('<div class="dfn-loading"><span class="dashicons dashicons-update spin"></span> Caricamento in corso...</div>');
+            if (!isSilent) {
+                $grid.html('<div class="dfn-loading"><span class="dashicons dashicons-update spin"></span> Caricamento in corso...</div>');
+            }
 
             $.ajax({
                 url: ajaxurl,
@@ -45,11 +116,15 @@
                         currentData = response.data.slots;
                         renderCheckinView(currentData);
                     } else {
-                        $grid.html('<div class="notice notice-error"><p>' + (response.data.message || 'Errore nel caricamento.') + '</p></div>');
+                        if (!isSilent) {
+                            $grid.html('<div class="notice notice-error"><p>' + (response.data.message || 'Errore nel caricamento.') + '</p></div>');
+                        }
                     }
                 },
                 error: function() {
-                    $grid.html('<div class="notice notice-error"><p>Errore di rete durante il caricamento.</p></div>');
+                    if (!isSilent) {
+                        $grid.html('<div class="notice notice-error"><p>Errore di rete durante il caricamento.</p></div>');
+                    }
                 }
             });
         }
@@ -66,6 +141,38 @@
             loadSlots(activeDate);
         });
 
+        // Click su pillola stato ingressi
+        $(document).on('click', '.dfn-ci-status-pill', function() {
+            var status = $(this).data('status');
+            activeStatus = status;
+            $('.dfn-ci-status-pill').removeClass('active');
+            $(this).addClass('active');
+            if (currentData) renderCheckinView(currentData);
+        });
+
+        // Click rapido su card statistica in alto
+        $(document).on('click', '.dfn-stat-card-clickable', function() {
+            var targetStatus = $(this).data('status-target');
+            if (targetStatus) {
+                activeStatus = targetStatus;
+                $('.dfn-ci-status-pill').removeClass('active');
+                $('.dfn-ci-status-pill[data-status="' + targetStatus + '"]').addClass('active');
+                if (currentData) renderCheckinView(currentData);
+            }
+        });
+
+        // Click su intestazione ordinabile della tabella
+        $(document).on('click', '.dfn-ci-sortable-th', function() {
+            var col = $(this).data('col');
+            if (sortCol === col) {
+                sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+            } else {
+                sortCol = col;
+                sortDir = (col === 'order' || col === 'tickets' || col === 'date') ? 'desc' : 'asc';
+            }
+            if (currentData) renderCheckinView(currentData);
+        });
+
         // ====================================================================
         // 2. RENDERING INTERFACCIA
         // ====================================================================
@@ -79,14 +186,31 @@
 
             // Calcola totali aggregati per tutti gli slot
             var totVenduti = 0, totCheckin = 0, totCapacita = 0;
+            var countAll = 0, countPending = 0, countPartial = 0, countCompleted = 0;
+            var persPending = 0;
+
             slots.forEach(function(slot) {
                 totVenduti    += slot.booked_count;
                 totCapacita   += (slot.capacity + slot.bonus_capacity);
                 slot.bookings.forEach(function(b) {
-                    if (b.checkin_fatti) totCheckin += b.checkin_fatti;
+                    var nPers = parseInt(b.slot_persons || b.total_persons, 10) || 1;
+                    var nCheck = parseInt(b.checkin_fatti, 10) || 0;
+
+                    if (nCheck > 0) totCheckin += nCheck;
+                    countAll++;
+
+                    if (nCheck === 0) {
+                        countPending++;
+                        persPending += nPers;
+                    } else if (nCheck < nPers) {
+                        countPartial++;
+                        persPending += (nPers - nCheck);
+                    } else {
+                        countCompleted++;
+                    }
                 });
             });
-            var totAttesa  = totVenduti - totCheckin;
+            var totAttesa  = Math.max(0, totVenduti - totCheckin);
             var totLiberi  = Math.max(0, totCapacita - totVenduti);
 
             // Aggiorna contatori statistici in alto
@@ -95,25 +219,88 @@
             $('#dfn-ci-stat-attesa').text(totAttesa);
             $('#dfn-ci-stat-liberi').text(totLiberi);
 
+            // Aggiorna grafico flusso ingressi e gamification volontari
+            updateFlowChartAndGamification(slots);
+
+            // Aggiorna badge pillole filtri
+            $('#dfn-ci-count-all').text(countAll);
+            $('#dfn-ci-count-pending').text(countPending);
+            $('#dfn-ci-count-partial').text(countPartial);
+            $('#dfn-ci-count-completed').text(countCompleted);
+
+            // Evidenziazione sincronizzata card statistiche
+            $('.dfn-stat-card-clickable').removeClass('active-filter');
+            if (activeStatus === 'all') {
+                $('.dfn-stat-card-clickable[data-status-target="all"]').addClass('active-filter');
+            } else if (activeStatus === 'pending') {
+                $('.dfn-stat-card-clickable[data-status-target="pending"]').addClass('active-filter');
+            } else if (activeStatus === 'completed') {
+                $('.dfn-stat-card-clickable[data-status-target="completed"]').addClass('active-filter');
+            }
+
+            // Info testo descrittivo
+            var infoText = '';
+            if (activeStatus === 'pending') {
+                infoText = '🔍 Visualizzando <strong>' + countPending + '</strong> prenotazioni ancora da validare (<strong>' + persPending + '</strong> persone in attesa)';
+            } else if (activeStatus === 'partial') {
+                infoText = '🔍 Visualizzando <strong>' + countPartial + '</strong> prenotazioni con ingressi parziali';
+            } else if (activeStatus === 'completed') {
+                infoText = '🔍 Visualizzando <strong>' + countCompleted + '</strong> prenotazioni convalidate al 100% (' + totCheckin + ' persone entrate)';
+            } else {
+                infoText = 'Mostrando tutte le <strong>' + countAll + '</strong> prenotazioni (' + totVenduti + ' posti)';
+            }
+            $('#dfn-ci-filter-status-info').html(infoText);
+
             var html = '';
 
             // Per ogni slot: titolo card con progress bar + tabella
             slots.forEach(function(slot) {
                 var filteredBookings = slot.bookings;
+
+                // 1. Filtro per stato check-in
+                if (activeStatus === 'pending') {
+                    filteredBookings = filteredBookings.filter(function(b) {
+                        return !b.checkin_fatti || b.checkin_fatti === 0;
+                    });
+                } else if (activeStatus === 'partial') {
+                    filteredBookings = filteredBookings.filter(function(b) {
+                        return b.checkin_fatti > 0 && b.checkin_fatti < b.slot_persons;
+                    });
+                } else if (activeStatus === 'completed') {
+                    filteredBookings = filteredBookings.filter(function(b) {
+                        return b.checkin_fatti >= b.slot_persons;
+                    });
+                }
+
+                // 2. Filtro per ricerca testuale
                 if (searchQuery !== '') {
-                    filteredBookings = slot.bookings.filter(function(b) {
+                    filteredBookings = filteredBookings.filter(function(b) {
                         var name  = b.customer_name  ? b.customer_name.toLowerCase()  : '';
                         var email = b.customer_email ? b.customer_email.toLowerCase() : '';
                         var phone = b.customer_phone ? b.customer_phone.toLowerCase() : '';
+                        var order = b.order_id       ? b.order_id.toString()          : '';
                         return name.indexOf(searchQuery) !== -1 ||
                                email.indexOf(searchQuery) !== -1 ||
-                               phone.indexOf(searchQuery) !== -1;
+                               phone.indexOf(searchQuery) !== -1 ||
+                               order.indexOf(searchQuery) !== -1;
                     });
                 }
+
+                // 3. Ordinamento
+                var sortedBookings = sortBookings(filteredBookings, sortCol, sortDir);
 
                 var totalCapacity = slot.capacity + slot.bonus_capacity;
                 var booked = slot.booked_count;
                 var percent = totalCapacity > 0 ? Math.min(100, Math.round((booked / totalCapacity) * 100)) : 0;
+
+                var filterBadge = '';
+                if (activeStatus === 'pending') {
+                    filterBadge = ' &bull; <span style="color:#dc2626; font-weight:700;">Filtro: Da validare (' + sortedBookings.length + ')</span>';
+                } else if (activeStatus === 'partial') {
+                    filterBadge = ' &bull; <span style="color:#d97706; font-weight:700;">Filtro: In corso (' + sortedBookings.length + ')</span>';
+                } else if (activeStatus === 'completed') {
+                    filterBadge = ' &bull; <span style="color:#15803d; font-weight:700;">Filtro: Validate (' + sortedBookings.length + ')</span>';
+                }
 
                 var headerHtml =
                     '<div class="dfn-slot-header-card" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:15px 20px; margin-bottom:15px; margin-top:20px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">' +
@@ -123,7 +310,7 @@
                         '<div class="slot-progress-info">' +
                             '<div class="progress-labels" style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px; color:#64748b;">' +
                                 '<span>' + (slot.is_locked ? 'Bloccato' : percent + '% occupato') + '</span>' +
-                                '<span><strong>' + booked + '</strong> / ' + totalCapacity + ' posti &bull; ' + filteredBookings.length + ' prenotazioni</span>' +
+                                '<span><strong>' + booked + '</strong> / ' + totalCapacity + ' posti &bull; ' + sortedBookings.length + ' visualizzate' + filterBadge + '</span>' +
                             '</div>' +
                             '<div class="progress-bar-bg" style="height:8px; background:#f1f5f9; border-radius:9999px; overflow:hidden;">' +
                                 '<div class="progress-bar-fill" style="height:100%; border-radius:9999px; background:linear-gradient(90deg, #16a34a, #4ade80); width:' + percent + '%;"></div>' +
@@ -132,7 +319,7 @@
                     '</div>';
 
                 html += headerHtml;
-                html += generateCheckinTableHtml(filteredBookings, slot);
+                html += generateCheckinTableHtml(sortedBookings, slot);
             });
 
             $('#dfn-ci-grid').html(html);
@@ -147,24 +334,35 @@
         // 3. TABELLA CHECK-IN
         // ====================================================================
         function generateCheckinTableHtml(bookings, slot) {
-            var html = '<div style="overflow-x:auto; margin-bottom:30px;">';
-            html += '<table class="wp-list-table widefat fixed striped dfn-bookings-rich-table" style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1;">';
+            var html = '<div class="dfn-ci-table-responsive" style="overflow-x:auto; -webkit-overflow-scrolling:touch; margin-bottom:30px;">';
+            html += '<table class="wp-list-table widefat striped dfn-bookings-rich-table" style="width:100%; min-width:1150px; border-collapse:collapse; table-layout:auto;">';
             html += '<thead><tr style="background:#f1f5f9;">' +
-                '<th style="padding:12px 10px; font-weight:700; width:80px; text-align:left;">Ordine #</th>' +
-                '<th style="padding:12px 10px; font-weight:700; text-align:left;">Cliente</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:120px; text-align:left;">Qualifica</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:130px; text-align:left;">Telefono</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:80px; text-align:center;">Biglietti</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:130px; text-align:center;">Stato Arrivi</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:140px; text-align:left;">Validato da</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:160px; text-align:center;">Azioni Cassa</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:160px; text-align:center;">Messaggi</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:80px; text-align:center;">Storico</th>' +
+                renderSortableTh('order', 'Ordine #', sortCol, sortDir, 'width:85px; min-width:80px; text-align:center; white-space:nowrap;', true) +
+                renderSortableTh('customer', 'Cliente', sortCol, sortDir, 'width:220px; min-width:180px; white-space:nowrap;', false) +
+                '<th style="padding:12px 10px; font-weight:700; width:120px; min-width:110px; text-align:left; white-space:nowrap;">Qualifica</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:125px; min-width:110px; text-align:left; white-space:nowrap;">Telefono</th>' +
+                renderSortableTh('tickets', 'Biglietti', sortCol, sortDir, 'width:75px; min-width:70px; text-align:center; white-space:nowrap;', true) +
+                renderSortableTh('status', 'Stato Arrivi', sortCol, sortDir, 'width:125px; min-width:115px; text-align:center; white-space:nowrap;', true) +
+                '<th style="padding:12px 10px; font-weight:700; width:140px; min-width:130px; text-align:left; white-space:nowrap;">Validato da</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:150px; min-width:140px; text-align:center; white-space:nowrap;">Azioni Cassa</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:145px; min-width:135px; text-align:center; white-space:nowrap;">Messaggi</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:90px; min-width:85px; text-align:center; white-space:nowrap;">Storico</th>' +
             '</tr></thead>';
             html += '<tbody>';
 
             if (!bookings || bookings.length === 0) {
-                html += '<tr><td colspan="10" style="padding:30px; text-align:center; color:#64748b;">Nessuna prenotazione trovata.</td></tr>';
+                var searchQuery = $('#dfn-ci-search').val().trim();
+                var emptyMsg = 'Nessuna prenotazione trovata.';
+                if (searchQuery !== '') {
+                    emptyMsg = 'Nessuna prenotazione trovata per "<strong>' + searchQuery + '</strong>".';
+                } else if (activeStatus === 'pending') {
+                    emptyMsg = '🎉 <strong>Tutti i partecipanti sono già entrati!</strong> Nessuna prenotazione in attesa di validazione.';
+                } else if (activeStatus === 'partial') {
+                    emptyMsg = 'Nessun gruppo con ingressi parziali in questo momento.';
+                } else if (activeStatus === 'completed') {
+                    emptyMsg = 'Nessuna prenotazione convalidata al 100% per ora.';
+                }
+                html += '<tr><td colspan="10" style="padding:30px; text-align:center; color:#64748b; font-size:14px;">' + emptyMsg + '</td></tr>';
             } else {
                 bookings.forEach(function(b) {
                     var orderEditUrl = ajaxurl.replace('admin-ajax.php', 'post.php?post=' + b.order_id + '&action=edit');
@@ -183,28 +381,30 @@
 
                     // Azioni Cassa
                     var azioniCassaBtn = b.checkin_fatti < b.slot_persons
-                        ? '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#16a34a; color:#166534; font-weight:700; width:100%; display:inline-flex; justify-content:center; gap:4px; height:32px; line-height:24px;"><span class="dashicons dashicons-tickets-alt" style="font-size:14px; width:14px; height:14px; margin-top:2px;"></span> Gestisci Ingressi</button>'
-                        : '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; width:100%; display:inline-flex; justify-content:center; gap:4px; height:32px; line-height:24px;"><span class="dashicons dashicons-search" style="font-size:14px; width:14px; height:14px; margin-top:2px;"></span> Modifica</button>';
-                    var azioniCassaHtml = '<div style="position:relative;">' + azioniCassaBtn + (b.html_bottoni_popup || '') + '</div>';
+                        ? '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#16a34a; color:#166534; font-weight:700; width:100%; display:inline-flex; justify-content:center; align-items:center; gap:4px; height:32px; line-height:1; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-tickets-alt" style="font-size:14px; width:14px; height:14px; margin:0;"></span> Gestisci Ingressi</button>'
+                        : '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; width:100%; display:inline-flex; justify-content:center; align-items:center; gap:4px; height:32px; line-height:1; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-search" style="font-size:14px; width:14px; height:14px; margin:0;"></span> Modifica</button>';
+                    var azioniCassaHtml = '<div class="dfn-ci-cassa-wrap" style="position:relative; width:100%; max-width:140px; margin:0 auto; box-sizing:border-box;">' + azioniCassaBtn + (b.html_bottoni_popup || '') + '</div>';
 
-                    // Messaggi
-                    var btnReminder = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-reminder-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; margin-bottom:4px; border-color:#2271b1; color:#2271b1; display:inline-flex; justify-content:center; gap:2px; height:26px; line-height:20px; font-weight:600;"><span class="dashicons dashicons-email" style="font-size:12px; width:12px; height:12px; margin-top:1px;"></span> ' + (b.reminder_sent ? 'Reinvia Rem.' : 'Invia Rem.') + '</button>';
-                    var btnFeedback = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-feedback-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; border-color:#d97706; color:#d97706; display:inline-flex; justify-content:center; gap:2px; height:26px; line-height:20px; font-weight:600;"><span class="dashicons dashicons-star-filled" style="font-size:12px; width:12px; height:12px; margin-top:1px;"></span> ' + (b.feedback_sent ? 'Reinvia Rec.' : 'Chiedi Rec.') + '</button>';
+                    // Messaggi (impilati verticalmente in colonna con gap:4px)
+                    var btnReminder = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-reminder-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; border-color:#2271b1; color:#2271b1; display:inline-flex; justify-content:center; align-items:center; gap:3px; height:24px; line-height:1; font-weight:600; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-email" style="font-size:12px; width:12px; height:12px; margin:0;"></span> ' + (b.reminder_sent ? 'Reinvia Rem.' : 'Invia Rem.') + '</button>';
+                    var btnFeedback = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-feedback-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; border-color:#d97706; color:#d97706; display:inline-flex; justify-content:center; align-items:center; gap:3px; height:24px; line-height:1; font-weight:600; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-star-filled" style="font-size:12px; width:12px; height:12px; margin:0;"></span> ' + (b.feedback_sent ? 'Reinvia Rec.' : 'Chiedi Rec.') + '</button>';
+                    var messaggiHtml = '<div class="dfn-ci-msg-stack" style="display:flex; flex-direction:column; gap:4px; width:100%; max-width:130px; margin:0 auto; box-sizing:border-box;">' + btnReminder + btnFeedback + '</div>';
 
                     // Storico
-                    var storicoHtml = '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-history-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; display:inline-flex; justify-content:center; gap:4px; height:32px; line-height:24px; width:100%;"><span class="dashicons dashicons-editor-ul" style="font-size:14px; width:14px; height:14px; margin-top:2px;"></span> Log</button>' + (b.html_history_popup || '');
+                    var storicoBtn = '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-history-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; display:inline-flex; justify-content:center; align-items:center; gap:4px; height:32px; line-height:1; width:100%; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-editor-ul" style="font-size:14px; width:14px; height:14px; margin:0;"></span> Log</button>';
+                    var storicoHtml = '<div class="dfn-ci-history-wrap" style="width:100%; max-width:85px; margin:0 auto; box-sizing:border-box;">' + storicoBtn + (b.html_history_popup || '') + '</div>';
 
                     html += '<tr class="dfn-slot-booking-row" data-booking-id="' + b.id + '" data-slot-id="' + slot.id + '">' +
-                        '<td style="padding:12px 10px; vertical-align:middle;">' + orderLink + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle;"><div style="font-weight:700;">' + b.customer_name + '</div><div style="font-size:11px; color:#64748b;">' + (b.customer_email !== 'no-email@dfn.it' ? b.customer_email : '') + '</div></td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle;">' + (b.qualifica_html || '') + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle;">' + telefonoLink + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center; font-weight:700;">' + b.slot_persons + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center;">' + statoBadge + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; font-size:12px;">' + (b.operatori_html || '-') + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center;">' + azioniCassaHtml + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center;">' + btnReminder + btnFeedback + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center;">' + storicoHtml + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; white-space:nowrap;">' + orderLink + '</td>' +
+                        '<td class="dfn-col-customer" style="padding:10px 8px; vertical-align:middle; min-width:180px;"><div class="dfn-customer-name" style="font-weight:700; font-size:13px; color:#0f172a; line-height:1.3; white-space:nowrap;">' + b.customer_name + '</div><div class="dfn-customer-email" style="font-size:11px; color:#64748b; line-height:1.3; white-space:nowrap;">' + (b.customer_email !== 'no-email@dfn.it' ? b.customer_email : '') + '</div></td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; white-space:nowrap;">' + (b.qualifica_html || '') + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; white-space:nowrap;">' + telefonoLink + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; font-weight:700; white-space:nowrap;">' + b.slot_persons + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; white-space:nowrap;">' + statoBadge + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; font-size:12px; min-width:130px;">' + (b.operatori_html || '-') + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; min-width:140px;">' + azioniCassaHtml + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; min-width:135px;">' + messaggiHtml + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; min-width:85px;">' + storicoHtml + '</td>' +
                     '</tr>';
                 });
             }
@@ -212,6 +412,339 @@
             html += '</tbody></table></div>';
             return html;
         }
+
+        // ====================================================================
+        // 3. ANALYTICS & GAMIFICATION (GRAFICO FLUSSO & PODIO VOLONTARI)
+        // ====================================================================
+        function updateFlowChartAndGamification(slots) {
+            var allValidations = [];
+            if (slots && Array.isArray(slots)) {
+                slots.forEach(function(slot) {
+                    if (slot.bookings && Array.isArray(slot.bookings)) {
+                        slot.bookings.forEach(function(b) {
+                            if (b.validations && Array.isArray(b.validations)) {
+                                b.validations.forEach(function(v) {
+                                    allValidations.push(v);
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            // 1. Gamification Volontari (Podio e Classifica)
+            renderVolunteerGamification(allValidations);
+
+            // 2. Grafico Afflusso (Smaltimento Coda per minuto)
+            renderFlowChart(allValidations);
+        }
+
+        function renderVolunteerGamification(allValidations) {
+            var totalValidations = allValidations.length;
+            $('#dfn-team-validations-count').text(totalValidations);
+
+            var opCounts = {};
+            allValidations.forEach(function(v) {
+                var op = (v.operator || 'Staff').trim();
+                opCounts[op] = (opCounts[op] || 0) + 1;
+            });
+
+            var opList = [];
+            for (var opName in opCounts) {
+                opList.push({ name: opName, count: opCounts[opName] });
+            }
+            opList.sort(function(a, b) {
+                return b.count - a.count;
+            });
+
+            $('#dfn-leaderboard-active-staff-count').text(opList.length + (opList.length === 1 ? ' volontario' : ' volontari'));
+
+            var $podium = $('#dfn-podium-area');
+            var $lbList = $('#dfn-leaderboard-list');
+
+            if (opList.length === 0) {
+                $podium.html('<div style="color:#94a3b8; font-size:13px; text-align:center; padding:35px 10px; width:100%;"><span class="dashicons dashicons-awards" style="font-size:32px; width:32px; height:32px; opacity:0.4; margin-bottom:6px;"></span><p style="margin:0;">Nessun check-in ancora registrato.<br><small>Il podio si animerà non appena inizieranno le validazioni!</small></p></div>');
+                $lbList.html('<p style="color:#94a3b8; font-size:12px; text-align:center; margin:10px 0; font-style:italic;">In attesa di convalide...</p>');
+                return;
+            }
+
+            function getInitials(name) {
+                var parts = name.split(' ');
+                if (parts.length >= 2 && parts[1]) {
+                    return (parts[0][0] + parts[1][0]).toUpperCase();
+                }
+                return (name.substring(0, 2) || 'ST').toUpperCase();
+            }
+
+            function makePodiumCol(posClass, rank, medal, role, opData) {
+                if (!opData) {
+                    return '<div class="dfn-podium-col ' + posClass + '" style="opacity:0.35;">' +
+                        '<div class="dfn-podium-avatar-wrap"><div class="dfn-podium-avatar">-</div></div>' +
+                        '<div class="dfn-podium-name">-</div>' +
+                        '<div class="dfn-podium-role-badge">' + role + '</div>' +
+                        '<div class="dfn-podium-step"><div class="dfn-podium-rank">' + medal + '</div><div class="dfn-podium-count">0</div></div>' +
+                    '</div>';
+                }
+                var pct = totalValidations > 0 ? Math.round((opData.count / totalValidations) * 100) : 0;
+                var crown = (rank === 1) ? '<div class="dfn-podium-crown">👑</div>' : '';
+                return '<div class="dfn-podium-col ' + posClass + '">' +
+                    '<div class="dfn-podium-avatar-wrap">' +
+                        crown +
+                        '<div class="dfn-podium-avatar">' + getInitials(opData.name) + '</div>' +
+                    '</div>' +
+                    '<div class="dfn-podium-name" title="' + opData.name + '">' + opData.name + '</div>' +
+                    '<div class="dfn-podium-role-badge">' + role + '</div>' +
+                    '<div class="dfn-podium-step">' +
+                        '<div class="dfn-podium-rank">' + medal + '</div>' +
+                        '<div class="dfn-podium-count">' + opData.count + ' <small style="font-size:10px; font-weight:normal;">check-in</small></div>' +
+                        '<div class="dfn-podium-pct">' + pct + '% del totale</div>' +
+                    '</div>' +
+                '</div>';
+            }
+
+            // Costruzione Podio Olimpico: 2° (sinistra), 1° (centro), 3° (destra)
+            var podiumHtml = '';
+            podiumHtml += makePodiumCol('podium-2nd', 2, '🥈 2°', 'Vice Campione', opList[1] || null);
+            podiumHtml += makePodiumCol('podium-1st', 1, '🥇 1°', 'Top Scanner', opList[0] || null);
+            podiumHtml += makePodiumCol('podium-3rd', 3, '🥉 3°', 'Pilastro Desk', opList[2] || null);
+            $podium.html(podiumHtml);
+
+            // Costruzione Classifica Completa
+            var maxCount = opList[0].count;
+            var lbHtml = '';
+            opList.forEach(function(op, idx) {
+                var pos = idx + 1;
+                var posClass = pos <= 3 ? 'pos-' + pos : '';
+                var medalIcon = pos === 1 ? '🥇' : (pos === 2 ? '🥈' : (pos === 3 ? '🥉' : '#' + pos));
+                var barWidth = Math.max(8, Math.round((op.count / maxCount) * 100));
+                var pctTotal = totalValidations > 0 ? Math.round((op.count / totalValidations) * 100) : 0;
+
+                lbHtml += '<div class="dfn-leaderboard-item">' +
+                    '<div class="dfn-lb-pos ' + posClass + '">' + medalIcon + '</div>' +
+                    '<div class="dfn-lb-name" title="' + op.name + '">' + op.name + '</div>' +
+                    '<div class="dfn-lb-bar-wrap"><div class="dfn-lb-bar-fill" style="width:' + barWidth + '%;"></div></div>' +
+                    '<div class="dfn-lb-stat"><strong>' + op.count + '</strong> <span style="color:#64748b; font-size:10px;">(' + pctTotal + '%)</span></div>' +
+                '</div>';
+            });
+            $lbList.html(lbHtml);
+        }
+
+        function renderFlowChart(allValidations) {
+            var rawBuckets = {};
+            var minutePoints = [];
+
+            allValidations.forEach(function(v) {
+                if (!v.time) return;
+                var tStr = v.time.toString().trim();
+                var match = tStr.match(/(\d{1,2}):(\d{2})/);
+                if (match) {
+                    var h = parseInt(match[1], 10);
+                    var m = parseInt(match[2], 10);
+                    var totalMin = h * 60 + m;
+                    minutePoints.push(totalMin);
+                    
+                    var bucketM = flowInterval > 1 ? Math.floor(m / flowInterval) * flowInterval : m;
+                    var bucketTotalMin = h * 60 + bucketM;
+                    rawBuckets[bucketTotalMin] = (rawBuckets[bucketTotalMin] || 0) + 1;
+                }
+            });
+
+            var $canvas = $('#dfnFlowChart');
+            var $empty = $('#dfn-chart-empty');
+
+            if (minutePoints.length === 0) {
+                $canvas.hide();
+                $empty.show();
+                $('#dfn-kpi-peak').text('-');
+                $('#dfn-kpi-speed').text('-');
+                $('#dfn-kpi-duration').text('-');
+                if (flowChartInstance) {
+                    flowChartInstance.destroy();
+                    flowChartInstance = null;
+                }
+                return;
+            }
+
+            $empty.hide();
+            $canvas.show();
+
+            minutePoints.sort(function(a, b) { return a - b; });
+            var minMin = minutePoints[0];
+            var maxMin = minutePoints[minutePoints.length - 1];
+
+            var startMin = flowInterval > 1 ? Math.floor(minMin / flowInterval) * flowInterval : minMin;
+            var endMin   = flowInterval > 1 ? Math.floor(maxMin / flowInterval) * flowInterval : maxMin;
+
+            var labels = [];
+            var dataPoints = [];
+            var maxPeakVal = 0;
+            var peakTimeStr = '-';
+
+            for (var cur = startMin; cur <= endMin; cur += flowInterval) {
+                var curH = Math.floor(cur / 60);
+                var curM = cur % 60;
+                var timeLabel = (curH < 10 ? '0' + curH : '' + curH) + ':' + (curM < 10 ? '0' + curM : '' + curM);
+                var count = rawBuckets[cur] || 0;
+                
+                labels.push(timeLabel);
+                dataPoints.push(count);
+
+                if (count > maxPeakVal) {
+                    maxPeakVal = count;
+                    peakTimeStr = timeLabel;
+                }
+            }
+
+            var durationMinutes = (maxMin - minMin) + 1;
+            var durationLabel = durationMinutes + ' min';
+            var startH = Math.floor(minMin / 60), startM = minMin % 60;
+            var endH = Math.floor(maxMin / 60), endM = maxMin % 60;
+            var windowStr = (startH < 10 ? '0' + startH : '' + startH) + ':' + (startM < 10 ? '0' + startM : '' + startM) + ' - ' +
+                            (endH < 10 ? '0' + endH : '' + endH) + ':' + (endM < 10 ? '0' + endM : '' + endM);
+
+            var avgSpeed = durationMinutes > 0 ? (allValidations.length / durationMinutes).toFixed(1) : allValidations.length;
+
+            $('#dfn-kpi-peak').html(maxPeakVal + ' <small style="font-size:11px; font-weight:normal;">alle ' + peakTimeStr + '</small>');
+            $('#dfn-kpi-speed').html(avgSpeed + ' <small style="font-size:11px; font-weight:normal;">/ min</small>');
+            $('#dfn-kpi-duration').html(durationLabel + ' <small style="font-size:10px; color:#64748b;">(' + windowStr + ')</small>');
+
+            if (typeof Chart === 'undefined') {
+                return;
+            }
+
+            var canvasEl = document.getElementById('dfnFlowChart');
+            if (!canvasEl) return;
+
+            if (flowChartInstance) {
+                flowChartInstance.destroy();
+            }
+
+            var chartCtx = canvasEl.getContext('2d');
+            var gradient = chartCtx.createLinearGradient(0, 0, 0, 220);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.40)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.01)');
+
+            flowChartInstance = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Persone entrate',
+                        data: dataPoints,
+                        borderColor: '#004b23',
+                        backgroundColor: gradient,
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.35,
+                        pointBackgroundColor: '#004b23',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 1.5,
+                        pointRadius: labels.length > 25 ? 2.5 : 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyFont: { size: 13 },
+                            padding: 10,
+                            cornerRadius: 6,
+                            callbacks: {
+                                label: function(context) {
+                                    var val = context.parsed.y;
+                                    return ' ' + val + (val === 1 ? ' persona convalidata' : ' persone convalidate');
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 10, family: 'system-ui' },
+                                color: '#64748b',
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 12
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: { size: 10, family: 'system-ui' },
+                                color: '#64748b',
+                                precision: 0
+                            },
+                            grid: {
+                                color: '#f1f5f9'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event Listeners Sezione Analytics
+        $(document).on('click', '.dfn-gran-btn', function() {
+            var interval = parseInt($(this).data('interval'), 10) || 1;
+            flowInterval = interval;
+            $('.dfn-gran-btn').removeClass('active');
+            $(this).addClass('active');
+            if (currentData) {
+                updateFlowChartAndGamification(currentData);
+            }
+        });
+
+        $(document).on('click', '#dfn-toggle-analytics-panel', function() {
+            var $panel = $('#dfn-analytics-panel');
+            var isCollapsed = $panel.toggleClass('is-collapsed').hasClass('is-collapsed');
+            var $btn = $(this);
+            if (isCollapsed) {
+                $btn.find('.dashicons').removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+                $btn.find('.toggle-text').text('Espandi');
+            } else {
+                $btn.find('.dashicons').removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
+                $btn.find('.toggle-text').text('Comprimi');
+                if (currentData) {
+                    updateFlowChartAndGamification(currentData);
+                }
+            }
+            localStorage.setItem('dfn_ci_panel_collapsed', isCollapsed ? 'true' : 'false');
+        });
+
+        $(document).on('click', '#dfn-toggle-autorefresh', function() {
+            autoRefreshActive = !autoRefreshActive;
+            var $btn = $(this);
+            var $liveBadge = $('#dfn-live-indicator');
+
+            if (autoRefreshActive) {
+                $liveBadge.show();
+                $btn.css({ background: '#004b23', color: '#fff', borderColor: '#003b1c' });
+                $btn.find('.dashicons').removeClass('dashicons-controls-play').addClass('dashicons-controls-pause');
+                $btn.find('.btn-text').text('Auto-refresh: ON (30s)');
+                autoRefreshTimer = setInterval(function() {
+                    loadSlots(activeDate, true);
+                }, 30000);
+            } else {
+                $liveBadge.hide();
+                $btn.css({ background: '', color: '', borderColor: '' });
+                $btn.find('.dashicons').removeClass('dashicons-controls-pause').addClass('dashicons-controls-play');
+                $btn.find('.btn-text').text('Auto-refresh: OFF');
+                if (autoRefreshTimer) {
+                    clearInterval(autoRefreshTimer);
+                    autoRefreshTimer = null;
+                }
+            }
+        });
 
         // ====================================================================
         // 4. CASSA CHECK-IN HANDLERS
@@ -374,12 +907,12 @@
             e.preventDefault();
             if (!confirm('Sei sicuro di voler inviare il promemoria a tutti gli acquirenti?')) return;
             var btn = $(this);
-            var originalText = btn.text();
+            var originalText = btn.html();
             btn.prop('disabled', true);
             var totalSent = 0;
 
             function inviaLotto() {
-                btn.text('&#9203; Invio in corso (' + totalSent + ' inviate)...');
+                btn.text('⏳ Invio in corso (' + totalSent + ' inviate)...');
                 $.ajax({
                     url: ajaxurl,
                     type: 'POST',
@@ -387,15 +920,19 @@
                     success: function(response) {
                         if (response.success) {
                             totalSent += response.data.sent;
-                            if (response.data.has_more) { inviaLotto(); }
-                            else {
-                                alert(totalSent > 0 ? '&#9989; Inviate ' + totalSent + ' email.' : '&#9989; Nessuna email inviata.');
-                                btn.prop('disabled', false).text(originalText);
+                            if (response.data.has_more) {
+                                btn.text('⏳ Pausa anti-spam tra i lotti (inviate ' + totalSent + ')...');
+                                setTimeout(function() {
+                                    inviaLotto();
+                                }, 2000);
+                            } else {
+                                alert(totalSent > 0 ? '✅ Inviate ' + totalSent + ' email.' : '✅ Nessuna email inviata.');
+                                btn.prop('disabled', false).html(originalText);
                                 loadSlots(activeDate);
                             }
-                        } else { alert('&#10060; Errore: ' + response.data); btn.prop('disabled', false).text(originalText); }
+                        } else { alert('❌ Errore: ' + response.data); btn.prop('disabled', false).html(originalText); }
                     },
-                    error: function() { alert('&#10060; Errore di rete.'); btn.prop('disabled', false).text(originalText); }
+                    error: function() { alert('❌ Errore di rete.'); btn.prop('disabled', false).html(originalText); }
                 });
             }
             inviaLotto();
@@ -404,30 +941,34 @@
         // Feedback Globale
         $(document).on('click', '#cv-send-feedback-btn', function(e) {
             e.preventDefault();
-            if (!confirm('Vuoi inviare la richiesta di recensione a tutti i partecipanti verificati?')) return;
+            if (!confirm('Vuoi inviare la richiesta di recensione a tutti i partecipanti verificati?\n\nL\'email verrà inviata a lotti distanziati solo a chi è stato convalidato all\'ingresso.')) return;
             var btn = $(this);
-            var originalText = btn.text();
+            var originalText = btn.html();
             btn.prop('disabled', true);
             var totalSent = 0;
 
             function inviaLottoFeedback() {
-                btn.text('&#9203; Invio in corso (' + totalSent + ' inviate)...');
+                btn.text('⏳ Invio in corso (' + totalSent + ' inviate)...');
                 $.ajax({
                     url: ajaxurl,
                     type: 'POST',
-                    data: { action: 'cv_send_feedback_request', security: dfnCheckinVars.nonceFeedback, event_id: eventId },
+                    data: { action: 'cv_send_feedback_requests', security: dfnCheckinVars.nonceFeedback, event_id: eventId },
                     success: function(response) {
                         if (response.success) {
                             totalSent += response.data.sent;
-                            if (response.data.has_more) { inviaLottoFeedback(); }
-                            else {
-                                alert(totalSent > 0 ? '&#9989; Inviate ' + totalSent + ' email.' : '&#9989; Nessuna email inviata.');
-                                btn.prop('disabled', false).text(originalText);
+                            if (response.data.has_more) {
+                                btn.text('⏳ Pausa anti-spam tra i lotti (inviate ' + totalSent + ')...');
+                                setTimeout(function() {
+                                    inviaLottoFeedback();
+                                }, 2000);
+                            } else {
+                                alert(totalSent > 0 ? '✅ Operazione completata! Inviate ' + totalSent + ' email di richiesta recensione.' : '✅ Nessuna email da inviare. Tutti i partecipanti idonei hanno già ricevuto la richiesta oppure non ci sono presenze verificate.');
+                                btn.prop('disabled', false).html(originalText);
                                 loadSlots(activeDate);
                             }
-                        } else { alert('&#10060; Errore: ' + response.data); btn.prop('disabled', false).text(originalText); }
+                        } else { alert('❌ Errore: ' + response.data); btn.prop('disabled', false).html(originalText); }
                     },
-                    error: function() { alert('&#10060; Errore di rete.'); btn.prop('disabled', false).text(originalText); }
+                    error: function() { alert('❌ Errore di rete.'); btn.prop('disabled', false).html(originalText); }
                 });
             }
             inviaLottoFeedback();
