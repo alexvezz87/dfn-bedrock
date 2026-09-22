@@ -1404,9 +1404,15 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
 
                             <?php if ($rating_data && $rating_data['count'] > 0) : ?>
                                 <div class="dfn-past-card-rating">
-                                    <span class="dfn-stars">⭐</span>
-                                    <span class="dfn-rating-val"><?php echo number_format($rating_data['rating'], 1); ?></span>
-                                    <span class="dfn-rating-count">(<?php echo intval($rating_data['count']); ?> <?php echo $rating_data['count'] === 1 ? 'recensione' : 'recensioni'; ?>)</span>
+                                    <div class="dfn-past-rating-num"><?php echo number_format($rating_data['rating'], 1, ',', '.'); ?></div>
+                                    <div class="dfn-past-rating-details">
+                                        <div class="dfn-past-rating-stars">
+                                            <?php echo dfn_render_star_rating_svg($rating_data['rating'], 14); ?>
+                                        </div>
+                                        <div class="dfn-past-rating-label">
+                                            <strong><?php echo intval($rating_data['count']); ?></strong> <?php echo $rating_data['count'] === 1 ? esc_html__('recensione verificata', 'dfn-theme') : esc_html__('recensioni verificate', 'dfn-theme'); ?>
+                                        </div>
+                                    </div>
                                 </div>
                             <?php endif; ?>
 
