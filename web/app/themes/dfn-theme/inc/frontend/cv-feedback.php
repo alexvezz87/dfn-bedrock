@@ -65,7 +65,14 @@ function cv_render_feedback_page()
                     $review_log = $review ? " | Commento: \"{$review}\"" : "";
                     if (function_exists('dfn_db_get_booking_by_order')) {
                         $booking_rec = dfn_db_get_booking_by_order($order->get_id());
-                        if ($booking_rec && function_exists('dfn_log_booking')) {
+                        if ($booking_rec && function_exists('dfn_log_review')) {
+                            dfn_log_review(
+                                (int) $booking_rec->id,
+                                $rating,
+                                $review,
+                                $customer_full_name
+                            );
+                        } elseif ($booking_rec && function_exists('dfn_log_booking')) {
                             dfn_log_booking(
                                 (int) $booking_rec->id,
                                 'Recensione Ricevuta',
@@ -73,10 +80,10 @@ function cv_render_feedback_page()
                                 $customer_full_name
                             );
                         } elseif (function_exists('dfn_log_write')) {
-                            dfn_log_write('recensioni', $customer_full_name, sprintf('Recensione rilasciata per Ordine #%d: %d/5 stelle%s', $order_id, $rating, $review_log), 'success');
+                            dfn_log_write('recensione', $customer_full_name, sprintf('Recensione rilasciata per Ordine #%d: %d/5 stelle%s', $order_id, $rating, $review_log), 'success');
                         }
                     } elseif (function_exists('dfn_log_write')) {
-                        dfn_log_write('recensioni', $customer_full_name, sprintf('Recensione rilasciata per Ordine #%d: %d/5 stelle%s', $order_id, $rating, $review_log), 'success');
+                        dfn_log_write('recensione', $customer_full_name, sprintf('Recensione rilasciata per Ordine #%d: %d/5 stelle%s', $order_id, $rating, $review_log), 'success');
                     }
                 }
             }
