@@ -1075,8 +1075,15 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
     <!-- ======================================================= -->
     <?php if ('yes' === $atts['show_past'] && ! empty($past_events)) : ?>
         <section class="dfn-past-wall-section">
+            <div class="dfn-past-wall-divider">
+                <span class="dfn-past-divider-line left"></span>
+                <span class="dfn-past-divider-badge">
+                    🏛️ <?php esc_html_e('Archivio Iniziative', 'dfn-theme'); ?>
+                </span>
+                <span class="dfn-past-divider-line right"></span>
+            </div>
+
             <div class="dfn-past-wall-header">
-                <div class="dfn-past-wall-badge">🏛️ <?php esc_html_e('Archivio Iniziative', 'dfn-theme'); ?></div>
                 <h2 class="dfn-past-wall-title"><?php esc_html_e('I Nostri Eventi Passati', 'dfn-theme'); ?></h2>
                 <p class="dfn-past-wall-subtitle"><?php esc_html_e('Rivivi le atmosfere e le emozioni delle iniziative speciali che abbiamo condiviso insieme.', 'dfn-theme'); ?></p>
             </div>
