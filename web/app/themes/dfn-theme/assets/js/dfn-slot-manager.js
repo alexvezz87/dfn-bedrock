@@ -1896,9 +1896,9 @@
 
         $(document).on("click", "#cv-send-feedback-btn", function(e) {
             e.preventDefault();
-            if(!confirm("⚠️ Vuoi davvero inviare la richiesta di recensione a tutti i partecipanti di questo evento che sono stati convalidati?\n\nL'email verrà inviata solo a chi ha effettuato correttamente il check-in.")) return;
+            if(!confirm("⚠️ Vuoi davvero inviare la richiesta di recensione a tutti i partecipanti di questo evento che sono stati convalidati?\n\nL'email verrà inviata a lotti distanziati solo a chi ha effettuato correttamente il check-in.")) return;
             var btn = $(this); 
-            var originalText = btn.text(); 
+            var originalText = btn.html(); 
             btn.prop("disabled", true); 
             var totalSent = 0;
             
@@ -1908,7 +1908,7 @@
                     url: ajaxurl,
                     type: 'POST',
                     data: {
-                        action: "cv_send_feedback_request",
+                        action: "cv_send_feedback_requests",
                         security: dfnAdminVars.nonceFeedback,
                         event_id: eventId
                     },
@@ -1916,21 +1916,24 @@
                         if(response.success) {
                             totalSent += response.data.sent;
                             if (response.data.has_more) { 
-                                inviaLottoFeedback(); 
+                                btn.text("⏳ Pausa anti-spam tra i lotti (inviate " + totalSent + ")...");
+                                setTimeout(function() {
+                                    inviaLottoFeedback();
+                                }, 2000);
                             } else {
                                 if(totalSent > 0) alert("✅ Operazione completata! Inviate " + totalSent + " email di richiesta recensione.");
                                 else alert("✅ Nessuna email inviata. Nessuno soddisfa i criteri o l'hanno già ricevuta.");
-                                btn.prop("disabled", false).text(originalText);
+                                btn.prop("disabled", false).html(originalText);
                                 loadSlots(activeDate);
                             }
                         } else { 
                             alert("❌ Errore: " + response.data); 
-                            btn.prop("disabled", false).text(originalText); 
+                            btn.prop("disabled", false).html(originalText); 
                         }
                     },
                     error: function() {
                         alert("❌ Errore di rete.");
-                        btn.prop("disabled", false).text(originalText);
+                        btn.prop("disabled", false).html(originalText);
                     }
                 });
             }

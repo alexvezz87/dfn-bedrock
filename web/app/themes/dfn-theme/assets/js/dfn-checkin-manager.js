@@ -905,12 +905,12 @@
             e.preventDefault();
             if (!confirm('Sei sicuro di voler inviare il promemoria a tutti gli acquirenti?')) return;
             var btn = $(this);
-            var originalText = btn.text();
+            var originalText = btn.html();
             btn.prop('disabled', true);
             var totalSent = 0;
 
             function inviaLotto() {
-                btn.text('&#9203; Invio in corso (' + totalSent + ' inviate)...');
+                btn.text('⏳ Invio in corso (' + totalSent + ' inviate)...');
                 $.ajax({
                     url: ajaxurl,
                     type: 'POST',
@@ -918,15 +918,19 @@
                     success: function(response) {
                         if (response.success) {
                             totalSent += response.data.sent;
-                            if (response.data.has_more) { inviaLotto(); }
-                            else {
-                                alert(totalSent > 0 ? '&#9989; Inviate ' + totalSent + ' email.' : '&#9989; Nessuna email inviata.');
-                                btn.prop('disabled', false).text(originalText);
+                            if (response.data.has_more) {
+                                btn.text('⏳ Pausa anti-spam tra i lotti (inviate ' + totalSent + ')...');
+                                setTimeout(function() {
+                                    inviaLotto();
+                                }, 2000);
+                            } else {
+                                alert(totalSent > 0 ? '✅ Inviate ' + totalSent + ' email.' : '✅ Nessuna email inviata.');
+                                btn.prop('disabled', false).html(originalText);
                                 loadSlots(activeDate);
                             }
-                        } else { alert('&#10060; Errore: ' + response.data); btn.prop('disabled', false).text(originalText); }
+                        } else { alert('❌ Errore: ' + response.data); btn.prop('disabled', false).html(originalText); }
                     },
-                    error: function() { alert('&#10060; Errore di rete.'); btn.prop('disabled', false).text(originalText); }
+                    error: function() { alert('❌ Errore di rete.'); btn.prop('disabled', false).html(originalText); }
                 });
             }
             inviaLotto();
@@ -935,30 +939,34 @@
         // Feedback Globale
         $(document).on('click', '#cv-send-feedback-btn', function(e) {
             e.preventDefault();
-            if (!confirm('Vuoi inviare la richiesta di recensione a tutti i partecipanti verificati?')) return;
+            if (!confirm('Vuoi inviare la richiesta di recensione a tutti i partecipanti verificati?\n\nL\'email verrà inviata a lotti distanziati solo a chi è stato convalidato all\'ingresso.')) return;
             var btn = $(this);
-            var originalText = btn.text();
+            var originalText = btn.html();
             btn.prop('disabled', true);
             var totalSent = 0;
 
             function inviaLottoFeedback() {
-                btn.text('&#9203; Invio in corso (' + totalSent + ' inviate)...');
+                btn.text('⏳ Invio in corso (' + totalSent + ' inviate)...');
                 $.ajax({
                     url: ajaxurl,
                     type: 'POST',
-                    data: { action: 'cv_send_feedback_request', security: dfnCheckinVars.nonceFeedback, event_id: eventId },
+                    data: { action: 'cv_send_feedback_requests', security: dfnCheckinVars.nonceFeedback, event_id: eventId },
                     success: function(response) {
                         if (response.success) {
                             totalSent += response.data.sent;
-                            if (response.data.has_more) { inviaLottoFeedback(); }
-                            else {
-                                alert(totalSent > 0 ? '&#9989; Inviate ' + totalSent + ' email.' : '&#9989; Nessuna email inviata.');
-                                btn.prop('disabled', false).text(originalText);
+                            if (response.data.has_more) {
+                                btn.text('⏳ Pausa anti-spam tra i lotti (inviate ' + totalSent + ')...');
+                                setTimeout(function() {
+                                    inviaLottoFeedback();
+                                }, 2000);
+                            } else {
+                                alert(totalSent > 0 ? '✅ Operazione completata! Inviate ' + totalSent + ' email di richiesta recensione.' : '✅ Nessuna email da inviare. Tutti i partecipanti idonei hanno già ricevuto la richiesta oppure non ci sono presenze verificate.');
+                                btn.prop('disabled', false).html(originalText);
                                 loadSlots(activeDate);
                             }
-                        } else { alert('&#10060; Errore: ' + response.data); btn.prop('disabled', false).text(originalText); }
+                        } else { alert('❌ Errore: ' + response.data); btn.prop('disabled', false).html(originalText); }
                     },
-                    error: function() { alert('&#10060; Errore di rete.'); btn.prop('disabled', false).text(originalText); }
+                    error: function() { alert('❌ Errore di rete.'); btn.prop('disabled', false).html(originalText); }
                 });
             }
             inviaLottoFeedback();
