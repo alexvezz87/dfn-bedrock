@@ -676,16 +676,20 @@ add_action('wp_ajax_cv_send_event_reminders', 'cv_send_event_reminders_ajax');
 function cv_send_event_reminders_ajax()
 {
     check_ajax_referer('cv_reminder_nonce', 'security');
-    if (! current_user_can('manage_woocommerce')) {
+    if (! current_user_can('manage_woocommerce') && ! current_user_can('dfn_manage_events')) {
         wp_send_json_error('Permessi insufficienti.');
     }
 
+    global $wpdb;
     $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
     $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
 
     if (! $event_id && ! $order_id) {
         wp_send_json_error('Nessun ordine o evento specificato.');
     }
+
+    $orders = [];
+    $is_single = false;
 
     if ($order_id) {
         $order = wc_get_order($order_id);
@@ -695,8 +699,56 @@ function cv_send_event_reminders_ajax()
         $orders = [ $order ];
         $is_single = true;
     } else {
-        $orders = wc_get_orders([ 'status' => [ 'wc-processing', 'wc-completed' ], 'limit' => -1 ]);
-        $is_single = false;
+        // Risoluzione ID Evento DFN 2.0 vs Prodotto WooCommerce
+        $product_id   = 0;
+        $dfn_event_id = 0;
+
+        if (function_exists('dfn_db_get_event')) {
+            $dfn_event = dfn_db_get_event($event_id);
+            if ($dfn_event) {
+                $dfn_event_id = intval($dfn_event->id);
+                $product_id   = intval($dfn_event->product_id);
+            }
+        }
+
+        if (! $dfn_event_id && function_exists('dfn_db_get_event_by_product')) {
+            $dfn_event = dfn_db_get_event_by_product($event_id);
+            if ($dfn_event) {
+                $dfn_event_id = intval($dfn_event->id);
+                $product_id   = intval($dfn_event->product_id);
+            }
+        }
+
+        if (! $product_id) {
+            $product_id = $event_id;
+        }
+
+        // Se è un evento DFN 2.0, recupera gli ordini direttamente dalla tabella prenotazioni
+        if ($dfn_event_id > 0) {
+            $booking_order_ids = $wpdb->get_col($wpdb->prepare(
+                "SELECT DISTINCT order_id FROM {$wpdb->prefix}dfn_bookings 
+                 WHERE event_id = %d AND status != 'cancelled' AND order_id > 0",
+                $dfn_event_id
+            ));
+
+            if (! empty($booking_order_ids)) {
+                foreach ($booking_order_ids as $b_oid) {
+                    $o = wc_get_order($b_oid);
+                    if ($o && in_array($o->get_status(), [ 'processing', 'completed' ])) {
+                        $orders[] = $o;
+                    }
+                }
+            }
+        }
+
+        // Fallback per compatibilità con eventi legacy / ordini WC diretti
+        if (empty($orders)) {
+            $orders = wc_get_orders([
+                'status'     => [ 'wc-processing', 'wc-completed' ],
+                'limit'      => -1,
+                'product_id' => $product_id,
+            ]);
+        }
     }
 
     $invii = 0;
@@ -710,17 +762,6 @@ function cv_send_event_reminders_ajax()
         }
 
         if (! $is_single) {
-            $has_event = false;
-            foreach ($order->get_items() as $item) {
-                if ($item->get_product_id() == $event_id) {
-                    $has_event = true;
-                    break;
-                }
-            }
-            if (! $has_event) {
-                continue;
-            }
-
             if ($order->get_meta('_cv_reminder_sent') === 'yes') {
                 continue;
             }
@@ -730,12 +771,13 @@ function cv_send_event_reminders_ajax()
             }
         }
 
-        $email_cliente = $order->get_billing_email();
+        $email_cliente = trim($order->get_billing_email());
 
-        // NUOVO CONTROLLO: Salta le email fittizie della cassa (.local)
-        if (substr(strtolower($email_cliente), -6) === '.local') {
+        // Salta le email vuote, non valide o fittizie della cassa (.local)
+        if (empty($email_cliente) || ! is_email($email_cliente) || substr(strtolower($email_cliente), -6) === '.local') {
             if (! $is_single) {
                 $order->update_meta_data('_cv_reminder_sent', 'yes');
+                $order->add_order_note('📧 Reminder saltato: indirizzo email non valido o cassa botteghino (' . esc_html($email_cliente ?: 'vuoto') . ').');
                 $order->save();
             } else {
                 wp_send_json_error('Impossibile inviare l\'email a un indirizzo fittizio della cassa.');
@@ -768,6 +810,9 @@ function cv_send_event_reminders_ajax()
         $order->update_meta_data('_cv_reminder_sent', 'yes');
         $order->save();
         $invii++;
+
+        // Micro-pausa di 250ms tra un invio e l'altro per il server SMTP
+        usleep(250000);
     }
 
     wp_send_json_success([ 'sent' => $invii, 'has_more' => $has_more ]);
@@ -775,19 +820,24 @@ function cv_send_event_reminders_ajax()
 
 // 8. INVIO EMAIL DI FEEDBACK E RECENSIONI (CON NOME EVENTO)
 add_action('wp_ajax_cv_send_feedback_requests', 'cv_send_feedback_requests_ajax');
+add_action('wp_ajax_cv_send_feedback_request', 'cv_send_feedback_requests_ajax');
 function cv_send_feedback_requests_ajax()
 {
     check_ajax_referer('cv_feedback_nonce', 'security');
-    if (! current_user_can('manage_woocommerce')) {
+    if (! current_user_can('manage_woocommerce') && ! current_user_can('dfn_manage_events')) {
         wp_send_json_error('Permessi insufficienti.');
     }
 
+    global $wpdb;
     $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
     $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
 
     if (! $event_id && ! $order_id) {
         wp_send_json_error('Nessun ordine o evento specificato.');
     }
+
+    $orders = [];
+    $is_single = false;
 
     if ($order_id) {
         $order = wc_get_order($order_id);
@@ -797,8 +847,56 @@ function cv_send_feedback_requests_ajax()
         $orders = [ $order ];
         $is_single = true;
     } else {
-        $orders = wc_get_orders([ 'status' => [ 'wc-processing', 'wc-completed' ], 'limit' => -1 ]);
-        $is_single = false;
+        // Risoluzione ID Evento DFN 2.0 vs Prodotto WooCommerce
+        $product_id   = 0;
+        $dfn_event_id = 0;
+
+        if (function_exists('dfn_db_get_event')) {
+            $dfn_event = dfn_db_get_event($event_id);
+            if ($dfn_event) {
+                $dfn_event_id = intval($dfn_event->id);
+                $product_id   = intval($dfn_event->product_id);
+            }
+        }
+
+        if (! $dfn_event_id && function_exists('dfn_db_get_event_by_product')) {
+            $dfn_event = dfn_db_get_event_by_product($event_id);
+            if ($dfn_event) {
+                $dfn_event_id = intval($dfn_event->id);
+                $product_id   = intval($dfn_event->product_id);
+            }
+        }
+
+        if (! $product_id) {
+            $product_id = $event_id;
+        }
+
+        // Se è un evento DFN 2.0, recupera gli ordini direttamente dalla tabella prenotazioni
+        if ($dfn_event_id > 0) {
+            $booking_order_ids = $wpdb->get_col($wpdb->prepare(
+                "SELECT DISTINCT order_id FROM {$wpdb->prefix}dfn_bookings 
+                 WHERE event_id = %d AND status != 'cancelled' AND order_id > 0",
+                $dfn_event_id
+            ));
+
+            if (! empty($booking_order_ids)) {
+                foreach ($booking_order_ids as $b_oid) {
+                    $o = wc_get_order($b_oid);
+                    if ($o && in_array($o->get_status(), [ 'processing', 'completed' ])) {
+                        $orders[] = $o;
+                    }
+                }
+            }
+        }
+
+        // Fallback per compatibilità con eventi legacy / ordini WC diretti
+        if (empty($orders)) {
+            $orders = wc_get_orders([
+                'status'     => [ 'wc-processing', 'wc-completed' ],
+                'limit'      => -1,
+                'product_id' => $product_id,
+            ]);
+        }
     }
 
     $invii = 0;
@@ -817,27 +915,27 @@ function cv_send_feedback_requests_ajax()
         }
 
         if (! $is_single) {
-            $has_event = false;
-            foreach ($order->get_items() as $item) {
-                if ($item->get_product_id() == $event_id) {
-                    $has_event = true;
-                    break;
-                }
-            }
-            if (! $has_event) {
-                continue;
-            }
-
             if ($order->get_meta('_cv_feedback_sent') === 'yes') {
                 continue;
             }
 
-            // NUOVO CONTROLLO: Il cliente ha effettuato almeno un check-in?
+            // CONTROLLO CHECK-IN DFN 2.0 + LEGACY: Il cliente ha effettuato il check-in?
             $has_checkin = false;
-            for ($i = 1; $i <= $tot_biglietti_ordine; $i++) {
-                if ($order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
+            if ($order->get_meta('_cv_checked_in') === 'yes') {
+                $has_checkin = true;
+            } else {
+                for ($i = 1; $i <= $tot_biglietti_ordine; $i++) {
+                    if ($order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
+                        $has_checkin = true;
+                        break;
+                    }
+                }
+            }
+
+            if (! $has_checkin && function_exists('dfn_db_get_booking_by_order')) {
+                $booking_rec = dfn_db_get_booking_by_order($order->get_id());
+                if ($booking_rec && ($booking_rec->status === 'checked_in' || (! empty($booking_rec->checked_in_at) && $booking_rec->checked_in_at !== '0000-00-00 00:00:00'))) {
                     $has_checkin = true;
-                    break;
                 }
             }
 
@@ -855,10 +953,21 @@ function cv_send_feedback_requests_ajax()
         } else {
             // Se è un invio singolo, verifichiamo la presenza
             $has_checkin = false;
-            for ($i = 1; $i <= $tot_biglietti_ordine; $i++) {
-                if ($order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
+            if ($order->get_meta('_cv_checked_in') === 'yes') {
+                $has_checkin = true;
+            } else {
+                for ($i = 1; $i <= $tot_biglietti_ordine; $i++) {
+                    if ($order->get_meta('_cv_ticket_validato_' . $i) === 'yes') {
+                        $has_checkin = true;
+                        break;
+                    }
+                }
+            }
+
+            if (! $has_checkin && function_exists('dfn_db_get_booking_by_order')) {
+                $booking_rec = dfn_db_get_booking_by_order($order->get_id());
+                if ($booking_rec && ($booking_rec->status === 'checked_in' || (! empty($booking_rec->checked_in_at) && $booking_rec->checked_in_at !== '0000-00-00 00:00:00'))) {
                     $has_checkin = true;
-                    break;
                 }
             }
 
@@ -875,12 +984,13 @@ function cv_send_feedback_requests_ajax()
             continue;
         }
 
-        $email_cliente = $order->get_billing_email();
+        $email_cliente = trim($order->get_billing_email());
 
-        // NUOVO CONTROLLO: Salta le email fittizie della cassa (.local)
-        if (substr(strtolower($email_cliente), -6) === '.local') {
+        // CONTROLLO: Salta le email vuote, non valide o fittizie della cassa (.local)
+        if (empty($email_cliente) || ! is_email($email_cliente) || substr(strtolower($email_cliente), -6) === '.local') {
             if (! $is_single) {
                 $order->update_meta_data('_cv_feedback_sent', 'yes');
+                $order->add_order_note('⭐ Email recensione saltata: indirizzo email non valido o cassa botteghino (' . esc_html($email_cliente ?: 'vuoto') . ').');
                 $order->save();
             } else {
                 wp_send_json_error('Impossibile inviare l\'email a un indirizzo fittizio della cassa.');
@@ -919,6 +1029,9 @@ function cv_send_feedback_requests_ajax()
         $order->update_meta_data('_cv_feedback_sent', 'yes');
         $order->save();
         $invii++;
+
+        // Micro-pausa di 250ms tra un invio e l'altro per il server SMTP
+        usleep(250000);
     }
 
     wp_send_json_success([ 'sent' => $invii, 'has_more' => $has_more ]);
