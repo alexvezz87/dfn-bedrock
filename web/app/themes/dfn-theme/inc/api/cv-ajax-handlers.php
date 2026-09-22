@@ -800,7 +800,9 @@ function cv_send_event_reminders_ajax()
         echo '<p>Abbiamo anche creato una nuova Area Riservata sul nostro sito. Accedendo con l\'email che hai usato per l\'acquisto (<strong>' . esc_html($email_cliente) . '</strong>), potrai entrare nel tuo "Botteghino Personale", ritrovare lo storico degli acquisti e avere i biglietti sempre a portata di mano.</p>';
         echo '<p><a href="' . esc_url($account_url) . '" style="color: #ff6600; font-weight: bold; text-decoration: underline;">Clicca qui per scoprire la tua Area Riservata</a></p>';
         echo '<p style="margin-top: 40px;">Ti aspettiamo!<br><em>Lo Staff della Delegazione FAI Novara</em></p>';
+        add_filter('woocommerce_email_footer_text', '__return_empty_string');
         wc_get_template('emails/email-footer.php');
+        remove_filter('woocommerce_email_footer_text', '__return_empty_string');
 
         $message = ob_get_clean();
         wp_mail($email_cliente, 'I tuoi biglietti e una novità per te! 🎟️', $message, [ 'Content-Type: text/html; charset=UTF-8' ]);
@@ -1013,10 +1015,13 @@ function cv_send_feedback_requests_ajax()
         wc_get_template('emails/email-header.php', [ 'email_heading' => 'Grazie per aver partecipato!' ]);
         echo '<p>Ciao <strong>' . esc_html($nome_cliente) . '</strong>,</p>';
         echo '<p>Ci teniamo a ringraziarti di cuore per aver partecipato all\'evento <strong>' . esc_html($titolo_evento) . '</strong>. Speriamo davvero che tu abbia trascorso una bella esperienza in nostra compagnia.</p>';
-        echo '<p>Per noi il tuo parere è fondamentale per poterci migliorare sempre di più. Ti andrebbe di dedicarci 30 secondi per farci sapere com\'è andata?</p>';
+        echo '<p>Per noi il tuo parere è fondamentale per poterci migliorare sempre di più. Ti andrebbe di dedicarci 30 secondi per farci sapere com\'è andata? Clicca il bottone sottostante per lasciarci una recensione:</p>';
         echo '<div style="text-align: center; margin: 35px 0;"><a href="' . esc_url($feedback_url) . '" style="background-color: #eab308; color: #ffffff; padding: 16px 32px; font-size: 18px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block;">⭐ LASCIA UNA RECENSIONE</a></div>';
         echo '<p style="margin-top: 40px;">Grazie per il tuo tempo e a presto ai prossimi eventi!<br><em>Lo Staff della Delegazione FAI Novara</em></p>';
+
+        add_filter('woocommerce_email_footer_text', '__return_empty_string');
         wc_get_template('emails/email-footer.php');
+        remove_filter('woocommerce_email_footer_text', '__return_empty_string');
 
         $message = ob_get_clean();
 
@@ -1029,6 +1034,23 @@ function cv_send_feedback_requests_ajax()
         $order->update_meta_data('_cv_feedback_sent', 'yes');
         $order->save();
         $invii++;
+
+        // Log di sistema DFN
+        if (function_exists('dfn_db_get_booking_by_order')) {
+            $booking_rec = dfn_db_get_booking_by_order($order->get_id());
+            if ($booking_rec && function_exists('dfn_log_booking')) {
+                dfn_log_booking(
+                    (int) $booking_rec->id,
+                    'Richiesta Recensione Inviata',
+                    sprintf('Inviata email richiesta recensione a %s (%s)', $email_cliente, $titolo_evento),
+                    'Sistema'
+                );
+            } elseif (function_exists('dfn_log_write')) {
+                dfn_log_write('recensioni', 'Sistema', sprintf('Richiesta recensione inviata a %s per Ordine #%d (%s)', $email_cliente, $order->get_id(), $titolo_evento), 'success');
+            }
+        } elseif (function_exists('dfn_log_write')) {
+            dfn_log_write('recensioni', 'Sistema', sprintf('Richiesta recensione inviata a %s per Ordine #%d (%s)', $email_cliente, $order->get_id(), $titolo_evento), 'success');
+        }
 
         // Micro-pausa di 250ms tra un invio e l'altro per il server SMTP
         usleep(250000);
