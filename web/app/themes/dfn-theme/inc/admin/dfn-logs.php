@@ -158,6 +158,7 @@ function dfn_render_logs_page(): void
                             <?php 
                             $type_labels = [
                                 'prenotazione' => '🎟️ Prenotazioni',
+                                'recensione'   => '⭐ Recensioni',
                                 'annullamento' => '🚫 Annullamenti',
                                 'tessera_fai'  => '🪪 Tessere FAI',
                                 'checkin'      => '📱 Check-in / Scanner',
@@ -356,6 +357,7 @@ function dfn_render_logs_page(): void
         /* Badge Tipologia Log */
         .dfn-log-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-align: center; }
         .dfn-log-badge--prenotazione { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .dfn-log-badge--recensione   { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
         .dfn-log-badge--annullamento { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
         .dfn-log-badge--tessera_fai  { background: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; }
         .dfn-log-badge--checkin      { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }

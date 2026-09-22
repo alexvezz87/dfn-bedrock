@@ -192,6 +192,49 @@ function dfn_log_booking(int $booking_id, string $action, string $details = '', 
 }
 
 /**
+ * Registra il rilascio di una recensione da parte di un visitatore.
+ *
+ * @param int    $booking_id ID della prenotazione.
+ * @param int    $rating     Voto espresso (1-5).
+ * @param string $comment    Commento opzionale del visitatore.
+ * @param string $actor      Nome del visitatore (se vuoto, deduce dalla prenotazione o utente).
+ */
+function dfn_log_review(int $booking_id, int $rating, string $comment = '', string $actor = ''): void
+{
+    global $wpdb;
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    if (! $booking) {
+        return;
+    }
+
+    $order_id    = ! empty($booking->order_id) ? (string) $booking->order_id : 'N/D';
+    $event       = function_exists('dfn_db_get_event') ? dfn_db_get_event((int) $booking->event_id) : null;
+    $event_title = $event ? get_the_title($event->product_id) : 'Evento #' . $booking->event_id;
+
+    if (empty($actor)) {
+        $user  = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : ($booking->customer_name ?: 'Visitatore');
+    }
+
+    $desc = sprintf(
+        "Prenotazione #%d (Ordine #%s) | Evento: %s | Cliente: %s (%s) | Posti: %d (Interi: %d, FAI: %d) | Azione: Recensione Ricevuta",
+        $booking_id,
+        $order_id,
+        $event_title,
+        $booking->customer_name,
+        $booking->customer_email,
+        (int) $booking->total_persons,
+        (int) $booking->persons_standard,
+        (int) $booking->persons_fai
+    );
+
+    $comment_text = ! empty($comment) ? sprintf(' | Commento: "%s"', $comment) : '';
+    $desc .= sprintf(' | Dettagli: Voto: %d/5 stelle%s', $rating, $comment_text);
+
+    dfn_log_write('recensione', $actor, $desc, 'success');
+}
+
+/**
  * Registra l'annullamento di una prenotazione.
  *
  * @param int    $booking_id      ID della prenotazione.
