@@ -30,7 +30,47 @@ function cv_render_pagina_recensioni()
     }
 
     $selected_event = isset($_GET['event_id']) ? intval($_GET['event_id']) : 0;
+
+    global $wpdb;
+    $table_events = $wpdb->prefix . 'dfn_events';
+    $dfn_events = $wpdb->get_results("SELECT product_id, event_date_start FROM {$table_events} WHERE status != 'archived'");
+    $event_dates_by_product = [];
+    if (!empty($dfn_events)) {
+        foreach ($dfn_events as $devt) {
+            if (!empty($devt->product_id) && !empty($devt->event_date_start)) {
+                $event_dates_by_product[$devt->product_id] = $devt->event_date_start;
+            }
+        }
+    }
+
     $products = wc_get_products([ 'limit' => -1, 'status' => 'publish', 'return' => 'objects' ]);
+
+    $event_options = [];
+    foreach ($products as $product) {
+        $pid = $product->get_id();
+        $date_raw = $event_dates_by_product[$pid] ?? null;
+        if (!$date_raw && $product->get_date_created()) {
+            $date_raw = $product->get_date_created()->date('Y-m-d');
+        }
+
+        $formatted_date = $date_raw ? date_i18n('d/m/Y', strtotime($date_raw)) : '';
+        $label = $formatted_date ? $formatted_date . ' - ' . $product->get_name() : $product->get_name();
+
+        $event_options[] = [
+            'id'       => $pid,
+            'label'    => $label,
+            'date_raw' => $date_raw ?: '1970-01-01',
+        ];
+    }
+
+    // Ordina per data decrescente (dal più recente al più vecchio)
+    usort($event_options, function ($a, $b) {
+        $cmp = strcmp($b['date_raw'], $a['date_raw']);
+        if ($cmp === 0) {
+            return strcasecmp($a['label'], $b['label']);
+        }
+        return $cmp;
+    });
 
     echo '<div class="wrap"><h1>Recensioni e Feedback Eventi</h1>';
     echo '<p>Scopri cosa pensano i partecipanti dei tuoi eventi e leggi i loro suggerimenti.</p>';
@@ -61,9 +101,9 @@ function cv_render_pagina_recensioni()
 
     echo '<form method="GET" style="margin-bottom: 20px; background:#fff; padding:15px; border:1px solid #ccd0d4; border-radius:4px; display:inline-block;">';
     echo '<input type="hidden" name="page" value="cv-recensioni-eventi">';
-    echo '<select name="event_id" style="min-width:300px;"><option value="">-- Seleziona un Evento --</option>';
-    foreach ($products as $product) {
-        echo '<option value="' . esc_attr($product->get_id()) . '" ' . selected($selected_event, $product->get_id(), false) . '>' . esc_html($product->get_name()) . '</option>';
+    echo '<select name="event_id" style="min-width:380px;"><option value="">-- Seleziona un Evento --</option>';
+    foreach ($event_options as $opt) {
+        echo '<option value="' . esc_attr($opt['id']) . '" ' . selected($selected_event, $opt['id'], false) . '>' . esc_html($opt['label']) . '</option>';
     }
     echo '</select> <button type="submit" class="button button-primary">Carica Recensioni</button></form>';
 
