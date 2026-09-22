@@ -157,7 +157,12 @@ function dfn_enqueue_admin_assets($hook)
 
     // Se siamo nello Slot Manager carichiamo il suo controller JS
     if (strpos($hook, 'dfn-slot-manager') !== false) {
-        wp_enqueue_style('cv-report-css', get_stylesheet_directory_uri() . '/assets/css/cv-report.css', [], '1.0');
+        wp_enqueue_style(
+            'cv-report-css',
+            get_stylesheet_directory_uri() . '/assets/css/cv-report.css',
+            [],
+            filemtime(get_stylesheet_directory() . '/assets/css/cv-report.css')
+        );
         wp_enqueue_script(
             'dfn-slot-manager-js',
             get_stylesheet_directory_uri() . '/assets/js/dfn-slot-manager.js',
@@ -175,7 +180,12 @@ function dfn_enqueue_admin_assets($hook)
     } elseif (strpos($hook, 'dfn-checkin-manager') !== false) {
         // Check-in Banchetto: carica Chart.js, CSS e JS dedicati
         wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', [], null, true);
-        wp_enqueue_style('cv-report-css', get_stylesheet_directory_uri() . '/assets/css/cv-report.css', [], '1.0');
+        wp_enqueue_style(
+            'cv-report-css',
+            get_stylesheet_directory_uri() . '/assets/css/cv-report.css',
+            [],
+            filemtime(get_stylesheet_directory() . '/assets/css/cv-report.css')
+        );
         wp_enqueue_script(
             'dfn-checkin-manager-js',
             get_stylesheet_directory_uri() . '/assets/js/dfn-checkin-manager.js',
