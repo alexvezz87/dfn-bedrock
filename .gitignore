@@ -44,3 +44,6 @@ wp-cli.local.yml
 
 # Deploy archives
 deploy.tar.gz
+
+# Scratch / temp scripts
+scratch/
