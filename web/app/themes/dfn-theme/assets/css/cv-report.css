@@ -122,6 +122,40 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/CascadeStyleSheet.css to ed
     white-space: nowrap;
 }
 
+.dfn-ci-msg-stack {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    width: 100% !important;
+    max-width: 130px !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+}
+
+.dfn-ci-msg-stack .dfn-btn {
+    width: 100% !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+}
+
+.dfn-ci-cassa-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 140px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.dfn-ci-history-wrap {
+    width: 100%;
+    max-width: 85px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
 /* ==========================================================================
    ALLARGAMENTO POPUP DI DETTAGLIO PRENOTAZIONI TURNO MULTIPLO
    ========================================================================== */

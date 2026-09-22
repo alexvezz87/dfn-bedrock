@@ -337,16 +337,16 @@
             var html = '<div class="dfn-ci-table-responsive" style="overflow-x:auto; -webkit-overflow-scrolling:touch; margin-bottom:30px;">';
             html += '<table class="wp-list-table widefat striped dfn-bookings-rich-table" style="width:100%; min-width:1150px; border-collapse:collapse; table-layout:auto;">';
             html += '<thead><tr style="background:#f1f5f9;">' +
-                renderSortableTh('order', 'Ordine #', sortCol, sortDir, 'width:85px; min-width:85px; white-space:nowrap;', false) +
-                renderSortableTh('customer', 'Cliente', sortCol, sortDir, 'min-width:200px; white-space:nowrap;', false) +
+                renderSortableTh('order', 'Ordine #', sortCol, sortDir, 'width:85px; min-width:80px; text-align:center; white-space:nowrap;', true) +
+                renderSortableTh('customer', 'Cliente', sortCol, sortDir, 'width:220px; min-width:180px; white-space:nowrap;', false) +
                 '<th style="padding:12px 10px; font-weight:700; width:120px; min-width:110px; text-align:left; white-space:nowrap;">Qualifica</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:130px; min-width:115px; text-align:left; white-space:nowrap;">Telefono</th>' +
-                renderSortableTh('tickets', 'Biglietti', sortCol, sortDir, 'width:80px; min-width:75px; white-space:nowrap;', true) +
-                renderSortableTh('status', 'Stato Arrivi', sortCol, sortDir, 'width:130px; min-width:125px; white-space:nowrap;', true) +
+                '<th style="padding:12px 10px; font-weight:700; width:125px; min-width:110px; text-align:left; white-space:nowrap;">Telefono</th>' +
+                renderSortableTh('tickets', 'Biglietti', sortCol, sortDir, 'width:75px; min-width:70px; text-align:center; white-space:nowrap;', true) +
+                renderSortableTh('status', 'Stato Arrivi', sortCol, sortDir, 'width:125px; min-width:115px; text-align:center; white-space:nowrap;', true) +
                 '<th style="padding:12px 10px; font-weight:700; width:140px; min-width:130px; text-align:left; white-space:nowrap;">Validato da</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:160px; min-width:145px; text-align:center; white-space:nowrap;">Azioni Cassa</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:160px; min-width:145px; text-align:center; white-space:nowrap;">Messaggi</th>' +
-                '<th style="padding:12px 10px; font-weight:700; width:80px; min-width:75px; text-align:center; white-space:nowrap;">Storico</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:150px; min-width:140px; text-align:center; white-space:nowrap;">Azioni Cassa</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:145px; min-width:135px; text-align:center; white-space:nowrap;">Messaggi</th>' +
+                '<th style="padding:12px 10px; font-weight:700; width:90px; min-width:85px; text-align:center; white-space:nowrap;">Storico</th>' +
             '</tr></thead>';
             html += '<tbody>';
 
@@ -381,28 +381,30 @@
 
                     // Azioni Cassa
                     var azioniCassaBtn = b.checkin_fatti < b.slot_persons
-                        ? '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#16a34a; color:#166534; font-weight:700; width:100%; display:inline-flex; justify-content:center; gap:4px; height:32px; line-height:24px; white-space:nowrap;"><span class="dashicons dashicons-tickets-alt" style="font-size:14px; width:14px; height:14px; margin-top:2px;"></span> Gestisci Ingressi</button>'
-                        : '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; width:100%; display:inline-flex; justify-content:center; gap:4px; height:32px; line-height:24px; white-space:nowrap;"><span class="dashicons dashicons-search" style="font-size:14px; width:14px; height:14px; margin-top:2px;"></span> Modifica</button>';
-                    var azioniCassaHtml = '<div style="position:relative;">' + azioniCassaBtn + (b.html_bottoni_popup || '') + '</div>';
+                        ? '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#16a34a; color:#166534; font-weight:700; width:100%; display:inline-flex; justify-content:center; align-items:center; gap:4px; height:32px; line-height:1; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-tickets-alt" style="font-size:14px; width:14px; height:14px; margin:0;"></span> Gestisci Ingressi</button>'
+                        : '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-popup-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; width:100%; display:inline-flex; justify-content:center; align-items:center; gap:4px; height:32px; line-height:1; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-search" style="font-size:14px; width:14px; height:14px; margin:0;"></span> Modifica</button>';
+                    var azioniCassaHtml = '<div class="dfn-ci-cassa-wrap" style="position:relative; width:100%; max-width:140px; margin:0 auto; box-sizing:border-box;">' + azioniCassaBtn + (b.html_bottoni_popup || '') + '</div>';
 
-                    // Messaggi
-                    var btnReminder = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-reminder-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; margin-bottom:4px; border-color:#2271b1; color:#2271b1; display:inline-flex; justify-content:center; gap:2px; height:26px; line-height:20px; font-weight:600; white-space:nowrap;"><span class="dashicons dashicons-email" style="font-size:12px; width:12px; height:12px; margin-top:1px;"></span> ' + (b.reminder_sent ? 'Reinvia Rem.' : 'Invia Rem.') + '</button>';
-                    var btnFeedback = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-feedback-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; border-color:#d97706; color:#d97706; display:inline-flex; justify-content:center; gap:2px; height:26px; line-height:20px; font-weight:600; white-space:nowrap;"><span class="dashicons dashicons-star-filled" style="font-size:12px; width:12px; height:12px; margin-top:1px;"></span> ' + (b.feedback_sent ? 'Reinvia Rec.' : 'Chiedi Rec.') + '</button>';
+                    // Messaggi (impilati verticalmente in colonna con gap:4px)
+                    var btnReminder = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-reminder-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; border-color:#2271b1; color:#2271b1; display:inline-flex; justify-content:center; align-items:center; gap:3px; height:24px; line-height:1; font-weight:600; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-email" style="font-size:12px; width:12px; height:12px; margin:0;"></span> ' + (b.reminder_sent ? 'Reinvia Rem.' : 'Invia Rem.') + '</button>';
+                    var btnFeedback = '<button type="button" class="dfn-btn dfn-btn-secondary cv-single-feedback-btn" data-order="' + b.order_id + '" style="font-size:10px; padding:2px 6px; width:100%; border-color:#d97706; color:#d97706; display:inline-flex; justify-content:center; align-items:center; gap:3px; height:24px; line-height:1; font-weight:600; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-star-filled" style="font-size:12px; width:12px; height:12px; margin:0;"></span> ' + (b.feedback_sent ? 'Reinvia Rec.' : 'Chiedi Rec.') + '</button>';
+                    var messaggiHtml = '<div class="dfn-ci-msg-stack" style="display:flex; flex-direction:column; gap:4px; width:100%; max-width:130px; margin:0 auto; box-sizing:border-box;">' + btnReminder + btnFeedback + '</div>';
 
                     // Storico
-                    var storicoHtml = '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-history-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; display:inline-flex; justify-content:center; gap:4px; height:32px; line-height:24px; width:100%; white-space:nowrap;"><span class="dashicons dashicons-editor-ul" style="font-size:14px; width:14px; height:14px; margin-top:2px;"></span> Log</button>' + (b.html_history_popup || '');
+                    var storicoBtn = '<button type="button" class="dfn-btn dfn-btn-secondary cv-open-history-btn" data-cliente="' + b.customer_name + '" style="font-size:11px; padding:4px 8px; border-color:#cbd5e1; color:#475569; display:inline-flex; justify-content:center; align-items:center; gap:4px; height:32px; line-height:1; width:100%; white-space:nowrap; box-sizing:border-box;"><span class="dashicons dashicons-editor-ul" style="font-size:14px; width:14px; height:14px; margin:0;"></span> Log</button>';
+                    var storicoHtml = '<div class="dfn-ci-history-wrap" style="width:100%; max-width:85px; margin:0 auto; box-sizing:border-box;">' + storicoBtn + (b.html_history_popup || '') + '</div>';
 
                     html += '<tr class="dfn-slot-booking-row" data-booking-id="' + b.id + '" data-slot-id="' + slot.id + '">' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center; white-space:nowrap;">' + orderLink + '</td>' +
-                        '<td class="dfn-col-customer" style="padding:12px 10px; vertical-align:middle; min-width:200px;"><div class="dfn-customer-name" style="font-weight:700; font-size:13px; color:#0f172a; line-height:1.3; white-space:nowrap;">' + b.customer_name + '</div><div class="dfn-customer-email" style="font-size:11px; color:#64748b; line-height:1.3; white-space:nowrap;">' + (b.customer_email !== 'no-email@dfn.it' ? b.customer_email : '') + '</div></td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; white-space:nowrap;">' + (b.qualifica_html || '') + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; white-space:nowrap;">' + telefonoLink + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center; font-weight:700; white-space:nowrap;">' + b.slot_persons + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center; white-space:nowrap;">' + statoBadge + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; font-size:12px; min-width:130px;">' + (b.operatori_html || '-') + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center; min-width:145px; white-space:nowrap;">' + azioniCassaHtml + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center; min-width:145px; white-space:nowrap;">' + btnReminder + btnFeedback + '</td>' +
-                        '<td style="padding:12px 10px; vertical-align:middle; text-align:center; min-width:75px; white-space:nowrap;">' + storicoHtml + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; white-space:nowrap;">' + orderLink + '</td>' +
+                        '<td class="dfn-col-customer" style="padding:10px 8px; vertical-align:middle; min-width:180px;"><div class="dfn-customer-name" style="font-weight:700; font-size:13px; color:#0f172a; line-height:1.3; white-space:nowrap;">' + b.customer_name + '</div><div class="dfn-customer-email" style="font-size:11px; color:#64748b; line-height:1.3; white-space:nowrap;">' + (b.customer_email !== 'no-email@dfn.it' ? b.customer_email : '') + '</div></td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; white-space:nowrap;">' + (b.qualifica_html || '') + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; white-space:nowrap;">' + telefonoLink + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; font-weight:700; white-space:nowrap;">' + b.slot_persons + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; white-space:nowrap;">' + statoBadge + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; font-size:12px; min-width:130px;">' + (b.operatori_html || '-') + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; min-width:140px;">' + azioniCassaHtml + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; min-width:135px;">' + messaggiHtml + '</td>' +
+                        '<td style="padding:10px 8px; vertical-align:middle; text-align:center; min-width:85px;">' + storicoHtml + '</td>' +
                     '</tr>';
                 });
             }
