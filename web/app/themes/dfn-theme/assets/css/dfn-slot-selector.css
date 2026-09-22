@@ -1740,27 +1740,64 @@ body.dfn-event-single-product .site-main .product {
     margin-top: 16px;
 }
 
-.dfn-carousel-nav {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    border: 1px solid #cbd5e1;
-    background: #ffffff;
-    color: #334155;
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+.dfn-concluded-event-box .dfn-carousel-nav,
+.dfn-reviews-carousel-wrapper .dfn-carousel-nav,
+button.dfn-carousel-nav {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    border: 1.5px solid #cbd5e1 !important;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #004b23 !important;
+    font-size: 13px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05) !important;
+    outline: none !important;
+    user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 1 !important;
 }
 
-.dfn-carousel-nav:hover {
-    background: #004b23;
-    color: #ffffff;
-    border-color: #004b23;
-    transform: scale(1.08);
+.dfn-concluded-event-box .dfn-carousel-nav:hover,
+.dfn-reviews-carousel-wrapper .dfn-carousel-nav:hover,
+button.dfn-carousel-nav:hover {
+    background-color: #004b23 !important;
+    background: #004b23 !important;
+    color: #ffffff !important;
+    border-color: #004b23 !important;
+    transform: scale(1.08) !important;
+    box-shadow: 0 4px 12px rgba(0, 75, 35, 0.25) !important;
+}
+
+.dfn-concluded-event-box .dfn-carousel-nav:focus,
+.dfn-concluded-event-box .dfn-carousel-nav:active,
+.dfn-concluded-event-box .dfn-carousel-nav:focus-visible,
+.dfn-reviews-carousel-wrapper .dfn-carousel-nav:focus,
+.dfn-reviews-carousel-wrapper .dfn-carousel-nav:active,
+.dfn-reviews-carousel-wrapper .dfn-carousel-nav:focus-visible,
+button.dfn-carousel-nav:focus,
+button.dfn-carousel-nav:active {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #004b23 !important;
+    border-color: #004b23 !important;
+    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.2) !important;
+    outline: none !important;
+}
+
+.dfn-concluded-event-box .dfn-carousel-nav:focus:hover,
+.dfn-reviews-carousel-wrapper .dfn-carousel-nav:focus:hover {
+    background-color: #004b23 !important;
+    background: #004b23 !important;
+    color: #ffffff !important;
+    border-color: #004b23 !important;
 }
 
 .dfn-carousel-dots {
@@ -1769,21 +1806,39 @@ body.dfn-event-single-product .site-main .product {
     gap: 6px;
 }
 
-.dfn-carousel-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: none;
-    background: #cbd5e1;
-    cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 0;
+.dfn-concluded-event-box .dfn-carousel-dot,
+.dfn-reviews-carousel-wrapper .dfn-carousel-dot,
+button.dfn-carousel-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    border: none !important;
+    background-color: #cbd5e1 !important;
+    background: #cbd5e1 !important;
+    cursor: pointer !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    padding: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
 }
 
-.dfn-carousel-dot.is-active {
-    background: #004b23;
-    width: 22px;
-    border-radius: 6px;
+.dfn-concluded-event-box .dfn-carousel-dot:hover:not(.is-active),
+.dfn-reviews-carousel-wrapper .dfn-carousel-dot:hover:not(.is-active) {
+    background-color: #94a3b8 !important;
+    background: #94a3b8 !important;
+}
+
+.dfn-concluded-event-box .dfn-carousel-dot.is-active,
+.dfn-reviews-carousel-wrapper .dfn-carousel-dot.is-active {
+    background-color: #004b23 !important;
+    background: #004b23 !important;
+    width: 22px !important;
+    border-radius: 6px !important;
+}
+
+.dfn-concluded-event-box .dfn-carousel-dot:focus,
+.dfn-reviews-carousel-wrapper .dfn-carousel-dot:focus {
+    outline: none !important;
 }
 
 .dfn-no-reviews-box {

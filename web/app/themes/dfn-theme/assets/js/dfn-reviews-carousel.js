@@ -67,18 +67,21 @@
 
             $btnNext.on('click', function(e) {
                 e.preventDefault();
+                $(this).trigger('blur');
                 goToSlide(currentIndex + 1);
                 startAutoPlay();
             });
 
             $btnPrev.on('click', function(e) {
                 e.preventDefault();
+                $(this).trigger('blur');
                 goToSlide(currentIndex - 1);
                 startAutoPlay();
             });
 
             $dots.on('click', function(e) {
                 e.preventDefault();
+                $(this).trigger('blur');
                 var targetIdx = parseInt($(this).data('slide-target'), 10);
                 if (!isNaN(targetIdx)) {
                     goToSlide(targetIdx);
