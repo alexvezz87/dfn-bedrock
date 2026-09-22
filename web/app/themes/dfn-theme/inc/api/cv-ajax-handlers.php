@@ -803,7 +803,7 @@ function cv_send_event_reminders_ajax()
         wc_get_template('emails/email-footer.php');
 
         $message = ob_get_clean();
-        $mailer->send($email_cliente, 'I tuoi biglietti e una novità per te! 🎟️', $message, [ 'Content-Type: text/html' ]);
+        wp_mail($email_cliente, 'I tuoi biglietti e una novità per te! 🎟️', $message, [ 'Content-Type: text/html; charset=UTF-8' ]);
 
         $nota = $is_single ? '📧 Reinviata email manuale SINGOLA di Reminder Biglietti.' : '📧 Inviata email manuale di Reminder Biglietti (Invio Massivo).';
         $order->add_order_note($nota);
@@ -1022,7 +1022,7 @@ function cv_send_feedback_requests_ajax()
 
         $subject = 'Com\'è andato l\'evento "' . esc_html($titolo_evento) . '"? Facci sapere la tua opinione! ⭐';
 
-        $mailer->send($email_cliente, $subject, $message, [ 'Content-Type: text/html' ]);
+        wp_mail($email_cliente, $subject, $message, [ 'Content-Type: text/html; charset=UTF-8' ]);
 
         $nota = $is_single ? '⭐ Reinviata email manuale SINGOLA di richiesta recensione.' : '⭐ Inviata email di richiesta recensione/feedback al cliente.';
         $order->add_order_note($nota);
