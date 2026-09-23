@@ -794,17 +794,37 @@ body.dfn-event-single-product .woocommerce-notices-wrapper + h1 {
     display: none !important;
 }
 
-body.dfn-event-single-product .summary.entry-summary {
+body.dfn-event-single-product .site-main {
+    max-width: 100% !important;
     width: 100% !important;
-    float: none !important;
-    clear: both !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     padding: 0 !important;
 }
 
 body.dfn-event-single-product .site-main .product {
     display: flex !important;
     flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+body.dfn-event-single-product .summary.entry-summary {
+    width: 100% !important;
+    max-width: 100% !important;
+    float: none !important;
+    clear: both !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+}
+
+/* Il widget di prenotazione principale resta inscatolato, centrato ed elegante */
+body.dfn-event-single-product .dfn-booking-widget {
+    width: calc(100% - 32px) !important;
+    max-width: 1140px !important;
+    margin: 24px auto 40px auto !important;
+    box-sizing: border-box;
 }
 
 /* Styling premium per la Descrizione del Bene FAI */
@@ -1884,18 +1904,26 @@ body.dfn-lightbox-open {
 }
 
 .dfn-post-gallery-section {
-    margin-top: 48px;
-    margin-bottom: 32px;
-    padding-top: 36px;
-    border-top: 2px dashed #e2e8f0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 50px;
+    margin-bottom: 50px;
+    padding: 70px clamp(20px, 4vw, 80px) !important;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
     position: relative;
+    box-sizing: border-box;
 }
 
 /* Header Sezione Ricordi */
 .dfn-post-gallery-header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 40px;
     padding: 0 16px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .dfn-post-gallery-badge {
@@ -1905,13 +1933,13 @@ body.dfn-lightbox-open {
     background: #f0fdf4;
     color: #004b23;
     border: 1px solid #bbf7d0;
-    padding: 6px 16px;
+    padding: 6px 18px;
     border-radius: 9999px;
     font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.6px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     box-shadow: 0 1px 3px rgba(0, 75, 35, 0.08);
 }
 
@@ -1921,29 +1949,37 @@ body.dfn-lightbox-open {
 }
 
 .dfn-post-gallery-title {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 800;
     color: #004b23;
-    margin: 0 0 10px 0;
+    margin: 0 0 12px 0;
     letter-spacing: -0.5px;
     line-height: 1.25;
 }
 
 .dfn-post-gallery-subtitle {
-    font-size: 15px;
+    font-size: 16px;
     color: #64748b;
     margin: 0 auto;
-    max-width: 620px;
+    max-width: 640px;
     line-height: 1.6;
 }
 
-/* Griglia Masonry Fluida */
+/* Griglia Masonry Fluida - Ora Full-Width su 4 colonne! */
 .dfn-post-gallery-masonry {
-    column-count: 3;
-    column-gap: 20px;
+    column-count: 4;
+    column-gap: 24px;
     column-fill: balance;
     width: 100%;
-    margin-bottom: 16px;
+    max-width: 1720px;
+    margin: 0 auto 16px auto;
+}
+
+@media (max-width: 1400px) {
+    .dfn-post-gallery-masonry {
+        column-count: 3;
+        column-gap: 20px;
+    }
 }
 
 @media (max-width: 900px) {
@@ -1952,7 +1988,7 @@ body.dfn-lightbox-open {
         column-gap: 16px;
     }
     .dfn-post-gallery-title {
-        font-size: 24px;
+        font-size: 26px;
     }
 }
 
@@ -1960,6 +1996,12 @@ body.dfn-lightbox-open {
     .dfn-post-gallery-masonry {
         column-count: 1;
         column-gap: 0;
+    }
+    .dfn-post-gallery-title {
+        font-size: 22px;
+    }
+    .dfn-post-gallery-section {
+        padding: 45px 16px !important;
     }
 }
 
