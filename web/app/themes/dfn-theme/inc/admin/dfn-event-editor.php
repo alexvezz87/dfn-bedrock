@@ -737,11 +737,11 @@ function dfn_render_event_editor()
                     <!-- Blocco Galleria Fotografica Post-Evento (Wall Fotografico Scatti Serata) -->
                     <div class="dfn-card dfn-card-sidebar">
                         <div class="dfn-card-header">
-                            <h2>📸 <?php esc_html_e('Scatti dell\'Evento (Post-Evento)', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-post-gallery', 'Informazioni: Foto Post-Evento'); ?></h2>
+                            <h2>📸🎬 <?php esc_html_e('Foto e Video dell\'Evento (Post-Evento)', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-post-gallery', 'Informazioni: Foto e Video Post-Evento'); ?></h2>
                         </div>
                         <div class="dfn-card-body" style="text-align: center;">
                             <p class="description" style="margin-bottom: 12px; font-size: 12px; text-align: left; color: #64748b; line-height: 1.4;">
-                                <?php esc_html_e('Carica le foto scattate durante l\'evento. Verranno visualizzate in un wall fotografico a griglia masonry con lightbox nella pagina dell\'evento una volta concluso.', 'dfn-theme'); ?>
+                                <?php esc_html_e('Carica le foto e i video (.mp4, .mov, .webm) registrati durante l\'evento. Verranno visualizzati nel wall multimediale con player e lightbox nella pagina dell\'evento una volta concluso.', 'dfn-theme'); ?>
                             </p>
                             <?php
                             $post_gallery_ids_str = '';
@@ -751,9 +751,17 @@ function dfn_render_event_editor()
                                 if (! empty($post_gallery_ids_str)) {
                                     $post_gallery_ids = array_filter(explode(',', $post_gallery_ids_str));
                                     foreach ($post_gallery_ids as $id) {
-                                        $url = wp_get_attachment_image_url($id, 'thumbnail');
+                                        $is_vid = wp_attachment_is('video', $id);
+                                        $url    = wp_get_attachment_image_url($id, 'thumbnail');
+                                        if (! $url && $is_vid) {
+                                            $url = wp_mime_type_icon($id);
+                                        }
                                         if ($url) {
-                                            $post_gallery_urls[] = [ 'id' => $id, 'url' => $url ];
+                                            $post_gallery_urls[] = [
+                                                'id'       => $id,
+                                                'url'      => $url,
+                                                'is_video' => $is_vid,
+                                            ];
                                         }
                                     }
                                 }
@@ -762,20 +770,23 @@ function dfn_render_event_editor()
                             <div class="dfn-event-gallery-preview" style="margin-bottom: 15px; min-height: 100px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; justify-content: center; background: #f8fafc;" id="dfn-post-event-gallery-container">
                                 <?php if (! empty($post_gallery_urls)) : ?>
                                     <?php foreach ($post_gallery_urls as $item) : ?>
-                                        <div class="dfn-post-gallery-image-wrapper" data-id="<?php echo esc_attr($item['id']); ?>" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1;">
+                                        <div class="dfn-post-gallery-image-wrapper" data-id="<?php echo esc_attr($item['id']); ?>" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1; background: #0f172a;">
                                             <img src="<?php echo esc_url($item['url']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                                            <span class="dfn-delete-post-gallery-img" style="position: absolute; top: 0; right: 0; background: rgba(239, 68, 68, 0.85); color: white; border-radius: 0 0 0 4px; width: 16px; height: 16px; line-height: 16px; text-align: center; cursor: pointer; font-size: 10px; font-weight: bold;">×</span>
+                                            <?php if (! empty($item['is_video'])) : ?>
+                                                <span style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.75); color: #fff; font-size: 9px; text-align: center; font-weight: 700; line-height: 14px;">▶ VIDEO</span>
+                                            <?php endif; ?>
+                                            <span class="dfn-delete-post-gallery-img" style="position: absolute; top: 0; right: 0; background: rgba(239, 68, 68, 0.85); color: white; border-radius: 0 0 0 4px; width: 16px; height: 16px; line-height: 16px; text-align: center; cursor: pointer; font-size: 10px; font-weight: bold; z-index: 2;">×</span>
                                         </div>
                                     <?php endforeach; ?>
                                 <?php else : ?>
-                                    <span style="color: #64748b; font-size: 13px; align-self: center;" id="dfn-post-event-gallery-placeholder"><?php esc_html_e('Nessuna foto post-evento caricata', 'dfn-theme'); ?></span>
+                                    <span style="color: #64748b; font-size: 13px; align-self: center;" id="dfn-post-event-gallery-placeholder"><?php esc_html_e('Nessuna foto o video post-evento caricato', 'dfn-theme'); ?></span>
                                 <?php endif; ?>
                             </div>
                             <input type="hidden" name="dfn_post_event_gallery_ids" id="dfn_post_event_gallery_ids" value="<?php echo esc_attr($post_gallery_ids_str); ?>">
                             
                             <div>
                                 <button type="button" class="button button-secondary" id="dfn-upload-post-gallery-btn" style="font-weight: 600;">
-                                    <?php esc_html_e('Carica o Seleziona Foto', 'dfn-theme'); ?>
+                                    <?php esc_html_e('Carica o Seleziona Foto / Video', 'dfn-theme'); ?>
                                 </button>
                             </div>
                         </div>
@@ -1091,15 +1102,15 @@ function dfn_render_event_editor()
             </div>
         </div>
 
-        <!-- Modal: Foto Post-Evento -->
+        <!-- Modal: Foto e Video Post-Evento -->
         <div class="dfn-tooltip-modal" id="dfn-tip-post-gallery" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-post-gallery-title">
             <div class="dfn-tooltip-modal-header">
-                <h3 id="dfn-tip-post-gallery-title">📸 <?php esc_html_e('Scatti dell\'Evento (Post-Evento)', 'dfn-theme'); ?></h3>
+                <h3 id="dfn-tip-post-gallery-title">📸🎬 <?php esc_html_e('Foto e Video dell\'Evento (Post-Evento)', 'dfn-theme'); ?></h3>
                 <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
             </div>
             <div class="dfn-tooltip-modal-body">
-                <p><?php esc_html_e('Questo spazio è dedicato alle fotografie scattate durante lo svolgimento dell\'iniziativa.', 'dfn-theme'); ?></p>
-                <p><?php esc_html_e('A differenza della galleria descrittiva del prodotto (usata prima dell\'evento per presentarlo), queste foto vengono mostrate pubblicamente in coda alla pagina come "Wall Fotografico dei Ricordi" a griglia masonry con lightbox soltanto quando l\'evento risulta concluso.', 'dfn-theme'); ?></p>
+                <p><?php esc_html_e('Questo spazio è dedicato a foto e video clip (.mp4, .mov, .webm) registrati durante lo svolgimento dell\'iniziativa.', 'dfn-theme'); ?></p>
+                <p><?php esc_html_e('A differenza della galleria descrittiva del prodotto (usata prima dell\'evento per presentarlo), questi media vengono mostrati pubblicamente in coda alla pagina come "Wall dei Ricordi" a griglia masonry con riproduzione video e lightbox soltanto quando l\'evento risulta concluso.', 'dfn-theme'); ?></p>
             </div>
         </div>
 

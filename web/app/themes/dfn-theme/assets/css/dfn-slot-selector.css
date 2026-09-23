@@ -2229,6 +2229,94 @@ body.dfn-lightbox-open {
     opacity: 1;
 }
 
+/* Video Player nel Lightbox */
+.dfn-lightbox-video {
+    width: 100%;
+    max-width: min(920px, 90vw);
+    max-height: calc(85vh - 60px);
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 16px 56px rgba(0, 0, 0, 0.8);
+    outline: none;
+    background: #000000;
+    transform: scale(0.96);
+    opacity: 0;
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.28s ease;
+}
+
+.dfn-lightbox-video.is-loaded {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* Elementi Video nella Griglia Masonry */
+.dfn-gallery-item--video {
+    position: relative;
+}
+
+.dfn-gallery-video-thumb {
+    width: 100%;
+    height: auto;
+    min-height: 160px;
+    display: block;
+    object-fit: cover;
+    background: #0f172a;
+}
+
+.dfn-gallery-video-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+
+.dfn-gallery-play-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    margin-bottom: 10px;
+    transform: scale(0.9);
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.dfn-gallery-play-icon svg {
+    margin-left: 3px;
+}
+
+.dfn-gallery-item:hover .dfn-gallery-play-icon,
+.dfn-gallery-item:focus-visible .dfn-gallery-play-icon {
+    transform: scale(1.08);
+    background: rgba(255, 255, 255, 0.38);
+    border-color: #ffffff;
+}
+
+
 /* Spinner animato */
 .dfn-lightbox-loader {
     position: absolute;
