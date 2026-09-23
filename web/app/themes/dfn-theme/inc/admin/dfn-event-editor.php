@@ -741,8 +741,8 @@ function dfn_render_event_editor()
 
                     <!-- Blocco Galleria Multimediale Post-Evento (Wall dei Ricordi: Foto & Video) -->
                     <div class="dfn-card dfn-card-sidebar" style="border-top: 3px solid #004b23;">
-                        <div class="dfn-card-header">
-                            <h2>📸🎬 <?php esc_html_e('Wall dei Ricordi (Foto e Video Post-Evento)', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-post-gallery', 'Informazioni: Foto e Video Post-Evento'); ?></h2>
+                        <div class="dfn-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2>📸🎬 <?php esc_html_e('Wall dei Ricordi (Post-Evento)', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-post-gallery', 'Informazioni: Foto e Video Post-Evento'); ?></h2>
                         </div>
                         <div class="dfn-card-body" style="text-align: center;">
                             <p class="description" style="margin-bottom: 12px; font-size: 12px; text-align: left; color: #64748b; line-height: 1.4;">
@@ -750,60 +750,104 @@ function dfn_render_event_editor()
                             </p>
                             <?php
                             $post_gallery_ids_str = '';
-                            $post_gallery_urls = [];
+                            $post_gallery_items = [];
                             if ($p_id > 0) {
                                 $post_gallery_ids_str = get_post_meta($p_id, '_dfn_post_event_gallery', true);
                                 if (! empty($post_gallery_ids_str)) {
                                     $post_gallery_ids = array_filter(explode(',', $post_gallery_ids_str));
                                     foreach ($post_gallery_ids as $id) {
-                                        $is_vid = wp_attachment_is('video', $id);
+                                        $att = get_post($id);
+                                        if (! $att) {
+                                            continue;
+                                        }
+                                        $is_vid    = wp_attachment_is('video', $id);
+                                        $file_path = get_attached_file($id);
+                                        $filename  = $file_path ? basename($file_path) : basename($att->guid);
+                                        $title     = (! empty($att->post_title) && $att->post_title !== pathinfo($filename, PATHINFO_FILENAME)) ? $att->post_title : $filename;
+                                        $ext       = strtoupper(pathinfo($filename, PATHINFO_EXTENSION) ?: ($is_vid ? 'VIDEO' : 'IMG'));
+                                        $size_str  = ($file_path && file_exists($file_path)) ? size_format(filesize($file_path)) : '';
+
                                         $video_url = '';
-                                        $url = '';
+                                        $thumb_url = '';
                                         if ($is_vid) {
                                             $video_url = wp_get_attachment_url($id);
-                                            // Se ha una thumbnail generata da WP/plugin usala, altrimenti fallback all'url video
-                                            $url = wp_get_attachment_image_url($id, 'thumbnail');
                                         } else {
-                                            $url = wp_get_attachment_image_url($id, 'thumbnail');
+                                            $thumb_url = wp_get_attachment_image_url($id, 'thumbnail');
                                         }
-                                        if ($url || $video_url) {
-                                            $post_gallery_urls[] = [
-                                                'id'        => $id,
-                                                'url'       => $url,
-                                                'video_url' => $video_url,
-                                                'is_video'  => $is_vid,
-                                            ];
-                                        }
+
+                                        $post_gallery_items[] = [
+                                            'id'        => $id,
+                                            'is_video'  => $is_vid,
+                                            'filename'  => $filename,
+                                            'title'     => $title,
+                                            'ext'       => $ext,
+                                            'size'      => $size_str,
+                                            'video_url' => $video_url,
+                                            'thumb_url' => $thumb_url,
+                                        ];
                                     }
                                 }
                             }
+                            $tot_count = count($post_gallery_items);
+                            $v_count   = count(array_filter($post_gallery_items, fn($it) => $it['is_video']));
+                            $p_count   = $tot_count - $v_count;
                             ?>
-                            <div class="dfn-event-gallery-preview" style="margin-bottom: 15px; min-height: 100px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; justify-content: center; background: #f8fafc;" id="dfn-post-event-gallery-container">
-                                <?php if (! empty($post_gallery_urls)) : ?>
-                                    <?php foreach ($post_gallery_urls as $item) : ?>
-                                        <div class="dfn-post-gallery-image-wrapper" data-id="<?php echo esc_attr($item['id']); ?>" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1; background: #0f172a; display: flex; align-items: center; justify-content: center;">
-                                            <?php if (! empty($item['is_video'])) : ?>
-                                                <?php if (! empty($item['url'])) : ?>
-                                                    <img src="<?php echo esc_url($item['url']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
+
+                            <!-- Barra Riepilogo Contenuti & Svuota Galleria -->
+                            <div class="dfn-post-gallery-summary" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 11px; color: #334155; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                                <span id="dfn-post-gallery-stats" style="font-weight: 600;">
+                                    <?php if ($tot_count > 0) : ?>
+                                        📁 <?php echo sprintf(__('%d contenuti: %d video, %d foto', 'dfn-theme'), $tot_count, $v_count, $p_count); ?>
+                                    <?php else : ?>
+                                        📁 <?php esc_html_e('Nessun contenuto caricato', 'dfn-theme'); ?>
+                                    <?php endif; ?>
+                                </span>
+                                <button type="button" id="dfn-clear-post-gallery-btn" style="background: none; border: none; color: #ef4444; font-size: 11px; cursor: pointer; font-weight: 700; padding: 0; <?php echo ($tot_count === 0) ? 'display: none;' : ''; ?>">
+                                    🗑️ <?php esc_html_e('Rimuovi tutti', 'dfn-theme'); ?>
+                                </button>
+                            </div>
+
+                            <!-- Griglia a 2 colonne delle card multimediali -->
+                            <div class="dfn-post-gallery-grid" style="margin-bottom: 15px; min-height: 80px; border: 2px dashed #cbd5e1; border-radius: 8px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; background: #f8fafc;" id="dfn-post-event-gallery-container">
+                                <?php if (! empty($post_gallery_items)) : ?>
+                                    <?php foreach ($post_gallery_items as $item) : ?>
+                                        <div class="dfn-post-gallery-card <?php echo $item['is_video'] ? 'dfn-post-gallery-card--video' : 'dfn-post-gallery-card--image'; ?>" data-id="<?php echo esc_attr($item['id']); ?>" data-is-video="<?php echo $item['is_video'] ? '1' : '0'; ?>" style="position: relative; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.04); text-align: left;">
+                                            <!-- Area Media Preview -->
+                                            <div class="dfn-media-preview-box" style="position: relative; width: 100%; height: 80px; background: #0f172a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                                                <?php if ($item['is_video']) : ?>
+                                                    <video src="<?php echo esc_url($item['video_url']); ?>#t=0.5" preload="metadata" muted playsinline loop style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;"></video>
+                                                    <span class="dfn-video-badge-pill" style="position: absolute; top: 5px; left: 5px; background: rgba(0, 75, 35, 0.88); backdrop-filter: blur(4px); color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.3px;">🎬 <?php echo esc_html($item['ext']); ?></span>
+                                                    <span class="dfn-video-play-hint" style="position: absolute; width: 26px; height: 26px; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; pointer-events: none;">▶</span>
                                                 <?php else : ?>
-                                                    <video src="<?php echo esc_url($item['video_url']); ?>#t=0.001" preload="metadata" muted playsinline style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;"></video>
+                                                    <img src="<?php echo esc_url($item['thumb_url']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                                                    <span class="dfn-image-badge-pill" style="position: absolute; top: 5px; left: 5px; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.3px;">📸 <?php echo esc_html($item['ext']); ?></span>
                                                 <?php endif; ?>
-                                                <span style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.75); color: #fff; font-size: 9px; text-align: center; font-weight: 700; line-height: 14px;">▶ VIDEO</span>
-                                            <?php else : ?>
-                                                <img src="<?php echo esc_url($item['url']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                                            <?php endif; ?>
-                                            <span class="dfn-delete-post-gallery-img" style="position: absolute; top: 0; right: 0; background: rgba(239, 68, 68, 0.85); color: white; border-radius: 0 0 0 4px; width: 16px; height: 16px; line-height: 16px; text-align: center; cursor: pointer; font-size: 10px; font-weight: bold; z-index: 2;">×</span>
+                                                <span class="dfn-delete-post-gallery-img" style="position: absolute; top: 5px; right: 5px; background: rgba(239, 68, 68, 0.9); color: white; border-radius: 50%; width: 18px; height: 18px; line-height: 18px; text-align: center; cursor: pointer; font-size: 12px; font-weight: bold; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" title="<?php esc_attr_e('Rimuovi questo elemento', 'dfn-theme'); ?>">×</span>
+                                            </div>
+                                            <!-- Dettagli Testuali -->
+                                            <div class="dfn-media-meta-box" style="padding: 6px 8px; background: #ffffff; border-top: 1px solid #f1f5f9;">
+                                                <div style="font-size: 11px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo esc_attr($item['filename']); ?>">
+                                                    <?php echo esc_html($item['filename']); ?>
+                                                </div>
+                                                <div style="font-size: 10px; color: #64748b; margin-top: 2px; display: flex; justify-content: space-between;">
+                                                    <span><?php echo esc_html($item['ext']); ?></span>
+                                                    <span><?php echo esc_html($item['size']); ?></span>
+                                                </div>
+                                            </div>
                                         </div>
                                     <?php endforeach; ?>
                                 <?php else : ?>
-                                    <span style="color: #64748b; font-size: 13px; align-self: center;" id="dfn-post-event-gallery-placeholder"><?php esc_html_e('Nessuna foto o video post-evento caricato', 'dfn-theme'); ?></span>
+                                    <div style="grid-column: 1 / -1; padding: 20px 10px; color: #64748b; font-size: 12px; text-align: center;" id="dfn-post-event-gallery-placeholder">
+                                        <span style="font-size: 24px; display: block; margin-bottom: 6px;">🎞️</span>
+                                        <?php esc_html_e('Nessuna foto o video post-evento caricato', 'dfn-theme'); ?>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                             <input type="hidden" name="dfn_post_event_gallery_ids" id="dfn_post_event_gallery_ids" value="<?php echo esc_attr($post_gallery_ids_str); ?>">
                             
                             <div>
-                                <button type="button" class="button" id="dfn-upload-post-gallery-btn" style="font-weight: 600; background: #004b23; color: #fff; border-color: #003619;">
-                                    <?php esc_html_e('Aggiungi Foto o Video Post-Evento', 'dfn-theme'); ?>
+                                <button type="button" class="button" id="dfn-upload-post-gallery-btn" style="width: 100%; font-weight: 700; background: #004b23; color: #fff; border-color: #003619; padding: 6px 12px; height: auto;">
+                                    + <?php esc_html_e('Aggiungi Foto o Video Post-Evento', 'dfn-theme'); ?>
                                 </button>
                             </div>
                         </div>

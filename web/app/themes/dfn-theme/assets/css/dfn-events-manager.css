@@ -1719,3 +1719,25 @@ select.dfn-input {
     background: var(--dfn-primary);
     color: #fff;
 }
+
+/* --- Card Galleria Multimediale Post-Evento in Admin --- */
+.dfn-post-gallery-card {
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dfn-post-gallery-card:hover {
+    transform: translateY(-2px);
+    border-color: #004b23 !important;
+    box-shadow: 0 4px 12px rgba(0, 75, 35, 0.12) !important;
+}
+
+.dfn-post-gallery-card--video:hover .dfn-video-play-hint {
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.dfn-delete-post-gallery-img:hover {
+    transform: scale(1.15);
+    background: #dc2626 !important;
+}
