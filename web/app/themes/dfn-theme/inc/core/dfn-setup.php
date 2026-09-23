@@ -73,8 +73,8 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
                 ? filemtime(get_stylesheet_directory() . '/assets/css/dfn-footer.css')
                 : '2.0.0',
         );
-        // Enqueue del widget selettore turni (CSS e JS) per il frontend
-        wp_enqueue_style(
+        // Registrazione asset specifici del sistema prenotazioni
+        wp_register_style(
             'dfn-slot-selector-css',
             trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-slot-selector.css',
             [],
@@ -83,7 +83,7 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
                 : '2.0.0',
         );
 
-        wp_enqueue_script(
+        wp_register_script(
             'dfn-slot-selector-js',
             trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-slot-selector.js',
             [ 'jquery' ],
@@ -93,7 +93,36 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             true,
         );
 
-        wp_enqueue_script(
+        $user_logged_in = is_user_logged_in();
+        $user_data = [
+            'ajaxurl'        => admin_url('admin-ajax.php'),
+            'nonce'          => wp_create_nonce('dfn_booking_nonce'),
+            'userLogged'     => $user_logged_in,
+            'userFirstName'  => '',
+            'userLastName'   => '',
+            'userEmail'      => '',
+            'userPhone'      => '',
+        ];
+
+        if ($user_logged_in) {
+            $user_id = get_current_user_id();
+            $current_user = wp_get_current_user();
+
+            $first_name = get_user_meta($user_id, 'billing_first_name', true);
+            $user_data['userFirstName'] = $first_name ? $first_name : $current_user->first_name;
+
+            $last_name = get_user_meta($user_id, 'billing_last_name', true);
+            $user_data['userLastName'] = $last_name ? $last_name : $current_user->last_name;
+
+            $email = get_user_meta($user_id, 'billing_email', true);
+            $user_data['userEmail'] = $email ? $email : $current_user->user_email;
+
+            $user_data['userPhone'] = get_user_meta($user_id, 'billing_phone', true);
+        }
+
+        wp_localize_script('dfn-slot-selector-js', 'dfnVars', $user_data);
+
+        wp_register_script(
             'dfn-reviews-carousel-js',
             trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-reviews-carousel.js',
             [ 'jquery' ],
@@ -103,7 +132,7 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             true,
         );
 
-        wp_enqueue_script(
+        wp_register_script(
             'dfn-post-event-gallery-js',
             trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-post-event-gallery.js',
             [ 'jquery' ],
@@ -112,6 +141,24 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
                 : '2.0.0',
             true,
         );
+
+        // Determinazione condizioni per enqueue mirato
+        global $post;
+        $is_product_page = is_singular('product') || (function_exists('is_product') && is_product());
+        $has_event_shortcode = is_a($post, 'WP_Post') && (
+            has_shortcode($post->post_content, 'dfn_evento') ||
+            has_shortcode($post->post_content, 'prodotto_condizionale')
+        );
+        $has_archive_shortcode = is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'dfn_lista_eventi');
+
+        if ($is_product_page || $has_event_shortcode) {
+            wp_enqueue_style('dfn-slot-selector-css');
+            wp_enqueue_script('dfn-slot-selector-js');
+            wp_enqueue_script('dfn-reviews-carousel-js');
+            wp_enqueue_script('dfn-post-event-gallery-js');
+        } elseif ($has_archive_shortcode) {
+            wp_enqueue_script('dfn-reviews-carousel-js');
+        }
 
         // Enqueue Mobile Web App (CSS & JS) - Soltanto sulla pagina /gestione-eventi/
         $is_mobile_app_page = is_page('gestione-eventi') 
@@ -154,35 +201,6 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
                 'ajax_url' => admin_url('admin-ajax.php'),
             ]);
         }
-
-        $user_logged_in = is_user_logged_in();
-        $user_data = [
-            'ajaxurl'        => admin_url('admin-ajax.php'),
-            'nonce'          => wp_create_nonce('dfn_booking_nonce'),
-            'userLogged'     => $user_logged_in,
-            'userFirstName'  => '',
-            'userLastName'   => '',
-            'userEmail'      => '',
-            'userPhone'      => '',
-        ];
-
-        if ($user_logged_in) {
-            $user_id = get_current_user_id();
-            $current_user = wp_get_current_user();
-
-            $first_name = get_user_meta($user_id, 'billing_first_name', true);
-            $user_data['userFirstName'] = $first_name ? $first_name : $current_user->first_name;
-
-            $last_name = get_user_meta($user_id, 'billing_last_name', true);
-            $user_data['userLastName'] = $last_name ? $last_name : $current_user->last_name;
-
-            $email = get_user_meta($user_id, 'billing_email', true);
-            $user_data['userEmail'] = $email ? $email : $current_user->user_email;
-
-            $user_data['userPhone'] = get_user_meta($user_id, 'billing_phone', true);
-        }
-
-        wp_localize_script('dfn-slot-selector-js', 'dfnVars', $user_data);
 
         // Enqueue condizionale per l'Express Checkout (solo nelle pagine checkout)
         if (is_checkout() && ! is_order_received_page()) {

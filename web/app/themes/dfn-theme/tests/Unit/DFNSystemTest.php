@@ -36,6 +36,10 @@ namespace DFN\Theme\Tests\Unit {
     require_once dirname(dirname(__DIR__)) . '/inc/core/dfn-setup.php';
     require_once dirname(dirname(__DIR__)) . '/inc/core/dfn-helpers.php';
     require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-checkout.php';
+    require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-event-reviews.php';
+    require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-event-gallery.php';
+    require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-events-archive.php';
+    require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-shortcodes.php';
     require_once dirname(dirname(__DIR__)) . '/inc/woocommerce/dfn-gateway-in-loco.php';
     require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-scanner.php';
     require_once dirname(dirname(__DIR__)) . '/inc/frontend/dfn-myaccount.php';
@@ -1070,6 +1074,45 @@ namespace DFN\Theme\Tests\Unit {
             $this->assertTrue(dfn_prevent_dummy_email_notifications(true, 'user@example.com, no-email@dfn.it', 'Subj', 'Msg', '', ''));
             // Caso stringa multipla solo fittizie
             $this->assertFalse(dfn_prevent_dummy_email_notifications(true, 'no-email@dfn.it, no-email@dfn.it', 'Subj', 'Msg', '', ''));
+        }
+
+        /**
+         * Test: dfn_format_reviewer_name rispetta la privacy (Nome + Iniziale Cognome).
+         */
+        public function test_format_reviewer_name_privacy()
+        {
+            // Nome e cognome separati
+            $this->assertEquals('Mario R.', dfn_format_reviewer_name('mario', 'rossi'));
+            // Nome e cognome uniti nel primo parametro
+            $this->assertEquals('Loredana B.', dfn_format_reviewer_name('loredana bianchi'));
+            // Solo nome
+            $this->assertEquals('Giuseppe', dfn_format_reviewer_name('giuseppe'));
+            // Fallback vuoto
+            Functions\when('__')->returnArg(1);
+            $this->assertEquals('Partecipante Verificato', dfn_format_reviewer_name(''));
+        }
+
+        /**
+         * Test: dfn_render_star_rating_svg restituisce SVG con 5 stelle.
+         */
+        public function test_render_star_rating_svg()
+        {
+            Functions\when('wp_rand')->justReturn(12345);
+            $html = dfn_render_star_rating_svg(4.5, 18);
+            $this->assertStringContainsString('dfn-star-rating-svg', $html);
+            $this->assertStringContainsString('dfn_star_grad_12345', $html);
+            // 1 SVG per il gradiente lineare + 5 SVG per le stelle visualizzate
+            $this->assertEquals(6, substr_count($html, '<svg'));
+        }
+
+        /**
+         * Test: dfn_add_event_body_class aggiunge la classe appropriata.
+         */
+        public function test_add_event_body_class()
+        {
+            $classes = dfn_add_event_body_class(['custom-class', 'page']);
+            $this->assertContains('dfn-event-single-product', $classes);
+            $this->assertContains('custom-class', $classes);
         }
     }
 }
