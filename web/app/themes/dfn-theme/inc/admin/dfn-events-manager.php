@@ -152,7 +152,9 @@ function dfn_enqueue_admin_assets($hook)
         'dfn-events-manager-css',
         get_stylesheet_directory_uri() . '/assets/css/dfn-events-manager.css',
         [],
-        '2.0.0',
+        file_exists(get_stylesheet_directory() . '/assets/css/dfn-events-manager.css')
+            ? filemtime(get_stylesheet_directory() . '/assets/css/dfn-events-manager.css')
+            : '2.0.0',
     );
 
     // Se siamo nello Slot Manager carichiamo il suo controller JS
