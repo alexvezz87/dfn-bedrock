@@ -220,6 +220,74 @@
                 $('#dfn-event-gallery-placeholder').show();
             }
         });
+
+        // 4c. Gestione upload galleria fotografica post-evento (wall ricordi)
+        var post_gallery_frame;
+        $(document).on('click', '#dfn-upload-post-gallery-btn', function(e) {
+            e.preventDefault();
+
+            if (typeof wp === 'undefined' || !wp.media) {
+                alert('La libreria dei media di WordPress non è al momento disponibile.');
+                return;
+            }
+
+            if (post_gallery_frame) {
+                post_gallery_frame.open();
+                return;
+            }
+
+            post_gallery_frame = wp.media({
+                title: 'Aggiungi Scatti dell\'Evento (Post-Evento)',
+                button: {
+                    text: 'Aggiungi alla galleria post-evento'
+                },
+                multiple: true
+            });
+
+            post_gallery_frame.on('select', function() {
+                var selection = post_gallery_frame.state().get('selection');
+                var currentIds = $('#dfn_post_event_gallery_ids').val().split(',').filter(Boolean);
+                
+                selection.each(function(attachment) {
+                    var attJson = attachment.toJSON();
+                    if (currentIds.indexOf(attJson.id.toString()) === -1) {
+                        currentIds.push(attJson.id.toString());
+                        
+                        // Append thumbnail in HTML preview
+                        $('#dfn-post-event-gallery-placeholder').hide();
+                        var html = '<div class="dfn-post-gallery-image-wrapper" data-id="' + attJson.id + '" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1;">' +
+                                   '  <img src="' + (attJson.sizes && attJson.sizes.thumbnail ? attJson.sizes.thumbnail.url : attJson.url) + '" style="width: 100%; height: 100%; object-fit: cover;">' +
+                                   '  <span class="dfn-delete-post-gallery-img" style="position: absolute; top: 0; right: 0; background: rgba(239, 68, 68, 0.85); color: white; border-radius: 0 0 0 4px; width: 16px; height: 16px; line-height: 16px; text-align: center; cursor: pointer; font-size: 10px; font-weight: bold;">×</span>' +
+                                   '</div>';
+                        $('#dfn-post-event-gallery-container').append(html);
+                    }
+                });
+
+                $('#dfn_post_event_gallery_ids').val(currentIds.join(','));
+            });
+
+            post_gallery_frame.open();
+        });
+
+        // Rimozione singola immagine galleria post-evento
+        $(document).on('click', '.dfn-delete-post-gallery-img', function(e) {
+            e.preventDefault();
+            var $wrapper = $(this).closest('.dfn-post-gallery-image-wrapper');
+            var imgId = $wrapper.data('id').toString();
+            var currentIds = $('#dfn_post_event_gallery_ids').val().split(',').filter(Boolean);
+            
+            var index = currentIds.indexOf(imgId);
+            if (index > -1) {
+                currentIds.splice(index, 1);
+            }
+            
+            $wrapper.remove();
+            $('#dfn_post_event_gallery_ids').val(currentIds.join(','));
+            
+            if (currentIds.length === 0) {
+                $('#dfn-post-event-gallery-placeholder').show();
+            }
+        });
     });
 
 })(jQuery);

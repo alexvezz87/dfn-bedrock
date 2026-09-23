@@ -103,6 +103,16 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             true,
         );
 
+        wp_enqueue_script(
+            'dfn-post-event-gallery-js',
+            trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-post-event-gallery.js',
+            [ 'jquery' ],
+            file_exists(get_stylesheet_directory() . '/assets/js/dfn-post-event-gallery.js') 
+                ? filemtime(get_stylesheet_directory() . '/assets/js/dfn-post-event-gallery.js') 
+                : '2.0.0',
+            true,
+        );
+
         // Enqueue Mobile Web App (CSS & JS) - Soltanto sulla pagina /gestione-eventi/
         $is_mobile_app_page = is_page('gestione-eventi') 
             || is_page_template('template-mobile-app.php') 
