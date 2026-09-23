@@ -39,12 +39,6 @@ function dfn_render_event_editor()
     global $wpdb;
     $table_events = $wpdb->prefix . 'dfn_events';
 
-    // Self-healing DB check: assicura che le nuove colonne per gli Eventi Test esistano nella tabella
-    $col_test_check = $wpdb->get_results("SHOW COLUMNS FROM {$table_events} LIKE 'is_test_event'");
-    if (empty($col_test_check)) {
-        $wpdb->query("ALTER TABLE {$table_events} ADD COLUMN is_test_event tinyint(1) NOT NULL DEFAULT 0, ADD COLUMN test_notification_email varchar(255) DEFAULT NULL");
-    }
-
     // Determina se stiamo modificando o creando
     $event_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
     $event = null;
