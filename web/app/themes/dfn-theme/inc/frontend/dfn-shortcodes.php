@@ -312,16 +312,40 @@ function dfn_render_event_concluded_reviews_card(int $product_id, $event): strin
  *
  * @param int $product_id ID del prodotto WooCommerce associato all'evento.
  * @return string HTML della galleria post-evento (o stringa vuota se assente).
+/**
+ * Renderizza la galleria fotografica e video post-evento (Wall dei Ricordi)
+ * con griglia masonry, effetti dinamici, player video e lightbox a schermo intero.
+ * Include sistema di caching tramite Transient API e lazy loading ad alte prestazioni per i video.
+ *
+ * @param int $product_id ID del prodotto WooCommerce associato all'evento.
+ * @return string HTML della galleria post-evento (o stringa vuota se assente).
  */
 function dfn_render_post_event_gallery(int $product_id): string
 {
+    // Verifica cache transient (salva l'HTML già compilato per evitare query ripetute sui media)
+    $cache_key    = 'dfn_post_gallery_' . $product_id;
+    $bypass_cache = isset($_GET['nocache']) && current_user_can('manage_options');
+
+    if (! $bypass_cache) {
+        $cached_html = get_transient($cache_key);
+        if (false !== $cached_html) {
+            return $cached_html;
+        }
+    }
+
     $gallery_ids_str = get_post_meta($product_id, '_dfn_post_event_gallery', true);
     if (empty($gallery_ids_str)) {
+        if (! $bypass_cache) {
+            set_transient($cache_key, '', 12 * HOUR_IN_SECONDS);
+        }
         return '';
     }
 
     $raw_ids = array_filter(array_map('intval', explode(',', $gallery_ids_str)));
     if (empty($raw_ids)) {
+        if (! $bypass_cache) {
+            set_transient($cache_key, '', 12 * HOUR_IN_SECONDS);
+        }
         return '';
     }
 
@@ -338,24 +362,31 @@ function dfn_render_post_event_gallery(int $product_id): string
             continue;
         }
 
+        // Recupera solo la didascalia esplicita dell'allegato se presente;
+        // nessun fallback automatico al titolo o nome file del media (es. IMG_3424) per garantire massima pulizia visiva
         $caption = wp_get_attachment_caption($att_id);
         if (empty($caption)) {
-            $alt = get_post_meta($att_id, '_wp_attachment_image_alt', true);
-            $caption = ! empty($alt) ? $alt : get_the_title($att_id);
+            $caption = '';
         }
+
+        $meta = wp_get_attachment_metadata($att_id);
+        $aspect_ratio = (! empty($meta['width']) && ! empty($meta['height']))
+            ? ($meta['width'] . ' / ' . $meta['height'])
+            : '';
 
         if ($is_video) {
             $video_url = wp_get_attachment_url($att_id);
-            $mime_type = get_post_mime_type($att_id) ?: 'video/mp4';
+            $mime_type = get_post_mime_type($att_id) ?: 'video/webm';
             $thumb_url = wp_get_attachment_image_url($att_id, 'large');
             if ($video_url) {
                 $items[] = [
-                    'id'        => $att_id,
-                    'type'      => 'video',
-                    'video_url' => $video_url,
-                    'mime_type' => $mime_type,
-                    'thumb_url' => $thumb_url ?: '',
-                    'caption'   => $caption ?: '',
+                    'id'           => $att_id,
+                    'type'         => 'video',
+                    'video_url'    => $video_url,
+                    'mime_type'    => $mime_type,
+                    'thumb_url'    => $thumb_url ?: '',
+                    'caption'      => $caption,
+                    'aspect_ratio' => $aspect_ratio,
                 ];
             }
         } elseif ($is_image) {
@@ -363,17 +394,21 @@ function dfn_render_post_event_gallery(int $product_id): string
             $full_url  = wp_get_attachment_image_url($att_id, 'full');
             if ($thumb_url && $full_url) {
                 $items[] = [
-                    'id'        => $att_id,
-                    'type'      => 'image',
-                    'thumb_url' => $thumb_url,
-                    'full_url'  => $full_url,
-                    'caption'   => $caption ?: '',
+                    'id'           => $att_id,
+                    'type'         => 'image',
+                    'thumb_url'    => $thumb_url,
+                    'full_url'     => $full_url,
+                    'caption'      => $caption,
+                    'aspect_ratio' => $aspect_ratio,
                 ];
             }
         }
     }
 
     if (empty($items)) {
+        if (! $bypass_cache) {
+            set_transient($cache_key, '', 12 * HOUR_IN_SECONDS);
+        }
         return '';
     }
 
@@ -402,16 +437,22 @@ function dfn_render_post_event_gallery(int $product_id): string
                          data-caption="<?php echo esc_attr($item['caption']); ?>"
                          tabindex="0"
                          role="button"
-                         aria-label="<?php echo esc_attr(sprintf(__('Riproduci video %d: %s', 'dfn-theme'), $idx + 1, $item['caption'] ?: __('Video dell\'evento', 'dfn-theme'))); ?>">
-                        <div class="dfn-gallery-thumb-wrapper">
+                         aria-label="<?php echo esc_attr(sprintf(__('Riproduci video %d', 'dfn-theme'), $idx + 1)); ?>">
+                        <div class="dfn-gallery-thumb-wrapper"<?php echo ! empty($item['aspect_ratio']) ? ' style="aspect-ratio: ' . esc_attr($item['aspect_ratio']) . ';"' : ''; ?>>
                             <?php if (! empty($item['thumb_url'])) : ?>
                                 <img src="<?php echo esc_url($item['thumb_url']); ?>" 
-                                     alt="<?php echo esc_attr($item['caption'] ?: __('Video dell\'evento', 'dfn-theme')); ?>" 
+                                     alt="<?php esc_attr_e('Video dell\'evento', 'dfn-theme'); ?>" 
                                      loading="lazy" 
                                      class="dfn-gallery-thumb" />
                             <?php else : ?>
-                                <video class="dfn-gallery-thumb dfn-gallery-video-thumb" preload="metadata" muted playsinline loop>
-                                    <source src="<?php echo esc_url($item['video_url']); ?>#t=0.1" type="<?php echo esc_attr($item['mime_type']); ?>">
+                                <video class="dfn-gallery-thumb dfn-gallery-video-thumb" 
+                                       preload="none" 
+                                       muted 
+                                       playsinline 
+                                       loop
+                                       data-lazy-src="<?php echo esc_url($item['video_url']); ?>#t=0.1"
+                                       data-mime="<?php echo esc_attr($item['mime_type']); ?>"
+                                       <?php echo ! empty($item['aspect_ratio']) ? 'style="aspect-ratio: ' . esc_attr($item['aspect_ratio']) . ';"' : ''; ?>>
                                 </video>
                             <?php endif; ?>
                             <span class="dfn-gallery-video-badge">
@@ -424,9 +465,6 @@ function dfn_render_post_event_gallery(int $product_id): string
                                         <polygon points="6 3 20 12 6 21 6 3"></polygon>
                                     </svg>
                                 </div>
-                                <?php if (! empty($item['caption'])) : ?>
-                                    <span class="dfn-gallery-caption-preview"><?php echo esc_html($item['caption']); ?></span>
-                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -438,8 +476,8 @@ function dfn_render_post_event_gallery(int $product_id): string
                          data-caption="<?php echo esc_attr($item['caption']); ?>"
                          tabindex="0"
                          role="button"
-                         aria-label="<?php echo esc_attr(sprintf(__('Ingrandisci foto %d: %s', 'dfn-theme'), $idx + 1, $item['caption'] ?: __('Scatto dell\'evento', 'dfn-theme'))); ?>">
-                        <div class="dfn-gallery-thumb-wrapper">
+                         aria-label="<?php echo esc_attr(sprintf(__('Ingrandisci foto %d', 'dfn-theme'), $idx + 1)); ?>">
+                        <div class="dfn-gallery-thumb-wrapper"<?php echo ! empty($item['aspect_ratio']) ? ' style="aspect-ratio: ' . esc_attr($item['aspect_ratio']) . ';"' : ''; ?>>
                             <img src="<?php echo esc_url($item['thumb_url']); ?>" 
                                  alt="<?php echo esc_attr($item['caption'] ?: __('Foto dell\'evento', 'dfn-theme')); ?>" 
                                  loading="lazy" 
@@ -453,9 +491,6 @@ function dfn_render_post_event_gallery(int $product_id): string
                                         <line x1="8" y1="11" x2="14" y2="11"></line>
                                     </svg>
                                 </div>
-                                <?php if (! empty($item['caption'])) : ?>
-                                    <span class="dfn-gallery-caption-preview"><?php echo esc_html($item['caption']); ?></span>
-                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -509,8 +544,26 @@ function dfn_render_post_event_gallery(int $product_id): string
         </div>
     </section>
     <?php
-    return ob_get_clean();
+    $html = ob_get_clean();
+
+    if (! $bypass_cache && ! empty($html)) {
+        set_transient($cache_key, $html, 12 * HOUR_IN_SECONDS);
+    }
+
+    return $html;
 }
+
+/**
+ * Invalida la cache transient della galleria post-evento quando un prodotto/evento viene aggiornato.
+ */
+function dfn_clear_post_event_gallery_cache($post_id): void
+{
+    if ($post_id) {
+        delete_transient('dfn_post_gallery_' . (int) $post_id);
+    }
+}
+add_action('save_post_product', 'dfn_clear_post_event_gallery_cache');
+add_action('clean_post_cache', 'dfn_clear_post_event_gallery_cache');
 
 /**
  * Rende la scheda dell'evento FAI con il selettore dei turni orari.
