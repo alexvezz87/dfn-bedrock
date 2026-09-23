@@ -189,6 +189,10 @@ function dfn_render_event_editor()
                     $gallery_ids = isset($_POST['dfn_event_gallery_ids']) ? sanitize_text_field($_POST['dfn_event_gallery_ids']) : '';
                     update_post_meta($product_id, '_product_image_gallery', $gallery_ids);
 
+                    // Associa la galleria post-evento (scatti della serata / wall fotografico)
+                    $post_gallery_ids = isset($_POST['dfn_post_event_gallery_ids']) ? sanitize_text_field($_POST['dfn_post_event_gallery_ids']) : '';
+                    update_post_meta($product_id, '_dfn_post_event_gallery', $post_gallery_ids);
+
                     // Se l'evento è in modalità TEST, nasconde il prodotto dal catalogo pubblico e dai motori di ricerca
                     if ($is_test_event) {
                         update_post_meta($product_id, '_visibility', 'hidden');
@@ -730,6 +734,53 @@ function dfn_render_event_editor()
                         </div>
                     </div>
 
+                    <!-- Blocco Galleria Fotografica Post-Evento (Wall Fotografico Scatti Serata) -->
+                    <div class="dfn-card dfn-card-sidebar">
+                        <div class="dfn-card-header">
+                            <h2>📸 <?php esc_html_e('Scatti dell\'Evento (Post-Evento)', 'dfn-theme'); ?><?php dfn_tooltip_icon('dfn-tip-post-gallery', 'Informazioni: Foto Post-Evento'); ?></h2>
+                        </div>
+                        <div class="dfn-card-body" style="text-align: center;">
+                            <p class="description" style="margin-bottom: 12px; font-size: 12px; text-align: left; color: #64748b; line-height: 1.4;">
+                                <?php esc_html_e('Carica le foto scattate durante l\'evento. Verranno visualizzate in un wall fotografico a griglia masonry con lightbox nella pagina dell\'evento una volta concluso.', 'dfn-theme'); ?>
+                            </p>
+                            <?php
+                            $post_gallery_ids_str = '';
+                            $post_gallery_urls = [];
+                            if ($p_id > 0) {
+                                $post_gallery_ids_str = get_post_meta($p_id, '_dfn_post_event_gallery', true);
+                                if (! empty($post_gallery_ids_str)) {
+                                    $post_gallery_ids = array_filter(explode(',', $post_gallery_ids_str));
+                                    foreach ($post_gallery_ids as $id) {
+                                        $url = wp_get_attachment_image_url($id, 'thumbnail');
+                                        if ($url) {
+                                            $post_gallery_urls[] = [ 'id' => $id, 'url' => $url ];
+                                        }
+                                    }
+                                }
+                            }
+                            ?>
+                            <div class="dfn-event-gallery-preview" style="margin-bottom: 15px; min-height: 100px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; justify-content: center; background: #f8fafc;" id="dfn-post-event-gallery-container">
+                                <?php if (! empty($post_gallery_urls)) : ?>
+                                    <?php foreach ($post_gallery_urls as $item) : ?>
+                                        <div class="dfn-post-gallery-image-wrapper" data-id="<?php echo esc_attr($item['id']); ?>" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1;">
+                                            <img src="<?php echo esc_url($item['url']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                                            <span class="dfn-delete-post-gallery-img" style="position: absolute; top: 0; right: 0; background: rgba(239, 68, 68, 0.85); color: white; border-radius: 0 0 0 4px; width: 16px; height: 16px; line-height: 16px; text-align: center; cursor: pointer; font-size: 10px; font-weight: bold;">×</span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else : ?>
+                                    <span style="color: #64748b; font-size: 13px; align-self: center;" id="dfn-post-event-gallery-placeholder"><?php esc_html_e('Nessuna foto post-evento caricata', 'dfn-theme'); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <input type="hidden" name="dfn_post_event_gallery_ids" id="dfn_post_event_gallery_ids" value="<?php echo esc_attr($post_gallery_ids_str); ?>">
+                            
+                            <div>
+                                <button type="button" class="button button-secondary" id="dfn-upload-post-gallery-btn" style="font-weight: 600;">
+                                    <?php esc_html_e('Carica o Seleziona Foto', 'dfn-theme'); ?>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Blocco Layout Pagina Dettaglio -->
                     <div class="dfn-card dfn-card-sidebar">
                         <div class="dfn-card-header">
@@ -1038,7 +1089,18 @@ function dfn_render_event_editor()
                     <li><strong>Layout 2 — Locandina:</strong> immagine verticale (locandina) a sinistra della pagina e form di prenotazione a destra. Ideale per eventi con una singola immagine locandina istituzionale.</li>
                 </ul>
             </div>
+        </div>
 
+        <!-- Modal: Foto Post-Evento -->
+        <div class="dfn-tooltip-modal" id="dfn-tip-post-gallery" role="dialog" aria-modal="true" aria-labelledby="dfn-tip-post-gallery-title">
+            <div class="dfn-tooltip-modal-header">
+                <h3 id="dfn-tip-post-gallery-title">📸 <?php esc_html_e('Scatti dell\'Evento (Post-Evento)', 'dfn-theme'); ?></h3>
+                <button type="button" class="dfn-tooltip-modal-close" aria-label="<?php esc_attr_e('Chiudi', 'dfn-theme'); ?>">×</button>
+            </div>
+            <div class="dfn-tooltip-modal-body">
+                <p><?php esc_html_e('Questo spazio è dedicato alle fotografie scattate durante lo svolgimento dell\'iniziativa.', 'dfn-theme'); ?></p>
+                <p><?php esc_html_e('A differenza della galleria descrittiva del prodotto (usata prima dell\'evento per presentarlo), queste foto vengono mostrate pubblicamente in coda alla pagina come "Wall Fotografico dei Ricordi" a griglia masonry con lightbox soltanto quando l\'evento risulta concluso.', 'dfn-theme'); ?></p>
+            </div>
         </div>
 
     </div>
