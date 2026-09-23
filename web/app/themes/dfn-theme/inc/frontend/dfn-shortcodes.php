@@ -183,8 +183,9 @@ function dfn_render_star_rating_svg($rating, $size = 18): string
  */
 function dfn_render_event_concluded_reviews_card(int $product_id, $event): string
 {
-    $reviews_data   = dfn_get_event_reviews_data($product_id);
-    $event_date_str = date_i18n('d F Y', strtotime($event->event_date_start));
+    $is_reviews_enabled = (get_post_meta($product_id, '_dfn_show_reviews_frontend', true) !== 'no');
+    $reviews_data       = dfn_get_event_reviews_data($product_id);
+    $event_date_str     = date_i18n('d F Y', strtotime($event->event_date_start));
 
     ob_start();
     ?>
@@ -200,7 +201,7 @@ function dfn_render_event_concluded_reviews_card(int $product_id, $event): strin
             </div>
         </div>
 
-        <?php if ($reviews_data['count'] > 0) : ?>
+        <?php if ($is_reviews_enabled && $reviews_data['count'] > 0) : ?>
             <!-- Scorecard Statistiche Recensioni -->
             <div class="dfn-reviews-scorecard">
                 <div class="dfn-scorecard-main">
@@ -1367,7 +1368,8 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
                     $permalink     = get_permalink($product_id);
                     $city_name     = ! empty($event->city) ? $event->city : '';
                     $location_text = ! empty($city_name) ? $city_name . ' — ' . $event->location : $event->location;
-                    $rating_data   = $product_ratings[$product_id] ?? null;
+                    $is_reviews_enabled = (get_post_meta($product_id, '_dfn_show_reviews_frontend', true) !== 'no');
+                    $rating_data        = $product_ratings[$product_id] ?? null;
                     ?>
                     <div class="dfn-past-card">
                         <div class="dfn-past-card-image-wrapper">
@@ -1402,7 +1404,7 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
                                 <span>📍 <strong><?php echo esc_html($location_text); ?></strong></span>
                             </div>
 
-                            <?php if ($rating_data && $rating_data['count'] > 0) : ?>
+                            <?php if ($is_reviews_enabled && $rating_data && $rating_data['count'] > 0) : ?>
                                 <div class="dfn-past-card-rating">
                                     <div class="dfn-past-rating-num"><?php echo number_format($rating_data['rating'], 1, ',', '.'); ?></div>
                                     <div class="dfn-past-rating-details">

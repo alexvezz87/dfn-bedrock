@@ -273,6 +273,10 @@ function dfn_render_event_editor()
                         update_post_meta($product_id, '_manage_stock', 'yes');
                         update_post_meta($product_id, '_stock', $remaining_stock);
                         update_post_meta($product_id, '_stock_status', ($remaining_stock > 0 ? 'instock' : 'outofstock'));
+
+                        // Aggiorna visibilità recensioni front-end
+                        $show_reviews_frontend = isset($_POST['show_reviews_frontend']) && $_POST['show_reviews_frontend'] === 'yes' ? 'yes' : 'no';
+                        update_post_meta($product_id, '_dfn_show_reviews_frontend', $show_reviews_frontend);
                     }
 
                     // Reindirizza al tabellone principale con messaggio di successo
@@ -330,6 +334,10 @@ function dfn_render_event_editor()
     $is_test_evt      = $is_post ? (isset($_POST['is_test_event']) ? 1 : 0) : ($event && isset($event->is_test_event) ? (int) $event->is_test_event : 0);
     $test_email       = $is_post && isset($_POST['test_notification_email']) ? sanitize_email($_POST['test_notification_email']) : ($event && isset($event->test_notification_email) ? $event->test_notification_email : '');
     $is_duplicated    = isset($_GET['duplicated']) && $_GET['duplicated'] === '1';
+
+    $prod_id_for_rev  = ($event && ! empty($event->product_id)) ? (int) $event->product_id : 0;
+    $raw_show_rev     = $prod_id_for_rev ? get_post_meta($prod_id_for_rev, '_dfn_show_reviews_frontend', true) : '';
+    $show_reviews_val = $is_post ? (isset($_POST['show_reviews_frontend']) ? 'yes' : 'no') : (($raw_show_rev !== 'no') ? 'yes' : 'no');
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header">
@@ -609,6 +617,17 @@ function dfn_render_event_editor()
                                     </label>
                                     <input type="email" name="test_notification_email" id="test_notification_email" value="<?php echo esc_attr($test_email); ?>" placeholder="es. tua.email@dominio.it" class="dfn-input" style="width:100%; margin-top:4px;" />
                                 </div>
+                            </div>
+
+                            <!-- Blocco Recensioni Front-End -->
+                            <div class="dfn-form-group" style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px 14px; border-radius:8px; margin-top:15px;">
+                                <label for="show_reviews_frontend" class="dfn-label" style="display:flex; align-items:center; gap:8px; font-weight:700; color:#1e293b; cursor:pointer; margin-bottom:4px;">
+                                    <input type="checkbox" name="show_reviews_frontend" id="show_reviews_frontend" value="yes" <?php checked($show_reviews_val, 'yes'); ?> />
+                                    ⭐ <?php esc_html_e('Mostra Recensioni nel Front-End', 'dfn-theme'); ?>
+                                </label>
+                                <p class="description" style="margin: 4px 0 0 24px; font-size: 11.5px; color: #64748b;">
+                                    <?php esc_html_e('Se attivo, quando l\'evento è concluso mostra la valutazione media e le recensioni verificate sulla scheda dell\'evento e nel Wall in Home Page.', 'dfn-theme'); ?>
+                                </p>
                             </div>
 
                             <div class="divider"></div>
