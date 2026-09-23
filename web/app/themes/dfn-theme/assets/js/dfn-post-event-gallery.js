@@ -49,12 +49,67 @@
                 index: i,
                 type: isVideo ? 'video' : 'image',
                 videoSrc: $item.data('video-src') || '',
-                mimeType: $item.data('mime') || 'video/mp4',
+                mimeType: $item.data('mime') || 'video/webm',
                 fullSrc: $item.data('full-src') || '',
-                caption: $item.data('caption') || '',
+                caption: ($item.data('caption') || '').toString().trim(),
                 thumb: $item.find('img').attr('src') || ''
             });
         });
+
+        /**
+         * Idratatore on-demand del tag video dell'anteprima nella griglia masonry.
+         * Evita di scaricare stream di 10 video simultanei al caricamento iniziale della pagina,
+         * liberando completamente la banda e la GPU.
+         */
+        function hydrateVideoPreview(video) {
+            if (!video || video.getAttribute('data-hydrated') === 'true') {
+                return;
+            }
+            var lazySrc = video.getAttribute('data-lazy-src');
+            var mime = video.getAttribute('data-mime') || 'video/webm';
+            if (lazySrc) {
+                video.setAttribute('data-hydrated', 'true');
+                var source = document.createElement('source');
+                source.src = lazySrc;
+                source.type = mime;
+                video.appendChild(source);
+                video.preload = 'metadata';
+                video.load();
+
+                // Fade-in morbido quando il frame al tempo t=0.1 è pronto
+                $(video).one('loadeddata canplay', function() {
+                    $(this).addClass('is-loaded');
+                });
+            }
+        }
+
+        /**
+         * Smart Lazy Loading con IntersectionObserver:
+         * I video vengono idratati solo quando l'utente scorre in prossimità del Wall (350px prima).
+         */
+        var $lazyVideos = $('video.dfn-gallery-video-thumb');
+        if ('IntersectionObserver' in window && $lazyVideos.length) {
+            var videoObserver = new IntersectionObserver(function(entries, observer) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        hydrateVideoPreview(entry.target);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                rootMargin: '350px 0px',
+                threshold: 0.01
+            });
+
+            $lazyVideos.each(function() {
+                videoObserver.observe(this);
+            });
+        } else {
+            // Fallback per browser privi di IntersectionObserver
+            $lazyVideos.each(function() {
+                hydrateVideoPreview(this);
+            });
+        }
 
         /**
          * Micro-anteprima video muta al passaggio del mouse sulla card nella griglia masonry
@@ -62,7 +117,11 @@
         $('.dfn-gallery-item--video').on('mouseenter', function() {
             var $thumbVideo = $(this).find('video.dfn-gallery-video-thumb');
             if ($thumbVideo.length && $thumbVideo[0]) {
-                var playPromise = $thumbVideo[0].play();
+                var v = $thumbVideo[0];
+                if (v.getAttribute('data-hydrated') !== 'true') {
+                    hydrateVideoPreview(v);
+                }
+                var playPromise = v.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(function() {
                         // Silenzia eventuali restrizioni autoplay del browser
@@ -103,9 +162,9 @@
             currentIndex = index;
             var data = galleryData[currentIndex];
 
-            // Aggiorna contatore e didascalia
+            // Aggiorna contatore e didascalia (mostrata solo se esplicitamente definita)
             $counter.text(currentIndex + 1);
-            if (data.caption) {
+            if (data.caption && data.caption.length > 0) {
                 $caption.text(data.caption).show();
             } else {
                 $caption.text('').hide();

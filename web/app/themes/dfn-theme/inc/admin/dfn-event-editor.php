@@ -192,6 +192,7 @@ function dfn_render_event_editor()
                     // Associa la galleria post-evento (scatti della serata / wall fotografico)
                     $post_gallery_ids = isset($_POST['dfn_post_event_gallery_ids']) ? sanitize_text_field($_POST['dfn_post_event_gallery_ids']) : '';
                     update_post_meta($product_id, '_dfn_post_event_gallery', $post_gallery_ids);
+                    delete_transient('dfn_post_gallery_' . $product_id);
 
                     // Se l'evento è in modalità TEST, nasconde il prodotto dal catalogo pubblico e dai motori di ricerca
                     if ($is_test_event) {
