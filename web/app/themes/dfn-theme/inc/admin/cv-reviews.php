@@ -54,6 +54,31 @@ function cv_ajax_toggle_review_published()
     ]);
 }
 
+// AJAX: Attiva/disattiva visualizzazione globale delle recensioni per l'evento selezionato
+add_action('wp_ajax_cv_toggle_event_reviews_visibility', 'cv_ajax_toggle_event_reviews_visibility');
+function cv_ajax_toggle_event_reviews_visibility()
+{
+    if (! current_user_can('dfn_act_reviews') && ! current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Permessi non sufficienti.']);
+    }
+
+    check_ajax_referer('cv_toggle_event_reviews_nonce', 'security');
+
+    $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
+    $enabled    = (isset($_POST['enabled']) && $_POST['enabled'] === 'yes') ? 'yes' : 'no';
+
+    if ($product_id <= 0) {
+        wp_send_json_error(['message' => 'ID Prodotto non valido.']);
+    }
+
+    update_post_meta($product_id, '_dfn_show_reviews_frontend', $enabled);
+
+    wp_send_json_success([
+        'product_id' => $product_id,
+        'enabled'    => ($enabled === 'yes'),
+    ]);
+}
+
 function cv_render_pagina_recensioni()
 {
     if (! current_user_can('dfn_act_reviews')) {
@@ -143,6 +168,16 @@ function cv_render_pagina_recensioni()
                 $ord->save();
             }
         }
+
+        // Aggiorna anche lo stato di visibilità globale dell'evento se inviato dal form
+        if (isset($_POST['cv_event_product_id'])) {
+            $ev_pid = intval($_POST['cv_event_product_id']);
+            if ($ev_pid > 0) {
+                $ev_show = isset($_POST['cv_event_show_reviews']) && $_POST['cv_event_show_reviews'] === 'yes' ? 'yes' : 'no';
+                update_post_meta($ev_pid, '_dfn_show_reviews_frontend', $ev_show);
+            }
+        }
+
         echo '<div class="notice notice-success is-dismissible"><p>✅ Visibilità delle recensioni aggiornata con successo!</p></div>';
     }
     // ------------------------------------------------
@@ -219,6 +254,32 @@ function cv_render_pagina_recensioni()
             return $b['timestamp'] - $a['timestamp'];
         });
 
+        $is_event_reviews_enabled = (get_post_meta($selected_event, '_dfn_show_reviews_frontend', true) !== 'no');
+
+        // Banner di controllo globale visibilità recensioni per questo evento
+        echo '<div style="background:#ffffff; border:1px solid #ccd0d4; border-radius:6px; padding:16px 20px; margin-bottom:20px; box-shadow:0 1px 2px rgba(0,0,0,.03); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">';
+        echo '<div>';
+        echo '<div style="display:flex; align-items:center; gap:10px;">';
+        echo '<strong style="font-size:15px; color:#1e293b;">🌐 Visualizzazione Recensioni nel Front-End</strong>';
+        echo '<span id="cv-event-reviews-badge" style="font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; background:' . ($is_event_reviews_enabled ? '#dcfce7' : '#f1f5f9') . '; color:' . ($is_event_reviews_enabled ? '#15803d' : '#64748b') . ';">';
+        echo $is_event_reviews_enabled ? '✓ Attive sul Front-End' : '✗ Nascoste dal Front-End';
+        echo '</span>';
+        echo '</div>';
+        echo '<p style="margin:4px 0 0 0; font-size:12.5px; color:#64748b;">';
+        esc_html_e('Attiva o disattiva la visualizzazione della media voto, del carosello e delle stelline sulla scheda dell\'evento e nel Wall in Home Page.', 'dfn-theme');
+        echo '</p>';
+        echo '</div>';
+        echo '<div style="display:flex; align-items:center; gap:12px;">';
+        echo '<label class="dfn-admin-switch" title="' . esc_attr__('Spunta per mostrare/nascondere le recensioni nel front-end', 'dfn-theme') . '">';
+        echo '<input type="checkbox" id="cv-toggle-event-reviews" data-product-id="' . esc_attr($selected_event) . '" ' . checked($is_event_reviews_enabled, true, false) . '>';
+        echo '<span class="dfn-admin-slider"></span>';
+        echo '</label>';
+        echo '<span id="cv-event-reviews-status" style="font-size:12px; font-weight:600; color:' . ($is_event_reviews_enabled ? '#004b23' : '#64748b') . ';">';
+        echo $is_event_reviews_enabled ? 'Visibili al pubblico' : 'Nascoste al pubblico';
+        echo '</span>';
+        echo '</div>';
+        echo '</div>';
+
         if ($tot_voti > 0) {
             $media = round($somma_voti / $tot_voti, 1);
 
@@ -232,6 +293,8 @@ function cv_render_pagina_recensioni()
             echo '<form id="cv-bulk-published-form" method="POST" action="" style="display:none;">';
             wp_nonce_field('cv_save_published', 'cv_save_published_nonce');
             echo '<input type="hidden" name="event_id" value="' . esc_attr($selected_event) . '">';
+            echo '<input type="hidden" name="cv_event_product_id" value="' . esc_attr($selected_event) . '">';
+            echo '<input type="hidden" id="cv-hidden-event-show-reviews" name="cv_event_show_reviews" value="' . ($is_event_reviews_enabled ? 'yes' : 'no') . '">';
             echo '</form>';
 
             echo '<table class="wp-list-table widefat fixed striped">';
@@ -287,89 +350,131 @@ function cv_render_pagina_recensioni()
             echo '<span style="font-size:13px; color:#475569;">💡 <em>Le modifiche alla spunta vengono salvate <strong>istantaneamente</strong> via AJAX, oppure puoi cliccare il pulsante qui a fianco.</em></span>';
             echo '<button type="submit" form="cv-bulk-published-form" class="button button-primary" style="background:#004b23; border-color:#004b23;">💾 Salva Tutte le Modifiche</button>';
             echo '</div>';
-            ?>
-            <style>
-            .dfn-admin-switch {
-              position: relative;
-              display: inline-block;
-              width: 44px;
-              height: 24px;
-            }
-            .dfn-admin-switch input {
-              opacity: 0;
-              width: 0;
-              height: 0;
-            }
-            .dfn-admin-slider {
-              position: absolute;
-              cursor: pointer;
-              top: 0; left: 0; right: 0; bottom: 0;
-              background-color: #cbd5e1;
-              transition: .25s ease;
-              border-radius: 24px;
-            }
-            .dfn-admin-slider:before {
-              position: absolute;
-              content: "";
-              height: 18px;
-              width: 18px;
-              left: 3px;
-              bottom: 3px;
-              background-color: white;
-              transition: .25s ease;
-              border-radius: 50%;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-            }
-            .dfn-admin-switch input:checked + .dfn-admin-slider {
-              background-color: #004b23;
-            }
-            .dfn-admin-switch input:checked + .dfn-admin-slider:before {
-              transform: translateX(20px);
-            }
-            </style>
-            <script>
-            jQuery(document).ready(function($) {
-                $('.cv-toggle-published').on('change', function() {
-                    var $checkbox = $(this);
-                    var orderId = $checkbox.data('order-id');
-                    var isChecked = $checkbox.is(':checked');
-                    var $status = $checkbox.closest('td').find('.cv-pub-status');
-
-                    $status.html('<span class="spinner is-active" style="float:none; margin:0 4px 0 0; vertical-align:middle; width:12px; height:12px;"></span> Salvataggio...');
-
-                    $.ajax({
-                        url: ajaxurl,
-                        type: 'POST',
-                        data: {
-                            action: 'cv_toggle_review_published',
-                            security: '<?php echo wp_create_nonce("cv_toggle_published_nonce"); ?>',
-                            order_id: orderId,
-                            published: isChecked ? 'yes' : 'no'
-                        },
-                        success: function(resp) {
-                            if (resp && resp.success) {
-                                if (isChecked) {
-                                    $status.css('color', '#004b23').html('✓ Pubblicata');
-                                } else {
-                                    $status.css('color', '#64748b').html('✗ Nascosta');
-                                }
-                            } else {
-                                alert('Errore: ' + (resp.data ? resp.data.message : 'Impossibile aggiornare.'));
-                                $checkbox.prop('checked', !isChecked);
-                            }
-                        },
-                        error: function() {
-                            alert('Errore di connessione durante il salvataggio.');
-                            $checkbox.prop('checked', !isChecked);
-                        }
-                    });
-                });
-            });
-            </script>
-            <?php
         } else {
             echo '<div class="notice notice-info"><p>Nessuna recensione ricevuta per questo evento al momento.</p></div>';
         }
+        ?>
+        <style>
+        .dfn-admin-switch {
+          position: relative;
+          display: inline-block;
+          width: 44px;
+          height: 24px;
+        }
+        .dfn-admin-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .dfn-admin-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-color: #cbd5e1;
+          transition: .25s ease;
+          border-radius: 24px;
+        }
+        .dfn-admin-slider:before {
+          position: absolute;
+          content: "";
+          height: 18px;
+          width: 18px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: .25s ease;
+          border-radius: 50%;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+        }
+        .dfn-admin-switch input:checked + .dfn-admin-slider {
+          background-color: #004b23;
+        }
+        .dfn-admin-switch input:checked + .dfn-admin-slider:before {
+          transform: translateX(20px);
+        }
+        </style>
+        <script>
+        jQuery(document).ready(function($) {
+            // Toggle globale evento (Mostra/nascondi recensioni nel front-end)
+            $('#cv-toggle-event-reviews').on('change', function() {
+                var $switch = $(this);
+                var productId = $switch.data('product-id');
+                var isChecked = $switch.is(':checked');
+                var $badge = $('#cv-event-reviews-badge');
+                var $status = $('#cv-event-reviews-status');
+                $('#cv-hidden-event-show-reviews').val(isChecked ? 'yes' : 'no');
+
+                $status.html('<span class="spinner is-active" style="float:none; margin:0 4px 0 0; vertical-align:middle; width:12px; height:12px;"></span> Salvataggio...');
+
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'cv_toggle_event_reviews_visibility',
+                        security: '<?php echo wp_create_nonce("cv_toggle_event_reviews_nonce"); ?>',
+                        product_id: productId,
+                        enabled: isChecked ? 'yes' : 'no'
+                    },
+                    success: function(resp) {
+                        if (resp && resp.success) {
+                            if (isChecked) {
+                                $badge.css({'background': '#dcfce7', 'color': '#15803d'}).text('✓ Attive sul Front-End');
+                                $status.css('color', '#004b23').text('Visibili al pubblico');
+                            } else {
+                                $badge.css({'background': '#f1f5f9', 'color': '#64748b'}).text('✗ Nascoste dal Front-End');
+                                $status.css('color', '#64748b').text('Nascoste al pubblico');
+                            }
+                        } else {
+                            alert('Errore: ' + (resp.data ? resp.data.message : 'Impossibile aggiornare la visibilità dell\'evento.'));
+                            $switch.prop('checked', !isChecked);
+                        }
+                    },
+                    error: function() {
+                        alert('Errore di connessione durante il salvataggio.');
+                        $switch.prop('checked', !isChecked);
+                    }
+                });
+            });
+
+            // Toggle singola recensione
+            $('.cv-toggle-published').on('change', function() {
+                var $checkbox = $(this);
+                var orderId = $checkbox.data('order-id');
+                var isChecked = $checkbox.is(':checked');
+                var $status = $checkbox.closest('td').find('.cv-pub-status');
+
+                $status.html('<span class="spinner is-active" style="float:none; margin:0 4px 0 0; vertical-align:middle; width:12px; height:12px;"></span> Salvataggio...');
+
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'cv_toggle_review_published',
+                        security: '<?php echo wp_create_nonce("cv_toggle_published_nonce"); ?>',
+                        order_id: orderId,
+                        published: isChecked ? 'yes' : 'no'
+                    },
+                    success: function(resp) {
+                        if (resp && resp.success) {
+                            if (isChecked) {
+                                $status.css('color', '#004b23').html('✓ Pubblicata');
+                            } else {
+                                $status.css('color', '#64748b').html('✗ Nascosta');
+                            }
+                        } else {
+                            alert('Errore: ' + (resp.data ? resp.data.message : 'Impossibile aggiornare.'));
+                            $checkbox.prop('checked', !isChecked);
+                        }
+                    },
+                    error: function() {
+                        alert('Errore di connessione durante il salvataggio.');
+                        $checkbox.prop('checked', !isChecked);
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
     }
     echo '</div>';
 }
