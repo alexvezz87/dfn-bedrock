@@ -252,7 +252,9 @@ function dfn_enqueue_admin_assets($hook)
             'dfn-events-manager-js',
             get_stylesheet_directory_uri() . '/assets/js/dfn-events-manager.js',
             [ 'jquery', 'selectWoo' ],
-            '2.0.0',
+            file_exists(get_stylesheet_directory() . '/assets/js/dfn-events-manager.js')
+                ? filemtime(get_stylesheet_directory() . '/assets/js/dfn-events-manager.js')
+                : '2.0.0',
             true,
         );
 
