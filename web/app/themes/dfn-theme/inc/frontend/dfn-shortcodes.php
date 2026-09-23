@@ -307,8 +307,8 @@ function dfn_render_event_concluded_reviews_card(int $product_id, $event): strin
 }
 
 /**
- * Renderizza la galleria fotografica post-evento (Wall fotografico dei Ricordi)
- * con griglia masonry, effetti dinamici e lightbox a schermo intero.
+ * Renderizza la galleria fotografica e video post-evento (Wall dei Ricordi)
+ * con griglia masonry, effetti dinamici, player video e lightbox a schermo intero.
  *
  * @param int $product_id ID del prodotto WooCommerce associato all'evento.
  * @return string HTML della galleria post-evento (o stringa vuota se assente).
@@ -327,18 +327,44 @@ function dfn_render_post_event_gallery(int $product_id): string
 
     $items = [];
     foreach ($raw_ids as $att_id) {
-        if ($att_id > 0 && wp_attachment_is_image($att_id)) {
+        if ($att_id <= 0) {
+            continue;
+        }
+
+        $is_image = wp_attachment_is_image($att_id);
+        $is_video = wp_attachment_is('video', $att_id);
+
+        if (! $is_image && ! $is_video) {
+            continue;
+        }
+
+        $caption = wp_get_attachment_caption($att_id);
+        if (empty($caption)) {
+            $alt = get_post_meta($att_id, '_wp_attachment_image_alt', true);
+            $caption = ! empty($alt) ? $alt : get_the_title($att_id);
+        }
+
+        if ($is_video) {
+            $video_url = wp_get_attachment_url($att_id);
+            $mime_type = get_post_mime_type($att_id) ?: 'video/mp4';
+            $thumb_url = wp_get_attachment_image_url($att_id, 'large');
+            if ($video_url) {
+                $items[] = [
+                    'id'        => $att_id,
+                    'type'      => 'video',
+                    'video_url' => $video_url,
+                    'mime_type' => $mime_type,
+                    'thumb_url' => $thumb_url ?: '',
+                    'caption'   => $caption ?: '',
+                ];
+            }
+        } elseif ($is_image) {
             $thumb_url = wp_get_attachment_image_url($att_id, 'large');
             $full_url  = wp_get_attachment_image_url($att_id, 'full');
-            $caption   = wp_get_attachment_caption($att_id);
-            if (empty($caption)) {
-                $alt = get_post_meta($att_id, '_wp_attachment_image_alt', true);
-                $caption = ! empty($alt) ? $alt : get_the_title($att_id);
-            }
-
             if ($thumb_url && $full_url) {
                 $items[] = [
                     'id'        => $att_id,
+                    'type'      => 'image',
                     'thumb_url' => $thumb_url,
                     'full_url'  => $full_url,
                     'caption'   => $caption ?: '',
@@ -353,47 +379,87 @@ function dfn_render_post_event_gallery(int $product_id): string
 
     ob_start();
     ?>
-    <section class="dfn-post-gallery-section" aria-label="<?php esc_attr_e('Galleria fotografica dell\'evento', 'dfn-theme'); ?>">
+    <section class="dfn-post-gallery-section" aria-label="<?php esc_attr_e('Galleria fotografica e video dell\'evento', 'dfn-theme'); ?>">
         <!-- Header Sezione Ricordi -->
         <div class="dfn-post-gallery-header">
             <div class="dfn-post-gallery-badge">
-                <span class="dfn-badge-icon">📸</span>
+                <span class="dfn-badge-icon">📸🎬</span>
                 <span><?php esc_html_e('I Nostri Ricordi', 'dfn-theme'); ?></span>
             </div>
             <h2 class="dfn-post-gallery-title"><?php esc_html_e('I momenti più belli dell\'iniziativa', 'dfn-theme'); ?></h2>
-            <p class="dfn-post-gallery-subtitle"><?php esc_html_e('Rivivi l\'atmosfera e le emozioni attraverso gli scatti fotografici realizzati durante l\'evento.', 'dfn-theme'); ?></p>
+            <p class="dfn-post-gallery-subtitle"><?php esc_html_e('Rivivi l\'atmosfera e le emozioni attraverso gli scatti fotografici e i video realizzati durante l\'evento.', 'dfn-theme'); ?></p>
         </div>
 
         <!-- Griglia Masonry -->
         <div class="dfn-post-gallery-masonry" id="dfn-post-gallery-masonry">
             <?php foreach ($items as $idx => $item) : ?>
-                <div class="dfn-gallery-item" 
-                     data-index="<?php echo $idx; ?>" 
-                     data-full-src="<?php echo esc_url($item['full_url']); ?>" 
-                     data-caption="<?php echo esc_attr($item['caption']); ?>"
-                     tabindex="0"
-                     role="button"
-                     aria-label="<?php echo esc_attr(sprintf(__('Ingrandisci foto %d: %s', 'dfn-theme'), $idx + 1, $item['caption'] ?: __('Scatto dell\'evento', 'dfn-theme'))); ?>">
-                    <div class="dfn-gallery-thumb-wrapper">
-                        <img src="<?php echo esc_url($item['thumb_url']); ?>" 
-                             alt="<?php echo esc_attr($item['caption'] ?: __('Foto dell\'evento', 'dfn-theme')); ?>" 
-                             loading="lazy" 
-                             class="dfn-gallery-thumb" />
-                        <div class="dfn-gallery-overlay">
-                            <div class="dfn-gallery-zoom-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="11" cy="11" r="8"></circle>
-                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                                    <line x1="11" y1="8" x2="11" y2="14"></line>
-                                    <line x1="8" y1="11" x2="14" y2="11"></line>
-                                </svg>
-                            </div>
-                            <?php if (! empty($item['caption'])) : ?>
-                                <span class="dfn-gallery-caption-preview"><?php echo esc_html($item['caption']); ?></span>
+                <?php if ($item['type'] === 'video') : ?>
+                    <div class="dfn-gallery-item dfn-gallery-item--video" 
+                         data-index="<?php echo $idx; ?>" 
+                         data-type="video"
+                         data-video-src="<?php echo esc_url($item['video_url']); ?>" 
+                         data-mime="<?php echo esc_attr($item['mime_type']); ?>"
+                         data-caption="<?php echo esc_attr($item['caption']); ?>"
+                         tabindex="0"
+                         role="button"
+                         aria-label="<?php echo esc_attr(sprintf(__('Riproduci video %d: %s', 'dfn-theme'), $idx + 1, $item['caption'] ?: __('Video dell\'evento', 'dfn-theme'))); ?>">
+                        <div class="dfn-gallery-thumb-wrapper">
+                            <?php if (! empty($item['thumb_url'])) : ?>
+                                <img src="<?php echo esc_url($item['thumb_url']); ?>" 
+                                     alt="<?php echo esc_attr($item['caption'] ?: __('Video dell\'evento', 'dfn-theme')); ?>" 
+                                     loading="lazy" 
+                                     class="dfn-gallery-thumb" />
+                            <?php else : ?>
+                                <video class="dfn-gallery-thumb dfn-gallery-video-thumb" preload="metadata" muted playsinline loop>
+                                    <source src="<?php echo esc_url($item['video_url']); ?>#t=0.1" type="<?php echo esc_attr($item['mime_type']); ?>">
+                                </video>
                             <?php endif; ?>
+                            <span class="dfn-gallery-video-badge">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                <?php esc_html_e('Video', 'dfn-theme'); ?>
+                            </span>
+                            <div class="dfn-gallery-overlay">
+                                <div class="dfn-gallery-play-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                        <polygon points="6 3 20 12 6 21 6 3"></polygon>
+                                    </svg>
+                                </div>
+                                <?php if (! empty($item['caption'])) : ?>
+                                    <span class="dfn-gallery-caption-preview"><?php echo esc_html($item['caption']); ?></span>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
-                </div>
+                <?php else : ?>
+                    <div class="dfn-gallery-item dfn-gallery-item--image" 
+                         data-index="<?php echo $idx; ?>" 
+                         data-type="image"
+                         data-full-src="<?php echo esc_url($item['full_url']); ?>" 
+                         data-caption="<?php echo esc_attr($item['caption']); ?>"
+                         tabindex="0"
+                         role="button"
+                         aria-label="<?php echo esc_attr(sprintf(__('Ingrandisci foto %d: %s', 'dfn-theme'), $idx + 1, $item['caption'] ?: __('Scatto dell\'evento', 'dfn-theme'))); ?>">
+                        <div class="dfn-gallery-thumb-wrapper">
+                            <img src="<?php echo esc_url($item['thumb_url']); ?>" 
+                                 alt="<?php echo esc_attr($item['caption'] ?: __('Foto dell\'evento', 'dfn-theme')); ?>" 
+                                 loading="lazy" 
+                                 class="dfn-gallery-thumb" />
+                            <div class="dfn-gallery-overlay">
+                                <div class="dfn-gallery-zoom-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                                    </svg>
+                                </div>
+                                <?php if (! empty($item['caption'])) : ?>
+                                    <span class="dfn-gallery-caption-preview"><?php echo esc_html($item['caption']); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
             <?php endforeach; ?>
         </div>
 
@@ -410,25 +476,26 @@ function dfn_render_post_event_gallery(int $product_id): string
                 </button>
 
                 <!-- Bottone Precedente -->
-                <button type="button" class="dfn-lightbox-btn dfn-lightbox-prev" aria-label="<?php esc_attr_e('Foto precedente', 'dfn-theme'); ?>" title="<?php esc_attr_e('Foto precedente (Freccia sinistra)', 'dfn-theme'); ?>">
+                <button type="button" class="dfn-lightbox-btn dfn-lightbox-prev" aria-label="<?php esc_attr_e('Elemento precedente', 'dfn-theme'); ?>" title="<?php esc_attr_e('Elemento precedente (Freccia sinistra)', 'dfn-theme'); ?>">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="15 18 9 12 15 6"></polyline>
                     </svg>
                 </button>
 
                 <!-- Bottone Successiva -->
-                <button type="button" class="dfn-lightbox-btn dfn-lightbox-next" aria-label="<?php esc_attr_e('Foto successiva', 'dfn-theme'); ?>" title="<?php esc_attr_e('Foto successiva (Freccia destra)', 'dfn-theme'); ?>">
+                <button type="button" class="dfn-lightbox-btn dfn-lightbox-next" aria-label="<?php esc_attr_e('Elemento successivo', 'dfn-theme'); ?>" title="<?php esc_attr_e('Elemento successivo (Freccia destra)', 'dfn-theme'); ?>">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="9 18 15 12 9 6"></polyline>
                     </svg>
                 </button>
 
-                <!-- Area Immagine e Spinner di Caricamento -->
+                <!-- Area Immagine / Video e Spinner di Caricamento -->
                 <div class="dfn-lightbox-content">
                     <div class="dfn-lightbox-loader">
                         <div class="dfn-spinner"></div>
                     </div>
                     <img src="" alt="" class="dfn-lightbox-image" />
+                    <video controls playsinline class="dfn-lightbox-video" style="display:none;"></video>
                 </div>
 
                 <!-- Footer: Contatore e Didascalia -->

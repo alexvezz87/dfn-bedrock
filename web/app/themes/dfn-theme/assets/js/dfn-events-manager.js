@@ -237,9 +237,12 @@
             }
 
             post_gallery_frame = wp.media({
-                title: 'Aggiungi Scatti dell\'Evento (Post-Evento)',
+                title: 'Aggiungi Foto o Video dell\'Evento (Post-Evento)',
                 button: {
                     text: 'Aggiungi alla galleria post-evento'
+                },
+                library: {
+                    type: ['image', 'video']
                 },
                 multiple: true
             });
@@ -253,11 +256,16 @@
                     if (currentIds.indexOf(attJson.id.toString()) === -1) {
                         currentIds.push(attJson.id.toString());
                         
+                        var isVideo = (attJson.type === 'video');
+                        var thumbUrl = (attJson.sizes && attJson.sizes.thumbnail) ? attJson.sizes.thumbnail.url : (attJson.icon || attJson.url);
+                        
                         // Append thumbnail in HTML preview
                         $('#dfn-post-event-gallery-placeholder').hide();
-                        var html = '<div class="dfn-post-gallery-image-wrapper" data-id="' + attJson.id + '" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1;">' +
-                                   '  <img src="' + (attJson.sizes && attJson.sizes.thumbnail ? attJson.sizes.thumbnail.url : attJson.url) + '" style="width: 100%; height: 100%; object-fit: cover;">' +
-                                   '  <span class="dfn-delete-post-gallery-img" style="position: absolute; top: 0; right: 0; background: rgba(239, 68, 68, 0.85); color: white; border-radius: 0 0 0 4px; width: 16px; height: 16px; line-height: 16px; text-align: center; cursor: pointer; font-size: 10px; font-weight: bold;">×</span>' +
+                        var badge = isVideo ? '<span style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.75); color: #fff; font-size: 9px; text-align: center; font-weight: 700; line-height: 14px;">▶ VIDEO</span>' : '';
+                        var html = '<div class="dfn-post-gallery-image-wrapper" data-id="' + attJson.id + '" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1; background: #0f172a;">' +
+                                   '  <img src="' + thumbUrl + '" style="width: 100%; height: 100%; object-fit: cover;">' +
+                                   badge +
+                                   '  <span class="dfn-delete-post-gallery-img" style="position: absolute; top: 0; right: 0; background: rgba(239, 68, 68, 0.85); color: white; border-radius: 0 0 0 4px; width: 16px; height: 16px; line-height: 16px; text-align: center; cursor: pointer; font-size: 10px; font-weight: bold; z-index: 2;">×</span>' +
                                    '</div>';
                         $('#dfn-post-event-gallery-container').append(html);
                     }
