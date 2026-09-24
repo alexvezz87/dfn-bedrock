@@ -2,7 +2,7 @@
 
 /**
  * DFN Theme - Functions
- * Architettura Modulare FAI Prenotazioni & CandleVibes Legacy
+ * Architettura Modulare FAI Prenotazioni & Gestione Volontari
  */
 
 // Exit if accessed directly
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
 
 /**
  * ========================================================================
- * 1. NUOVO LOADER SISTEMA PRENOTAZIONI 2.0 (dfn_*)
+ * 1. NUOVO LOADER SISTEMA PRENOTAZIONI 2.0 & 2.1 (dfn_*)
  * Include tutti i moduli del sistema FAI Prenotazioni in ordine logico.
  * ========================================================================
  */
@@ -45,6 +45,8 @@ require_once get_stylesheet_directory() . '/inc/admin/dfn-waitlist.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-quick-booking.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-pending-bookings.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-logs.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteers-admin.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteer-logistics-admin.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-botteghino.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-accounting.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-reviews-admin.php';
@@ -60,6 +62,8 @@ require_once get_stylesheet_directory() . '/inc/frontend/dfn-shortcodes.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-myaccount.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-mobile-app.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-volunteer-survey.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-volunteer-registration.php';
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-feedback.php';
 
 // API / Router
@@ -69,4 +73,3 @@ require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slot-manager.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-scanner.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-fai-members.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-botteghino.php';
-
