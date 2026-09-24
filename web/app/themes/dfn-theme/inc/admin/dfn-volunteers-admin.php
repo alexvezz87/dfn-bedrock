@@ -162,7 +162,7 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteers',
         'dfn_render_volunteers_list_page',
         'dashicons-groups',
-        57
+        55.2
     );
 
     // Sottomenu: Elenco Volontari

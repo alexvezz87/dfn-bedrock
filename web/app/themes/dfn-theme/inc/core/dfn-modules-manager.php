@@ -130,7 +130,7 @@ function dfn_register_modules_admin_menu(): void
         'dfn-modules',
         'dfn_render_modules_manager_page',
         'dashicons-screenoptions',
-        58
+        55.4
     );
 
     // Se il menu Prenotazioni è attivo, aggiunge anche un link nel suo sottomenu per comodità
@@ -140,19 +140,19 @@ function dfn_register_modules_admin_menu(): void
             __('Moduli FAI', 'dfn-theme'),
             __('Moduli FAI', 'dfn-theme'),
             'manage_options',
-            'dfn-modules-sub',
+            'dfn-modules',
             'dfn_render_modules_manager_page'
         );
     }
 
-    // Se il menu Volontari è attivo e Prenotazioni è disattivato, aggiunge un link nel sottomenu Volontari
-    if (dfn_is_module_active('volontari') && ! dfn_is_module_active('prenotazioni')) {
+    // Se il menu Volontari è attivo, aggiunge anche un link nel sottomenu Volontari
+    if (dfn_is_module_active('volontari')) {
         add_submenu_page(
             'dfn-volunteers',
             __('Moduli FAI', 'dfn-theme'),
             __('Moduli FAI', 'dfn-theme'),
             'manage_options',
-            'dfn-modules-vol-sub',
+            'dfn-modules',
             'dfn_render_modules_manager_page'
         );
     }

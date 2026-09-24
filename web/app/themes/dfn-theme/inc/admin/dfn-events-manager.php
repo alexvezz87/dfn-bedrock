@@ -29,7 +29,7 @@ function dfn_admin_register_menus()
         'dfn-events',
         'dfn_render_events_manager',
         'dashicons-calendar-alt',
-        55,
+        55.1,
     );
 
     // Sottomenu principale (duplica per avere lo stesso URL come primo elemento)
