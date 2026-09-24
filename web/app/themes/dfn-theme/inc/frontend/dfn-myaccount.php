@@ -82,7 +82,8 @@ function dfn_enqueue_myaccount_assets(): void
         );
 
         // Rilevamento status volontario per arricchimento dinamico del Tour
-        $is_current_volunteer = function_exists('dfn_is_user_volunteer') ? dfn_is_user_volunteer() : false;
+        $is_current_volunteer = (function_exists('dfn_is_module_active') ? dfn_is_module_active('volontari') : true) 
+            && (function_exists('dfn_is_user_volunteer') ? dfn_is_user_volunteer() : false);
 
         $tours = [
             // Tour 0 — Bacheca Principale & Tour del Menu Laterale
@@ -335,14 +336,18 @@ add_action('init', 'dfn_fai_cards_endpoint_init');
 function dfn_fai_cards_endpoint_init(): void
 {
     add_rewrite_endpoint('tessere-fai', EP_PAGES | EP_ROOT);
-    add_rewrite_endpoint('volontari-fai', EP_PAGES | EP_ROOT);
-    add_rewrite_endpoint('riunioni-fai', EP_PAGES | EP_ROOT);
-    add_rewrite_endpoint('sondaggi-fai', EP_PAGES | EP_ROOT);
-    add_rewrite_endpoint('eventi-fai', EP_PAGES | EP_ROOT);
+
+    $is_vol_active = function_exists('dfn_is_module_active') ? dfn_is_module_active('volontari') : true;
+    if ($is_vol_active) {
+        add_rewrite_endpoint('volontari-fai', EP_PAGES | EP_ROOT);
+        add_rewrite_endpoint('riunioni-fai', EP_PAGES | EP_ROOT);
+        add_rewrite_endpoint('sondaggi-fai', EP_PAGES | EP_ROOT);
+        add_rewrite_endpoint('eventi-fai', EP_PAGES | EP_ROOT);
+    }
 
     // Auto-flush se una delle regole di rewrite non è ancora presente
     $rules = get_option('rewrite_rules');
-    if (! isset($rules['(.?.+?)/volontari-fai(/(.*))?/?$']) || ! isset($rules['(.?.+?)/riunioni-fai(/(.*))?/?$']) || ! isset($rules['(.?.+?)/sondaggi-fai(/(.*))?/?$']) || ! isset($rules['(.?.+?)/eventi-fai(/(.*))?/?$'])) {
+    if ($is_vol_active && (! isset($rules['(.?.+?)/volontari-fai(/(.*))?/?$']) || ! isset($rules['(.?.+?)/riunioni-fai(/(.*))?/?$']) || ! isset($rules['(.?.+?)/sondaggi-fai(/(.*))?/?$']) || ! isset($rules['(.?.+?)/eventi-fai(/(.*))?/?$']))) {
         flush_rewrite_rules(false);
     }
 }
@@ -358,10 +363,12 @@ add_filter('query_vars', 'dfn_fai_cards_query_vars', 0);
 function dfn_fai_cards_query_vars(array $vars): array
 {
     $vars[] = 'tessere-fai';
-    $vars[] = 'volontari-fai';
-    $vars[] = 'riunioni-fai';
-    $vars[] = 'sondaggi-fai';
-    $vars[] = 'eventi-fai';
+    if (function_exists('dfn_is_module_active') ? dfn_is_module_active('volontari') : true) {
+        $vars[] = 'volontari-fai';
+        $vars[] = 'riunioni-fai';
+        $vars[] = 'sondaggi-fai';
+        $vars[] = 'eventi-fai';
+    }
     return $vars;
 }
 
@@ -377,12 +384,17 @@ function dfn_add_fai_cards_to_menu(array $items): array
     global $wpdb, $wp;
     unset($items['customer-logout'], $items['downloads'], $items['edit-address']);
 
-    $is_volunteer = function_exists('dfn_is_user_volunteer') ? dfn_is_user_volunteer() : false;
+    $is_vol_active  = function_exists('dfn_is_module_active') ? dfn_is_module_active('volontari') : true;
+    $is_pren_active = function_exists('dfn_is_module_active') ? dfn_is_module_active('prenotazioni') : true;
+    $is_volunteer   = $is_vol_active && (function_exists('dfn_is_user_volunteer') ? dfn_is_user_volunteer() : false);
 
     if (! $is_volunteer) {
-        // Menu standard per visitatori non volontari
+        // Menu standard per visitatori non volontari (o se il modulo volontari è disattivato)
         $new_items = [];
         foreach ($items as $key => $value) {
+            if ('orders' === $key && ! $is_pren_active) {
+                continue; // Nasconde la voce prenotazioni se il modulo prenotazioni è disattivato
+            }
             if ('edit-account' === $key) {
                 $new_items['tessere-fai'] = esc_html__('Tessere FAI', 'dfn-theme');
                 $new_items['edit-account'] = esc_html__('Account', 'dfn-theme');
@@ -420,7 +432,9 @@ function dfn_add_fai_cards_to_menu(array $items): array
     } else {
         // --- MENU MODALITÀ VISITATORE (Voci chiare e pulite senza icone) ---
         $new_items['dashboard']     = $items['dashboard'] ?? esc_html__('Bacheca', 'dfn-theme');
-        $new_items['orders']        = $items['orders'] ?? esc_html__('Prenotazioni', 'dfn-theme');
+        if ($is_pren_active) {
+            $new_items['orders']    = $items['orders'] ?? esc_html__('Prenotazioni', 'dfn-theme');
+        }
         $new_items['tessere-fai']   = esc_html__('Tessere FAI', 'dfn-theme');
         $new_items['volontari-fai'] = esc_html__('Volontari', 'dfn-theme');
         $new_items['edit-account']  = esc_html__('Account', 'dfn-theme');
@@ -2197,7 +2211,7 @@ function dfn_custom_myaccount_dashboard_content(): void
                         <?php esc_html_e('Riepilogo delle tue prenotazioni ed esperienze con FAI Novara', 'dfn-theme'); ?>
                     </p>
                 </div>
-                <?php if (function_exists('dfn_is_user_volunteer') && dfn_is_user_volunteer($current_user_id)) : ?>
+                <?php if ((function_exists('dfn_is_module_active') ? dfn_is_module_active('volontari') : true) && function_exists('dfn_is_user_volunteer') && dfn_is_user_volunteer($current_user_id)) : ?>
                     <div>
                         <a href="<?php echo esc_url(wc_get_endpoint_url('eventi-fai', '', wc_get_page_permalink('myaccount'))); ?>" class="button" style="background: #ffffff; color: #004b23; border-radius: 30px; font-size: 12px; font-weight: 800; padding: 6px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: none;">
                             🦺 Area Volontari →
