@@ -144,20 +144,23 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
 
         // Determinazione condizioni per enqueue mirato
         global $post;
-        $is_product_page = is_singular('product') || (function_exists('is_product') && is_product());
-        $has_event_shortcode = is_a($post, 'WP_Post') && (
+        $is_product_page       = is_singular('product') || (function_exists('is_product') && is_product());
+        $has_event_shortcode   = is_a($post, 'WP_Post') && (
             has_shortcode($post->post_content, 'dfn_evento') ||
             has_shortcode($post->post_content, 'prodotto_condizionale')
         );
         $has_archive_shortcode = is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'dfn_lista_eventi');
+        $is_front_or_home      = is_front_page() || is_home();
+        $needs_event_styles    = $is_product_page || $has_event_shortcode || $has_archive_shortcode || $is_front_or_home;
+
+        if ($needs_event_styles) {
+            wp_enqueue_style('dfn-slot-selector-css');
+            wp_enqueue_script('dfn-reviews-carousel-js');
+        }
 
         if ($is_product_page || $has_event_shortcode) {
-            wp_enqueue_style('dfn-slot-selector-css');
             wp_enqueue_script('dfn-slot-selector-js');
-            wp_enqueue_script('dfn-reviews-carousel-js');
             wp_enqueue_script('dfn-post-event-gallery-js');
-        } elseif ($has_archive_shortcode) {
-            wp_enqueue_script('dfn-reviews-carousel-js');
         }
 
         // Enqueue Mobile Web App (CSS & JS) - Soltanto sulla pagina /gestione-eventi/
