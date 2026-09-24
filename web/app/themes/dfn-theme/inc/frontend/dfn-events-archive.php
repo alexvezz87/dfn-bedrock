@@ -25,6 +25,10 @@ add_shortcode('dfn_lista_eventi', 'dfn_render_lista_eventi_shortcode');
  */
 function dfn_render_lista_eventi_shortcode(array $atts = []): string
 {
+    // Assicura il caricamento degli stili per la griglia/card e dello script recensioni per l'archivio
+    wp_enqueue_style('dfn-slot-selector-css');
+    wp_enqueue_script('dfn-reviews-carousel-js');
+
     $atts = shortcode_atts([
         'status'    => 'published',
         'limit'     => -1,
