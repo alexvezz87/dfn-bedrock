@@ -219,7 +219,7 @@ function dfn_render_waitlist_page(): void
 
     // Lista eventi attivi per il selettore
     $table_events = $wpdb->prefix . 'dfn_events';
-    $events = $wpdb->get_results("SELECT * FROM {$table_events} WHERE status != 'archived' ORDER BY event_date_start DESC");
+    $events = $wpdb->get_results("SELECT * FROM {$table_events} WHERE status != 'archived' ORDER BY event_date_start DESC, id DESC");
 
     ?>
     <div class="wrap dfn-admin-wrap">
@@ -248,8 +248,10 @@ function dfn_render_waitlist_page(): void
                 <option value="0">-- <?php esc_html_e('Seleziona un Evento', 'dfn-theme'); ?> --</option>
                 <?php foreach ($events as $ev) :
                     $p_name = get_the_title($ev->product_id) ?: esc_html__('Evento', 'dfn-theme');
+                    $date_fmt = !empty($ev->event_date_start) ? date_i18n('d/m/Y', strtotime($ev->event_date_start)) : '';
+                    $label = $date_fmt ? $date_fmt . ' - ' . $p_name : $p_name;
                     ?>
-                    <option value="<?php echo intval($ev->id); ?>" <?php selected($selected_event_id, $ev->id); ?>><?php echo esc_html($p_name); ?></option>
+                    <option value="<?php echo intval($ev->id); ?>" <?php selected($selected_event_id, $ev->id); ?>><?php echo esc_html($label); ?></option>
                 <?php endforeach; ?>
             </select>
             <button type="submit" class="button button-primary" style="padding: 5px 18px; font-size: 14px; height: auto; font-weight: 700; background: #004b23; border: none; border-radius: 6px;"><?php esc_html_e('Carica Coda', 'dfn-theme'); ?></button>
