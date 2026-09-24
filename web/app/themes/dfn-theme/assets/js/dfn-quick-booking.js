@@ -87,11 +87,10 @@
             },
             success: function (res) {
                 if (res.success && res.data.events && res.data.events.length > 0) {
-                    let html = '<option value="">— Seleziona un evento —</option>';
+                    let html = '<option value="">-- Seleziona un Evento --</option>';
                     res.data.events.forEach(function (ev) {
-                        const startFmt = formatDate(ev.event_date_start);
-                        const endFmt   = ev.event_date_end !== ev.event_date_start ? ' → ' + formatDate(ev.event_date_end) : '';
-                        const label    = startFmt ? startFmt + endFmt + ' - ' + ev.event_name : ev.event_name;
+                        const startFmt = formatDateNumeric(ev.event_date_start);
+                        const label    = startFmt ? startFmt + ' - ' + ev.event_name : ev.event_name;
                         html += `<option value="${ev.id}"
                             data-access="${ev.access_type}"
                             data-name="${escAttr(ev.event_name)}"
@@ -561,6 +560,13 @@
             $submitSpinner.hide();
             $form.removeClass('dfn-qb-loading');
         }
+    }
+
+    function formatDateNumeric(dateStr) {
+        if (! dateStr) return '';
+        const parts = dateStr.split('-');
+        if (parts.length !== 3) return dateStr;
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
 
     function formatDate(dateStr) {
