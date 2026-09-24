@@ -940,7 +940,7 @@ function dfn_ajax_quick_get_events(): void
          FROM {$table_events}
          WHERE status = 'published'
            AND event_date_end >= %s
-         ORDER BY event_date_start ASC",
+         ORDER BY event_date_start DESC, id DESC",
         $today,
     ));
 
@@ -1468,7 +1468,7 @@ function dfn_ajax_botteghino_get_events(): void
          FROM {$table_events}
          WHERE status = 'published'
            AND event_date_end >= %s
-         ORDER BY event_date_start ASC",
+         ORDER BY event_date_start DESC, id DESC",
         $today,
     ));
 

@@ -1135,6 +1135,12 @@ function dfn_render_mobile_app(): void
         $today
     ));
 
+    $all_published_events = $wpdb->get_results(
+        "SELECT * FROM {$table_events} 
+         WHERE status = 'published' 
+         ORDER BY event_date_start DESC, id DESC"
+    );
+
     $table_bookings = $wpdb->prefix . 'dfn_bookings';
     $pending_bookings = $wpdb->get_results(
         "SELECT b.*, e.location 
@@ -1450,11 +1456,18 @@ function dfn_render_mobile_app(): void
                             <label for="dfn-m-qb-event">Evento *</label>
                             <select id="dfn-m-qb-event" name="event_id" required>
                                 <option value="">Seleziona Evento...</option>
-                                <?php foreach ($events as $ev) : ?>
+                                <?php foreach ($all_published_events as $ev) : 
+                                    $date_formatted = ! empty($ev->event_date_start) ? date_i18n('d/m/Y', strtotime($ev->event_date_start)) : '';
+                                    $ev_title = get_the_title($ev->product_id) ?: sprintf(__('Evento %d', 'dfn-theme'), $ev->id);
+                                    $opt_label = $date_formatted ? $date_formatted . ' - ' . $ev_title : $ev_title;
+                                    if (! empty($ev->is_test_event)) {
+                                        $opt_label .= ' 🧪 [TEST]';
+                                    }
+                                ?>
                                     <option value="<?php echo absint($ev->id); ?>"
                                             data-access="<?php echo esc_attr($ev->access_type ?? 'time_slots'); ?>"
-                                            data-name="<?php echo esc_attr(get_the_title($ev->product_id)); ?>">
-                                        <?php echo esc_html(get_the_title($ev->product_id)); ?><?php echo ! empty($ev->is_test_event) ? ' 🧪 [TEST]' : ''; ?> (<?php echo esc_html(date('d/m/Y', strtotime($ev->event_date_start))); ?>)
+                                            data-name="<?php echo esc_attr($ev_title); ?>">
+                                        <?php echo esc_html($opt_label); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -1544,11 +1557,18 @@ function dfn_render_mobile_app(): void
                             <label for="dfn-bot-event">Evento *</label>
                             <select id="dfn-bot-event" name="event_id" required>
                                 <option value="">Seleziona Evento...</option>
-                                <?php foreach ($events as $ev) : ?>
+                                <?php foreach ($all_published_events as $ev) : 
+                                    $date_formatted = ! empty($ev->event_date_start) ? date_i18n('d/m/Y', strtotime($ev->event_date_start)) : '';
+                                    $ev_title = get_the_title($ev->product_id) ?: sprintf(__('Evento %d', 'dfn-theme'), $ev->id);
+                                    $opt_label = $date_formatted ? $date_formatted . ' - ' . $ev_title : $ev_title;
+                                    if (! empty($ev->is_test_event)) {
+                                        $opt_label .= ' 🧪 [TEST]';
+                                    }
+                                ?>
                                     <option value="<?php echo absint($ev->id); ?>"
                                             data-access="<?php echo esc_attr($ev->access_type ?? 'time_slots'); ?>"
-                                            data-name="<?php echo esc_attr(get_the_title($ev->product_id)); ?>">
-                                        <?php echo esc_html(get_the_title($ev->product_id)); ?> (<?php echo esc_html(date('d/m/Y', strtotime($ev->event_date_start))); ?>)
+                                            data-name="<?php echo esc_attr($ev_title); ?>">
+                                        <?php echo esc_html($opt_label); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
