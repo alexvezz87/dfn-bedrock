@@ -81,7 +81,7 @@ function cv_render_generatore_fai()
                 <div class="cv-form-row">
                     <label for="cv-bott-event">Evento *</label>
                     <select id="cv-bott-event" required>
-                        <option value="">— Caricamento eventi… —</option>
+                        <option value="">-- Seleziona un Evento --</option>
                     </select>
                 </div>
 

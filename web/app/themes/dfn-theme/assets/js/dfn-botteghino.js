@@ -78,11 +78,10 @@ jQuery(document).ready(function ($) {
             },
             success: function (res) {
                 if (res.success && res.data.events && res.data.events.length > 0) {
-                    var html = '<option value="">— Seleziona l\'evento —</option>';
+                    var html = '<option value="">-- Seleziona un Evento --</option>';
                     res.data.events.forEach(function (ev) {
-                        var startFmt = formatDate(ev.event_date_start);
-                        var endFmt   = ev.event_date_end !== ev.event_date_start ? ' → ' + formatDate(ev.event_date_end) : '';
-                        var label    = startFmt ? startFmt + endFmt + ' - ' + ev.event_name : ev.event_name;
+                        var startFmt = formatDateNumeric(ev.event_date_start);
+                        var label    = startFmt ? startFmt + ' - ' + ev.event_name : ev.event_name;
                         html += '<option value="' + ev.id + '"'
                             + ' data-access="' + ev.access_type + '"'
                             + ' data-name="' + escAttr(ev.event_name) + '"'
@@ -549,6 +548,13 @@ jQuery(document).ready(function ($) {
     // =========================================================================
     // UTILITÀ
     // =========================================================================
+
+    function formatDateNumeric(dateStr) {
+        if (!dateStr) return '';
+        var parts = dateStr.split('-');
+        if (parts.length !== 3) return dateStr;
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+    }
 
     function formatDate(dateStr) {
         if (!dateStr) return '';
