@@ -336,6 +336,13 @@ function dfn_aggiungi_log_utente(int $user_id, string $azione): void
     update_user_meta($user_id, '_dfn_user_activity_log', $log);
 }
 
+if (! function_exists('cv_aggiungi_log_utente')) {
+    function cv_aggiungi_log_utente(int $user_id, string $azione): void
+    {
+        dfn_aggiungi_log_utente($user_id, $azione);
+    }
+}
+
 add_action('wp_login', 'dfn_track_user_login', 10, 2);
 function dfn_track_user_login($user_login, $user)
 {
