@@ -23,41 +23,55 @@ function dfn_roles_register_admin_menu(): void
 {
     // Solo gli amministratori possono gestire i ruoli e i permessi globali
     $capability = 'manage_options';
+    $is_pren_active = function_exists('dfn_is_module_active') ? dfn_is_module_active('prenotazioni') : true;
+    $is_vol_active  = function_exists('dfn_is_module_active') ? dfn_is_module_active('volontari') : true;
+
+    // Determina lo slug principale del menu in base ai moduli attivi
+    $main_slug = 'dfn-roles-manage';
+    if ($is_pren_active) {
+        $main_slug = 'dfn-roles';
+    } elseif ($is_vol_active) {
+        $main_slug = 'dfn-roles-volontari';
+    }
 
     // Menu principale
     add_menu_page(
         __('FAI — Ruoli & Permessi', 'dfn-theme'),
         __('FAI Ruoli & Permessi', 'dfn-theme'),
         $capability,
-        'dfn-roles',
+        $main_slug,
         'dfn_roles_render_admin_page',
         'dashicons-shield',
         55.3
     );
 
-    // Sottomenu 1: FAI Prenotazioni
-    add_submenu_page(
-        'dfn-roles',
-        __('FAI Prenotazioni — Permessi', 'dfn-theme'),
-        __('🎟️ FAI Prenotazioni', 'dfn-theme'),
-        $capability,
-        'dfn-roles',
-        'dfn_roles_render_admin_page'
-    );
+    // Sottomenu 1: FAI Prenotazioni (solo se il modulo è attivo)
+    if ($is_pren_active) {
+        add_submenu_page(
+            $main_slug,
+            __('FAI Prenotazioni — Permessi', 'dfn-theme'),
+            __('🎟️ FAI Prenotazioni', 'dfn-theme'),
+            $capability,
+            'dfn-roles',
+            'dfn_roles_render_admin_page'
+        );
+    }
 
-    // Sottomenu 2: Volontari FAI
-    add_submenu_page(
-        'dfn-roles',
-        __('Volontari FAI — Permessi', 'dfn-theme'),
-        __('👥 Volontari FAI', 'dfn-theme'),
-        $capability,
-        'dfn-roles-volontari',
-        'dfn_roles_render_admin_page'
-    );
+    // Sottomenu 2: Volontari FAI (solo se il modulo è attivo)
+    if ($is_vol_active) {
+        add_submenu_page(
+            $main_slug,
+            __('Volontari FAI — Permessi', 'dfn-theme'),
+            __('👥 Volontari FAI', 'dfn-theme'),
+            $capability,
+            'dfn-roles-volontari',
+            'dfn_roles_render_admin_page'
+        );
+    }
 
-    // Sottomenu 3: Gestione Ruoli & Utenti
+    // Sottomenu 3: Gestione Ruoli & Utenti (sempre visibile)
     add_submenu_page(
-        'dfn-roles',
+        $main_slug,
         __('Gestione Ruoli & Utenti', 'dfn-theme'),
         __('🛠️ Gestione Ruoli', 'dfn-theme'),
         $capability,
@@ -205,17 +219,30 @@ function dfn_roles_handle_post_actions(): void
  */
 function dfn_roles_render_admin_page(): void
 {
-    $current_page = sanitize_key($_GET['page'] ?? 'dfn-roles');
+    $current_page = sanitize_key($_GET['page'] ?? '');
     $modules = dfn_get_modules_registry();
     $roles = dfn_get_stored_roles();
     $matrix = dfn_get_stored_roles_matrix();
     $catalog = dfn_get_activities_catalog();
 
-    $active_tab = 'prenotazioni';
-    if ($current_page === 'dfn-roles-volontari') {
+    $is_pren_active = function_exists('dfn_is_module_active') ? dfn_is_module_active('prenotazioni') : true;
+    $is_vol_active  = function_exists('dfn_is_module_active') ? dfn_is_module_active('volontari') : true;
+
+    // Risoluzione dinamica del tab attivo
+    if ($current_page === 'dfn-roles-volontari' && $is_vol_active) {
         $active_tab = 'volontari';
+    } elseif ($current_page === 'dfn-roles' && $is_pren_active) {
+        $active_tab = 'prenotazioni';
     } elseif ($current_page === 'dfn-roles-manage') {
         $active_tab = 'manage';
+    } else {
+        if ($is_pren_active) {
+            $active_tab = 'prenotazioni';
+        } elseif ($is_vol_active) {
+            $active_tab = 'volontari';
+        } else {
+            $active_tab = 'manage';
+        }
     }
     ?>
     <div class="wrap dfn-roles-admin-wrap" style="max-width: 1300px; margin-top: 20px;">
@@ -256,14 +283,29 @@ function dfn_roles_render_admin_page(): void
             </div>
         <?php endif; ?>
 
+        <?php if (! $is_pren_active && ! $is_vol_active) : ?>
+            <div style="background: #f8fafc; border-left: 4px solid #3b82f6; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <div style="font-size: 13.5px; color: #334155;">
+                    ℹ️ <strong>Tutti i moduli operativi (Prenotazioni e Volontari) sono attualmente disattivati.</strong> Le relative matrici permessi sono nascoste. Puoi continuare a creare e gestire la struttura dei ruoli da questa schermata, oppure riattivare i moduli dalla sezione <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-modules')); ?>" style="color: #004b23; font-weight: 700; text-decoration: underline;">Moduli FAI</a>.
+                </div>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-modules')); ?>" class="button" style="background: #004b23; color: #fff; border: none; font-weight: 700; white-space: nowrap; padding: 6px 14px;">
+                    🎛️ Gestisci Moduli FAI
+                </a>
+            </div>
+        <?php endif; ?>
+
         <!-- NAVIGAZIONE TAB SOTTOMENU -->
         <nav class="nav-tab-wrapper" style="margin-bottom: 24px; border-bottom: 2px solid #004b23;">
-            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles')); ?>" class="nav-tab <?php echo $active_tab === 'prenotazioni' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'prenotazioni' ? 'background:#004b23; color:#fff; border-color:#004b23;' : 'font-weight:600;'; ?>">
-                🎟️ FAI Prenotazioni
-            </a>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles-volontari')); ?>" class="nav-tab <?php echo $active_tab === 'volontari' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'volontari' ? 'background:#004b23; color:#fff; border-color:#004b23;' : 'font-weight:600;'; ?>">
-                👥 Volontari FAI
-            </a>
+            <?php if ($is_pren_active) : ?>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles')); ?>" class="nav-tab <?php echo $active_tab === 'prenotazioni' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'prenotazioni' ? 'background:#004b23; color:#fff; border-color:#004b23;' : 'font-weight:600;'; ?>">
+                    🎟️ FAI Prenotazioni
+                </a>
+            <?php endif; ?>
+            <?php if ($is_vol_active) : ?>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles-volontari')); ?>" class="nav-tab <?php echo $active_tab === 'volontari' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'volontari' ? 'background:#004b23; color:#fff; border-color:#004b23;' : 'font-weight:600;'; ?>">
+                    👥 Volontari FAI
+                </a>
+            <?php endif; ?>
             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-roles-manage')); ?>" class="nav-tab <?php echo $active_tab === 'manage' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'manage' ? 'background:#004b23; color:#fff; border-color:#004b23;' : 'font-weight:600;'; ?>">
                 🛠️ Gestione Ruoli &amp; Utenti
             </a>
