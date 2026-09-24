@@ -71,7 +71,7 @@ function dfn_render_quick_booking(): void
                     <div class="dfn-qb-field">
                         <label class="dfn-qb-label" for="qb-event">Seleziona l'evento *</label>
                         <select class="dfn-qb-select" id="qb-event" name="event_id" required>
-                            <option value="">— Caricamento eventi… —</option>
+                            <option value="">-- Seleziona un Evento --</option>
                         </select>
                     </div>
 
