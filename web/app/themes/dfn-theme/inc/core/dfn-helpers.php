@@ -143,13 +143,15 @@ function dfn_is_order_fai($order)
     // 2. Verifica tramite i record di booking nel database dfn_bookings (se persons_fai > 0)
     global $wpdb;
     $order_id = $order->get_id();
-    $booking = $wpdb->get_row($wpdb->prepare(
-        "SELECT persons_fai FROM {$wpdb->prefix}dfn_bookings WHERE order_id = %d LIMIT 1",
-        $order_id,
-    ));
+    if ($wpdb && method_exists($wpdb, 'get_row') && $order_id > 0) {
+        $booking = $wpdb->get_row($wpdb->prepare(
+            "SELECT persons_fai FROM {$wpdb->prefix}dfn_bookings WHERE order_id = %d LIMIT 1",
+            $order_id,
+        ));
 
-    if ($booking && intval($booking->persons_fai) > 0) {
-        return true;
+        if ($booking && intval($booking->persons_fai) > 0) {
+            return true;
+        }
     }
 
     // 3. Verifica tramite i coupon FAI dedicati
@@ -403,3 +405,20 @@ function dfn_replace_email_placeholders(string $text, array $replacements): stri
     }
     return $text;
 }
+
+// Alias di compatibilità retroattiva per codice storico
+if (! function_exists('cv_is_order_fai')) {
+    function cv_is_order_fai($order): bool
+    {
+        return dfn_is_order_fai($order);
+    }
+}
+
+if (! function_exists('cv_get_order_qualifica_label')) {
+    function cv_get_order_qualifica_label($order): string
+    {
+        return dfn_get_order_qualifica_label($order);
+    }
+}
+
+

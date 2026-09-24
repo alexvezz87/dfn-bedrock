@@ -665,7 +665,7 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
     }
 
     // Pulisci i dati di sessione usati per il prefill del checkout
-    if (WC()->session) {
+    if (function_exists('WC') && WC() && isset(WC()->session) && WC()->session) {
         WC()->session->set('dfn_checkout_first_name', null);
         WC()->session->set('dfn_checkout_last_name', null);
         WC()->session->set('dfn_checkout_email', null);
