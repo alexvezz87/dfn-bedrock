@@ -742,3 +742,5 @@ add_action('dfn_cron_log_purge', function () {
     dfn_log_purge_old($retention ?: 90);
 });
 
+
+

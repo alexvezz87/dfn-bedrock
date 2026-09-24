@@ -824,3 +824,82 @@ function dfn_output_single_product_booking_widget(): void
         echo dfn_render_evento_shortcode([ 'id' => $product_id ]);
     }
 }
+
+/**
+ * ========================================================================
+ * SHORTCODES DI COMPATIBILITÀ (Bolla Account / Fallback Prodotto)
+ * ========================================================================
+ */
+
+// Fallback shortcode prodotto semplice se non configurato come evento DFN
+function prodotto_condizionale_shortcode($atts): string
+{
+    $atts = shortcode_atts([ 'id' => 0 ], $atts, 'prodotto_condizionale');
+    $product_id = intval($atts['id']);
+
+    if ($product_id <= 0) {
+        return '<p style="color:red;">Inserisci un ID prodotto valido.</p>';
+    }
+    $product = wc_get_product($product_id);
+    if (! $product) {
+        return '<p style="color:red;">Prodotto non trovato.</p>';
+    }
+
+    $stock       = $product->get_stock_quantity();
+    $is_in_stock = $product->is_in_stock();
+    $price       = $product->get_price_html();
+    $image       = $product->get_image('medium');
+
+    ob_start();
+    ?>
+    <div class="prodotti-custom-container" style="display: flex; flex-direction: column;">
+        <div class="custom-product" style="display: flex; flex-direction: column; align-items: center; padding: 20px; border: 1px solid #eee; margin-bottom: 10px; margin: auto; background: rgba(255,255,255,0.7); max-width:400px;">
+            <?php echo $image; ?>
+            <div class="price" style="font-weight: 600; font-size: 24px; margin-top: 15px;"><?php echo wp_kses_post($price); ?></div>
+            <?php if (! $is_in_stock || ($stock !== null && $stock <= 0)) : ?>
+                <div class="stock-status" style="color: #d63638; font-weight: bold; margin-top: 15px; margin-bottom: 15px; font-size:18px;">❌ POSTI ESAURITI</div>
+            <?php else : ?>
+                <div class="cv-status-badge" style="color: #16a34a; font-weight: bold; font-size: 16px; margin: 10px 0;"><span style="display: inline-block; width: 10px; height: 10px; background-color: #16a34a; border-radius: 50%; margin-right: 6px;"></span> Posti disponibili</div>
+                <form class="cart" method="post" action="<?php echo esc_url(wc_get_cart_url()); ?>" style="display:flex; gap:10px; align-items:center;">
+                    <input type="hidden" name="add-to-cart" value="<?php echo esc_attr((string) $product_id); ?>">
+                    <?php woocommerce_quantity_input([], $product, true); ?>
+                    <button type="submit" class="button alt">Aggiungi al carrello</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+// Shortcode bolla pulsanti utente e prenotazioni per header
+add_shortcode('cv_login_biglietti', 'dfn_render_login_biglietti_shortcode');
+add_shortcode('dfn_login_biglietti', 'dfn_render_login_biglietti_shortcode');
+
+function dfn_render_login_biglietti_shortcode(): string
+{
+    $account_url = wc_get_page_permalink('myaccount');
+    $icona_utente = '<svg class="cv-main-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+    $icona_ticket = '<svg class="cv-main-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path><path d="M9 9h.01"></path><path d="M15 9h.01"></path><path d="M12 9h.01"></path><path d="M9 15h.01"></path><path d="M15 15h.01"></path><path d="M12 15h.01"></path></svg>';
+
+    $style = '<style>.cv-dynamic-login-btn { display: flex; align-items: center; justify-content: flex-start; position: relative; width: 60px; height: 60px; padding: 0; border-radius: 50px; background: #ffffff !important; color: #111111 !important; text-decoration: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important; border: 1px solid #eaeaea !important; transition: width 0.8s cubic-bezier(0.19, 1, 0.22, 1), box-shadow 0.3s ease, background 0.3s ease; overflow: hidden; white-space: nowrap; cursor: pointer; z-index: 99990; will-change: width, box-shadow; } .cv-main-icon { width: 60px; height: 24px; flex-shrink: 0; color: #111111; transition: transform 0.3s ease; } .cv-dynamic-login-btn:hover .cv-main-icon { transform: scale(1.05); } .cv-btn-text { font-weight: 700; font-size: 15px; opacity: 0; visibility: hidden; transform: translateX(-15px); transition: opacity 0.5s ease 0.4s, transform 0.5s ease 0.4s; margin-left: -5px; } .cv-dynamic-login-btn:hover, .cv-dynamic-login-btn:active, .cv-dynamic-login-btn:focus { width: 220px; box-shadow: 0 10px 30px rgba(0,0,0,0.18) !important; background: #ffffff !important; } .cv-dynamic-login-btn.logged-out:hover { width: 220px; } .cv-dynamic-login-btn.logged-in:hover { width: 180px; } .cv-dynamic-login-btn:hover .cv-btn-text, .cv-dynamic-login-btn:active .cv-btn-text, .cv-dynamic-login-btn:focus .cv-btn-text { opacity: 1; visibility: visible; transform: translateX(0); } @media (max-width: 768px) { .cv-dynamic-login-btn { width: 50px; height: 50px; } .cv-main-icon { width: 50px; height: 20px; } .cv-dynamic-login-btn:active, .cv-dynamic-login-btn:focus { width: 190px; } .cv-dynamic-login-btn.logged-in:active, .cv-dynamic-login-btn.logged-in:focus { width: 165px; } }</style>';
+
+    if (is_user_logged_in()) {
+        $ordini_url = wc_get_endpoint_url('orders', '', $account_url);
+        $bottone = '<div class="dfn-header-user-btn-group" style="display:flex; align-items:center; gap:8px;">'
+                 . '<a href="' . esc_url($account_url) . '" class="cv-dynamic-login-btn cv-btn-account" title="' . esc_attr__('Bacheca Area Riservata', 'dfn-theme') . '">' . $icona_utente . '<span class="cv-btn-text">' . esc_html__('Area Riservata', 'dfn-theme') . '</span></a>'
+                 . '<a href="' . esc_url($ordini_url) . '" class="cv-dynamic-login-btn cv-btn-bookings logged-in" title="' . esc_attr__('Le Mie Prenotazioni', 'dfn-theme') . '">' . $icona_ticket . '<span class="cv-btn-text">' . esc_html__('Le Mie Prenotazioni', 'dfn-theme') . '</span></a>'
+                 . '</div>';
+    } else {
+        $bottone = '<a href="' . esc_url($account_url) . '" class="cv-dynamic-login-btn logged-out">' . $icona_utente . '<span class="cv-btn-text">Accedi / Registrati</span></a>';
+    }
+    return $style . $bottone;
+}
+
+if (! function_exists('cv_render_login_biglietti_shortcode')) {
+    function cv_render_login_biglietti_shortcode(): string
+    {
+        return dfn_render_login_biglietti_shortcode();
+    }
+}
+

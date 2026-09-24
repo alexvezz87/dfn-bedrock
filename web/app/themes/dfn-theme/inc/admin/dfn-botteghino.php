@@ -44,11 +44,11 @@ function cv_enqueue_botteghino_assets($hook)
     wp_enqueue_style('select2');
 
     // I nostri file separati con cache buster
-    wp_enqueue_style('cv-botteghino-css', get_stylesheet_directory_uri() . '/assets/css/cv-botteghino.css', [], time());
-    wp_enqueue_script('cv-botteghino-js', get_stylesheet_directory_uri() . '/assets/js/cv-botteghino.js', ['jquery', 'selectWoo'], time(), true);
+    wp_enqueue_style('dfn-botteghino-css', get_stylesheet_directory_uri() . '/assets/css/dfn-botteghino.css', [], time());
+    wp_enqueue_script('dfn-botteghino-js', get_stylesheet_directory_uri() . '/assets/js/dfn-botteghino.js', ['jquery', 'selectWoo'], time(), true);
 
     // Passiamo le variabili PHP al JS in modo sicuro
-    wp_localize_script('cv-botteghino-js', 'cvBotteghinoVars', [
+    wp_localize_script('dfn-botteghino-js', 'cvBotteghinoVars', [
         'ajaxurl'   => admin_url('admin-ajax.php'),
         'nonce'     => wp_create_nonce('dfn_admin_events_nonce'),
         'cust_nonce'=> wp_create_nonce('cv_ricerca_clienti_nonce'),
