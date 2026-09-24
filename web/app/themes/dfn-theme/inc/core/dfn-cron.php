@@ -412,3 +412,40 @@ function dfn_cron_gestisci_scadenza_waitlist(): void
         }
     }
 }
+
+/**
+ * ========================================================================
+ * TRACCIAMENTO LINK PAGAMENTO & PULIZIA CRON LEGACY
+ * ========================================================================
+ */
+
+// Pulizia del cron legacy se ancora registrato nel DB
+add_action('init', 'dfn_rimuovi_cron_legacy');
+function dfn_rimuovi_cron_legacy(): void
+{
+    $timestamp = wp_next_scheduled('cv_cron_annulla_ordini_scaduti');
+    if ($timestamp) {
+        wp_unschedule_event($timestamp, 'cv_cron_annulla_ordini_scaduti');
+    }
+}
+
+// Sensore di tracciamento apertura mail / click su link di pagamento (order-pay)
+add_action('template_redirect', 'dfn_track_payment_page_visit');
+function dfn_track_payment_page_visit(): void
+{
+    if (function_exists('is_wc_endpoint_url') && is_wc_endpoint_url('order-pay')) {
+        global $wp;
+        $order_id = isset($wp->query_vars['order-pay']) ? absint($wp->query_vars['order-pay']) : 0;
+        if ($order_id && (isset($_GET['dfn_track_pay']) || isset($_GET['cv_track_pay']))) {
+            $order = wc_get_order($order_id);
+            if ($order) {
+                $lock_key = 'dfn_tracked_pay_' . $order_id;
+                if (! get_transient($lock_key)) {
+                    $order->add_order_note('👀 <strong>TRACCIAMENTO:</strong> Il cliente ha aperto la mail e ha cliccato sul link di pagamento.');
+                    set_transient($lock_key, 1, 12 * HOUR_IN_SECONDS);
+                }
+            }
+        }
+    }
+}
+

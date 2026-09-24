@@ -31,18 +31,6 @@ require_once get_stylesheet_directory() . '/inc/core/dfn-cron.php';
 // Integrazioni WooCommerce
 require_once get_stylesheet_directory() . '/inc/woocommerce/dfn-gateway-in-loco.php';
 
-// Frontend
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-checkout.php';
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-fai-checkout.php';
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-gdpr.php'; // GDPR: Privacy & Cookie Consent
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-event-reviews.php';
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-event-gallery.php';
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-events-archive.php';
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-shortcodes.php';
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-myaccount.php';
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';
-require_once get_stylesheet_directory() . '/inc/frontend/dfn-mobile-app.php';
-
 // Admin / Gestione
 require_once get_stylesheet_directory() . '/inc/admin/dfn-roles-admin.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-events-manager.php';
@@ -57,6 +45,22 @@ require_once get_stylesheet_directory() . '/inc/admin/dfn-waitlist.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-quick-booking.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-pending-bookings.php';
 require_once get_stylesheet_directory() . '/inc/admin/dfn-logs.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-botteghino.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-accounting.php';
+require_once get_stylesheet_directory() . '/inc/admin/dfn-reviews-admin.php';
+
+// Frontend
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-checkout.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-fai-checkout.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-gdpr.php'; // GDPR: Privacy & Cookie Consent
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-event-reviews.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-event-gallery.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-events-archive.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-shortcodes.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-myaccount.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-hub-biglietti.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-mobile-app.php';
+require_once get_stylesheet_directory() . '/inc/frontend/dfn-feedback.php';
 
 // API / Router
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slots.php';
@@ -64,35 +68,5 @@ require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-bookings.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slot-manager.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-scanner.php';
 require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-fai-members.php';
+require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-botteghino.php';
 
-
-
-
-/**
- * ========================================================================
- * 2. LOADER APPLICAZIONE LEGACY (cv_*)
- * Mantenuto attivo per compatibilità retroattiva con ordini ed eventi storici.
- * ========================================================================
- */
-
-// Core Legacy
-require_once get_stylesheet_directory() . '/inc/core/cv-setup.php';
-require_once get_stylesheet_directory() . '/inc/core/cv-helpers.php';
-require_once get_stylesheet_directory() . '/inc/core/cv-cron-tracking.php';
-
-// API Legacy
-require_once get_stylesheet_directory() . '/inc/api/cv-ajax-handlers.php';
-
-// Admin Legacy
-require_once get_stylesheet_directory() . '/inc/admin/cv-botteghino.php';
-// require_once get_stylesheet_directory() . '/inc/admin/cv-report.php'; // Disabilitato in favore di dfn-report.php
-// require_once get_stylesheet_directory() . '/inc/admin/cv-waitlist.php'; // Disabilitato in favore di dfn-waitlist.php
-require_once get_stylesheet_directory() . '/inc/admin/cv-scanner.php';
-require_once get_stylesheet_directory() . '/inc/admin/cv-accounting.php';
-require_once get_stylesheet_directory() . '/inc/admin/cv-reviews.php';
-
-// Frontend Legacy
-require_once get_stylesheet_directory() . '/inc/frontend/cv-shortcodes.php';
-// require_once get_stylesheet_directory() . '/inc/frontend/cv-myaccount.php'; // Disabilitato in favore di dfn-myaccount.php
-// require_once get_stylesheet_directory() . '/inc/frontend/cv-hub-biglietti.php'; // Disabilitato in favore di dfn-hub-biglietti.php
-require_once get_stylesheet_directory() . '/inc/frontend/cv-feedback.php';

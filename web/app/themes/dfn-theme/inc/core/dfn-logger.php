@@ -742,3 +742,82 @@ add_action('dfn_cron_log_purge', function () {
     dfn_log_purge_old($retention ?: 90);
 });
 
+/**
+ * ========================================================================
+ * TRACCIAMENTO ATTIVITÀ UTENTE (LOGIN, REGISTRAZIONE, ACCESSI)
+ * ========================================================================
+ */
+
+/**
+ * Registra un'azione nel log attività dell'utente.
+ *
+ * Tiene un massimo di 50 voci per utente, eliminando le più vecchie.
+ *
+ * @param int    $user_id ID dell'utente WordPress.
+ * @param string $azione  Descrizione dell'azione da registrare.
+ * @return void
+ */
+function dfn_aggiungi_log_utente(int $user_id, string $azione): void
+{
+    $log = get_user_meta($user_id, '_cv_user_activity_log', true);
+    if (! is_array($log)) {
+        $log = [];
+    }
+
+    $ip_raw = isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+        ? explode(',', sanitize_text_field(wp_unslash($_SERVER['HTTP_X_FORWARDED_FOR'])))[0]
+        : (isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'N/A');
+    $ip = trim($ip_raw);
+
+    $log[] = [
+        'data'   => current_time('mysql'),
+        'azione' => $azione,
+        'ip'     => $ip,
+    ];
+
+    if (count($log) > 50) {
+        $log = array_slice($log, -50);
+    }
+
+    update_user_meta($user_id, '_cv_user_activity_log', $log);
+}
+
+if (! function_exists('cv_aggiungi_log_utente')) {
+    function cv_aggiungi_log_utente(int $user_id, string $azione): void
+    {
+        dfn_aggiungi_log_utente($user_id, $azione);
+    }
+}
+
+add_action('wp_login', 'dfn_track_user_login', 10, 2);
+function dfn_track_user_login($user_login, $user): void
+{
+    if (isset($user->ID)) {
+        dfn_aggiungi_log_utente($user->ID, '🔑 Login effettuato');
+    }
+}
+
+add_action('user_register', 'dfn_track_user_registration', 10, 1);
+function dfn_track_user_registration($user_id): void
+{
+    $user_info = get_userdata($user_id);
+    $email = $user_info ? $user_info->user_email : '';
+    $ordini_passati = $email && function_exists('wc_get_orders') ? wc_get_orders(['billing_email' => $email, 'limit' => 1]) : [];
+    $messaggio = '🆕 Registrazione completata' . (!empty($ordini_passati) ? ' (Riconosciuto come vecchio cliente FAI)' : '');
+    dfn_aggiungi_log_utente((int) $user_id, $messaggio);
+}
+
+add_action('template_redirect', 'dfn_track_access_tickets');
+function dfn_track_access_tickets(): void
+{
+    if (is_user_logged_in() && function_exists('is_account_page') && is_account_page() && function_exists('is_wc_endpoint_url') && is_wc_endpoint_url('orders')) {
+        $user_id = get_current_user_id();
+        $lock_key = 'dfn_log_tickets_lock_' . $user_id;
+        if (! get_transient($lock_key)) {
+            dfn_aggiungi_log_utente($user_id, '🎟️ Visualizzata sezione "I Miei Biglietti"');
+            set_transient($lock_key, 1, HOUR_IN_SECONDS);
+        }
+    }
+}
+
+

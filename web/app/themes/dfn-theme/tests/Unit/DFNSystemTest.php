@@ -254,11 +254,12 @@ namespace DFN\Theme\Tests\Unit {
         public function test_is_order_fai_checks_coupons_and_bookings()
         {
             $order_mock = $this->getMockBuilder(\WC_Order::class)
-                ->addMethods(['get_coupon_codes', 'get_items', 'get_id'])
+                ->addMethods(['get_coupon_codes', 'get_items', 'get_id', 'get_meta'])
                 ->getMock();
 
             $order_mock->method('get_coupon_codes')->willReturn(['socio_fai_novara_2025']);
             $order_mock->method('get_items')->willReturn([]);
+            $order_mock->method('get_meta')->willReturn(false);
 
             $this->assertTrue(dfn_is_order_fai($order_mock));
         }
@@ -804,7 +805,7 @@ namespace DFN\Theme\Tests\Unit {
             $original_wpdb = $wpdb;
 
             $wpdb = $this->getMockBuilder(\stdClass::class)
-                ->addMethods(['prepare', 'get_row', 'insert', 'update', 'query'])
+                ->addMethods(['prepare', 'get_row', 'insert', 'update', 'query', 'get_var'])
                 ->getMock();
             $wpdb->prefix = 'wp_';
             $wpdb->insert_id = 12345;
@@ -835,8 +836,10 @@ namespace DFN\Theme\Tests\Unit {
 
             // Mock dell'ordine e dell'item
             $order_mock = $this->getMockBuilder(\WC_Order::class)
-                ->addMethods(['get_items', 'get_billing_email', 'get_billing_first_name', 'get_billing_last_name', 'get_billing_phone', 'get_payment_method', 'get_total', 'get_customer_note', 'add_order_note'])
+                ->addMethods(['get_id', 'get_items', 'get_billing_email', 'get_billing_first_name', 'get_billing_last_name', 'get_billing_phone', 'get_payment_method', 'get_total', 'get_customer_note', 'add_order_note', 'get_meta'])
                 ->getMock();
+            $order_mock->method('get_id')->willReturn(1001);
+            $order_mock->method('get_meta')->willReturn('');
 
             $item_mock = $this->getMockBuilder(\WC_Order_Item_Product::class)
                 ->onlyMethods(['get_product_id', 'get_meta', 'get_quantity'])
@@ -876,6 +879,7 @@ namespace DFN\Theme\Tests\Unit {
                 });
 
             Functions\when('wp_hash')->justReturn('MOCK_HASH');
+            Functions\when('WC')->justReturn(null);
 
             dfn_allocate_slots_on_checkout(1001, [], $order_mock);
 
@@ -964,6 +968,8 @@ namespace DFN\Theme\Tests\Unit {
             $_POST['nonce'] = 'MOCK_NONCE';
 
             // Mock check_ajax_referer e current_user_can
+            global $is_user_logged_in;
+            $is_user_logged_in = true;
             Functions\when('current_user_can')->justReturn(true);
             Functions\when('check_ajax_referer')->justReturn(true);
 
@@ -1002,6 +1008,7 @@ namespace DFN\Theme\Tests\Unit {
                 ->with($this->equalTo('pending'), $this->anything());
 
             Functions\when('wc_create_order')->justReturn($order_mock);
+            Functions\when('WC')->justReturn(new \stdClass());
             
             $product_mock = $this->getMockBuilder(\stdClass::class)->getMock();
             Functions\when('wc_get_product')->justReturn($product_mock);
