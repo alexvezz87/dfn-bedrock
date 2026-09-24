@@ -466,15 +466,19 @@ function dfn_render_volunteer_event_form(int $event_id): void
         }
     }
 
-    // Caricamento eventi FAI futuri
-    $fai_events = $wpdb->get_results(
-        "SELECT e.*, p.post_title 
-         FROM {$wpdb->prefix}dfn_events e
-         LEFT JOIN {$wpdb->posts} p ON e.product_id = p.ID
-         WHERE (e.event_date_end >= CURDATE() OR (e.event_date_end IS NULL AND e.event_date_start >= CURDATE()))
-           AND e.status != 'archived'
-         ORDER BY e.event_date_start ASC"
-    );
+    // Caricamento eventi FAI futuri (solo se il modulo Prenotazioni è attivo)
+    $fai_events = [];
+    $is_pren_active = function_exists('dfn_is_module_active') ? dfn_is_module_active('prenotazioni') : true;
+    if ($is_pren_active) {
+        $fai_events = $wpdb->get_results(
+            "SELECT e.*, p.post_title 
+             FROM {$wpdb->prefix}dfn_events e
+             LEFT JOIN {$wpdb->posts} p ON e.product_id = p.ID
+             WHERE (e.event_date_end >= CURDATE() OR (e.event_date_end IS NULL AND e.event_date_start >= CURDATE()))
+               AND e.status != 'archived'
+             ORDER BY e.event_date_start ASC"
+        ) ?: [];
+    }
 
     // Recupera mansioni per il form
     $all_available_roles = function_exists('dfn_get_all_volunteer_roles') ? dfn_get_all_volunteer_roles() : [];
@@ -519,6 +523,7 @@ function dfn_render_volunteer_event_form(int $event_id): void
                         </select>
                     </div>
 
+                    <?php if ($is_pren_active) : ?>
                     <div id="linked_event_wrapper" style="display: <?php echo ($event && $event->event_type === 'local') ? 'block' : 'none'; ?>;">
                         <label style="display:block; font-size:12.5px; font-weight:700; color:#475569; margin-bottom:4px;">
                             Associa ad Evento FAI Prenotazioni (Solo Futuri) <?php dfn_tooltip_icon('dfn-tip-vol-linked-event', 'Informazioni: Collegamento Prenotazioni'); ?>
@@ -543,6 +548,7 @@ function dfn_render_volunteer_event_form(int $event_id): void
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px;">
