@@ -1110,6 +1110,10 @@ add_action('template_redirect', 'dfn_restrict_test_events_access', 1);
  */
 function dfn_is_user_volunteer(?int $user_id = null): bool
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('volontari')) {
+        return false;
+    }
+
     $uid = $user_id ?: get_current_user_id();
     if (! $uid) {
         return false;

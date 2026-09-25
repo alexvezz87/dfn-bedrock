@@ -335,7 +335,9 @@ function dfn_allocate_slots_on_checkout($order_id, $posted_data = null, $order =
                 $wpdb->query('COMMIT');
 
                 if (function_exists('dfn_log_booking')) {
-                    $slot_info = sprintf('%s %s-%s', $booking_date, substr($selected_slot->slot_time_start, 0, 5), substr($selected_slot->slot_time_end, 0, 5));
+                    $time_start = ($selected_slot && ! empty($selected_slot->slot_time_start)) ? substr($selected_slot->slot_time_start, 0, 5) : '';
+                    $time_end   = ($selected_slot && ! empty($selected_slot->slot_time_end)) ? substr($selected_slot->slot_time_end, 0, 5) : '';
+                    $slot_info  = sprintf('%s %s-%s', $booking_date, $time_start, $time_end);
                     dfn_log_booking($booking_id, 'Creata', "Stato: {$booking_status} | Turno: {$slot_info}");
                 }
 

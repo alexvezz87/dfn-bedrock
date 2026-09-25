@@ -92,6 +92,11 @@ function dfn_ajax_move_volunteer_shift(): void
         wp_send_json_error(['message' => 'Errore nel salvataggio del database.']);
     }
 
+    if (function_exists('dfn_log_volunteer_shift')) {
+        $v_name = ! empty($current_ass->volunteer_name_manual) ? $current_ass->volunteer_name_manual : ('Volontario ID #' . $current_ass->volunteer_id);
+        dfn_log_volunteer_shift($assignment_id, 'Spostamento turno volontario (Drag & Drop)', "Volontario: {$v_name} | Da Slot #{$current_ass->shift_id} a Slot #{$target_shift_id} ({$target_shift->shift_label})");
+    }
+
     wp_send_json_success([
         'message' => 'Volontario spostato con successo!',
         'day_id'  => $target_shift->day_id,
@@ -749,6 +754,11 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 ],
                 [ '%d', '%d', '%s', '%s', '%s' ]
             );
+            $inserted_ass_id = $wpdb->insert_id;
+            if (function_exists('dfn_log_volunteer_shift')) {
+                $target_vol_info = $vol_id ? ('Volontario #' . $vol_id) : $vol_manual;
+                dfn_log_volunteer_shift($inserted_ass_id, 'Assegnazione manuale turno', "Volontario: {$target_vol_info} | Slot #{$shift_id} | Mansione: {$role_ass}");
+            }
             echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario assegnato al turno!</p></div>';
         }
     }
@@ -766,6 +776,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 [ '%s' ],
                 [ '%d' ]
             );
+            if (function_exists('dfn_log_volunteer_shift')) {
+                dfn_log_volunteer_shift($ass_id, 'Modifica mansione assegnata nel turno', "Nuova mansione: {$new_role}");
+            }
             echo '<div class="notice notice-success is-dismissible"><p>✅ Mansione del volontario aggiornata con successo!</p></div>';
         }
     }
@@ -775,6 +788,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
         $ass_id = (int) $_GET['remove_assignment'];
         if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_del_ass_' . $ass_id)) {
             $wpdb->delete($wpdb->prefix . 'dfn_volunteer_shift_assignments', ['id' => $ass_id], ['%d']);
+            if (function_exists('dfn_log_volunteer_shift')) {
+                dfn_log_volunteer_shift($ass_id, 'Rimozione volontario dal turno', "Assegnazione #{$ass_id} cancellata");
+            }
             echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario rimosso dal turno.</p></div>';
         }
     }
@@ -785,6 +801,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
         if (! empty($all_event_shift_ids)) {
             $in_placeholders = implode(',', array_fill(0, count($all_event_shift_ids), '%d'));
             $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE shift_id IN ($in_placeholders)", ...$all_event_shift_ids));
+        }
+        if (function_exists('dfn_log_volunteer_shift')) {
+            dfn_log_volunteer_shift($event_id, 'Azzeramento completo turni evento', "Tutte le assegnazioni rimosse per l'evento #{$event_id}");
         }
         echo '<div class="notice notice-success is-dismissible"><p>🧹 <strong>Turni azzerati!</strong> Tutte le assegnazioni dei volontari per questo evento sono state rimosse e la board è completamente pulita.</p></div>';
     }
@@ -807,6 +826,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             }
 
             $assigned_count = dfn_run_volunteer_auto_assignment($event_id, 0);
+            if (function_exists('dfn_log_volunteer_shift')) {
+                dfn_log_volunteer_shift($event_id, 'Esecuzione assegnazione automatica turni', "Assegnati {$assigned_count} volontari ai turni dell'evento #{$event_id}");
+            }
             echo '<div class="notice notice-success is-dismissible"><p>🤖 <strong>Assegnazione automatica completata!</strong> Assegnati ' . intval($assigned_count) . ' volontari ai turni su tutti i giorni dell\'evento nel rispetto esclusivo delle sole mansioni abilitate e dei limiti di ruolo.</p></div>';
         }
     }
