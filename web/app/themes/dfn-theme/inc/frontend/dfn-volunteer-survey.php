@@ -140,8 +140,8 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
         if ($is_expired) {
             $feedback_msg = '<div class="notice notice-error" style="background:#fee2e2; color:#991b1b; padding:12px; border-radius:8px; margin-bottom:18px;">⚠️ Il termine per rispondere a questo sondaggio è scaduto.</div>';
         } else {
-            $f_name  = sanitize_text_field($_POST['first_name'] ?? '');
-            $l_name  = sanitize_text_field($_POST['last_name'] ?? '');
+            $f_name  = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['first_name'] ?? '') : sanitize_text_field(wp_unslash($_POST['first_name'] ?? ''));
+            $l_name  = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['last_name'] ?? '') : sanitize_text_field(wp_unslash($_POST['last_name'] ?? ''));
             $f_email = sanitize_email($_POST['email'] ?? '');
             $f_phone = sanitize_text_field($_POST['phone'] ?? '');
             $f_notes = sanitize_textarea_field($_POST['notes'] ?? '');
