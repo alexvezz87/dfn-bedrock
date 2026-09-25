@@ -537,6 +537,11 @@ function dfn_db_install(): void
         $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_safety (has_safety_course)");
     }
 
+    // Ripulisce eventuali backslash anomali dai nomi in anagrafica FAI e prenotazioni
+    $wpdb->query("UPDATE {$table_fai} SET first_name = REPLACE(first_name, '\\\\', ''), last_name = REPLACE(last_name, '\\\\', '')");
+    $table_bk = $wpdb->prefix . 'dfn_bookings';
+    $wpdb->query("UPDATE {$table_bk} SET customer_name = REPLACE(customer_name, '\\\\', '')");
+
     // Migra dati legacy dalla waitlist su wp_options (one-shot)
     dfn_migrate_waitlist_from_options();
 

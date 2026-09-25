@@ -499,9 +499,9 @@ function dfn_fai_cards_endpoint_content(): void
 
     // Gestione invio form aggiunta tessera FAI
     if (isset($_POST['dfn_add_fai_card_nonce']) && wp_verify_nonce($_POST['dfn_add_fai_card_nonce'], 'dfn_add_fai_card_action')) {
-        $first_name  = isset($_POST['dfn_fai_first_name']) ? sanitize_text_field($_POST['dfn_fai_first_name']) : '';
-        $last_name   = isset($_POST['dfn_fai_last_name']) ? sanitize_text_field($_POST['dfn_fai_last_name']) : '';
-        $card_number = isset($_POST['dfn_fai_card_number']) ? sanitize_text_field($_POST['dfn_fai_card_number']) : '';
+        $first_name  = isset($_POST['dfn_fai_first_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_first_name']) : sanitize_text_field(wp_unslash($_POST['dfn_fai_first_name']))) : '';
+        $last_name   = isset($_POST['dfn_fai_last_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_last_name']) : sanitize_text_field(wp_unslash($_POST['dfn_fai_last_name']))) : '';
+        $card_number = isset($_POST['dfn_fai_card_number']) ? sanitize_text_field(wp_unslash($_POST['dfn_fai_card_number'])) : '';
 
         if (empty($first_name) || empty($last_name) || empty($card_number)) {
             $notice_message = __('Compila tutti i campi richiesti (Nome, Cognome e Numero Tessera).', 'dfn-theme');
@@ -642,7 +642,7 @@ function dfn_fai_cards_endpoint_content(): void
                                     <span style="font-size: 11px; font-weight: 800; color: #e74f30; text-transform: uppercase; letter-spacing: 0.5px;">Tessera FAI</span>
                                     <span style="font-size: 11px; font-weight: 700; background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 12px;">⏳ In Attesa Staff</span>
                                 </div>
-                                <h4 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 800; color: #1e293b;"><?php echo esc_html(strtoupper($p_card->first_name . ' ' . $p_card->last_name)); ?></h4>
+                                <h4 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 800; color: #1e293b;"><?php echo esc_html(strtoupper(function_exists('dfn_sanitize_name') ? dfn_sanitize_name($p_card->first_name . ' ' . $p_card->last_name) : str_replace('\\', '', $p_card->first_name . ' ' . $p_card->last_name))); ?></h4>
                                 <div style="font-size: 13px; color: #475569; font-weight: 600;">
                                     N° Tessera: <strong style="color: #004b23;"><?php echo esc_html($p_card->card_number); ?></strong>
                                 </div>
@@ -694,7 +694,7 @@ function dfn_fai_cards_endpoint_content(): void
                         <!-- Card Body (Left content & Right QR Code) -->
                         <div class="dfn-fai-card-body">
                             <div class="dfn-fai-card-left">
-                                <h3 class="dfn-fai-card-holder-name"><?php echo esc_html(strtoupper($card->first_name . ' ' . $card->last_name)); ?></h3>
+                                <h3 class="dfn-fai-card-holder-name"><?php echo esc_html(strtoupper(function_exists('dfn_sanitize_name') ? dfn_sanitize_name($card->first_name . ' ' . $card->last_name) : str_replace('\\', '', $card->first_name . ' ' . $card->last_name))); ?></h3>
                                 
                                 <div class="dfn-fai-card-details-list">
                                     <div class="dfn-fai-card-detail-item">

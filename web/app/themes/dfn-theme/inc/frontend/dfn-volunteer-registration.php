@@ -113,8 +113,8 @@ function dfn_process_volunteer_registration(): array
         return ['status' => 'error', 'message' => 'Sessione scaduta. Ricarica la pagina e riprova.'];
     }
 
-    $first_name       = sanitize_text_field($_POST['first_name'] ?? '');
-    $last_name        = sanitize_text_field($_POST['last_name'] ?? '');
+    $first_name       = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['first_name'] ?? '') : sanitize_text_field(wp_unslash($_POST['first_name'] ?? ''));
+    $last_name        = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['last_name'] ?? '') : sanitize_text_field(wp_unslash($_POST['last_name'] ?? ''));
     $username_input   = sanitize_user(trim($_POST['username'] ?? ''), true);
     $email            = sanitize_email($_POST['email'] ?? '');
     $phone            = sanitize_text_field($_POST['phone'] ?? '');
