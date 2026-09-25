@@ -499,13 +499,13 @@ function dfn_ajax_admin_add_booking(): void
     $event_id     = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
     $slot_id      = isset($_POST['slot_id']) ? intval($_POST['slot_id']) : 0;
     $date         = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
-    $first_name   = isset($_POST['first_name']) ? sanitize_text_field($_POST['first_name']) : '';
-    $last_name    = isset($_POST['last_name']) ? sanitize_text_field($_POST['last_name']) : '';
+    $first_name   = isset($_POST['first_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['first_name']) : sanitize_text_field(wp_unslash($_POST['first_name']))) : '';
+    $last_name    = isset($_POST['last_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['last_name']) : sanitize_text_field(wp_unslash($_POST['last_name']))) : '';
     $email        = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-    $phone        = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : '';
+    $phone        = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
     $qty_standard = isset($_POST['qty_standard']) ? intval($_POST['qty_standard']) : 0;
     $qty_fai      = isset($_POST['qty_fai']) ? intval($_POST['qty_fai']) : 0;
-    $notes        = isset($_POST['notes']) ? sanitize_textarea_field($_POST['notes']) : '';
+    $notes        = isset($_POST['notes']) ? sanitize_textarea_field(wp_unslash($_POST['notes'])) : '';
     $fai_cards_raw = isset($_POST['fai_cards']) ? $_POST['fai_cards'] : [];
 
     // Se l'email è vuota, usiamo una mail fittizia per evitare problemi col database e con WooCommerce
@@ -545,9 +545,9 @@ function dfn_ajax_admin_add_booking(): void
     if ($qty_fai > 0 && is_array($fai_cards_raw)) {
         $table_members = $wpdb->prefix . 'dfn_fai_members';
         foreach ($fai_cards_raw as $index => $card_data) {
-            $c_nome    = isset($card_data['nome']) ? sanitize_text_field($card_data['nome']) : '';
-            $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
-            $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
+            $c_nome    = isset($card_data['nome']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($card_data['nome']) : sanitize_text_field(wp_unslash($card_data['nome']))) : '';
+            $c_cognome = isset($card_data['cognome']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($card_data['cognome']) : sanitize_text_field(wp_unslash($card_data['cognome']))) : '';
+            $c_num     = isset($card_data['tessera']) ? sanitize_text_field(wp_unslash($card_data['tessera'])) : '';
 
             // Se il numero di tessera è vuoto, non verifichiamo/inseriamo nulla nel DB dei membri FAI
             if (empty($c_num)) {
@@ -1063,13 +1063,13 @@ function dfn_ajax_botteghino_create_booking(): void
     $event_id       = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
     $date           = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
     $slot_id        = isset($_POST['slot_id']) ? intval($_POST['slot_id']) : 0;
-    $first_name     = isset($_POST['first_name']) ? sanitize_text_field($_POST['first_name']) : '';
-    $last_name      = isset($_POST['last_name']) ? sanitize_text_field($_POST['last_name']) : '';
+    $first_name     = isset($_POST['first_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['first_name']) : sanitize_text_field(wp_unslash($_POST['first_name']))) : '';
+    $last_name      = isset($_POST['last_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['last_name']) : sanitize_text_field(wp_unslash($_POST['last_name']))) : '';
     $email          = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-    $phone          = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : '';
+    $phone          = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
     $qty_standard   = isset($_POST['qty_standard']) ? intval($_POST['qty_standard']) : 0;
     $qty_fai        = isset($_POST['qty_fai']) ? intval($_POST['qty_fai']) : 0;
-    $notes          = isset($_POST['notes']) ? sanitize_textarea_field($_POST['notes']) : '';
+    $notes          = isset($_POST['notes']) ? sanitize_textarea_field(wp_unslash($_POST['notes'])) : '';
     $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'prenotazione';
     $auto_checkin   = isset($_POST['auto_checkin']) && '1' === $_POST['auto_checkin'];
     $fai_cards_raw  = isset($_POST['fai_cards']) ? $_POST['fai_cards'] : [];
@@ -1178,9 +1178,9 @@ function dfn_ajax_botteghino_create_booking(): void
         $table_members = $wpdb->prefix . 'dfn_fai_members';
         $email_to_save = ($has_real_email) ? $email : '';
         foreach ($fai_cards_raw as $index => $card_data) {
-            $c_nome    = isset($card_data['nome']) ? sanitize_text_field($card_data['nome']) : '';
-            $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
-            $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
+            $c_nome    = isset($card_data['nome']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($card_data['nome']) : sanitize_text_field(wp_unslash($card_data['nome']))) : '';
+            $c_cognome = isset($card_data['cognome']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($card_data['cognome']) : sanitize_text_field(wp_unslash($card_data['cognome']))) : '';
+            $c_num     = isset($card_data['tessera']) ? sanitize_text_field(wp_unslash($card_data['tessera'])) : '';
 
             // Se il numero di tessera è vuoto, non verifichiamo/inseriamo nulla nel DB dei membri FAI
             if (empty($c_num)) {
@@ -1610,9 +1610,9 @@ function dfn_ajax_admin_save_fai_cards(): void
     $email_to_save      = ($order->get_billing_email() === 'no-email@dfn.it') ? '' : $order->get_billing_email();
 
     foreach ($cards_raw as $card_data) {
-        $c_nome    = isset($card_data['nome']) ? sanitize_text_field($card_data['nome']) : '';
-        $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
-        $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
+        $c_nome    = isset($card_data['nome']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($card_data['nome']) : sanitize_text_field(wp_unslash($card_data['nome']))) : '';
+        $c_cognome = isset($card_data['cognome']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($card_data['cognome']) : sanitize_text_field(wp_unslash($card_data['cognome']))) : '';
+        $c_num     = isset($card_data['tessera']) ? sanitize_text_field(wp_unslash($card_data['tessera'])) : '';
 
         // Sincronizza nel database soci FAI se presente la tessera
         if (! empty($c_num)) {

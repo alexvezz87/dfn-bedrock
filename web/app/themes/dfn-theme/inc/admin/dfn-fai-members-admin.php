@@ -55,6 +55,9 @@ function dfn_render_fai_members_page(): void
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_fai_members';
 
+    // Auto-pulizia una tantum per correggere eventuali record già salvati con backslash anomali (es. L\'aura -> L'aura)
+    $wpdb->query("UPDATE {$table} SET first_name = REPLACE(first_name, '\\\\', ''), last_name = REPLACE(last_name, '\\\\', '') WHERE first_name LIKE '%\\\\%' OR last_name LIKE '%\\\\%'");
+
     // Gestione Azioni via GET (es: Eliminazione rapida securizzata tramite Nonce)
     $message = '';
     $message_type = 'success';
@@ -202,11 +205,11 @@ function dfn_render_fai_members_page(): void
     if (isset($_POST['dfn_save_fai_member_submit'])) {
         if (isset($_POST['dfn_fai_form_nonce']) && wp_verify_nonce($_POST['dfn_fai_form_nonce'], 'dfn_save_fai_member_action')) {
             $id          = intval($_POST['member_id']);
-            $first_name  = sanitize_text_field($_POST['first_name']);
-            $last_name   = sanitize_text_field($_POST['last_name']);
+            $first_name  = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['first_name'] ?? '') : sanitize_text_field(wp_unslash($_POST['first_name'] ?? ''));
+            $last_name   = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['last_name'] ?? '') : sanitize_text_field(wp_unslash($_POST['last_name'] ?? ''));
             $email       = ! empty($_POST['email']) ? sanitize_email($_POST['email']) : null;
-            $phone       = sanitize_text_field($_POST['phone']);
-            $card_number = sanitize_text_field($_POST['card_number']);
+            $phone       = sanitize_text_field(wp_unslash($_POST['phone'] ?? ''));
+            $card_number = sanitize_text_field(wp_unslash($_POST['card_number'] ?? ''));
             $card_expiry = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
             $card_type   = isset($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
             $user_id     = ! empty($_POST['user_id']) ? intval($_POST['user_id']) : null;
@@ -450,7 +453,7 @@ function dfn_render_fai_members_page(): void
                         <input type="hidden" name="member_id" value="<?php echo intval($reject_member->id); ?>">
                         
                         <p style="font-size: 13px; line-height: 1.4; color: #334155;">
-                            Stai rifiutando la tessera n° <code><?php echo esc_html($reject_member->card_number); ?></code> inserita da <strong><?php echo esc_html($reject_member->first_name . ' ' . $reject_member->last_name); ?></strong> (<?php echo esc_html($reject_member->email); ?>).
+                            Stai rifiutando la tessera n° <code><?php echo esc_html($reject_member->card_number); ?></code> inserita da <strong><?php echo esc_html(stripslashes($reject_member->first_name . ' ' . $reject_member->last_name)); ?></strong> (<?php echo esc_html($reject_member->email); ?>).
                         </p>
                         
                         <div style="margin-bottom: 20px;">
@@ -472,12 +475,12 @@ function dfn_render_fai_members_page(): void
  
                         <div style="margin-bottom: 12px;">
                             <label style="display: block; font-weight: 700; margin-bottom: 5px; font-size: 13px;"><?php esc_html_e('Nome *', 'dfn-theme'); ?></label>
-                            <input type="text" name="first_name" required style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1;" value="<?php echo $edit_member ? esc_attr($edit_member->first_name) : ''; ?>">
+                            <input type="text" name="first_name" required style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1;" value="<?php echo $edit_member ? esc_attr(stripslashes($edit_member->first_name)) : ''; ?>">
                         </div>
  
                         <div style="margin-bottom: 12px;">
                             <label style="display: block; font-weight: 700; margin-bottom: 5px; font-size: 13px;"><?php esc_html_e('Cognome *', 'dfn-theme'); ?></label>
-                            <input type="text" name="last_name" required style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1;" value="<?php echo $edit_member ? esc_attr($edit_member->last_name) : ''; ?>">
+                            <input type="text" name="last_name" required style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1;" value="<?php echo $edit_member ? esc_attr(stripslashes($edit_member->last_name)) : ''; ?>">
                         </div>
                         <div style="margin-bottom: 12px;">
                             <label style="display: block; font-weight: 700; margin-bottom: 5px; font-size: 13px;"><?php esc_html_e('Associa ad Utente Registrato (Opzionale)', 'dfn-theme'); ?></label>
@@ -598,7 +601,7 @@ function dfn_render_fai_members_page(): void
                                     <tr>
                                         <th scope="row" class="check-column"><input type="checkbox" name="member_ids[]" value="<?php echo absint($m->id); ?>"></th>
                                         <td>
-                                            <strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong>
+                                            <strong><?php echo esc_html(stripslashes($m->last_name . ' ' . $m->first_name)); ?></strong>
                                             <?php if (! empty($m->user_id)) :
                                                 $u_linked = get_userdata($m->user_id);
                                                 if ($u_linked) : ?>
@@ -747,7 +750,7 @@ function dfn_render_fai_members_page(): void
                                     ?>
                                     <tr>
                                         <td>
-                                            <strong><?php echo esc_html($m->last_name . ' ' . $m->first_name); ?></strong>
+                                            <strong><?php echo esc_html(stripslashes($m->last_name . ' ' . $m->first_name)); ?></strong>
                                             <?php if (! empty($m->user_id)) :
                                                 $u_linked = get_userdata($m->user_id);
                                                 if ($u_linked) : ?>

@@ -1128,8 +1128,8 @@ namespace DFN\Theme\Tests\Unit {
          */
         public function test_modules_catalog_and_status()
         {
-            Functions\when('__')->returnArg(1);
-            Functions\when('get_option')->alias(function ($opt, $default = false) {
+            \Brain\Monkey\Functions\when('__')->returnArg(1);
+            \Brain\Monkey\Functions\when('get_option')->alias(function ($opt, $default = false) {
                 return $default;
             });
 
@@ -1163,6 +1163,18 @@ namespace DFN\Theme\Tests\Unit {
             $this->assertArrayHasKey('email', $vol);
             $this->assertArrayHasKey('volontario_turni', $all);
             $this->assertArrayHasKey('checkin', $all);
+        }
+
+        /**
+         * Test: dfn_sanitize_name gestisce correttamente apostrofi e rimuove backslash residui.
+         */
+        public function test_dfn_sanitize_name_handles_apostrophes_and_slashes()
+        {
+            $this->assertEquals("D'Angelo", dfn_sanitize_name("D'Angelo"));
+            $this->assertEquals("D'Angelo", dfn_sanitize_name("D\\'Angelo"));
+            $this->assertEquals("D'Angelo", dfn_sanitize_name("D\\\\'Angelo"));
+            $this->assertEquals("Sant'Andrea", dfn_sanitize_name("Sant\\'Andrea"));
+            $this->assertEquals("Dell'Orto", dfn_sanitize_name("  Dell\\'Orto  "));
         }
     }
 }

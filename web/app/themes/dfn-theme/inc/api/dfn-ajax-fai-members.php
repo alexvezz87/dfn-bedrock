@@ -29,12 +29,12 @@ function dfn_save_fai_member_ajax_handler(): void
     }
 
     $id          = isset($_POST['member_id']) ? intval($_POST['member_id']) : 0;
-    $first_name  = isset($_POST['first_name']) ? sanitize_text_field($_POST['first_name']) : '';
-    $last_name   = isset($_POST['last_name']) ? sanitize_text_field($_POST['last_name']) : '';
+    $first_name  = isset($_POST['first_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['first_name']) : sanitize_text_field(wp_unslash($_POST['first_name']))) : '';
+    $last_name   = isset($_POST['last_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['last_name']) : sanitize_text_field(wp_unslash($_POST['last_name']))) : '';
     $email       = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-    $phone       = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : '';
-    $card_number = isset($_POST['card_number']) ? sanitize_text_field($_POST['card_number']) : '';
-    $card_expiry = isset($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : '';
+    $phone       = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
+    $card_number = isset($_POST['card_number']) ? sanitize_text_field(wp_unslash($_POST['card_number'])) : '';
+    $card_expiry = isset($_POST['card_expiry']) ? sanitize_text_field(wp_unslash($_POST['card_expiry'])) : '';
 
     if (empty($first_name) || empty($last_name) || empty($email) || empty($card_number) || empty($card_expiry)) {
         wp_send_json_error([ 'message' => esc_html__('Tutti i campi obbligatori devono essere compilati.', 'dfn-theme') ]);
