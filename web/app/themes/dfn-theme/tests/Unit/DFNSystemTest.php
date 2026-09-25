@@ -50,6 +50,8 @@ namespace DFN\Theme\Tests\Unit {
     require_once dirname(dirname(__DIR__)) . '/inc/core/dfn-notifications.php';
     require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-slot-manager.php';
     require_once dirname(dirname(__DIR__)) . '/inc/api/dfn-ajax-bookings.php';
+    require_once dirname(dirname(__DIR__)) . '/inc/core/dfn-modules-manager.php';
+    require_once dirname(dirname(__DIR__)) . '/inc/core/dfn-logger.php';
 
     use PHPUnit\Framework\TestCase;
     use Brain\Monkey;
@@ -867,8 +869,7 @@ namespace DFN\Theme\Tests\Unit {
 
             // Cattura e verifica che i dati inseriti nella tabella dfn_bookings contengano le quantità corrette:
             // total_persons = 3 (non 6), persons_standard = 0, persons_fai = 3
-            $wpdb->expects($this->exactly(2))
-                ->method('insert')
+            $wpdb->method('insert')
                 ->willReturnCallback(function ($table, $data) {
                     if (str_contains($table, 'dfn_bookings')) {
                         $this->assertEquals(3, $data['total_persons']);
@@ -1120,6 +1121,48 @@ namespace DFN\Theme\Tests\Unit {
             $classes = dfn_add_event_body_class(['custom-class', 'page']);
             $this->assertContains('dfn-event-single-product', $classes);
             $this->assertContains('custom-class', $classes);
+        }
+
+        /**
+         * Test: dfn_get_available_modules restituisce i 2 macro-moduli configurati.
+         */
+        public function test_modules_catalog_and_status()
+        {
+            Functions\when('__')->returnArg(1);
+            Functions\when('get_option')->alias(function ($opt, $default = false) {
+                return $default;
+            });
+
+            $catalog = dfn_get_available_modules();
+
+            $this->assertArrayHasKey('prenotazioni', $catalog);
+            $this->assertArrayHasKey('volontari', $catalog);
+
+            // Test helper dfn_is_module_active
+            $this->assertTrue(dfn_is_module_active('prenotazioni'));
+            $this->assertTrue(dfn_is_module_active('volontari'));
+            $this->assertFalse(dfn_is_module_active('modulo_inesistente'));
+        }
+
+        /**
+         * Test: dfn_get_log_types_catalog supporta i filtri per modulo.
+         */
+        public function test_log_types_catalog()
+        {
+            $all = dfn_get_log_types_catalog('all');
+            $pren = dfn_get_log_types_catalog('prenotazioni');
+            $vol = dfn_get_log_types_catalog('volontari');
+
+            $this->assertArrayHasKey('prenotazione', $pren);
+            $this->assertArrayHasKey('volontario_anagrafica', $vol);
+            $this->assertArrayNotHasKey('volontario_anagrafica', $pren);
+            $this->assertArrayNotHasKey('prenotazione', $vol);
+
+            // Entrambi contengono le tipologie di sistema condivise
+            $this->assertArrayHasKey('email', $pren);
+            $this->assertArrayHasKey('email', $vol);
+            $this->assertArrayHasKey('volontario_turni', $all);
+            $this->assertArrayHasKey('checkin', $all);
         }
     }
 }

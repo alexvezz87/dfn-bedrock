@@ -237,11 +237,17 @@ function dfn_render_volunteers_list_page(): void
             if ($action === 'delete') {
                 // Rimuove lo status di volontario (mantenendo la tessera FAI se esistente) o elimina
                 $wpdb->update($table_fai, ['is_volunteer' => 0], ['id' => $vol_id], ['%d'], ['%d']);
+                if (function_exists('dfn_log_volunteer_roster')) {
+                    dfn_log_volunteer_roster($vol_id, 'Volontario rimosso dall\'elenco', 'Status is_volunteer impostato a 0');
+                }
                 echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario rimosso dall\'elenco.</p></div>';
             } elseif ($action === 'toggle_status') {
                 $current_status = $wpdb->get_var($wpdb->prepare("SELECT volunteer_status FROM {$table_fai} WHERE id = %d", $vol_id));
                 $new_status = ($current_status === 'active') ? 'inactive' : 'active';
                 $wpdb->update($table_fai, ['volunteer_status' => $new_status], ['id' => $vol_id], ['%s'], ['%d']);
+                if (function_exists('dfn_log_volunteer_roster')) {
+                    dfn_log_volunteer_roster($vol_id, 'Stato volontario modificato', "Nuovo stato: {$new_status}");
+                }
                 echo '<div class="notice notice-success is-dismissible"><p>✅ Stato volontario aggiornato.</p></div>';
             }
         }
@@ -635,14 +641,17 @@ function dfn_render_volunteer_add_page(): void
                 }
             }
 
-            // Log dell'azione
-            if (function_exists('dfn_log_write')) {
-                dfn_log_write(
-                    'sistema',
-                    wp_get_current_user()->display_name,
-                    sprintf("Aggiunto/Aggiornato volontario FAI: %s %s (Tessera %s: %s)", $first_name, $last_name, $card_type, $card_number),
-                    'success'
+            // Log dell'azione nel registro centrale Volontari FAI
+            if (function_exists('dfn_log_volunteer_roster')) {
+                $roster_action = $volunteer_data ? 'Modifica anagrafica volontario' : 'Nuovo volontario registrato in anagrafica';
+                $roster_details = sprintf("Tessera: %s (%s) | Mansioni/Ruoli: %s | Guida: %s | Sicurezza: %s", 
+                    $card_number, 
+                    $card_type, 
+                    ! empty($submitted_fai_roles) ? implode(', ', $submitted_fai_roles) : 'Nessuna',
+                    $is_guide ? 'Sì' : 'No',
+                    $has_safety_course ? 'Sì' : 'No'
                 );
+                dfn_log_volunteer_roster($saved_id, $roster_action, $roster_details);
             }
 
             echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario e ruoli/deleghe salvati con successo!</p></div>';
@@ -898,6 +907,10 @@ function dfn_render_volunteer_meetings_admin_page(): void
                 ],
                 [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d' ]
             );
+            $inserted_meeting_id = $wpdb->insert_id;
+            if (function_exists('dfn_log_volunteer_meeting')) {
+                dfn_log_volunteer_meeting($inserted_meeting_id, 'Programmata nuova riunione di delegazione', "Titolo: {$title} | Data: {$meeting_date} ore {$time_start} | Sede: {$location}");
+            }
             echo '<div class="notice notice-success is-dismissible"><p>✅ Nuova riunione programmata con successo!</p></div>';
         }
     }
@@ -907,6 +920,9 @@ function dfn_render_volunteer_meetings_admin_page(): void
         $m_id = (int) $_GET['meeting_id'];
         if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_meeting_action_' . $m_id)) {
             $wpdb->delete($table_meetings, ['id' => $m_id], ['%d']);
+            if (function_exists('dfn_log_volunteer_meeting')) {
+                dfn_log_volunteer_meeting($m_id, 'Riunione di delegazione eliminata', "ID riunione #{$m_id}");
+            }
             echo '<div class="notice notice-success is-dismissible"><p>✅ Riunione eliminata.</p></div>';
         }
     }

@@ -27,12 +27,15 @@ if (! defined('ABSPATH')) {
 function dfn_log_write(string $type, string $executor, string $description, string $outcome = 'success')
 {
     global $wpdb;
+    if (! is_object($wpdb) || ! method_exists($wpdb, 'insert')) {
+        return false;
+    }
     $table = $wpdb->prefix . 'dfn_logs';
 
     $result = $wpdb->insert(
         $table,
         [
-            'logged_at'   => current_time('mysql'),
+            'logged_at'   => function_exists('current_time') ? current_time('mysql') : date('Y-m-d H:i:s'),
             'type'        => sanitize_text_field($type),
             'executor'    => sanitize_text_field($executor),
             'description' => sanitize_textarea_field($description),
@@ -41,7 +44,7 @@ function dfn_log_write(string $type, string $executor, string $description, stri
         [ '%s', '%s', '%s', '%s', '%s' ]
     );
 
-    return $result ? $wpdb->insert_id : false;
+    return $result ? ($wpdb->insert_id ?? 1) : false;
 }
 
 /**
@@ -163,24 +166,31 @@ function dfn_log_booking(int $booking_id, string $action, string $details = '', 
     }
 
     $order_id    = ! empty($booking->order_id) ? (string) $booking->order_id : 'N/D';
-    $event       = function_exists('dfn_db_get_event') ? dfn_db_get_event((int) $booking->event_id) : null;
-    $event_title = $event ? get_the_title($event->product_id) : 'Evento #' . $booking->event_id;
+    $event_id    = isset($booking->event_id) ? (int) $booking->event_id : 0;
+    $event       = ($event_id && function_exists('dfn_db_get_event')) ? dfn_db_get_event($event_id) : null;
+    $event_title = ($event && ! empty($event->product_id)) ? get_the_title($event->product_id) : ($event_id ? 'Evento #' . $event_id : 'N/D');
 
     if (empty($actor)) {
-        $user = wp_get_current_user();
-        $actor = ($user && $user->exists()) ? $user->display_name : ($booking->customer_name ?: 'Visitatore');
+        $user  = function_exists('wp_get_current_user') ? wp_get_current_user() : null;
+        $actor = ($user && is_object($user) && ! empty($user->display_name)) ? $user->display_name : (! empty($booking->customer_name) ? $booking->customer_name : 'Visitatore');
     }
+
+    $cust_name  = ! empty($booking->customer_name) ? $booking->customer_name : 'N/D';
+    $cust_email = ! empty($booking->customer_email) ? $booking->customer_email : 'N/D';
+    $tot_p      = isset($booking->total_persons) ? (int) $booking->total_persons : 0;
+    $std_p      = isset($booking->persons_standard) ? (int) $booking->persons_standard : 0;
+    $fai_p      = isset($booking->persons_fai) ? (int) $booking->persons_fai : 0;
 
     $desc = sprintf(
         "Prenotazione #%d (Ordine #%s) | Evento: %s | Cliente: %s (%s) | Posti: %d (Interi: %d, FAI: %d) | Azione: %s",
         $booking_id,
         $order_id,
         $event_title,
-        $booking->customer_name,
-        $booking->customer_email,
-        (int) $booking->total_persons,
-        (int) $booking->persons_standard,
-        (int) $booking->persons_fai,
+        $cust_name,
+        $cust_email,
+        $tot_p,
+        $std_p,
+        $fai_p,
         $action
     );
 
@@ -311,11 +321,11 @@ function dfn_log_checkin(int $booking_id, string $actor = '', string $details = 
     $order_id    = $booking && ! empty($booking->order_id) ? (string) $booking->order_id : 'N/D';
     $event_id    = $booking ? (int) $booking->event_id : 0;
     $event       = $event_id && function_exists('dfn_db_get_event') ? dfn_db_get_event($event_id) : null;
-    $event_title = $event ? get_the_title($event->product_id) : ($event_id ? 'Evento #' . $event_id : 'N/D');
+    $event_title = ($event && ! empty($event->product_id)) ? get_the_title($event->product_id) : ($event_id ? 'Evento #' . $event_id : 'N/D');
 
     if (empty($actor)) {
-        $user  = wp_get_current_user();
-        $actor = ($user && $user->exists()) ? $user->display_name : 'Volontario / Scanner';
+        $user  = function_exists('wp_get_current_user') ? wp_get_current_user() : null;
+        $actor = ($user && is_object($user) && ! empty($user->display_name)) ? $user->display_name : 'Volontario / Scanner';
     }
 
     $desc = sprintf(
@@ -388,6 +398,159 @@ function dfn_log_stock(int $event_id, int $product_id, int $qty_diff, string $re
     );
 
     dfn_log_write('stock', $actor, $desc, 'success');
+}
+
+/**
+ * Registra un'azione sull'anagrafica o le competenze di un volontario.
+ *
+ * @param int    $volunteer_id ID del record volontario in wp_dfn_fai_members.
+ * @param string $action       Azione eseguita (es. 'Nuovo volontario inserito', 'Modifica anagrafica', 'Stato modificato', 'Volontario rimosso').
+ * @param string $details      Eventuali dettagli aggiuntivi (mansioni, contatti, tessera).
+ * @param string $actor        Chi ha eseguito l'azione.
+ * @param string $outcome      Esito ('success' o 'failure').
+ */
+function dfn_log_volunteer_roster(int $volunteer_id, string $action, string $details = '', string $actor = '', string $outcome = 'success'): void
+{
+    global $wpdb;
+    $table_fai = $wpdb->prefix . 'dfn_fai_members';
+    $member = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $volunteer_id));
+
+    $name = $member ? trim($member->first_name . ' ' . $member->last_name) : 'Volontario #' . $volunteer_id;
+    $card = ($member && ! empty($member->card_number)) ? " (Tessera FAI: {$member->card_number})" : '';
+    $email = ($member && ! empty($member->email)) ? " [{$member->email}]" : '';
+
+    if (empty($actor)) {
+        $user = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff Volontari';
+    }
+
+    $desc = sprintf(
+        "Anagrafica Volontari | Volontario: %s%s%s | Azione: %s",
+        $name,
+        $card,
+        $email,
+        $action
+    );
+
+    if (! empty($details)) {
+        $desc .= " | Dettagli: " . $details;
+    }
+
+    dfn_log_write('volontario_anagrafica', $actor, $desc, $outcome);
+}
+
+/**
+ * Registra un'azione sui turni e la logistica dei volontari.
+ *
+ * @param int    $assignment_id ID dell'assegnazione o ID del turno.
+ * @param string $action        Azione (es. 'Assegnazione turno', 'Rimozione turno', 'Conferma presenza', 'Segnalazione indisponibilità', 'Check-in presenza').
+ * @param string $details       Dettagli (evento, luogo, orario, mansione, motivazione).
+ * @param string $actor         Chi ha eseguito l'azione.
+ * @param string $outcome       Esito ('success' o 'failure').
+ */
+function dfn_log_volunteer_shift(int $assignment_id, string $action, string $details = '', string $actor = '', string $outcome = 'success'): void
+{
+    if (empty($actor)) {
+        $user = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff Logistica';
+    }
+
+    $desc = sprintf("Turni & Logistica | Rif #%d | Azione: %s", $assignment_id, $action);
+    if (! empty($details)) {
+        $desc .= " | " . $details;
+    }
+
+    dfn_log_write('volontario_turni', $actor, $desc, $outcome);
+}
+
+/**
+ * Registra un'azione relativa ai sondaggi di disponibilità dei volontari.
+ *
+ * @param int    $survey_id ID del sondaggio in wp_dfn_volunteer_surveys.
+ * @param string $action    Azione (es. 'Creato sondaggio', 'Compilato sondaggio da volontario', 'Chiuso sondaggio').
+ * @param string $details   Dettagli (titolo evento, risposte fornite, date).
+ * @param string $actor     Chi ha eseguito l'azione.
+ */
+function dfn_log_volunteer_survey(int $survey_id, string $action, string $details = '', string $actor = ''): void
+{
+    if (empty($actor)) {
+        $user = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff Volontari';
+    }
+
+    $desc = sprintf("Sondaggio Disponibilità #%d | Azione: %s", $survey_id, $action);
+    if (! empty($details)) {
+        $desc .= " | " . $details;
+    }
+
+    dfn_log_write('volontario_sondaggi', $actor, $desc, 'success');
+}
+
+/**
+ * Registra un'azione relativa alle riunioni di delegazione dei volontari.
+ *
+ * @param int    $meeting_id ID della riunione in wp_dfn_volunteer_meetings.
+ * @param string $action     Azione (es. 'Creata riunione', 'Inviate convocazioni', 'Risposta volontario', 'Registrate presenze').
+ * @param string $details    Dettagli (titolo, data, orario, presenza/assenza).
+ * @param string $actor      Chi ha eseguito l'azione.
+ */
+function dfn_log_volunteer_meeting(int $meeting_id, string $action, string $details = '', string $actor = ''): void
+{
+    if (empty($actor)) {
+        $user = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff Delegazione';
+    }
+
+    $desc = sprintf("Riunione Delegazione #%d | Azione: %s", $meeting_id, $action);
+    if (! empty($details)) {
+        $desc .= " | " . $details;
+    }
+
+    dfn_log_write('volontario_riunioni', $actor, $desc, 'success');
+}
+
+/**
+ * Restituisce il catalogo delle tipologie di log raggruppate per modulo.
+ *
+ * @param string $module Filtro per modulo ('prenotazioni', 'volontari' o vuoto per tutti).
+ * @return array<string, string> Mappa type_slug => Etichetta formattata con icona.
+ */
+function dfn_get_log_types_catalog(string $module = ''): array
+{
+    $prenotazioni_types = [
+        'prenotazione' => '🎟️ Prenotazioni',
+        'recensione'   => '⭐ Recensioni',
+        'annullamento' => '🚫 Annullamenti',
+        'tessera_fai'  => '🪪 Tessere FAI',
+        'checkin'      => '📱 Check-in / Scanner',
+        'spostamento'  => '⏱️ Spostamenti Turno',
+        'stock'        => '📦 Magazzino / Posti',
+    ];
+
+    $volontari_types = [
+        'volontario_anagrafica' => '👥 Anagrafica & Competenze',
+        'volontario_turni'      => '🏛️ Turni & Logistica',
+        'volontario_sondaggi'   => '📊 Sondaggi Disponibilità',
+        'volontario_riunioni'   => '📅 Riunioni & Convocazioni',
+    ];
+
+    $sistema_types = [
+        'email'     => '📧 Email & Notifiche',
+        'login'     => '🔐 Login',
+        'logout'    => '🚪 Logout',
+        'sicurezza' => '🛡️ Sicurezza & Password',
+        'profilo'   => '👤 Profilo Utente',
+        'sistema'   => '⚙️ Sistema',
+    ];
+
+    if ($module === 'prenotazioni') {
+        return array_merge($prenotazioni_types, $sistema_types);
+    }
+    if ($module === 'volontari') {
+        return array_merge($volontari_types, $sistema_types);
+    }
+
+    return array_merge($prenotazioni_types, $volontari_types, $sistema_types);
 }
 
 /**

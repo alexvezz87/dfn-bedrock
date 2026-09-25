@@ -143,6 +143,11 @@ function dfn_get_activities_catalog(): array
                 'icon'        => '🏷️',
                 'description' => __('Configurazione catalogo mansioni (Guida, Banchetto, Scuola, ecc.) e requisiti di sicurezza.', 'dfn-theme'),
             ],
+            'dfn_act_vol_logs'        => [
+                'label'       => __('Log Volontari', 'dfn-theme'),
+                'icon'        => '📜',
+                'description' => __('Consultazione storico azioni, logistica, presenze e audit trail dei volontari.', 'dfn-theme'),
+            ],
         ],
     ];
 }
