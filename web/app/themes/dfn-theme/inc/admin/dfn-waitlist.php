@@ -119,7 +119,7 @@ function dfn_render_waitlist_page(): void
                                 'order_id'         => $order->get_id(),
                                 'event_id'         => $event->id,
                                 'customer_email'   => $entry->customer_email,
-                                'customer_name'    => $entry->customer_name,
+                                'customer_name'    => function_exists('dfn_sanitize_name') ? dfn_sanitize_name($entry->customer_name) : $entry->customer_name,
                                 'customer_phone'   => $entry->customer_phone,
                                 'total_persons'    => $entry->persons,
                                 'persons_standard' => intval($entry->persons) - $fai_cards,
@@ -189,9 +189,9 @@ function dfn_render_waitlist_page(): void
     // 2. FORM INSERIMENTO CODA MANUALE
     if (isset($_POST['dfn_add_waitlist_submit'])) {
         if (isset($_POST['dfn_add_waitlist_nonce']) && wp_verify_nonce($_POST['dfn_add_waitlist_nonce'], 'dfn_add_waitlist_action')) {
-            $nome    = sanitize_text_field($_POST['wl_name']);
-            $email   = sanitize_email($_POST['wl_email']);
-            $phone   = sanitize_text_field($_POST['wl_phone']);
+            $nome    = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['wl_name'] ?? '') : sanitize_text_field(wp_unslash($_POST['wl_name'] ?? ''));
+            $email   = sanitize_email($_POST['wl_email'] ?? '');
+            $phone   = sanitize_text_field(wp_unslash($_POST['wl_phone'] ?? ''));
             $qty     = intval($_POST['wl_qty']);
             $tessere = intval($_POST['wl_tessere']);
 
@@ -352,7 +352,7 @@ function dfn_render_waitlist_page(): void
                                     <tr>
                                         <td><strong><?php echo $pos; ?>°</strong></td>
                                         <td><?php echo date_i18n('d/m H:i', strtotime($c_entry->created_at)); ?></td>
-                                        <td><strong><?php echo esc_html($c_entry->customer_name); ?></strong></td>
+                                        <td><strong><?php echo esc_html(function_exists('dfn_sanitize_name') ? dfn_sanitize_name($c_entry->customer_name) : str_replace('\\', '', $c_entry->customer_name)); ?></strong></td>
                                         <td>
                                             <div><?php echo esc_html($c_entry->customer_email); ?></div>
                                             <div style="font-size: 11px; color: #64748b;"><?php echo esc_html($c_entry->customer_phone); ?></div>

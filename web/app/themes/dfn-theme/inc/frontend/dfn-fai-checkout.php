@@ -53,15 +53,15 @@ function dfn_checkout_display_fai_fields($checkout): void
         $card_val    = '';
 
         if (isset($_POST['dfn_fai_card_nome_' . $i])) {
-            $nome_val = sanitize_text_field($_POST['dfn_fai_card_nome_' . $i]);
+            $nome_val = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_card_nome_' . $i]) : sanitize_text_field(wp_unslash($_POST['dfn_fai_card_nome_' . $i]));
         } elseif (isset($session_cards[$i - 1]['nome'])) {
-            $nome_val = $session_cards[$i - 1]['nome'];
+            $nome_val = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($session_cards[$i - 1]['nome']) : $session_cards[$i - 1]['nome'];
         }
 
         if (isset($_POST['dfn_fai_card_cognome_' . $i])) {
-            $cognome_val = sanitize_text_field($_POST['dfn_fai_card_cognome_' . $i]);
+            $cognome_val = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_card_cognome_' . $i]) : sanitize_text_field(wp_unslash($_POST['dfn_fai_card_cognome_' . $i]));
         } elseif (isset($session_cards[$i - 1]['cognome'])) {
-            $cognome_val = $session_cards[$i - 1]['cognome'];
+            $cognome_val = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($session_cards[$i - 1]['cognome']) : $session_cards[$i - 1]['cognome'];
         }
 
         if (isset($_POST['dfn_fai_card_number_' . $i])) {

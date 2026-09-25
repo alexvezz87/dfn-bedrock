@@ -146,7 +146,7 @@ function dfn_render_fai_pending_bookings(): void
                                 ?>
                                 <tr class="dfn-pending-row" data-booking-id="<?php echo absint($booking->id); ?>">
                                     <td>
-                                        <strong><?php echo esc_html(stripslashes($booking->customer_name)); ?></strong>
+                                        <strong><?php echo esc_html(function_exists('dfn_sanitize_name') ? dfn_sanitize_name($booking->customer_name) : str_replace('\\', '', $booking->customer_name)); ?></strong>
                                         <?php if ($order) : ?>
                                             <div class="row-actions">
                                                 <span><a href="<?php echo esc_url(admin_url('post.php?post=' . $booking->order_id . '&action=edit')); ?>" target="_blank"><?php esc_html_e('Vedi Ordine', 'dfn-theme'); ?></a></span>
@@ -179,7 +179,7 @@ function dfn_render_fai_pending_bookings(): void
                                                     continue;
                                                 }
                                                 $tessera_num = esc_html($card['tessera']);
-                                                $titolare    = stripslashes(trim(($card['nome'] ?? '') . ' ' . ($card['cognome'] ?? '')));
+                                                $titolare    = function_exists('dfn_sanitize_name') ? dfn_sanitize_name(($card['nome'] ?? '') . ' ' . ($card['cognome'] ?? '')) : str_replace('\\', '', trim(($card['nome'] ?? '') . ' ' . ($card['cognome'] ?? '')));
                                                 $card_status = $card['status'] ?? null; // 'approved' o 'rejected'
 
                                                 $is_verified_db = (int) $wpdb->get_var($wpdb->prepare(
