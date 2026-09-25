@@ -214,6 +214,16 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn-volunteer-roles',
         'dfn_render_volunteer_roles_admin_page'
     );
+
+    // Sottomenu: Log Volontari
+    add_submenu_page(
+        'dfn-volunteers',
+        __('Log Volontari', 'dfn-theme'),
+        __('Log Volontari', 'dfn-theme'),
+        $cap_main,
+        'dfn-volunteer-logs',
+        'dfn_render_volunteer_logs_page'
+    );
 }
 
 /**
