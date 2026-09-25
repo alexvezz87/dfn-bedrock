@@ -33,20 +33,8 @@ function dfn_logs_register_admin_menus(): void
         );
     }
 
-    // Sottomenu 2: Log Volontari in Volontari FAI (se il modulo volontari è attivo)
-    if (function_exists('dfn_is_module_active') && dfn_is_module_active('volontari')) {
-        $has_vol_access = function_exists('dfn_user_has_module_access') && dfn_user_has_module_access('volontari');
-        $cap_vol_logs   = ($has_vol_access || current_user_can('manage_options') || current_user_can('dfn_act_vol_logs') || current_user_can('dfn_act_system_logs')) ? 'read' : 'dfn_act_vol_roster';
-
-        add_submenu_page(
-            'dfn-volunteers',
-            __('Log Volontari', 'dfn-theme'),
-            __('Log Volontari', 'dfn-theme'),
-            $cap_vol_logs,
-            'dfn-volunteer-logs',
-            'dfn_render_volunteer_logs_page'
-        );
-    }
+    // Nota: il sottomenu Log Volontari in Volontari FAI è registrato direttamente
+    // in dfn_volunteers_register_admin_menu() in dfn-volunteers-admin.php.
 }
 
 /**
