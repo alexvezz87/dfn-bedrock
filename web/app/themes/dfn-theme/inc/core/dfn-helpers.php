@@ -445,5 +445,41 @@ function dfn_sanitize_name(string $value): string
     return function_exists('sanitize_text_field') ? sanitize_text_field(trim($clean)) : trim(strip_tags($clean));
 }
 
+/**
+ * Reindirizza accessi URL diretti o malformati (es. /wp/wp-admin/dfn-fai-members o 404) verso la corretta pagina admin wp-admin/admin.php?page=...
+ */
+add_action('template_redirect', 'dfn_handle_admin_pages_fallback_redirect', 1);
+function dfn_handle_admin_pages_fallback_redirect(): void
+{
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    if (preg_match('#/(?:wp/)?wp-admin/(dfn-[a-z0-9_-]+)/?$#i', $uri, $matches) || (is_404() && preg_match('#/(dfn-[a-z0-9_-]+)/?$#i', $uri, $matches))) {
+        $slug = sanitize_key($matches[1]);
+        $valid_admin_pages = [
+            'dfn-events',
+            'dfn-event-edit',
+            'dfn-scanner-live',
+            'dfn-slot-manager',
+            'dfn-checkin-manager',
+            'dfn-quick-booking',
+            'dfn-fai-pending-bookings',
+            'dfn-fai-members',
+            'dfn-waitlist',
+            'dfn-botteghino',
+            'dfn-accounting',
+            'dfn-reviews-admin',
+            'dfn-report',
+            'dfn-settings',
+            'dfn-logs',
+            'dfn-roles',
+            'dfn-modules',
+            'dfn-volunteers',
+        ];
+        if (in_array($slug, $valid_admin_pages, true)) {
+            wp_safe_redirect(admin_url('admin.php?page=' . $slug));
+            exit;
+        }
+    }
+}
+
 
 

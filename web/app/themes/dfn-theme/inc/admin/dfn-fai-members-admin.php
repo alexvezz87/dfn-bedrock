@@ -48,7 +48,7 @@ function dfn_fai_members_register_menu(): void
  */
 function dfn_render_fai_members_page(): void
 {
-    if (! current_user_can('dfn_manage_events')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members') && ! current_user_can('dfn_manage_events') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_fai_members'))) {
         wp_die(esc_html__('Non hai i permessi per accedere a questa pagina.', 'dfn-theme'));
     }
 
