@@ -1285,7 +1285,7 @@ select.dfn-input {
     margin-bottom: 10px;
 }
 
-.dfn-slot-booking-row {
+div.dfn-slot-booking-row {
     display: flex;
     align-items: center;
     padding: 12px 14px;
@@ -1295,9 +1295,42 @@ select.dfn-input {
     border: 1px solid var(--dfn-border);
 }
 
-.dfn-slot-booking-row:hover {
+div.dfn-slot-booking-row:hover {
     background: #f8fafc;
     border-color: #cbd5e1;
+}
+
+/* Stili specifici per tabelle ricche delle prenotazioni (Slot Manager e Check-in) */
+.dfn-bookings-rich-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+    border: 1px solid #cbd5e1 !important;
+    margin: 0 !important;
+}
+
+.dfn-bookings-rich-table tr.dfn-slot-booking-row {
+    display: table-row !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.dfn-bookings-rich-table tr.dfn-slot-booking-row:hover {
+    background: #f8fafc !important;
+}
+
+.dfn-bookings-rich-table td {
+    display: table-cell !important;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding: 10px 8px !important;
+    vertical-align: middle !important;
+}
+
+.dfn-bookings-rich-table th {
+    display: table-cell !important;
+    padding: 10px 8px !important;
+    vertical-align: middle !important;
 }
 
 .slot-booking-index {

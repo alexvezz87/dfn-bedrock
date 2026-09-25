@@ -18,7 +18,7 @@ if (! defined('ABSPATH')) {
  */
 function dfn_render_checkin_manager()
 {
-    if (! current_user_can('dfn_manage_events')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_checkin') && ! current_user_can('dfn_act_events_manage') && ! current_user_can('dfn_manage_events') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_checkin'))) {
         wp_die(esc_html__('Non hai i permessi necessari per accedere a questa pagina.', 'dfn-theme'));
     }
 

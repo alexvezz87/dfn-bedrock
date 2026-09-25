@@ -174,7 +174,7 @@
         });
 
         // ====================================================================
-        // 2. RENDERING INTERFACCIA
+        // 2. RENDERING INTERFACCIA (SOLO PRENOTAZIONI PAGATE PER IL CHECK-IN)
         // ====================================================================
         function renderCheckinView(slots) {
             if (!slots || slots.length === 0) {
@@ -184,18 +184,28 @@
 
             var searchQuery = $('#dfn-ci-search').val().toLowerCase().trim();
 
-            // Calcola totali aggregati per tutti gli slot
-            var totVenduti = 0, totCheckin = 0, totCapacita = 0;
+            // Calcola totali aggregati per tutti gli slot (FILTRANDO SOLO LE PRENOTAZIONI PAGATE)
+            var totPagati = 0, totCheckin = 0, totCapacita = 0;
             var countAll = 0, countPending = 0, countPartial = 0, countCompleted = 0;
             var persPending = 0;
 
-            slots.forEach(function(slot) {
-                totVenduti    += slot.booked_count;
-                totCapacita   += (slot.capacity + slot.bonus_capacity);
-                slot.bookings.forEach(function(b) {
+            // Clona e filtra i dati per il tabellone check-in tenendo solo chi ha pagato
+            var checkinSlots = slots.map(function(slot) {
+                var paidOnly = (slot.bookings || []).filter(function(b) {
+                    return b.payment_status === 'pagato';
+                });
+                return $.extend({}, slot, {
+                    paidBookings: paidOnly
+                });
+            });
+
+            checkinSlots.forEach(function(slot) {
+                totCapacita += (slot.capacity + slot.bonus_capacity);
+                slot.paidBookings.forEach(function(b) {
                     var nPers = parseInt(b.slot_persons || b.total_persons, 10) || 1;
                     var nCheck = parseInt(b.checkin_fatti, 10) || 0;
 
+                    totPagati += nPers;
                     if (nCheck > 0) totCheckin += nCheck;
                     countAll++;
 
@@ -210,17 +220,17 @@
                     }
                 });
             });
-            var totAttesa  = Math.max(0, totVenduti - totCheckin);
-            var totLiberi  = Math.max(0, totCapacita - totVenduti);
+            var totAttesa  = Math.max(0, totPagati - totCheckin);
+            var totLiberi  = Math.max(0, totCapacita - totPagati);
 
             // Aggiorna contatori statistici in alto
-            $('#dfn-ci-stat-venduti').text(totVenduti);
+            $('#dfn-ci-stat-venduti').text(totPagati);
             $('#dfn-ci-stat-entrati').text(totCheckin);
             $('#dfn-ci-stat-attesa').text(totAttesa);
             $('#dfn-ci-stat-liberi').text(totLiberi);
 
             // Aggiorna grafico flusso ingressi e gamification volontari
-            updateFlowChartAndGamification(slots);
+            updateFlowChartAndGamification(checkinSlots);
 
             // Aggiorna badge pillole filtri
             $('#dfn-ci-count-all').text(countAll);
@@ -241,21 +251,21 @@
             // Info testo descrittivo
             var infoText = '';
             if (activeStatus === 'pending') {
-                infoText = '🔍 Visualizzando <strong>' + countPending + '</strong> prenotazioni ancora da validare (<strong>' + persPending + '</strong> persone in attesa)';
+                infoText = '🔍 Visualizzando <strong>' + countPending + '</strong> prenotazioni pagate ancora da validare (<strong>' + persPending + '</strong> persone in attesa)';
             } else if (activeStatus === 'partial') {
-                infoText = '🔍 Visualizzando <strong>' + countPartial + '</strong> prenotazioni con ingressi parziali';
+                infoText = '🔍 Visualizzando <strong>' + countPartial + '</strong> prenotazioni pagate con ingressi parziali';
             } else if (activeStatus === 'completed') {
-                infoText = '🔍 Visualizzando <strong>' + countCompleted + '</strong> prenotazioni convalidate al 100% (' + totCheckin + ' persone entrate)';
+                infoText = '🔍 Visualizzando <strong>' + countCompleted + '</strong> prenotazioni pagate convalidate al 100% (' + totCheckin + ' persone entrate)';
             } else {
-                infoText = 'Mostrando tutte le <strong>' + countAll + '</strong> prenotazioni (' + totVenduti + ' posti)';
+                infoText = 'Mostrando tutte le <strong>' + countAll + '</strong> prenotazioni pagate (' + totPagati + ' posti)';
             }
             $('#dfn-ci-filter-status-info').html(infoText);
 
             var html = '';
 
             // Per ogni slot: titolo card con progress bar + tabella
-            slots.forEach(function(slot) {
-                var filteredBookings = slot.bookings;
+            checkinSlots.forEach(function(slot) {
+                var filteredBookings = slot.paidBookings;
 
                 // 1. Filtro per stato check-in
                 if (activeStatus === 'pending') {
@@ -290,8 +300,10 @@
                 var sortedBookings = sortBookings(filteredBookings, sortCol, sortDir);
 
                 var totalCapacity = slot.capacity + slot.bonus_capacity;
-                var booked = slot.booked_count;
-                var percent = totalCapacity > 0 ? Math.min(100, Math.round((booked / totalCapacity) * 100)) : 0;
+                var paidPlacesInSlot = slot.paidBookings.reduce(function(acc, b) {
+                    return acc + (parseInt(b.slot_persons || b.total_persons, 10) || 1);
+                }, 0);
+                var percent = totalCapacity > 0 ? Math.min(100, Math.round((paidPlacesInSlot / totalCapacity) * 100)) : 0;
 
                 var filterBadge = '';
                 if (activeStatus === 'pending') {
@@ -309,8 +321,8 @@
                         '</div>' +
                         '<div class="slot-progress-info">' +
                             '<div class="progress-labels" style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px; color:#64748b;">' +
-                                '<span>' + (slot.is_locked ? 'Bloccato' : percent + '% occupato') + '</span>' +
-                                '<span><strong>' + booked + '</strong> / ' + totalCapacity + ' posti &bull; ' + sortedBookings.length + ' visualizzate' + filterBadge + '</span>' +
+                                '<span>' + (slot.is_locked ? 'Bloccato' : percent + '% pagato/confermato') + '</span>' +
+                                '<span><strong>' + paidPlacesInSlot + '</strong> / ' + totalCapacity + ' posti pagati &bull; ' + sortedBookings.length + ' visualizzate' + filterBadge + '</span>' +
                             '</div>' +
                             '<div class="progress-bar-bg" style="height:8px; background:#f1f5f9; border-radius:9999px; overflow:hidden;">' +
                                 '<div class="progress-bar-fill" style="height:100%; border-radius:9999px; background:linear-gradient(90deg, #16a34a, #4ade80); width:' + percent + '%;"></div>' +
@@ -356,11 +368,13 @@
                 if (searchQuery !== '') {
                     emptyMsg = 'Nessuna prenotazione trovata per "<strong>' + searchQuery + '</strong>".';
                 } else if (activeStatus === 'pending') {
-                    emptyMsg = '🎉 <strong>Tutti i partecipanti sono già entrati!</strong> Nessuna prenotazione in attesa di validazione.';
+                    emptyMsg = '🎉 <strong>Tutti i partecipanti con prenotazione pagata sono già entrati!</strong> Nessuna prenotazione in attesa di validazione.';
                 } else if (activeStatus === 'partial') {
                     emptyMsg = 'Nessun gruppo con ingressi parziali in questo momento.';
                 } else if (activeStatus === 'completed') {
                     emptyMsg = 'Nessuna prenotazione convalidata al 100% per ora.';
+                } else {
+                    emptyMsg = 'Nessuna prenotazione pagata presente per questo turno. Le prenotazioni da saldare possono essere gestite nella sezione <a href="/wp/wp-admin/admin.php?page=dfn-slot-manager&event_id=' + eventId + '" style="color:#0284c7; text-decoration:underline; font-weight:700;">Gestione Prenotazioni</a>.';
                 }
                 html += '<tr><td colspan="10" style="padding:30px; text-align:center; color:#64748b; font-size:14px;">' + emptyMsg + '</td></tr>';
             } else {
