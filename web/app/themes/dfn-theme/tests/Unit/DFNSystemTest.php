@@ -1121,6 +1121,18 @@ namespace DFN\Theme\Tests\Unit {
             $this->assertContains('dfn-event-single-product', $classes);
             $this->assertContains('custom-class', $classes);
         }
+
+        /**
+         * Test: dfn_sanitize_name gestisce correttamente apostrofi e rimuove backslash residui.
+         */
+        public function test_dfn_sanitize_name_handles_apostrophes_and_slashes()
+        {
+            $this->assertEquals("D'Angelo", dfn_sanitize_name("D'Angelo"));
+            $this->assertEquals("D'Angelo", dfn_sanitize_name("D\\'Angelo"));
+            $this->assertEquals("D'Angelo", dfn_sanitize_name("D\\\\'Angelo"));
+            $this->assertEquals("Sant'Andrea", dfn_sanitize_name("Sant\\'Andrea"));
+            $this->assertEquals("Dell'Orto", dfn_sanitize_name("  Dell\\'Orto  "));
+        }
     }
 }
 

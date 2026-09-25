@@ -126,9 +126,9 @@ function dfn_checkout_validate_fai_fields(): void
     $table_members = $wpdb->prefix . 'dfn_fai_members';
 
     for ($i = 1; $i <= $total_fai_qty; $i++) {
-        $nome    = isset($_POST['dfn_fai_card_nome_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_nome_' . $i]) : '';
-        $cognome = isset($_POST['dfn_fai_card_cognome_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_cognome_' . $i]) : '';
-        $card    = isset($_POST['dfn_fai_card_number_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_number_' . $i]) : '';
+        $nome    = isset($_POST['dfn_fai_card_nome_' . $i]) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_card_nome_' . $i]) : sanitize_text_field(wp_unslash($_POST['dfn_fai_card_nome_' . $i]))) : '';
+        $cognome = isset($_POST['dfn_fai_card_cognome_' . $i]) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_card_cognome_' . $i]) : sanitize_text_field(wp_unslash($_POST['dfn_fai_card_cognome_' . $i]))) : '';
+        $card    = isset($_POST['dfn_fai_card_number_' . $i]) ? sanitize_text_field(wp_unslash($_POST['dfn_fai_card_number_' . $i])) : '';
 
         if (empty($nome) || empty($cognome) || empty($card)) {
             wc_add_notice(sprintf(__('Compila tutti i campi della Tessera FAI per il Partecipante #%d.', 'dfn-theme'), $i), 'error');
@@ -204,9 +204,9 @@ function dfn_checkout_save_fai_fields($order, $data): void
     $has_unverified = false;
 
     for ($i = 1; $i <= $total_fai_qty; $i++) {
-        $nome    = isset($_POST['dfn_fai_card_nome_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_nome_' . $i]) : '';
-        $cognome = isset($_POST['dfn_fai_card_cognome_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_cognome_' . $i]) : '';
-        $card    = isset($_POST['dfn_fai_card_number_' . $i]) ? sanitize_text_field($_POST['dfn_fai_card_number_' . $i]) : '';
+        $nome    = isset($_POST['dfn_fai_card_nome_' . $i]) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_card_nome_' . $i]) : sanitize_text_field(wp_unslash($_POST['dfn_fai_card_nome_' . $i]))) : '';
+        $cognome = isset($_POST['dfn_fai_card_cognome_' . $i]) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_card_cognome_' . $i]) : sanitize_text_field(wp_unslash($_POST['dfn_fai_card_cognome_' . $i]))) : '';
+        $card    = isset($_POST['dfn_fai_card_number_' . $i]) ? sanitize_text_field(wp_unslash($_POST['dfn_fai_card_number_' . $i])) : '';
 
         if (! empty($card)) {
             $fai_cards_saved[] = [
