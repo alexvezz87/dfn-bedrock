@@ -695,11 +695,11 @@ function dfn_ajax_create_direct_booking(): void
     $date         = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
     $slot_id      = isset($_POST['slot_id']) ? intval($_POST['slot_id']) : 0;
 
-    $first_name   = isset($_POST['first_name']) ? sanitize_text_field($_POST['first_name']) : '';
-    $last_name    = isset($_POST['last_name']) ? sanitize_text_field($_POST['last_name']) : '';
+    $first_name   = isset($_POST['first_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['first_name']) : sanitize_text_field(wp_unslash($_POST['first_name']))) : '';
+    $last_name    = isset($_POST['last_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['last_name']) : sanitize_text_field(wp_unslash($_POST['last_name']))) : '';
     $email        = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-    $phone        = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : '';
-    $notes        = isset($_POST['notes']) ? sanitize_textarea_field($_POST['notes']) : '';
+    $phone        = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
+    $notes        = isset($_POST['notes']) ? sanitize_textarea_field(wp_unslash($_POST['notes'])) : '';
 
     $fai_cards_raw = isset($_POST['fai_cards']) ? $_POST['fai_cards'] : [];
 
@@ -825,9 +825,9 @@ function dfn_ajax_create_direct_booking(): void
         }
 
         foreach ($fai_cards_raw as $index => $card_data) {
-            $c_nome    = isset($card_data['nome']) ? sanitize_text_field($card_data['nome']) : '';
-            $c_cognome = isset($card_data['cognome']) ? sanitize_text_field($card_data['cognome']) : '';
-            $c_num     = isset($card_data['tessera']) ? sanitize_text_field($card_data['tessera']) : '';
+            $c_nome    = isset($card_data['nome']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($card_data['nome']) : sanitize_text_field(wp_unslash($card_data['nome']))) : '';
+            $c_cognome = isset($card_data['cognome']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($card_data['cognome']) : sanitize_text_field(wp_unslash($card_data['cognome']))) : '';
+            $c_num     = isset($card_data['tessera']) ? sanitize_text_field(wp_unslash($card_data['tessera'])) : '';
 
             // Se il numero di tessera è vuoto, non verifichiamo/inseriamo nulla nel DB dei membri FAI e non eseguiamo controlli duplicati
             if (empty($c_num)) {

@@ -428,4 +428,22 @@ if (! function_exists('cv_get_order_qualifica_label')) {
     }
 }
 
+/**
+ * Pulisce una stringa di testo da escape multipli e backslash anomali (es. L\'aura o L\\\'aura -> L'aura).
+ * Utile in particolare per nomi, cognomi e campi anagrafici dei soci FAI e clienti.
+ *
+ * @param string $value La stringa da sanificare.
+ * @return string La stringa pulita senza backslash residui.
+ */
+function dfn_sanitize_name(string $value): string
+{
+    // Rimuove eventuali slash aggiunti da magic_quotes o serialize/unserialize ripetuti
+    $clean = function_exists('wp_unslash') ? wp_unslash($value) : stripslashes($value);
+    // Elimina qualsiasi backslash residuo davanti agli apostrofi o isolato
+    $clean = str_replace('\\', '', (string) $clean);
+    // Sanifica il testo eliminando tag o caratteri pericolosi
+    return function_exists('sanitize_text_field') ? sanitize_text_field(trim($clean)) : trim(strip_tags($clean));
+}
+
+
 
