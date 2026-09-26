@@ -24,14 +24,11 @@ add_action('wp_ajax_dfn_send_volunteer_test_email', 'dfn_ajax_send_volunteer_tes
  */
 function dfn_volunteer_settings_register_menu(): void
 {
-    $has_vol_access = function_exists('dfn_user_has_module_access') && dfn_user_has_module_access('volontari');
-    $cap = ($has_vol_access || current_user_can('manage_options') || current_user_can('dfn_act_fai_members')) ? 'read' : 'dfn_act_vol_roster';
-
     add_submenu_page(
         'dfn-volunteers',
         __('Impostazioni Volontari FAI', 'dfn-theme'),
         __('Impostazioni', 'dfn-theme'),
-        $cap,
+        'manage_options',
         'dfn-volunteer-settings',
         'dfn_render_volunteer_settings_page'
     );
