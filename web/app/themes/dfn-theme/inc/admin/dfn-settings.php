@@ -538,86 +538,32 @@ function dfn_render_settings_page(): void
 
                     <?php elseif ($active_tab === 'testi_email') : ?>
                         <!-- TAB TESTI EMAIL -->
-                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">📝 Personalizzazione Testi E-mail</h2>
-                        <p class="description" style="margin-bottom: 25px;">Modifica i soggetti, i titoli e i testi delle e-mail inviate automaticamente dal sistema. Puoi usare i segnaposto indicati tra parentesi graffe {} per inserire dati dinamici. Clicca su un'e-mail per espandere e modificare i suoi campi.</p>
-
-                        <style>
-                        .dfn-accordion-item {
-                            border: 1px solid #e2e8f0;
-                            border-radius: 6px;
-                            margin-bottom: 8px;
-                            overflow: hidden;
-                        }
-                        .dfn-accordion-header {
-                            display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            padding: 14px 20px;
-                            background: #f8fafc;
-                            cursor: pointer;
-                            user-select: none;
-                            transition: background 0.15s;
-                            gap: 12px;
-                        }
-                        .dfn-accordion-header:hover {
-                            background: #f0f4f8;
-                        }
-                        .dfn-accordion-header-left {
-                            display: flex;
-                            align-items: center;
-                            gap: 12px;
-                            flex: 1;
-                        }
-                        .dfn-accordion-title {
-                            font-weight: 600;
-                            font-size: 14px;
-                            color: #004b23;
-                            margin: 0;
-                        }
-                        .dfn-accordion-arrow {
-                            font-size: 12px;
-                            color: #64748b;
-                            transition: transform 0.2s;
-                            flex-shrink: 0;
-                            width: 18px;
-                            text-align: center;
-                        }
-                        .dfn-accordion-item.is-open .dfn-accordion-arrow {
-                            transform: rotate(180deg);
-                        }
-                        .dfn-accordion-body {
-                            display: none;
-                            padding: 20px 24px;
-                            background: #fff;
-                            border-top: 1px solid #e2e8f0;
-                        }
-                        .dfn-accordion-item.is-open .dfn-accordion-body {
-                            display: block;
-                        }
-                        .dfn-accordion-body .form-table {
-                            margin: 0;
-                        }
-                        .dfn-accordion-body .form-table th {
-                            width: 200px;
-                            padding: 10px 10px 10px 0;
-                        }
-                        .dfn-accordion-body .form-table td {
-                            padding: 10px 0;
-                        }
-                        </style>
-
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;">
+                            <div>
+                                <h2 style="color:#004b23; margin:0 0 4px; font-size:20px; font-weight:700;">📝 Modelli E-mail FAI Prenotazioni (Compilazione Guidata &amp; Anteprima Live)</h2>
+                                <p class="description" style="margin:0; font-size:13.5px; color:#64748b;">
+                                    Personalizza i testi di tutte le e-mail senza dover conoscere il codice HTML: compila i campi guidati a sinistra e visualizza l'anteprima grafica renderizzata in tempo reale sulla destra.
+                                </p>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="button button-secondary" id="dfn-expand-all-emails" style="font-size:12px;">📂 Espandi Tutti</button>
+                                <button type="button" class="button button-secondary" id="dfn-collapse-all-emails" style="font-size:12px;">📁 Comprimi Tutti</button>
+                            </div>
+                        </div>
                         <?php
+                        $delegation_name_val = dfn_get_setting('delegation_name', 'FAI Novara');
                         $emails = [
                             [
                                 'num'       => '1',
                                 'label'     => 'Conferma Prenotazione (Immediata)',
                                 'type'      => 'confirm',
                                 'name'      => 'Conferma Prenotazione',
+                                'tags'      => ['{nome_cliente}', '{nome_evento}', '{url_modifica}', '{url_annullamento}'],
                                 'fields'    => [
-                                    ['id' => 'email_confirm_subject', 'label' => 'Oggetto E-mail',               'type' => 'text',     'ph' => '{nome_evento}'],
-                                    ['id' => 'email_confirm_title',   'label' => 'Titolo Banner Visivo',          'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_confirm_intro',   'label' => 'Testo Introduzione',            'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {url_modifica}, {url_annullamento}'],
-                                    ['id' => 'email_confirm_notes',   'label' => 'Note Importanti / Regole Accesso', 'type' => 'textarea', 'ph' => ''],
+                                    ['id' => 'email_confirm_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',                   'type' => 'text',     'desc' => 'Oggetto visibile nella casella di posta del visitatore.'],
+                                    ['id' => 'email_confirm_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)',      'type' => 'text',     'desc' => 'Titolo principale visualizzato in alto all\'interno dell\'email.'],
+                                    ['id' => 'email_confirm_intro',   'key' => 'intro',   'label' => 'Testo Introduzione / Saluto',       'type' => 'textarea', 'rows' => 3, 'desc' => 'Saluto iniziale. I doppi a capo creano nuovi paragrafi.'],
+                                    ['id' => 'email_confirm_notes',   'key' => 'notes',   'label' => 'Note Importanti & Regole Accesso',  'type' => 'textarea', 'rows' => 3, 'desc' => 'Istruzioni su orario d\'arrivo, tessere o raccomandazioni.'],
                                 ],
                             ],
                             [
@@ -625,11 +571,12 @@ function dfn_render_settings_page(): void
                                 'label'     => 'Modifica Prenotazione (Autonoma)',
                                 'type'      => 'modify',
                                 'name'      => 'Modifica Prenotazione',
+                                'tags'      => ['{nome_cliente}', '{nome_evento}', '{url_modifica}', '{url_annullamento}'],
                                 'fields'    => [
-                                    ['id' => 'email_modify_subject', 'label' => 'Oggetto E-mail',               'type' => 'text',     'ph' => '{nome_evento}'],
-                                    ['id' => 'email_modify_title',   'label' => 'Titolo Banner Visivo',          'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_modify_intro',   'label' => 'Testo Introduzione',            'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {url_modifica}, {url_annullamento}'],
-                                    ['id' => 'email_modify_notes',   'label' => 'Note Importanti / Regole Accesso', 'type' => 'textarea', 'ph' => ''],
+                                    ['id' => 'email_modify_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',                   'type' => 'text',     'desc' => 'Oggetto inviato quando il visitatore modifica la prenotazione.'],
+                                    ['id' => 'email_modify_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)',      'type' => 'text',     'desc' => 'Titolo principale visualizzato in alto.'],
+                                    ['id' => 'email_modify_intro',   'key' => 'intro',   'label' => 'Testo Introduzione / Conferma',     'type' => 'textarea', 'rows' => 3, 'desc' => 'Messaggio che conferma la corretta modifica.'],
+                                    ['id' => 'email_modify_notes',   'key' => 'notes',   'label' => 'Note Importanti & Regole Accesso',  'type' => 'textarea', 'rows' => 3, 'desc' => 'Avvisi o promemoria per la visita.'],
                                 ],
                             ],
                             [
@@ -637,10 +584,11 @@ function dfn_render_settings_page(): void
                                 'label'     => 'Richiesta in Fase di Verifica (Approvazione Manuale)',
                                 'type'      => 'pending',
                                 'name'      => 'Richiesta in Verifica',
+                                'tags'      => ['{nome_cliente}', '{nome_evento}'],
                                 'fields'    => [
-                                    ['id' => 'email_pending_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
-                                    ['id' => 'email_pending_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_pending_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}'],
+                                    ['id' => 'email_pending_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',                   'type' => 'text',     'desc' => 'Oggetto per eventi che richiedono approvazione.'],
+                                    ['id' => 'email_pending_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)',      'type' => 'text',     'desc' => 'Titolo principale visualizzato in alto.'],
+                                    ['id' => 'email_pending_body',    'key' => 'body',    'label' => 'Corpo Messaggio',                  'type' => 'textarea', 'rows' => 4, 'desc' => 'Spiega al visitatore che la richiesta è in attesa di verifica.'],
                                 ],
                             ],
                             [
@@ -648,10 +596,11 @@ function dfn_render_settings_page(): void
                                 'label'     => 'Richiesta non Approvata (Rifiutata dallo Staff)',
                                 'type'      => 'declined',
                                 'name'      => 'Richiesta Rifiutata',
+                                'tags'      => ['{nome_cliente}', '{nome_evento}', '{motivo_rifiuto}'],
                                 'fields'    => [
-                                    ['id' => 'email_declined_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
-                                    ['id' => 'email_declined_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_declined_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {motivo_rifiuto}'],
+                                    ['id' => 'email_declined_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',                  'type' => 'text',     'desc' => 'Oggetto notifica rifiuto richiesta.'],
+                                    ['id' => 'email_declined_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)',     'type' => 'text',     'desc' => 'Titolo principale in testata.'],
+                                    ['id' => 'email_declined_body',    'key' => 'body',    'label' => 'Corpo Messaggio',                 'type' => 'textarea', 'rows' => 4, 'desc' => 'Messaggio cortese di mancata disponibilità posti.'],
                                 ],
                             ],
                             [
@@ -660,10 +609,11 @@ function dfn_render_settings_page(): void
                                 'type'      => 'fai_booking_rejected',
                                 'name'      => 'Rifiuto Prenotazione FAI',
                                 'new'       => true,
+                                'tags'      => ['{nome_cliente}', '{nome_evento}', '{motivo_rifiuto}'],
                                 'fields'    => [
-                                    ['id' => 'email_fai_booking_rejected_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
-                                    ['id' => 'email_fai_booking_rejected_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_fai_booking_rejected_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {motivo_rifiuto}'],
+                                    ['id' => 'email_fai_booking_rejected_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',             'type' => 'text',     'desc' => 'Oggetto notifica rifiuto per tessere FAI non valide.'],
+                                    ['id' => 'email_fai_booking_rejected_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)', 'type' => 'text',     'desc' => 'Titolo principale in testata.'],
+                                    ['id' => 'email_fai_booking_rejected_body',    'key' => 'body',    'label' => 'Corpo Messaggio',             'type' => 'textarea', 'rows' => 4, 'desc' => 'Spiegazione del motivo del rifiuto prenotazione.'],
                                 ],
                             ],
                             [
@@ -671,10 +621,11 @@ function dfn_render_settings_page(): void
                                 'label'     => 'Prenotazione Annullata (dal Visitatore)',
                                 'type'      => 'cancelled',
                                 'name'      => 'Annullamento Utente',
+                                'tags'      => ['{nome_cliente}', '{nome_evento}'],
                                 'fields'    => [
-                                    ['id' => 'email_cancelled_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
-                                    ['id' => 'email_cancelled_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_cancelled_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}'],
+                                    ['id' => 'email_cancelled_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',                  'type' => 'text',     'desc' => 'Oggetto per la conferma di cancellazione autonoma.'],
+                                    ['id' => 'email_cancelled_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)',     'type' => 'text',     'desc' => 'Titolo principale in testata.'],
+                                    ['id' => 'email_cancelled_body',    'key' => 'body',    'label' => 'Corpo Messaggio',                 'type' => 'textarea', 'rows' => 4, 'desc' => 'Conferma che i posti sono stati liberati.'],
                                 ],
                             ],
                             [
@@ -682,10 +633,11 @@ function dfn_render_settings_page(): void
                                 'label'     => 'Prenotazione Annullata dallo Staff',
                                 'type'      => 'admin_cancelled',
                                 'name'      => 'Annullamento Staff',
+                                'tags'      => ['{nome_cliente}', '{nome_evento}'],
                                 'fields'    => [
-                                    ['id' => 'email_admin_cancelled_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
-                                    ['id' => 'email_admin_cancelled_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_admin_cancelled_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}'],
+                                    ['id' => 'email_admin_cancelled_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',             'type' => 'text',     'desc' => 'Oggetto quando lo staff annulla una prenotazione.'],
+                                    ['id' => 'email_admin_cancelled_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)', 'type' => 'text',     'desc' => 'Titolo principale in testata.'],
+                                    ['id' => 'email_admin_cancelled_body',    'key' => 'body',    'label' => 'Corpo Messaggio',             'type' => 'textarea', 'rows' => 4, 'desc' => 'Messaggio e contatti per assistenza.'],
                                 ],
                             ],
                             [
@@ -693,11 +645,12 @@ function dfn_render_settings_page(): void
                                 'label'     => 'Promemoria Visita (24 Ore Prima)',
                                 'type'      => 'reminder',
                                 'name'      => 'Promemoria 24h',
+                                'tags'      => ['{nome_cliente}', '{nome_evento}', '{url_modifica}', '{url_annullamento}'],
                                 'fields'    => [
-                                    ['id' => 'email_reminder_subject', 'label' => 'Oggetto E-mail',                    'type' => 'text',     'ph' => '{nome_evento}'],
-                                    ['id' => 'email_reminder_title',   'label' => 'Titolo Banner Visivo',               'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_reminder_intro',   'label' => 'Testo Introduzione',                 'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {url_modifica}, {url_annullamento}'],
-                                    ['id' => 'email_reminder_notes',   'label' => 'Note Importanti / Istruzioni Accesso', 'type' => 'textarea', 'ph' => ''],
+                                    ['id' => 'email_reminder_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',                  'type' => 'text',     'desc' => 'Oggetto del promemoria automatico spedito 24h prima.'],
+                                    ['id' => 'email_reminder_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)',     'type' => 'text',     'desc' => 'Titolo in testata del promemoria.'],
+                                    ['id' => 'email_reminder_intro',   'key' => 'intro',   'label' => 'Testo Introduzione',               'type' => 'textarea', 'rows' => 3, 'desc' => 'Saluto e promemoria dell\'evento di domani.'],
+                                    ['id' => 'email_reminder_notes',   'key' => 'notes',   'label' => 'Note &amp; Istruzioni di Accesso', 'type' => 'textarea', 'rows' => 3, 'desc' => 'Indicazioni pratiche per la visita.'],
                                 ],
                             ],
                             [
@@ -705,10 +658,11 @@ function dfn_render_settings_page(): void
                                 'label'     => "Posto Disponibile in Lista d'Attesa",
                                 'type'      => 'waitlist',
                                 'name'      => 'Notifica Waitlist',
+                                'tags'      => ['{nome_cliente}', '{nome_evento}', '{ore_waitlist}'],
                                 'fields'    => [
-                                    ['id' => 'email_waitlist_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => '{nome_evento}'],
-                                    ['id' => 'email_waitlist_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_waitlist_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {nome_evento}, {ore_waitlist}'],
+                                    ['id' => 'email_waitlist_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',                  'type' => 'text',     'desc' => 'Oggetto di avviso posto liberato per chi è in lista.'],
+                                    ['id' => 'email_waitlist_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)',     'type' => 'text',     'desc' => 'Titolo in testata.'],
+                                    ['id' => 'email_waitlist_body',    'key' => 'body',    'label' => 'Corpo Messaggio',                 'type' => 'textarea', 'rows' => 4, 'desc' => 'Istruzioni e indicazione della priorità temporale.'],
                                 ],
                             ],
                             [
@@ -716,10 +670,11 @@ function dfn_render_settings_page(): void
                                 'label'     => 'Tessera FAI Approvata (Verifica Superata)',
                                 'type'      => 'fai_approved',
                                 'name'      => 'Tessera FAI Approvata',
+                                'tags'      => ['{nome_cliente}', '{numero_tessera}'],
                                 'fields'    => [
-                                    ['id' => 'email_fai_approved_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_fai_approved_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_fai_approved_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {numero_tessera}'],
+                                    ['id' => 'email_fai_approved_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',              'type' => 'text',     'desc' => 'Oggetto conferma validità tessera socio FAI.'],
+                                    ['id' => 'email_fai_approved_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)', 'type' => 'text',     'desc' => 'Titolo in testata.'],
+                                    ['id' => 'email_fai_approved_body',    'key' => 'body',    'label' => 'Corpo Messaggio',             'type' => 'textarea', 'rows' => 4, 'desc' => 'Conferma che la tariffa scontata è attiva.'],
                                 ],
                             ],
                             [
@@ -727,57 +682,339 @@ function dfn_render_settings_page(): void
                                 'label'     => 'Tessera FAI Rifiutata (Non Valida)',
                                 'type'      => 'fai_rejected',
                                 'name'      => 'Tessera FAI Rifiutata',
+                                'tags'      => ['{nome_cliente}', '{numero_tessera}', '{motivo_rifiuto}'],
                                 'fields'    => [
-                                    ['id' => 'email_fai_rejected_subject', 'label' => 'Oggetto E-mail',     'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_fai_rejected_title',   'label' => 'Titolo Banner Visivo', 'type' => 'text',     'ph' => ''],
-                                    ['id' => 'email_fai_rejected_body',    'label' => 'Corpo E-mail',         'type' => 'textarea', 'ph' => '{nome_cliente}, {numero_tessera}, {motivo_rifiuto}'],
+                                    ['id' => 'email_fai_rejected_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',              'type' => 'text',     'desc' => 'Oggetto notifica tessera non attiva o scaduta.'],
+                                    ['id' => 'email_fai_rejected_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)', 'type' => 'text',     'desc' => 'Titolo in testata.'],
+                                    ['id' => 'email_fai_rejected_body',    'key' => 'body',    'label' => 'Corpo Messaggio',             'type' => 'textarea', 'rows' => 4, 'desc' => 'Spiegazione e richiesta di regolarizzazione.'],
                                 ],
                             ],
                         ];
                         ?>
 
-                        <?php foreach ($emails as $email) : ?>
-                        <div class="dfn-accordion-item">
-                            <div class="dfn-accordion-header">
-                                <div class="dfn-accordion-header-left">
-                                    <span class="dfn-accordion-title">
+                        <?php foreach ($emails as $idx => $email) : ?>
+                        <div class="dfn-booking-accordion-item <?php echo $idx === 0 ? 'is-open' : ''; ?>" id="dfn-accordion-<?php echo esc_attr($email['type']); ?>">
+                            <div class="dfn-booking-accordion-header">
+                                <div class="dfn-booking-accordion-header-left">
+                                    <span class="dfn-booking-accordion-title">
                                         <?php echo esc_html($email['num'] . '. ' . $email['label']); ?>
                                         <?php if (! empty($email['new'])) : ?>
-                                            <span style="background:#dcfce7; color:#166534; font-size:10px; font-weight:700; padding:2px 7px; border-radius:9999px; vertical-align:middle; margin-left:8px;">NUOVO</span>
+                                            <span style="background:#dcfce7; color:#166534; font-size:10px; font-weight:700; padding:2px 7px; border-radius:9999px; vertical-align:middle; margin-left:6px;">NUOVO</span>
                                         <?php endif; ?>
                                     </span>
-                                    <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="<?php echo esc_attr($email['type']); ?>" data-email-name="<?php echo esc_attr($email['name']); ?>" style="font-size: 11px; height: auto; padding: 4px 10px; line-height: normal; flex-shrink: 0;" onclick="event.stopPropagation();">✉️ Invia di prova</button>
+                                    <button type="button" class="button button-secondary dfn-send-test-email-btn" data-email-type="<?php echo esc_attr($email['type']); ?>" data-email-name="<?php echo esc_attr($email['name']); ?>" style="font-size: 11.5px; height: auto; padding: 4px 10px; line-height: normal; flex-shrink: 0;" onclick="event.stopPropagation();">✉️ Invia di prova</button>
                                 </div>
-                                <span class="dfn-accordion-arrow">▼</span>
+                                <span class="dfn-booking-accordion-arrow">▼</span>
                             </div>
-                            <div class="dfn-accordion-body">
-                                <table class="form-table" role="presentation">
-                                    <?php foreach ($email['fields'] as $field) : ?>
-                                    <tr>
-                                        <th scope="row"><label for="<?php echo esc_attr($field['id']); ?>"><?php echo esc_html($field['label']); ?></label></th>
-                                        <td>
-                                            <?php if ($field['type'] === 'textarea') : ?>
-                                                <textarea name="dfn_settings[<?php echo esc_attr($field['id']); ?>]" id="<?php echo esc_attr($field['id']); ?>" rows="5" cols="50" class="large-text"><?php echo esc_textarea(dfn_get_setting($field['id'])); ?></textarea>
-                                            <?php else : ?>
-                                                <input name="dfn_settings[<?php echo esc_attr($field['id']); ?>]" type="text" id="<?php echo esc_attr($field['id']); ?>" value="<?php echo esc_attr(dfn_get_setting($field['id'])); ?>" class="<?php echo (strpos($field['id'], 'title') !== false) ? 'regular-text' : 'large-text'; ?>" />
-                                            <?php endif; ?>
-                                            <?php if (! empty($field['ph'])) : ?>
-                                                <p class="description">Segnaposto: <?php echo implode(', ', array_map(fn($p) => '<code>' . esc_html(trim($p)) . '</code>', explode(',', $field['ph']))); ?></p>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </table>
+                            <div class="dfn-booking-accordion-body">
+                                <div class="dfn-email-builder-grid">
+                                    <!-- COLONNA SINISTRA: FORM GUIDATO -->
+                                    <div class="dfn-form-col">
+                                        <!-- BARRA SEGNAPOSTO -->
+                                        <?php if (! empty($email['tags'])) : ?>
+                                            <div class="dfn-chips-bar">
+                                                <span style="font-size:12px; font-weight:700; color:#004b23; margin-right:4px;">🏷️ Segnaposto:</span>
+                                                <?php foreach ($email['tags'] as $tag) : ?>
+                                                    <span class="dfn-chip-btn" data-tag="<?php echo esc_attr($tag); ?>" data-type="<?php echo esc_attr($email['type']); ?>">+ <?php echo esc_html($tag); ?></span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <div class="dfn-form-card">
+                                            <div class="dfn-form-card-title">📧 Testi e Campi Guidati</div>
+                                            <?php foreach ($email['fields'] as $field) : ?>
+                                                <div class="dfn-field-box">
+                                                    <label for="<?php echo esc_attr($field['id']); ?>"><?php echo esc_html($field['label']); ?></label>
+                                                    <?php if ($field['type'] === 'textarea') : ?>
+                                                        <textarea name="dfn_settings[<?php echo esc_attr($field['id']); ?>]" id="<?php echo esc_attr($field['id']); ?>" rows="<?php echo esc_attr($field['rows'] ?? 3); ?>" class="dfn-live-input" data-email-type="<?php echo esc_attr($email['type']); ?>" data-field="<?php echo esc_attr($field['key']); ?>"><?php echo esc_textarea(dfn_get_setting($field['id'])); ?></textarea>
+                                                    <?php else : ?>
+                                                        <input name="dfn_settings[<?php echo esc_attr($field['id']); ?>]" type="text" id="<?php echo esc_attr($field['id']); ?>" value="<?php echo esc_attr(dfn_get_setting($field['id'])); ?>" class="dfn-live-input" data-email-type="<?php echo esc_attr($email['type']); ?>" data-field="<?php echo esc_attr($field['key']); ?>" />
+                                                    <?php endif; ?>
+                                                    <?php if (! empty($field['desc'])) : ?>
+                                                        <div class="dfn-help-text"><?php echo esc_html($field['desc']); ?></div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+
+                                    <!-- COLONNA DESTRA: ANTEPRIMA GRAFICA LIVE -->
+                                    <div class="dfn-mockup-wrapper">
+                                        <div style="font-size:11.5px; font-weight:700; color:#004b23; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:5px;">
+                                            <span>✨ Anteprima Grafica Live (in tempo reale)</span>
+                                        </div>
+                                        <div class="dfn-mockup-card">
+                                            <div class="dfn-mockup-header-banner">
+                                                <h3 id="dfn-preview-title-<?php echo esc_attr($email['type']); ?>"></h3>
+                                            </div>
+                                            <div class="dfn-mockup-content" id="dfn-preview-body-<?php echo esc_attr($email['type']); ?>">
+                                                <!-- Inserito dinamicamente via JavaScript -->
+                                            </div>
+                                            <div class="dfn-mockup-footer-bar">
+                                                FAI - Fondo per l'Ambiente Italiano &bull; <?php echo esc_html($delegation_name_val); ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <?php endforeach; ?>
 
                         <script>
                         document.addEventListener('DOMContentLoaded', function() {
-                            document.querySelectorAll('.dfn-accordion-header').forEach(function(header) {
+                            var sampleBookingData = {
+                                '{nome_cliente}': 'Mario Rossi',
+                                '{nome_evento}': 'Visita Speciale a Villa Flecchia e Collezione Enrico',
+                                '{url_biglietto}': '#biglietto',
+                                '{url_modifica}': '#modifica-prenotazione',
+                                '{url_annullamento}': '#annulla-prenotazione',
+                                '{numero_tessera}': '12345678',
+                                '{motivo_rifiuto}': 'Raggiunta la capienza massima del turno o tessera non rinnovata per l\'anno in corso.',
+                                '{ore_waitlist}': '2'
+                            };
+
+                            function escapeHtml(str) {
+                                if (!str) return '';
+                                var div = document.createElement('div');
+                                div.textContent = str;
+                                return div.innerHTML;
+                            }
+
+                            function applyPlaceholders(str) {
+                                if (!str) return '';
+                                for (var k in sampleBookingData) {
+                                    var reg = new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                                    str = str.replace(reg, sampleBookingData[k]);
+                                }
+                                return str;
+                            }
+
+                            function formatTextParagraphs(text) {
+                                if (!text || !text.trim()) return '';
+                                // Se contiene già tag HTML strutturati, manteniamo i tag
+                                if (/<(?:p|div|ul|ol|li|table|br\s*\/?>)/i.test(text)) {
+                                    return applyPlaceholders(text);
+                                }
+                                var parts = text.split(/\n\s*\n/);
+                                return parts.map(function(p) {
+                                    p = p.trim();
+                                    return p ? '<p style="margin:0 0 14px; font-size:14px; line-height:1.6; color:#2d3748;">' + applyPlaceholders(escapeHtml(p)).replace(/\n/g, '<br>') + '</p>' : '';
+                                }).join('');
+                            }
+
+                            function renderBookingPreview(emailType) {
+                                var card = document.getElementById('dfn-accordion-' + emailType);
+                                if (!card) return;
+
+                                var titleEl = card.querySelector('.dfn-live-input[data-field="title"]');
+                                var introEl = card.querySelector('.dfn-live-input[data-field="intro"]');
+                                var notesEl = card.querySelector('.dfn-live-input[data-field="notes"]');
+                                var bodyEl  = card.querySelector('.dfn-live-input[data-field="body"]');
+
+                                var titleTarget = document.getElementById('dfn-preview-title-' + emailType);
+                                var bodyTarget  = document.getElementById('dfn-preview-body-' + emailType);
+                                if (!titleTarget || !bodyTarget) return;
+
+                                var rawTitle = titleEl ? titleEl.value : '';
+                                titleTarget.textContent = applyPlaceholders(rawTitle) || 'FAI Prenotazioni';
+
+                                var html = '';
+
+                                if (emailType === 'confirm' || emailType === 'modify') {
+                                    var introText = introEl ? introEl.value : '';
+                                    var notesText = notesEl ? notesEl.value : '';
+
+                                    html += formatTextParagraphs(introText);
+
+                                    // Tabella Dettagli Prenotazione
+                                    html += '<div class="info-box">';
+                                    html += '<div class="info-box-title">' + (emailType === 'modify' ? 'Nuovi Dettagli Prenotazione (Aggiornati)' : 'Dettagli della Prenotazione') + '</div>';
+                                    html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b; width:110px;">Evento:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">' + sampleBookingData['{nome_evento}'] + '</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Data e Inizio:</td><td style="padding:4px 0; color:#0f172a;">Sabato 12 Ottobre 2026 - ore 15:30</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Luogo:</td><td style="padding:4px 0; color:#0f172a;">Novara</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Partecipanti:</td><td style="padding:4px 0; color:#0f172a;">2 totali (1 Standard + 1 Socio FAI)</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Contributo:</td><td style="padding:4px 0; font-weight:700; color:#ff6600;">10,00 € (Contributo all\'ingresso)</td></tr>';
+                                    html += '</table></div>';
+
+                                    if (notesText) {
+                                        html += formatTextParagraphs(notesText);
+                                    }
+
+                                    html += '<p style="font-size:13.5px;">Per accedere all\'evento, mostra all\'ingresso il codice QR del tuo gruppo cliccando sul pulsante sottostante:</p>';
+                                    html += '<div style="text-align:center; margin:18px 0;"><a href="#" class="button" onclick="return false;">Mostra Codice QR / Ingressi</a></div>';
+                                    html += '<p style="text-align:center; margin-top:20px; font-size:12px; color:#64748b;"><a href="#" onclick="return false;" style="color:#004b23; text-decoration:underline; font-weight:700;">Modifica la prenotazione qui</a> &bull; <a href="#" onclick="return false;" style="color:#dc2626; text-decoration:underline; font-weight:700;">Annulla la prenotazione qui</a></p>';
+                                } else if (emailType === 'reminder') {
+                                    var introText = introEl ? introEl.value : '';
+                                    var notesText = notesEl ? notesEl.value : '';
+
+                                    html += formatTextParagraphs(introText);
+
+                                    html += '<div class="info-box">';
+                                    html += '<div class="info-box-title">Dettagli per Domani</div>';
+                                    html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b; width:110px;">Evento:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">' + sampleBookingData['{nome_evento}'] + '</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Data e Inizio:</td><td style="padding:4px 0; color:#0f172a;">Domani ore 15:30</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Luogo:</td><td style="padding:4px 0; color:#0f172a;">Novara</td></tr>';
+                                    html += '</table></div>';
+
+                                    if (notesText) {
+                                        html += formatTextParagraphs(notesText);
+                                    }
+
+                                    html += '<div style="text-align:center; margin:18px 0;"><a href="#" class="button" onclick="return false;">Apri Prenotazione con Codice QR</a></div>';
+                                    html += '<p style="text-align:center; margin-top:18px; font-size:12px; color:#64748b;"><a href="#" onclick="return false;" style="color:#004b23; text-decoration:underline; font-weight:700;">Modifica la prenotazione</a> &bull; <a href="#" onclick="return false;" style="color:#dc2626; text-decoration:underline; font-weight:700;">Annulla la prenotazione</a></p>';
+                                } else if (emailType === 'pending') {
+                                    var bodyText = bodyEl ? bodyEl.value : '';
+                                    html += formatTextParagraphs(bodyText);
+
+                                    html += '<div class="info-box" style="border-left-color:#e74f30;">';
+                                    html += '<div class="info-box-title" style="color:#e74f30;">Dettagli della Richiesta</div>';
+                                    html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b; width:110px;">Evento:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">' + sampleBookingData['{nome_evento}'] + '</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Stato:</td><td style="padding:4px 0; font-weight:700; color:#e74f30;">In Attesa di Approvazione Staff</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Partecipanti:</td><td style="padding:4px 0; color:#0f172a;">2 totali</td></tr>';
+                                    html += '</table></div>';
+
+                                    html += '<p style="font-size:13.5px; color:#64748b;"><em>Non è ancora necessario versare alcun contributo o mostrare QR code. Riceverai un secondo messaggio con l\'esito della richiesta.</em></p>';
+                                } else if (emailType === 'declined' || emailType === 'fai_booking_rejected') {
+                                    var bodyText = bodyEl ? bodyEl.value : '';
+                                    html += formatTextParagraphs(bodyText);
+
+                                    html += '<div class="info-box" style="border-left-color:#e74f30;">';
+                                    html += '<div class="info-box-title" style="color:#e74f30;">Nota dallo Staff</div>';
+                                    html += '<p style="margin:0; font-size:13.5px; color:#334155;">' + sampleBookingData['{motivo_rifiuto}'] + '</p>';
+                                    html += '</div>';
+
+                                    html += '<p style="font-size:13.5px; color:#64748b;">I posti precedentemente riservati sono stati liberati e resi nuovamente disponibili.</p>';
+                                } else if (emailType === 'cancelled' || emailType === 'admin_cancelled') {
+                                    var bodyText = bodyEl ? bodyEl.value : '';
+                                    html += formatTextParagraphs(bodyText);
+
+                                    html += '<div class="info-box" style="border-left-color:#dc2626;">';
+                                    html += '<div class="info-box-title" style="color:#dc2626;">Riepilogo Annullamento</div>';
+                                    html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b; width:110px;">Evento:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">' + sampleBookingData['{nome_evento}'] + '</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Data Prenotata:</td><td style="padding:4px 0; color:#0f172a;">Sabato 12 Ottobre 2026</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Stato:</td><td style="padding:4px 0; font-weight:700; color:#dc2626;">ANNULLATA' + (emailType === 'admin_cancelled' ? ' DALLO STAFF' : '') + '</td></tr>';
+                                    html += '</table></div>';
+
+                                    html += '<p style="font-size:13.5px; color:#64748b;">Speriamo di poterti accogliere in uno dei nostri prossimi eventi FAI.</p>';
+                                } else if (emailType === 'waitlist') {
+                                    var bodyText = bodyEl ? bodyEl.value : '';
+                                    html += formatTextParagraphs(bodyText);
+
+                                    html += '<div class="info-box">';
+                                    html += '<div class="info-box-title">La tua Prenotazione Riservata</div>';
+                                    html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b; width:110px;">Evento:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">' + sampleBookingData['{nome_evento}'] + '</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Posti Riservati:</td><td style="padding:4px 0; color:#0f172a;">2</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Scadenza:</td><td style="padding:4px 0; font-weight:700; color:#dc2626;">Entro 2 ore da questo avviso</td></tr>';
+                                    html += '</table></div>';
+
+                                    html += '<div style="text-align:center; margin:18px 0;"><a href="#" class="button" onclick="return false;">Completa la Prenotazione Ora</a></div>';
+                                    html += '<p style="font-size:12.5px; color:#64748b;"><em>Se non completerai la prenotazione entro il limite, i posti verranno sbloccati per il prossimo utente in attesa.</em></p>';
+                                } else if (emailType === 'fai_approved') {
+                                    var bodyText = bodyEl ? bodyEl.value : '';
+                                    html += formatTextParagraphs(bodyText);
+
+                                    html += '<div class="info-box" style="border-left-color:#166534;">';
+                                    html += '<div class="info-box-title" style="color:#166534;">✅ Verifica Tessera Superata</div>';
+                                    html += '<p style="margin:0; font-size:13.5px; color:#334155;">Tessera Socio FAI n° <strong>' + sampleBookingData['{numero_tessera}'] + '</strong> convalidata correttamente.</p>';
+                                    html += '</div>';
+                                } else if (emailType === 'fai_rejected') {
+                                    var bodyText = bodyEl ? bodyEl.value : '';
+                                    html += formatTextParagraphs(bodyText);
+
+                                    html += '<div class="info-box" style="border-left-color:#dc2626;">';
+                                    html += '<div class="info-box-title" style="color:#dc2626;">Motivazione dello Staff</div>';
+                                    html += '<p style="margin:0; font-size:13.5px; color:#334155;">' + sampleBookingData['{motivo_rifiuto}'] + '</p>';
+                                    html += '</div>';
+                                }
+
+                                bodyTarget.innerHTML = html;
+                            }
+
+                            // Inizializza tutte le anteprime
+                            var allTypes = ['confirm', 'modify', 'pending', 'declined', 'fai_booking_rejected', 'cancelled', 'admin_cancelled', 'reminder', 'waitlist', 'fai_approved', 'fai_rejected'];
+                            allTypes.forEach(function(t) {
+                                renderBookingPreview(t);
+                            });
+
+                            // Eventi digitazione in tempo reale
+                            document.querySelectorAll('.dfn-live-input').forEach(function(input) {
+                                input.addEventListener('input', function() {
+                                    var type = this.dataset.emailType;
+                                    if (type) renderBookingPreview(type);
+                                });
+                            });
+
+                            // Accordion click toggle
+                            document.querySelectorAll('.dfn-booking-accordion-header').forEach(function(header) {
                                 header.addEventListener('click', function() {
-                                    var item = this.closest('.dfn-accordion-item');
+                                    var item = this.closest('.dfn-booking-accordion-item');
                                     item.classList.toggle('is-open');
+                                    if (item.classList.contains('is-open')) {
+                                        var type = item.id.replace('dfn-accordion-', '');
+                                        renderBookingPreview(type);
+                                    }
+                                });
+                            });
+
+                            // Espandi / Comprimi tutti i modelli
+                            var expandBtn = document.getElementById('dfn-expand-all-emails');
+                            var collapseBtn = document.getElementById('dfn-collapse-all-emails');
+                            if (expandBtn) {
+                                expandBtn.addEventListener('click', function() {
+                                    document.querySelectorAll('.dfn-booking-accordion-item').forEach(function(item) {
+                                        item.classList.add('is-open');
+                                        var type = item.id.replace('dfn-accordion-', '');
+                                        renderBookingPreview(type);
+                                    });
+                                });
+                            }
+                            if (collapseBtn) {
+                                collapseBtn.addEventListener('click', function() {
+                                    document.querySelectorAll('.dfn-booking-accordion-item').forEach(function(item) {
+                                        item.classList.remove('is-open');
+                                    });
+                                });
+                            }
+
+                            // Inserimento Tag dinamici al click sui badge
+                            var activeInputByCard = {};
+                            document.querySelectorAll('.dfn-live-input').forEach(function(input) {
+                                input.addEventListener('focus', function() {
+                                    var type = this.dataset.emailType;
+                                    if (type) activeInputByCard[type] = this;
+                                });
+                            });
+
+                            document.querySelectorAll('.dfn-chip-btn').forEach(function(btn) {
+                                btn.addEventListener('click', function() {
+                                    var tag = this.dataset.tag;
+                                    var type = this.dataset.type;
+                                    var activeEl = activeInputByCard[type];
+
+                                    if (!activeEl) {
+                                        var card = document.getElementById('dfn-accordion-' + type);
+                                        if (card) {
+                                            activeEl = card.querySelector('textarea.dfn-live-input') || card.querySelector('input.dfn-live-input');
+                                        }
+                                    }
+                                    if (!activeEl) return;
+
+                                    var start = activeEl.selectionStart !== undefined ? activeEl.selectionStart : activeEl.value.length;
+                                    var end   = activeEl.selectionEnd !== undefined ? activeEl.selectionEnd : activeEl.value.length;
+                                    var val   = activeEl.value;
+
+                                    activeEl.value = val.substring(0, start) + tag + val.substring(end);
+                                    activeEl.focus();
+                                    if (activeEl.setSelectionRange) {
+                                        activeEl.setSelectionRange(start + tag.length, start + tag.length);
+                                    }
+
+                                    renderBookingPreview(type);
                                 });
                             });
                         });
