@@ -25,7 +25,7 @@ function dfn_settings_register_menu(): void
         'dfn-events',
         esc_html__('Impostazioni FAI Prenotazioni', 'dfn-theme'),
         esc_html__('Impostazioni', 'dfn-theme'),
-        'dfn_act_settings',
+        'manage_options',
         'dfn-settings',
         'dfn_render_settings_page',
     );
@@ -40,7 +40,7 @@ function dfn_settings_save_fields(): void
         return;
     }
 
-    if (! current_user_can('dfn_manage_events')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_manage_events') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_settings'))) {
         return;
     }
 
@@ -217,7 +217,7 @@ function dfn_settings_save_fields(): void
  */
 function dfn_render_settings_page(): void
 {
-    if (! current_user_can('dfn_manage_events')) {
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_manage_events') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_settings'))) {
         wp_die(esc_html__('Non hai i permessi per accedere a questa pagina.', 'dfn-theme'));
     }
 
@@ -538,6 +538,237 @@ function dfn_render_settings_page(): void
 
                     <?php elseif ($active_tab === 'testi_email') : ?>
                         <!-- TAB TESTI EMAIL -->
+                        <style>
+                            .dfn-booking-accordion-item {
+                                background: #ffffff;
+                                border: 1px solid #cbd5e1;
+                                border-radius: 10px;
+                                margin-bottom: 16px;
+                                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                                overflow: hidden;
+                                transition: all 0.2s ease;
+                            }
+                            .dfn-booking-accordion-item.is-open {
+                                border-color: #94a3b8;
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+                            }
+                            .dfn-booking-accordion-header {
+                                background: #f8fafc;
+                                padding: 14px 18px;
+                                cursor: pointer;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                border-bottom: 1px solid transparent;
+                                user-select: none;
+                                transition: background 0.15s ease;
+                            }
+                            .dfn-booking-accordion-header:hover {
+                                background: #f1f5f9;
+                            }
+                            .dfn-booking-accordion-item.is-open .dfn-booking-accordion-header {
+                                background: #f1f5f9;
+                                border-bottom-color: #e2e8f0;
+                            }
+                            .dfn-booking-accordion-header-left {
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                flex-wrap: wrap;
+                            }
+                            .dfn-booking-accordion-title {
+                                font-size: 15px;
+                                font-weight: 700;
+                                color: #0f172a;
+                            }
+                            .dfn-booking-accordion-arrow {
+                                font-size: 12px;
+                                color: #64748b;
+                                transition: transform 0.2s ease;
+                            }
+                            .dfn-booking-accordion-item.is-open .dfn-booking-accordion-arrow {
+                                transform: rotate(180deg);
+                            }
+                            .dfn-booking-accordion-body {
+                                display: none;
+                                padding: 20px;
+                                background: #ffffff;
+                            }
+                            .dfn-booking-accordion-item.is-open .dfn-booking-accordion-body {
+                                display: block;
+                            }
+                            .dfn-email-builder-grid {
+                                display: grid;
+                                grid-template-columns: 1.15fr 0.85fr;
+                                gap: 24px;
+                                align-items: start;
+                            }
+                            @media (max-width: 1100px) {
+                                .dfn-email-builder-grid {
+                                    grid-template-columns: 1fr;
+                                }
+                            }
+                            .dfn-form-col {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 14px;
+                            }
+                            .dfn-chips-bar {
+                                display: flex;
+                                flex-wrap: wrap;
+                                gap: 6px;
+                                align-items: center;
+                                background: #f8fafc;
+                                border: 1px solid #e2e8f0;
+                                border-radius: 8px;
+                                padding: 8px 12px;
+                            }
+                            .dfn-chip-btn {
+                                background: #ffffff;
+                                border: 1px solid #cbd5e1;
+                                padding: 3px 8px;
+                                border-radius: 4px;
+                                font-size: 11.5px;
+                                font-weight: 600;
+                                font-family: monospace;
+                                color: #004b23;
+                                cursor: pointer;
+                                transition: all 0.1s ease;
+                                user-select: none;
+                            }
+                            .dfn-chip-btn:hover {
+                                background: #f0fdf4;
+                                border-color: #004b23;
+                                color: #166534;
+                                transform: translateY(-1px);
+                            }
+                            .dfn-form-card {
+                                background: #fafafa;
+                                border: 1px solid #e2e8f0;
+                                border-radius: 8px;
+                                padding: 16px 18px;
+                                display: flex;
+                                flex-direction: column;
+                                gap: 14px;
+                            }
+                            .dfn-form-card-title {
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: #004b23;
+                                text-transform: uppercase;
+                                letter-spacing: 0.3px;
+                                margin-bottom: 2px;
+                            }
+                            .dfn-field-box {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                            }
+                            .dfn-field-box label {
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: #334155;
+                            }
+                            .dfn-field-box input[type="text"],
+                            .dfn-field-box textarea {
+                                width: 100%;
+                                border-radius: 6px;
+                                border: 1.5px solid #cbd5e1;
+                                padding: 8px 12px;
+                                font-size: 13.5px;
+                                line-height: 1.5;
+                                background: #ffffff;
+                                color: #0f172a;
+                                box-sizing: border-box;
+                                font-family: inherit;
+                            }
+                            .dfn-field-box input[type="text"]:focus,
+                            .dfn-field-box textarea:focus {
+                                border-color: #004b23;
+                                outline: none;
+                                box-shadow: 0 0 0 1px #004b23;
+                            }
+                            .dfn-help-text {
+                                font-size: 11.5px;
+                                color: #64748b;
+                                line-height: 1.4;
+                                margin-top: 2px;
+                            }
+                            .dfn-mockup-wrapper {
+                                position: sticky;
+                                top: 35px;
+                            }
+                            .dfn-mockup-card {
+                                background: #ffffff;
+                                border: 1px solid #cbd5e1;
+                                border-radius: 10px;
+                                box-shadow: 0 4px 14px rgba(0,0,0,0.07);
+                                overflow: hidden;
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                            }
+                            .dfn-mockup-header-banner {
+                                background: #004b23;
+                                color: #ffffff;
+                                padding: 20px 24px;
+                                text-align: center;
+                            }
+                            .dfn-mockup-header-banner h3 {
+                                margin: 0;
+                                color: #ffffff !important;
+                                font-size: 18px !important;
+                                font-weight: 700;
+                                letter-spacing: -0.2px;
+                            }
+                            .dfn-mockup-content {
+                                padding: 24px;
+                                color: #334155;
+                                font-size: 13.5px;
+                                line-height: 1.65;
+                            }
+                            .dfn-mockup-content p {
+                                margin: 0 0 14px 0;
+                                font-size: 13.5px;
+                                line-height: 1.65;
+                                color: #334155;
+                            }
+                            .dfn-mockup-content p:last-child {
+                                margin-bottom: 0;
+                            }
+                            .dfn-mockup-footer-bar {
+                                background: #f8fafc;
+                                border-top: 1px solid #e2e8f0;
+                                padding: 12px 18px;
+                                text-align: center;
+                                font-size: 11.5px;
+                                color: #64748b;
+                            }
+                            .dfn-mockup-content .info-box {
+                                background: #f0fdf4;
+                                border: 1px solid #bbf7d0;
+                                border-left: 4px solid #004b23;
+                                border-radius: 6px;
+                                padding: 12px 16px;
+                                margin: 16px 0;
+                            }
+                            .dfn-mockup-content .info-box-title {
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: #004b23;
+                                margin-bottom: 6px;
+                            }
+                            .dfn-mockup-content .button {
+                                display: inline-block;
+                                background: #e74f30;
+                                color: #ffffff !important;
+                                padding: 10px 20px;
+                                border-radius: 6px;
+                                text-decoration: none;
+                                font-weight: 700;
+                                font-size: 13px;
+                                box-shadow: 0 2px 4px rgba(231,79,48,0.25);
+                                border: none;
+                            }
+                        </style>
                         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;">
                             <div>
                                 <h2 style="color:#004b23; margin:0 0 4px; font-size:20px; font-weight:700;">📝 Modelli E-mail FAI Prenotazioni (Compilazione Guidata &amp; Anteprima Live)</h2>
