@@ -148,9 +148,12 @@ function dfn_ajax_mobile_search_events(): void
         $date_formatted = date_i18n('d M Y', strtotime($ev->event_date_start));
         $time_formatted = date('H:i', strtotime($ev->event_time_start));
 
+        $raw_title = $ev->post_title ?: get_the_title($ev->product_id);
+        $clean_title = html_entity_decode($raw_title, ENT_QUOTES, 'UTF-8');
+
         $results[] = [
             'id'             => intval($ev->id),
-            'title'          => $ev->post_title ?: get_the_title($ev->product_id),
+            'title'          => $clean_title,
             'location'       => $ev->location ?: 'Novara',
             'date_formatted' => $date_formatted,
             'time_formatted' => $time_formatted,
@@ -382,9 +385,11 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
         }
     }
 
-    $total_capacity   = intval($event->total_capacity);
-    $total_booked     = 0;
-    $total_checked_in = 0;
+    $total_capacity    = intval($event->total_capacity);
+    $total_booked      = 0;
+    $total_paid        = 0;
+    $total_pending_pay = 0;
+    $total_checked_in  = 0;
 
     $formatted_bookings = [];
     foreach ($bookings as $b) {
@@ -393,11 +398,20 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
             || $b->status === 'checked_in'
             || ($order && $order->get_meta('_cv_checked_in') === 'yes');
 
+        $qty_persons = intval($b->total_persons);
+        $total_booked += $qty_persons;
+
         if ($is_checked) {
-            $total_checked_in += intval($b->total_persons);
+            $total_checked_in += $qty_persons;
         }
 
         $pay_info = dfn_get_booking_payment_info($b, $order);
+
+        if (! empty($pay_info['is_paid'])) {
+            $total_paid += $qty_persons;
+        } else {
+            $total_pending_pay += $qty_persons;
+        }
 
         $checkin_time_val = '';
         if ($is_checked) {
@@ -429,17 +443,22 @@ function dfn_ajax_mobile_get_event_checkin_list(): void
         ];
     }
 
+    $raw_title = get_the_title($event->product_id);
+    $event_title = html_entity_decode($raw_title, ENT_QUOTES, 'UTF-8');
+
     wp_send_json_success([
-        'event_title'      => esc_html(get_the_title($event->product_id)),
-        'event_date'       => date('d/m/Y', strtotime($event->event_date_start)),
-        'event_time'       => date('H:i', strtotime($event->event_time_start)),
-        'total_capacity'   => $total_capacity,
-        'total_booked'     => $total_booked,
-        'total_checked_in' => $total_checked_in,
-        'total_remaining'  => max(0, $total_booked - $total_checked_in),
-        'available_dates'  => $available_dates_formatted,
-        'selected_date'    => $selected_date,
-        'bookings'         => $formatted_bookings,
+        'event_title'       => $event_title,
+        'event_date'        => date('d/m/Y', strtotime($event->event_date_start)),
+        'event_time'        => date('H:i', strtotime($event->event_time_start)),
+        'total_capacity'    => $total_capacity,
+        'total_booked'      => $total_booked,
+        'total_paid'        => $total_paid,
+        'total_pending_pay' => $total_pending_pay,
+        'total_checked_in'  => $total_checked_in,
+        'total_remaining'   => max(0, $total_booked - $total_checked_in),
+        'available_dates'   => $available_dates_formatted,
+        'selected_date'     => $selected_date,
+        'bookings'          => $formatted_bookings,
     ]);
 }
 add_action('wp_ajax_dfn_mobile_get_event_checkin_list', 'dfn_ajax_mobile_get_event_checkin_list');
@@ -616,9 +635,9 @@ function dfn_ajax_mobile_resend_ticket_email(): void
 
     if (! $sent) {
         $event = dfn_db_get_event($booking->event_id);
-        $event_title = ($event && ! empty($event->product_id)) ? get_the_title($event->product_id) : '';
+        $event_title = ($event && ! empty($event->product_id)) ? html_entity_decode(get_the_title($event->product_id), ENT_QUOTES, 'UTF-8') : '';
         if (empty($event_title) || $event_title === 'Privacy Policy') {
-            $event_title = get_the_title($booking->event_id);
+            $event_title = html_entity_decode(get_the_title($booking->event_id), ENT_QUOTES, 'UTF-8');
             if (empty($event_title) || $event_title === 'Privacy Policy') {
                 $event_title = 'Evento FAI Novara';
             }
@@ -1301,7 +1320,7 @@ function dfn_render_mobile_app(): void
                                             <span class="dfn-event-status-pill open">Aperto</span>
                                         <?php endif; ?>
                                     </div>
-                                    <h4 class="dfn-event-title"><?php echo esc_html(get_the_title($ev->product_id)); ?></h4>
+                                    <h4 class="dfn-event-title"><?php echo esc_html(html_entity_decode(get_the_title($ev->product_id), ENT_QUOTES, 'UTF-8')); ?></h4>
                                     <p class="dfn-event-location">📍 <?php echo esc_html($ev->location ?: 'Novara'); ?></p>
                                     
                                     <?php 
@@ -1458,18 +1477,19 @@ function dfn_render_mobile_app(): void
                                 <option value="">Seleziona Evento...</option>
                                 <?php foreach ($all_published_events as $ev) : 
                                     $date_formatted = ! empty($ev->event_date_start) ? date_i18n('d/m/Y', strtotime($ev->event_date_start)) : '';
-                                    $ev_title = get_the_title($ev->product_id) ?: sprintf(__('Evento %d', 'dfn-theme'), $ev->id);
+                                    $raw_title = get_the_title($ev->product_id) ?: sprintf(__('Evento %d', 'dfn-theme'), $ev->id);
+                                    $ev_title = html_entity_decode($raw_title, ENT_QUOTES, 'UTF-8');
                                     $opt_label = $date_formatted ? $date_formatted . ' - ' . $ev_title : $ev_title;
                                     if (! empty($ev->is_test_event)) {
                                         $opt_label .= ' 🧪 [TEST]';
                                     }
                                 ?>
                                     <option value="<?php echo absint($ev->id); ?>"
-                                            data-access="<?php echo esc_attr($ev->access_type ?? 'time_slots'); ?>"
-                                            data-name="<?php echo esc_attr($ev_title); ?>">
-                                        <?php echo esc_html($opt_label); ?>
-                                    </option>
-                                <?php endforeach; ?>
+                                             data-access="<?php echo esc_attr($ev->access_type ?? 'time_slots'); ?>"
+                                             data-name="<?php echo esc_attr($ev_title); ?>">
+                                         <?php echo esc_html($opt_label); ?>
+                                     </option>
+                                 <?php endforeach; ?>
                             </select>
                         </div>
 
@@ -1559,7 +1579,8 @@ function dfn_render_mobile_app(): void
                                 <option value="">Seleziona Evento...</option>
                                 <?php foreach ($all_published_events as $ev) : 
                                     $date_formatted = ! empty($ev->event_date_start) ? date_i18n('d/m/Y', strtotime($ev->event_date_start)) : '';
-                                    $ev_title = get_the_title($ev->product_id) ?: sprintf(__('Evento %d', 'dfn-theme'), $ev->id);
+                                    $raw_title = get_the_title($ev->product_id) ?: sprintf(__('Evento %d', 'dfn-theme'), $ev->id);
+                                    $ev_title = html_entity_decode($raw_title, ENT_QUOTES, 'UTF-8');
                                     $opt_label = $date_formatted ? $date_formatted . ' - ' . $ev_title : $ev_title;
                                     if (! empty($ev->is_test_event)) {
                                         $opt_label .= ' 🧪 [TEST]';
@@ -1789,22 +1810,53 @@ function dfn_render_mobile_app(): void
                     <button type="button" class="dfn-modal-close-btn" id="dfn-btn-close-checkin-modal">&times;</button>
                 </div>
 
-                <div class="dfn-mci-stats-box">
-                    <div class="dfn-mci-stat">
-                        <span class="val" id="dfn-mci-stat-booked">0</span>
-                        <span class="lbl">Prenotati</span>
+                <div class="dfn-mci-stats-container">
+                    <!-- Box 1: Riepilogo Prenotazioni Ricevute -->
+                    <div class="dfn-mci-stats-card">
+                        <div class="dfn-mci-card-title">
+                            <span class="dashicons dashicons-tickets-alt"></span>
+                            <span>Prenotazioni Ricevute</span>
+                        </div>
+                        <div class="dfn-mci-stats-row">
+                            <div class="dfn-mci-stat clickable active" data-filter="all" id="dfn-mci-stat-card-booked" title="Tutte le prenotazioni">
+                                <span class="val" id="dfn-mci-stat-booked">0</span>
+                                <span class="lbl">Totale</span>
+                            </div>
+                            <div class="dfn-mci-stat success clickable" data-filter="paid" id="dfn-mci-stat-card-paid" title="Filtra pagati">
+                                <span class="val" id="dfn-mci-stat-paid">0</span>
+                                <span class="lbl">Pagate</span>
+                            </div>
+                            <div class="dfn-mci-stat warning clickable" data-filter="pending_pay" id="dfn-mci-stat-card-pending-pay" title="Filtra da pagare">
+                                <span class="val" id="dfn-mci-stat-pending-pay">0</span>
+                                <span class="lbl">Da Pagare</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="dfn-mci-stat success">
-                        <span class="val" id="dfn-mci-stat-checked">0</span>
-                        <span class="lbl">Entrati</span>
-                    </div>
-                    <div class="dfn-mci-stat warning">
-                        <span class="val" id="dfn-mci-stat-remaining">0</span>
-                        <span class="lbl">Rimanenti</span>
+
+                    <!-- Box 2: Stato Ingressi Check-in -->
+                    <div class="dfn-mci-stats-card">
+                        <div class="dfn-mci-card-title">
+                            <span class="dashicons dashicons-admin-users"></span>
+                            <span>Stato Ingressi (Check-in)</span>
+                        </div>
+                        <div class="dfn-mci-stats-row">
+                            <div class="dfn-mci-stat clickable" data-filter="all" id="dfn-mci-stat-card-expected" title="Totale ingressi attesi">
+                                <span class="val" id="dfn-mci-stat-expected">0</span>
+                                <span class="lbl">Attesi</span>
+                            </div>
+                            <div class="dfn-mci-stat success clickable" data-filter="checked" id="dfn-mci-stat-card-checked" title="Filtra persone già entrate">
+                                <span class="val" id="dfn-mci-stat-checked">0</span>
+                                <span class="lbl">Entrati</span>
+                            </div>
+                            <div class="dfn-mci-stat info clickable" data-filter="remaining" id="dfn-mci-stat-card-remaining" title="Filtra persone ancora da entrare">
+                                <span class="val" id="dfn-mci-stat-remaining">0</span>
+                                <span class="lbl">Da Entrare</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="dfn-mci-progress-bar">
+                <div class="dfn-mci-progress-bar" title="Avanzamento ingressi">
                     <div class="dfn-mci-progress-fill" id="dfn-mci-progress-fill" style="width: 0%;"></div>
                 </div>
 
