@@ -510,6 +510,18 @@ function dfn_user_has_module_access(string $module, ?int $user_id = null): bool
     return false;
 }
 
+// Assicura che gli amministratori abbiano sempre tutte le capabilities FAI attive
+add_filter('user_has_cap', function (array $allcaps, array $caps, array $args, WP_User $user): array {
+    if (! empty($allcaps['manage_options']) || ! empty($allcaps['administrator'])) {
+        foreach ($caps as $cap) {
+            if (strpos($cap, 'dfn_') === 0) {
+                $allcaps[$cap] = true;
+            }
+        }
+    }
+    return $allcaps;
+}, 10, 4);
+
 // Sincronizzazione automatica all'inizializzazione dell'admin se non ancora sincronizzato
 add_action('admin_init', function () {
     if (! get_option('dfn_roles_synced_v2')) {
