@@ -1323,6 +1323,57 @@ function dfn_send_booking_modification_notifications(int $booking_id): bool
  */
 
 /**
+ * Converte blocchi di testo semplice (separati da doppio a capo) in paragrafi HTML puliti.
+ *
+ * @param string $text Testo semplice inserito dall'utente.
+ * @return string HTML con paragrafi stilizzati.
+ */
+function dfn_format_volunteer_text_paragraphs(string $text): string
+{
+    $text = trim($text);
+    if ($text === '') {
+        return '';
+    }
+
+    $paragraphs = preg_split("/\r\n\r\n|\n\n|\r\r/", $text);
+    $output = '';
+
+    foreach ($paragraphs as $p) {
+        $p = trim($p);
+        if ($p !== '') {
+            $output .= '<p style="margin:0 0 16px; font-size:15px; line-height:1.6; color:#2d3748;">' . nl2br(esc_html($p)) . '</p>';
+        }
+    }
+
+    return $output;
+}
+
+/**
+ * Converte linee di testo semplice (1 voce per riga) in un elenco puntato HTML FAI.
+ *
+ * @param string $text Testo con una voce per riga.
+ * @return string HTML <ul><li>...</li></ul>
+ */
+function dfn_format_volunteer_bullet_list(string $text): string
+{
+    $lines = preg_split("/\r\n|\n|\r/", trim($text));
+    $items = [];
+
+    foreach ($lines as $line) {
+        $clean = trim($line, " \t\n\r\0\x0B•-*");
+        if ($clean !== '') {
+            $items[] = '<li style="margin-bottom:6px;">' . esc_html($clean) . '</li>';
+        }
+    }
+
+    if (empty($items)) {
+        return '';
+    }
+
+    return '<ul style="margin:0; padding-left:20px; color:#334155; line-height:1.6; font-size:14.5px;">' . implode('', $items) . '</ul>';
+}
+
+/**
  * Sostituisce i segnaposto dinamici nei template email del modulo Volontari.
  *
  * @param string       $text           Testo contenente i segnaposto {tag}.
@@ -1361,20 +1412,180 @@ function dfn_replace_volunteer_email_placeholders(string $text, $volunteer_data,
     $admin_url  = admin_url('admin.php?page=dfn-volunteers&status=pending');
 
     $replacements = [
-        '{nome}'           => esc_html($first_name),
-        '{cognome}'        => esc_html($last_name),
-        '{email}'          => esc_html($email),
-        '{telefono}'       => esc_html($phone),
-        '{tessera_fai}'    => esc_html($card_no),
-        '{mansioni}'       => esc_html($mansioni_str),
-        '{delegazione}'    => esc_html($delegation_name),
-        '{citta}'          => esc_html($delegation_footer),
-        '{data_richiesta}' => esc_html($created_at),
-        '{link_accesso}'   => esc_url($access_url),
-        '{link_admin}'     => esc_url($admin_url),
+        '{nome}'           => $first_name,
+        '{cognome}'        => $last_name,
+        '{email}'          => $email,
+        '{telefono}'       => $phone,
+        '{tessera_fai}'    => $card_no,
+        '{mansioni}'       => $mansioni_str,
+        '{delegazione}'    => $delegation_name,
+        '{citta}'          => $delegation_footer,
+        '{data_richiesta}' => $created_at,
+        '{link_accesso}'   => $access_url,
+        '{link_admin}'     => $admin_url,
     ];
 
     return str_replace(array_keys($replacements), array_values($replacements), $text);
+}
+
+/**
+ * Assembla il layout HTML completo per l'email di notifica allo staff/amministratore.
+ *
+ * @param array $v       Dati del candidato.
+ * @param int   $user_id ID utente WP collegato.
+ * @return string HTML formattato.
+ */
+function dfn_build_volunteer_admin_email_html(array $v, int $user_id = 0): string
+{
+    $intro_raw     = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_intro') : '';
+    $box_title_raw = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_box_title', '👤 Dati e Disponibilità del Candidato') : '👤 Dati e Disponibilità del Candidato';
+    $instr_raw     = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_instructions') : '';
+    $btn_text_raw  = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_btn_text', 'Valuta Candidatura nel Pannello Admin →') : 'Valuta Candidatura nel Pannello Admin →';
+
+    $intro_text = dfn_replace_volunteer_email_placeholders((string) $intro_raw, $v, $user_id);
+    $box_title  = dfn_replace_volunteer_email_placeholders((string) $box_title_raw, $v, $user_id);
+    $instr_text = dfn_replace_volunteer_email_placeholders((string) $instr_raw, $v, $user_id);
+    $btn_text   = dfn_replace_volunteer_email_placeholders((string) $btn_text_raw, $v, $user_id);
+    $admin_url  = admin_url('admin.php?page=dfn-volunteers&status=pending');
+
+    $html = dfn_format_volunteer_text_paragraphs($intro_text);
+
+    // Box riepilogo dati candidato
+    $html .= '<div class="info-box" style="background-color:#f8fafc; border-left:4px solid #004b23; padding:16px 20px; margin:20px 0; border-radius:4px;">';
+    if (! empty($box_title)) {
+        $html .= '<p class="info-box-title" style="font-weight:700; font-size:15px; color:#004b23; margin:0 0 12px;">' . esc_html($box_title) . '</p>';
+    }
+    $html .= '<table style="width:100%; border-collapse:collapse; font-size:14px;">';
+    $html .= '<tr><td style="padding:4px 0; font-weight:600; width:130px; color:#475569;">Candidato:</td><td style="padding:4px 0; color:#0f172a; font-weight:600;">' . esc_html(($v['first_name'] ?? '') . ' ' . ($v['last_name'] ?? '')) . '</td></tr>';
+    $html .= '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Email:</td><td style="padding:4px 0;"><a href="mailto:' . esc_attr($v['email'] ?? '') . '" style="color:#004b23; font-weight:600;">' . esc_html($v['email'] ?? '') . '</a></td></tr>';
+    $html .= '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Telefono:</td><td style="padding:4px 0; color:#0f172a;">' . esc_html(! empty($v['phone']) ? $v['phone'] : '—') . '</td></tr>';
+
+    $mansioni = [];
+    if (! empty($v['is_guide'])) {
+        $mansioni[] = '🏛️ Guida Culturale / Cicerone';
+    }
+    if (! empty($v['has_safety_course'])) {
+        $mansioni[] = '🦺 Corso Sicurezza';
+    }
+    if (empty($mansioni)) {
+        $mansioni[] = '👥 Volontario Operativo / Accoglienza';
+    }
+    $html .= '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Disponibilità:</td><td style="padding:4px 0; color:#0f172a;">' . esc_html(implode(', ', $mansioni)) . '</td></tr>';
+
+    if (! empty($v['volunteer_notes'])) {
+        $html .= '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Note / Competenze:</td><td style="padding:4px 0; color:#0f172a;">' . esc_html($v['volunteer_notes']) . '</td></tr>';
+    }
+    $created_at = ! empty($v['created_at']) ? date_i18n('d/m/Y H:i', strtotime($v['created_at'])) : current_time('d/m/Y H:i');
+    $html .= '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Data invio:</td><td style="padding:4px 0; color:#0f172a;">' . esc_html($created_at) . '</td></tr>';
+    $html .= '</table>';
+    $html .= '</div>';
+
+    if (! empty($instr_text)) {
+        $html .= dfn_format_volunteer_text_paragraphs($instr_text);
+    }
+
+    if (! empty($btn_text)) {
+        $html .= '<div style="text-align:center; margin:26px 0;"><a href="' . esc_url($admin_url) . '" class="button">' . esc_html($btn_text) . '</a></div>';
+    }
+
+    return $html;
+}
+
+/**
+ * Assembla il layout HTML per l'email di ricezione/presa in carico al candidato.
+ *
+ * @param array $v Dati del candidato.
+ * @return string HTML formattato.
+ */
+function dfn_build_volunteer_pending_email_html(array $v): string
+{
+    $intro_raw     = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_intro') : '';
+    $box_title_raw = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_box_title', '📋 Stato della tua richiesta: In fase di verifica') : '📋 Stato della tua richiesta: In fase di verifica';
+    $box_text_raw  = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_box_text') : '';
+    $closing_raw   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_closing') : '';
+    $sig_raw       = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_signature') : '';
+
+    $intro_text   = dfn_replace_volunteer_email_placeholders((string) $intro_raw, $v);
+    $box_title    = dfn_replace_volunteer_email_placeholders((string) $box_title_raw, $v);
+    $box_text     = dfn_replace_volunteer_email_placeholders((string) $box_text_raw, $v);
+    $closing_text = dfn_replace_volunteer_email_placeholders((string) $closing_raw, $v);
+    $sig_text     = dfn_replace_volunteer_email_placeholders((string) $sig_raw, $v);
+
+    $html = dfn_format_volunteer_text_paragraphs($intro_text);
+
+    if (! empty($box_title) || ! empty($box_text)) {
+        $html .= '<div class="info-box" style="background-color:#f8fafc; border-left:4px solid #166534; padding:16px 20px; margin:22px 0; border-radius:4px;">';
+        if (! empty($box_title)) {
+            $html .= '<p class="info-box-title" style="font-weight:700; font-size:15px; color:#166534; margin:0 0 8px;">' . esc_html($box_title) . '</p>';
+        }
+        if (! empty($box_text)) {
+            $html .= '<p style="margin:0; font-size:14px; color:#334155; line-height:1.5;">' . nl2br(esc_html($box_text)) . '</p>';
+        }
+        $html .= '</div>';
+    }
+
+    if (! empty($closing_text)) {
+        $html .= dfn_format_volunteer_text_paragraphs($closing_text);
+    }
+
+    if (! empty($sig_text)) {
+        $html .= '<p style="margin-top:24px; font-size:15px; color:#2d3748; line-height:1.5;">' . nl2br(esc_html($sig_text)) . '</p>';
+    }
+
+    return $html;
+}
+
+/**
+ * Assembla il layout HTML per l'email di approvazione e benvenuto al volontario.
+ *
+ * @param array $v       Dati del volontario approvato.
+ * @param int   $user_id ID utente WP collegato.
+ * @return string HTML formattato.
+ */
+function dfn_build_volunteer_approved_email_html(array $v, int $user_id = 0): string
+{
+    $intro_raw       = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_intro') : '';
+    $box_title_raw   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_box_title', '🏛️ Cosa puoi fare adesso nella tua Area Riservata?') : '🏛️ Cosa puoi fare adesso nella tua Area Riservata?';
+    $box_bullets_raw = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_box_bullets') : '';
+    $btn_text_raw    = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_btn_text', 'Accedi alla tua Bacheca Volontario →') : 'Accedi alla tua Bacheca Volontario →';
+    $notes_raw       = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_notes') : '';
+    $sig_raw         = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_signature') : '';
+
+    $intro_text   = dfn_replace_volunteer_email_placeholders((string) $intro_raw, $v, $user_id);
+    $box_title    = dfn_replace_volunteer_email_placeholders((string) $box_title_raw, $v, $user_id);
+    $box_bullets  = dfn_replace_volunteer_email_placeholders((string) $box_bullets_raw, $v, $user_id);
+    $btn_text     = dfn_replace_volunteer_email_placeholders((string) $btn_text_raw, $v, $user_id);
+    $notes_text   = dfn_replace_volunteer_email_placeholders((string) $notes_raw, $v, $user_id);
+    $sig_text     = dfn_replace_volunteer_email_placeholders((string) $sig_raw, $v, $user_id);
+
+    $access_url = function_exists('wc_get_account_endpoint_url') ? wc_get_account_endpoint_url('volontari-fai') : site_url('/mio-account/volontari-fai/');
+
+    $html = dfn_format_volunteer_text_paragraphs($intro_text);
+
+    if (! empty($box_title) || ! empty($box_bullets)) {
+        $html .= '<div class="info-box" style="background-color:#f8fafc; border-left:4px solid #004b23; padding:16px 20px; margin:22px 0; border-radius:4px;">';
+        if (! empty($box_title)) {
+            $html .= '<p class="info-box-title" style="font-weight:700; font-size:15px; color:#004b23; margin:0 0 10px;">' . esc_html($box_title) . '</p>';
+        }
+        if (! empty($box_bullets)) {
+            $html .= dfn_format_volunteer_bullet_list($box_bullets);
+        }
+        $html .= '</div>';
+    }
+
+    if (! empty($btn_text)) {
+        $html .= '<div style="text-align:center; margin:28px 0;"><a href="' . esc_url($access_url) . '" class="button">' . esc_html($btn_text) . '</a></div>';
+    }
+
+    if (! empty($notes_text)) {
+        $html .= '<p style="font-size:13.5px; color:#64748b; line-height:1.5;"><em>' . nl2br(esc_html($notes_text)) . '</em></p>';
+    }
+
+    if (! empty($sig_text)) {
+        $html .= '<p style="margin-top:24px; font-size:15px; color:#2d3748; line-height:1.5;">' . nl2br(esc_html($sig_text)) . '</p>';
+    }
+
+    return $html;
 }
 
 /**
@@ -1402,11 +1613,10 @@ function dfn_send_volunteer_admin_notification($volunteer_data, int $user_id = 0
 
     $raw_subject = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_subject', 'Nuova Candidatura Volontario FAI: {nome} {cognome}') : 'Nuova Candidatura Volontario FAI: {nome} {cognome}';
     $raw_title   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_title', 'Nuova Candidatura Volontario FAI') : 'Nuova Candidatura Volontario FAI';
-    $raw_body    = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_body', '') : '';
 
-    $subject = dfn_replace_volunteer_email_placeholders($raw_subject, $v, $user_id);
-    $title   = dfn_replace_volunteer_email_placeholders($raw_title, $v, $user_id);
-    $body    = dfn_replace_volunteer_email_placeholders($raw_body, $v, $user_id);
+    $subject = dfn_replace_volunteer_email_placeholders((string) $raw_subject, $v, $user_id);
+    $title   = dfn_replace_volunteer_email_placeholders((string) $raw_title, $v, $user_id);
+    $body    = dfn_build_volunteer_admin_email_html($v, $user_id);
 
     return dfn_send_notification_email($emails, $subject, $title, $body, [], '[Candidatura Volontario]');
 }
@@ -1436,11 +1646,10 @@ function dfn_send_volunteer_candidate_pending_email($volunteer_data, string $ove
 
     $raw_subject = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_subject', 'Candidatura Volontario FAI Ricevuta - {delegazione}') : 'Candidatura Volontario FAI Ricevuta - {delegazione}';
     $raw_title   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_title', 'Grazie per la tua candidatura!') : 'Grazie per la tua candidatura!';
-    $raw_body    = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_body', '') : '';
 
-    $subject = dfn_replace_volunteer_email_placeholders($raw_subject, $v);
-    $title   = dfn_replace_volunteer_email_placeholders($raw_title, $v);
-    $body    = dfn_replace_volunteer_email_placeholders($raw_body, $v);
+    $subject = dfn_replace_volunteer_email_placeholders((string) $raw_subject, $v);
+    $title   = dfn_replace_volunteer_email_placeholders((string) $raw_title, $v);
+    $body    = dfn_build_volunteer_pending_email_html($v);
 
     return dfn_send_notification_email($to, $subject, $title, $body, [], '[Presa in carico Volontario]');
 }
@@ -1471,11 +1680,10 @@ function dfn_send_volunteer_approved_email($volunteer_data, int $user_id = 0, st
 
     $raw_subject = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_subject', 'Benvenuto nella Squadra Volontari del {delegazione}!') : 'Benvenuto nella Squadra Volontari del {delegazione}!';
     $raw_title   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_title', 'La tua candidatura è stata approvata!') : 'La tua candidatura è stata approvata!';
-    $raw_body    = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_body', '') : '';
 
-    $subject = dfn_replace_volunteer_email_placeholders($raw_subject, $v, $user_id);
-    $title   = dfn_replace_volunteer_email_placeholders($raw_title, $v, $user_id);
-    $body    = dfn_replace_volunteer_email_placeholders($raw_body, $v, $user_id);
+    $subject = dfn_replace_volunteer_email_placeholders((string) $raw_subject, $v, $user_id);
+    $title   = dfn_replace_volunteer_email_placeholders((string) $raw_title, $v, $user_id);
+    $body    = dfn_build_volunteer_approved_email_html($v, $user_id);
 
     return dfn_send_notification_email($to, $subject, $title, $body, [], '[Approvazione Volontario]');
 }
