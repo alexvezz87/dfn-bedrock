@@ -2,7 +2,7 @@
  * DFN Mobile App Service Worker (PWA)
  */
 
-const CACHE_NAME = 'dfn-mobile-app-v4';
+const CACHE_NAME = 'dfn-mobile-app-v6';
 const ASSETS_TO_CACHE = [
   '/gestione-eventi/',
   '/app/themes/dfn-theme/manifest.json'
