@@ -824,14 +824,56 @@ document.addEventListener('DOMContentLoaded', function () {
     const mciDateWrap         = document.getElementById('dfn-mci-date-wrap');
     const mciDateSelect       = document.getElementById('dfn-mci-date-select');
 
+    // MODALI AZIONI DETTAGLIO, SPOSTA TURNO E LOG STORICO
+    const mbdModal            = document.getElementById('dfn-mobile-booking-details-modal');
+    const closeMbdBtn         = document.getElementById('dfn-btn-close-mbd-modal');
+    const mbdBody             = document.getElementById('dfn-mbd-body');
+    const moveSlotModal       = document.getElementById('dfn-mobile-move-slot-modal');
+    const closeMoveSlotBtn    = document.getElementById('dfn-btn-close-move-slot-modal');
+    const cancelMoveBtn       = document.getElementById('dfn-btn-cancel-move-slot');
+    const moveSlotForm        = document.getElementById('dfn-mobile-move-slot-form');
+    const historyModal        = document.getElementById('dfn-mobile-history-modal');
+    const closeHistoryBtn     = document.getElementById('dfn-btn-close-history-modal');
+    const closeHistoryBottom  = document.getElementById('dfn-btn-close-history-bottom');
+    const historyContentArea  = document.getElementById('dfn-history-list-content');
+    const historySubtitle     = document.getElementById('dfn-history-customer-subtitle');
+
     let currentEventCheckinData = null;
     let mciCurrentEventId       = 0;
+    let mciCurrentFilter        = 'all';
 
     if (closeCheckinBtn && checkinModal) {
         closeCheckinBtn.addEventListener('click', () => {
             checkinModal.style.display = 'none';
         });
     }
+
+    if (closeMbdBtn && mbdModal) {
+        closeMbdBtn.addEventListener('click', () => { mbdModal.style.display = 'none'; });
+    }
+    if (closeMoveSlotBtn && moveSlotModal) {
+        closeMoveSlotBtn.addEventListener('click', () => { moveSlotModal.style.display = 'none'; });
+    }
+    if (cancelMoveBtn && moveSlotModal) {
+        cancelMoveBtn.addEventListener('click', () => { moveSlotModal.style.display = 'none'; });
+    }
+    if (closeHistoryBtn && historyModal) {
+        closeHistoryBtn.addEventListener('click', () => { historyModal.style.display = 'none'; });
+    }
+    if (closeHistoryBottom && historyModal) {
+        closeHistoryBottom.addEventListener('click', () => { historyModal.style.display = 'none'; });
+    }
+
+    // Interattività Click sui Contatori per Filtrare
+    document.querySelectorAll('.dfn-mci-stat.clickable').forEach(statEl => {
+        statEl.addEventListener('click', function () {
+            const filterVal = this.getAttribute('data-filter') || 'all';
+            mciCurrentFilter = filterVal;
+            document.querySelectorAll('.dfn-mci-stat.clickable').forEach(el => el.classList.remove('active'));
+            this.classList.add('active');
+            renderCheckinModalBookingsList();
+        });
+    });
 
     if (mciDateSelect) {
         mciDateSelect.addEventListener('change', function () {
@@ -852,6 +894,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!checkinModal) return;
 
         mciCurrentEventId = eventId;
+        mciCurrentFilter  = 'all';
+        document.querySelectorAll('.dfn-mci-stat.clickable').forEach(el => el.classList.remove('active'));
+        const defaultActiveCard = document.getElementById('dfn-mci-stat-card-booked');
+        if (defaultActiveCard) defaultActiveCard.classList.add('active');
+
+        if (checkinSearchInput) checkinSearchInput.value = '';
+
         checkinModal.style.display = 'flex';
         checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">Caricamento lista prenotazioni...</p>';
 
@@ -866,7 +915,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(res => {
                 if (res.success) {
                     currentEventCheckinData = res.data;
-                    renderCheckinModalData(currentEventCheckinData, checkinSearchInput ? checkinSearchInput.value : '', res.data.selected_date || selectedDate);
+                    renderCheckinModalData(currentEventCheckinData);
                 } else {
                     checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#ef4444;">Errore: ' + (res.data || 'Impossibile caricare') + '</p>';
                 }
@@ -876,7 +925,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    function renderCheckinModalData(data, filterQuery = '', activeDate = '') {
+    function renderCheckinModalData(data) {
         document.getElementById('dfn-mci-event-title').textContent = data.event_title;
         document.getElementById('dfn-mci-event-subtitle').textContent = '📅 ' + data.event_date + ' • ⏰ ' + data.event_time;
 
@@ -894,44 +943,232 @@ document.addEventListener('DOMContentLoaded', function () {
             mciDateWrap.style.display = 'none';
         }
 
-        document.getElementById('dfn-mci-stat-booked').textContent = data.total_booked;
-        document.getElementById('dfn-mci-stat-checked').textContent = data.total_checked_in;
-        document.getElementById('dfn-mci-stat-remaining').textContent = data.total_remaining;
+        // Box 1: Prenotazioni Ricevute
+        const statBooked = document.getElementById('dfn-mci-stat-booked');
+        const statPaid = document.getElementById('dfn-mci-stat-paid');
+        const statPendingPay = document.getElementById('dfn-mci-stat-pending-pay');
+        if (statBooked) statBooked.textContent = data.total_booked || 0;
+        if (statPaid) statPaid.textContent = data.total_paid || 0;
+        if (statPendingPay) statPendingPay.textContent = data.total_pending_pay || 0;
 
-        const pct = data.total_booked > 0 ? Math.min(100, Math.round((data.total_checked_in / data.total_booked) * 100)) : 0;
-        document.getElementById('dfn-mci-progress-fill').style.width = pct + '%';
+        // Box 2: Ingressi Check-in
+        const statExpected = document.getElementById('dfn-mci-stat-expected');
+        const statChecked = document.getElementById('dfn-mci-stat-checked');
+        const statRemaining = document.getElementById('dfn-mci-stat-remaining');
+        if (statExpected) statExpected.textContent = data.total_booked || 0;
+        if (statChecked) statChecked.textContent = data.total_checked_in || 0;
+        if (statRemaining) statRemaining.textContent = data.total_remaining || 0;
 
-        const query = filterQuery.toLowerCase().trim();
-        const filtered = data.bookings.filter(b => {
-            if (!query) return true;
-            return b.customer_name.toLowerCase().includes(query) ||
-                   b.customer_email.toLowerCase().includes(query) ||
-                   b.customer_phone.toLowerCase().includes(query) ||
-                   b.qr_token.toLowerCase().includes(query);
-        });
+        // Barra di avanzamento
+        const pct = (data.total_booked > 0) ? Math.min(100, Math.round((data.total_checked_in / data.total_booked) * 100)) : 0;
+        const progressFill = document.getElementById('dfn-mci-progress-fill');
+        if (progressFill) progressFill.style.width = pct + '%';
 
-        if (filtered.length === 0) {
-            checkinBookingsList.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">Nessuna prenotazione trovata.</p>';
+        renderCheckinModalBookingsList();
+    }
+
+    function renderCheckinModalBookingsList() {
+        if (!currentEventCheckinData || !Array.isArray(currentEventCheckinData.bookings)) {
             return;
         }
 
-    // MODALI AZIONI DETTAGLIO & SPOSTA TURNO
-    const mbdModal         = document.getElementById('dfn-mobile-booking-details-modal');
-    const closeMbdBtn      = document.getElementById('dfn-btn-close-mbd-modal');
-    const mbdBody          = document.getElementById('dfn-mbd-body');
-    const moveSlotModal    = document.getElementById('dfn-mobile-move-slot-modal');
-    const closeMoveSlotBtn = document.getElementById('dfn-btn-close-move-slot-modal');
-    const cancelMoveBtn    = document.getElementById('dfn-btn-cancel-move-slot');
-    const moveSlotForm     = document.getElementById('dfn-mobile-move-slot-form');
+        const query = checkinSearchInput ? checkinSearchInput.value.toLowerCase().trim() : '';
+        const filtered = currentEventCheckinData.bookings.filter(b => {
+            // 1. Filtro testuale
+            if (query) {
+                const matchName  = (b.customer_name || '').toLowerCase().includes(query);
+                const matchEmail = (b.customer_email || '').toLowerCase().includes(query);
+                const matchPhone = (b.customer_phone || '').toLowerCase().includes(query);
+                const matchToken = (b.qr_token || '').toLowerCase().includes(query);
+                if (!matchName && !matchEmail && !matchPhone && !matchToken) return false;
+            }
 
-    if (closeMbdBtn && mbdModal) {
-        closeMbdBtn.addEventListener('click', () => { mbdModal.style.display = 'none'; });
+            // 2. Filtro per stato/contatore attivo
+            if (mciCurrentFilter === 'paid') {
+                return !!b.is_paid;
+            } else if (mciCurrentFilter === 'pending_pay') {
+                return !b.is_paid;
+            } else if (mciCurrentFilter === 'checked') {
+                return !!b.checked_in;
+            } else if (mciCurrentFilter === 'remaining') {
+                return !b.checked_in;
+            }
+
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            let emptyMsg = 'Nessuna prenotazione trovata.';
+            if (mciCurrentFilter === 'paid') emptyMsg = 'Nessuna prenotazione pagata presente.';
+            else if (mciCurrentFilter === 'pending_pay') emptyMsg = 'Nessuna prenotazione in attesa di pagamento.';
+            else if (mciCurrentFilter === 'checked') emptyMsg = 'Nessuna persona ancora entrata.';
+            else if (mciCurrentFilter === 'remaining') emptyMsg = 'Nessuna persona rimanente da registrare.';
+
+            checkinBookingsList.innerHTML = `<div style="text-align:center; padding:30px 15px; color:#64748b;">
+                <span style="font-size:28px; display:block; margin-bottom:8px;">🔍</span>
+                <p style="margin:0; font-size:14px; font-weight:600;">${emptyMsg}</p>
+            </div>`;
+            return;
+        }
+
+        let html = '';
+        filtered.forEach(b => {
+            const statusClass = b.checked_in ? 'success' : 'pending';
+            const statusLabel = b.checked_in ? '✅ Entrato (' + (b.checked_in_time || '') + ')' : '⏳ In Attesa';
+            const payClass    = b.is_paid ? 'dfn-pay-badge--paid' : 'dfn-pay-badge--unpaid';
+            const payIcon     = b.is_paid ? '✅' : '⏳';
+            const payLabel    = b.payment_label || (b.is_paid ? 'Pagato' : 'Da pagare');
+            const payMethod   = b.payment_method ? ` <small style="color:#64748b; font-weight:normal;">(${b.payment_method})</small>` : '';
+
+            html += `
+                <div class="dfn-mobile-card dfn-mci-booking-card" id="dfn-mci-card-${b.id}">
+                    <div class="dfn-booking-card-header">
+                        <strong class="dfn-customer-name">${b.customer_name}</strong>
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+                            <span class="dfn-pay-badge ${payClass}">${payIcon} ${payLabel}</span>
+                            <span class="dfn-event-status-pill ${statusClass}">${statusLabel}</span>
+                        </div>
+                    </div>
+                    <div class="dfn-booking-details">
+                        <p>📧 ${b.customer_email}</p>
+                        ${b.customer_phone ? '<p>📞 ' + b.customer_phone + '</p>' : ''}
+                        <p>👥 <strong>${b.total_persons} Persone</strong> (Interi: ${b.persons_std}, FAI: ${b.persons_fai})</p>
+                        <p style="margin: 4px 0 0; font-size:12.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            💳 <strong>Pagamento:</strong> <span class="dfn-pay-badge ${payClass}">${payIcon} ${payLabel}</span>${payMethod}
+                        </p>
+                    </div>
+                    <div class="dfn-booking-actions three-col" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top:10px;">
+                        <button type="button" class="dfn-mobile-btn ${b.checked_in ? 'secondary' : 'success'} btn-mci-do-checkin" data-booking-id="${b.id}" data-token="${b.qr_token}">
+                            ${b.checked_in ? '✓ Entrato' : '✅ Check-in'}
+                        </button>
+                        <button type="button" class="dfn-mobile-btn primary btn-mci-manage-details" data-booking-id="${b.id}">
+                            ⚙️ Gestisci
+                        </button>
+                        <button type="button" class="dfn-mobile-btn secondary btn-mci-resend-email" data-booking-id="${b.id}">
+                            ✉️ Email
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        checkinBookingsList.innerHTML = html;
+
+        // Binding pulsante Gestisci
+        checkinBookingsList.querySelectorAll('.btn-mci-manage-details').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const bookingId = this.getAttribute('data-booking-id');
+                openBookingDetailsModal(bookingId);
+            });
+        });
+
+        // Binding Check-in live
+        checkinBookingsList.querySelectorAll('.btn-mci-do-checkin').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const bookingId = parseInt(this.getAttribute('data-booking-id'), 10);
+                const token = this.getAttribute('data-token');
+                btn.disabled = true;
+                btn.textContent = '⏳ Registrazione...';
+
+                const fd = new FormData();
+                fd.append('action', 'dfn_mobile_do_checkin');
+                fd.append('booking_id', bookingId);
+                fd.append('qr_token', token || '');
+                fd.append('nonce', nonces.admin || nonces.quick || nonces.booking || '');
+
+                fetch(ajaxUrl, { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(res => {
+                        btn.disabled = false;
+                        if (res.success) {
+                            const isNowChecked = !!res.data.checked_in;
+                            const checkTime    = res.data.checked_in_time || '';
+
+                            // Aggiorna stato locale nella lista
+                            const targetBooking = currentEventCheckinData.bookings.find(x => x.id === bookingId);
+                            if (targetBooking) {
+                                targetBooking.checked_in = isNowChecked;
+                                targetBooking.checked_in_time = checkTime;
+                            }
+
+                            // Ricalcola contatori ingressi in tempo reale
+                            let totalChecked = 0;
+                            currentEventCheckinData.bookings.forEach(x => {
+                                if (x.checked_in) totalChecked += (parseInt(x.total_persons, 10) || 1);
+                            });
+                            currentEventCheckinData.total_checked_in = totalChecked;
+                            currentEventCheckinData.total_remaining = Math.max(0, currentEventCheckinData.total_booked - totalChecked);
+
+                            const statChecked = document.getElementById('dfn-mci-stat-checked');
+                            const statRemaining = document.getElementById('dfn-mci-stat-remaining');
+                            if (statChecked) statChecked.textContent = currentEventCheckinData.total_checked_in;
+                            if (statRemaining) statRemaining.textContent = currentEventCheckinData.total_remaining;
+
+                            const pct = (currentEventCheckinData.total_booked > 0) 
+                                ? Math.min(100, Math.round((currentEventCheckinData.total_checked_in / currentEventCheckinData.total_booked) * 100)) 
+                                : 0;
+                            const progressFill = document.getElementById('dfn-mci-progress-fill');
+                            if (progressFill) progressFill.style.width = pct + '%';
+
+                            if (isNowChecked) {
+                                vibrate([100, 50, 100]);
+                                showToast('✅ Check-in confermato!', 'success');
+                            } else {
+                                vibrate([50]);
+                                showToast('ℹ️ Check-in annullato', 'info');
+                            }
+
+                            renderCheckinModalBookingsList();
+                        } else {
+                            showToast('⚠️ Errore: ' + (res.data || 'Operazione fallita'), 'error');
+                            btn.textContent = '✅ Check-in';
+                        }
+                    })
+                    .catch(() => {
+                        btn.disabled = false;
+                        btn.textContent = '✅ Check-in';
+                        showToast('⚠️ Errore di connessione', 'error');
+                    });
+            });
+        });
+
+        // Binding Invio Email
+        checkinBookingsList.querySelectorAll('.btn-mci-resend-email').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const bookingId = this.getAttribute('data-booking-id');
+                btn.disabled = true;
+                btn.textContent = 'Invio...';
+
+                const formData = new FormData();
+                formData.append('action', 'dfn_mobile_resend_ticket_email');
+                formData.append('booking_id', bookingId);
+                formData.append('nonce', nonces.booking || '');
+
+                fetch(ajaxUrl, { method: 'POST', body: formData })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.success) {
+                            vibrate([100, 50, 100]);
+                            showToast('✉️ Email inviata al cliente!', 'success');
+                        } else {
+                            showToast('⚠️ Errore: ' + (res.data || 'Impossibile inviare'), 'error');
+                        }
+                        btn.disabled = false;
+                        btn.textContent = '✉️ Email';
+                    })
+                    .catch(() => {
+                        showToast('⚠️ Errore di connessione', 'error');
+                        btn.disabled = false;
+                        btn.textContent = '✉️ Email';
+                    });
+            });
+        });
     }
-    if (closeMoveSlotBtn && moveSlotModal) {
-        closeMoveSlotBtn.addEventListener('click', () => { moveSlotModal.style.display = 'none'; });
-    }
-    if (cancelMoveBtn && moveSlotModal) {
-        cancelMoveBtn.addEventListener('click', () => { moveSlotModal.style.display = 'none'; });
+
+    if (checkinSearchInput) {
+        checkinSearchInput.addEventListener('input', function () {
+            renderCheckinModalBookingsList();
+        });
     }
 
     let activeBookingDetails = null;
@@ -1045,45 +1282,13 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-    // MODALE LOG STORICO
-    const historyModal       = document.getElementById('dfn-mobile-history-modal');
-    const closeHistoryBtn    = document.getElementById('dfn-btn-close-history-modal');
-    const closeHistoryBottom = document.getElementById('dfn-btn-close-history-bottom');
-    const historyContentArea = document.getElementById('dfn-history-list-content');
-    const historySubtitle    = document.getElementById('dfn-history-customer-subtitle');
-
-    if (closeHistoryBtn && historyModal) {
-        closeHistoryBtn.addEventListener('click', () => { historyModal.style.display = 'none'; });
-    }
-    if (closeHistoryBottom && historyModal) {
-        closeHistoryBottom.addEventListener('click', () => { historyModal.style.display = 'none'; });
-    }
-
-    function openMobileHistoryModal(b) {
-        if (! historyModal || ! historyContentArea) return;
-        historyModal.style.display = 'flex';
-        if (historySubtitle) {
-            historySubtitle.textContent = b.customer_name + ' (Ordine #' + (b.order_id || 'N/D') + ')';
-        }
-
-        if (Array.isArray(b.history_logs) && b.history_logs.length > 0) {
-            let logHtml = '';
-            b.history_logs.forEach(item => {
-                logHtml += `<div class="cv-history-item" style="border-bottom:1px solid #cbd5e1; padding:8px 0; white-space:nowrap;"><span style="color:#64748b; margin-right:12px;">🕒 ${item.time}</span> <strong>${item.action}</strong></div>`;
+        // Listener Log Storico
+        const logBtn = document.getElementById('dfn-btn-mbd-log');
+        if (logBtn) {
+            logBtn.addEventListener('click', () => {
+                openMobileHistoryModal(b);
             });
-            historyContentArea.innerHTML = logHtml;
-        } else {
-            historyContentArea.innerHTML = '<p style="text-align:center; color:#64748b; margin:10px 0;">Nessun intervento registrato per questo ordine.</p>';
         }
-    }
-
-    // Listener Log Storico
-    const logBtn = document.getElementById('dfn-btn-mbd-log');
-    if (logBtn) {
-        logBtn.addEventListener('click', () => {
-            openMobileHistoryModal(b);
-        });
-    }
 
         // Listener Annulla Prenotazione
         const cancelBtn = document.getElementById('dfn-btn-mbd-cancel');
@@ -1114,6 +1319,24 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     });
             });
+        }
+    }
+
+    function openMobileHistoryModal(b) {
+        if (! historyModal || ! historyContentArea) return;
+        historyModal.style.display = 'flex';
+        if (historySubtitle) {
+            historySubtitle.textContent = b.customer_name + ' (Ordine #' + (b.order_id || 'N/D') + ')';
+        }
+
+        if (Array.isArray(b.history_logs) && b.history_logs.length > 0) {
+            let logHtml = '';
+            b.history_logs.forEach(item => {
+                logHtml += `<div class="cv-history-item" style="border-bottom:1px solid #cbd5e1; padding:8px 0; white-space:nowrap;"><span style="color:#64748b; margin-right:12px;">🕒 ${item.time}</span> <strong>${item.action}</strong></div>`;
+            });
+            historyContentArea.innerHTML = logHtml;
+        } else {
+            historyContentArea.innerHTML = '<p style="text-align:center; color:#64748b; margin:10px 0;">Nessun intervento registrato per questo ordine.</p>';
         }
     }
 
@@ -1183,144 +1406,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     submitBtn.textContent = '💾 Conferma Spostamento';
                     showToast('⚠️ Errore di rete', 'error');
                 });
-        });
-    }
-
-        let html = '';
-        filtered.forEach(b => {
-            const statusClass = b.checked_in ? 'success' : 'pending';
-            const statusLabel = b.checked_in ? '✅ Entrato (' + b.checked_in_time + ')' : '⏳ In Attesa';
-            const payClass    = b.is_paid ? 'dfn-pay-badge--paid' : 'dfn-pay-badge--unpaid';
-            const payIcon     = b.is_paid ? '✅' : '⏳';
-            const payLabel    = b.payment_label || (b.is_paid ? 'Pagato' : 'Da pagare');
-            const payMethod   = b.payment_method ? ` <small style="color:#64748b; font-weight:normal;">(${b.payment_method})</small>` : '';
-
-            html += `
-                <div class="dfn-mobile-card dfn-mci-booking-card" id="dfn-mci-card-${b.id}">
-                    <div class="dfn-booking-card-header">
-                        <strong class="dfn-customer-name">${b.customer_name}</strong>
-                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
-                            <span class="dfn-pay-badge ${payClass}">${payIcon} ${payLabel}</span>
-                            <span class="dfn-event-status-pill ${statusClass}">${statusLabel}</span>
-                        </div>
-                    </div>
-                    <div class="dfn-booking-details">
-                        <p>📧 ${b.customer_email}</p>
-                        ${b.customer_phone ? '<p>📞 ' + b.customer_phone + '</p>' : ''}
-                        <p>👥 <strong>${b.total_persons} Persone</strong> (Interi: ${b.persons_std}, FAI: ${b.persons_fai})</p>
-                        <p style="margin: 4px 0 0; font-size:12.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                            💳 <strong>Pagamento:</strong> <span class="dfn-pay-badge ${payClass}">${payIcon} ${payLabel}</span>${payMethod}
-                        </p>
-                    </div>
-                    <div class="dfn-booking-actions three-col" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top:10px;">
-                        <button type="button" class="dfn-mobile-btn ${b.checked_in ? 'secondary' : 'success'} btn-mci-do-checkin" data-booking-id="${b.id}" data-token="${b.qr_token}">
-                            ${b.checked_in ? '✓ Entrato' : '✅ Check-in'}
-                        </button>
-                        <button type="button" class="dfn-mobile-btn primary btn-mci-manage-details" data-booking-id="${b.id}">
-                            ⚙️ Gestisci
-                        </button>
-                        <button type="button" class="dfn-mobile-btn secondary btn-mci-resend-email" data-booking-id="${b.id}">
-                            ✉️ Email
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-
-        checkinBookingsList.innerHTML = html;
-
-        // Binding pulsante Gestisci
-        checkinBookingsList.querySelectorAll('.btn-mci-manage-details').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const bookingId = this.getAttribute('data-booking-id');
-                openBookingDetailsModal(bookingId);
-            });
-        });
-
-        // Binding azioni della modale
-        checkinBookingsList.querySelectorAll('.btn-mci-do-checkin').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const bookingId = this.getAttribute('data-booking-id');
-                const token = this.getAttribute('data-token');
-                btn.disabled = true;
-                btn.textContent = '⏳ Registrazione...';
-
-                const fd = new FormData();
-                fd.append('action', 'dfn_mobile_do_checkin');
-                fd.append('booking_id', bookingId);
-                fd.append('qr_token', token || '');
-                fd.append('nonce', nonces.admin || nonces.quick || nonces.booking || '');
-
-                fetch(ajaxUrl, { method: 'POST', body: fd })
-                    .then(r => r.json())
-                    .then(res => {
-                        btn.disabled = false;
-                        if (res.success) {
-                            if (res.data.checked_in) {
-                                vibrate([100, 50, 100]);
-                                btn.textContent = '✓ Entrato (' + (res.data.checked_in_time || '') + ')';
-                                btn.className = 'dfn-mobile-btn secondary btn-mci-do-checkin';
-                                showToast('✅ Check-in confermato!', 'success');
-                            } else {
-                                vibrate([50]);
-                                btn.textContent = '✅ Check-in';
-                                btn.className = 'dfn-mobile-btn success btn-mci-do-checkin';
-                                showToast('ℹ️ Check-in annullato', 'info');
-                            }
-
-                            if (mciCurrentEventId && mciDateSelect) {
-                                openEventCheckinModal(mciCurrentEventId, mciDateSelect.value);
-                            }
-                        } else {
-                            showToast('⚠️ Errore: ' + (res.data || 'Operazione fallita'), 'error');
-                            btn.textContent = '✅ Check-in';
-                        }
-                    })
-                    .catch(() => {
-                        btn.disabled = false;
-                        btn.textContent = '✅ Check-in';
-                        showToast('⚠️ Errore di connessione', 'error');
-                    });
-            });
-        });
-
-        checkinBookingsList.querySelectorAll('.btn-mci-resend-email').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const bookingId = this.getAttribute('data-booking-id');
-                btn.disabled = true;
-                btn.textContent = 'Invio email...';
-
-                const formData = new FormData();
-                formData.append('action', 'dfn_mobile_resend_ticket_email');
-                formData.append('booking_id', bookingId);
-                formData.append('nonce', nonces.booking || '');
-
-                fetch(ajaxUrl, { method: 'POST', body: formData })
-                    .then(r => r.json())
-                    .then(res => {
-                        if (res.success) {
-                            vibrate([100, 50, 100]);
-                            showToast('✉️ Email inviata al cliente!', 'success');
-                        } else {
-                            showToast('⚠️ Errore: ' + (res.data || 'Impossibile inviare'), 'error');
-                        }
-                        btn.disabled = false;
-                        btn.textContent = '✉️ Email';
-                    })
-                    .catch(() => {
-                        showToast('⚠️ Errore di connessione', 'error');
-                        btn.disabled = false;
-                        btn.textContent = '✉️ Email';
-                    });
-            });
-        });
-    }
-
-    if (checkinSearchInput) {
-        checkinSearchInput.addEventListener('input', function () {
-            if (currentEventCheckinData) {
-                renderCheckinModalData(currentEventCheckinData, this.value);
-            }
         });
     }
 
