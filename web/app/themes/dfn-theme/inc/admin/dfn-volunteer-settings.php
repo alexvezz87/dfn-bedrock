@@ -39,22 +39,23 @@ function dfn_volunteer_settings_register_menu(): void
 
 /**
  * Helper per recuperare una chiave di impostazione del modulo Volontari.
+ * Se il valore a database è assente o vuoto, restituisce il modello predefinito.
  *
  * @param string $key     Chiave opzione.
- * @param mixed  $default Valore di fallback.
+ * @param mixed  $default Valore di fallback opzionale.
  * @return mixed
  */
 function dfn_get_volunteer_setting(string $key, $default = null)
 {
     static $vol_settings = null;
-    if ($vol_settings === null) {
-        $vol_settings = get_option('dfn_volunteer_settings', []);
+    if ($vol_settings === null || isset($GLOBALS['dfn_volunteer_settings_cache'])) {
+        $vol_settings = isset($GLOBALS['dfn_volunteer_settings_cache']) ? $GLOBALS['dfn_volunteer_settings_cache'] : get_option('dfn_volunteer_settings', []);
         if (! is_array($vol_settings)) {
             $vol_settings = [];
         }
     }
 
-    $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+    $delegation_name  = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
     $delegation_email = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_email', get_option('admin_email')) : get_option('admin_email');
 
     $defaults = [
@@ -63,23 +64,24 @@ function dfn_get_volunteer_setting(string $key, $default = null)
         'vol_enable_candidate_pending_email'=> 'yes',
         'vol_enable_approved_email'         => 'yes',
 
-        // Email Admin: Notifica nuova candidatura
+        // 1. Email Admin: Notifica nuova candidatura
         'vol_email_admin_subject'           => 'Nuova Candidatura Volontario FAI: {nome} {cognome}',
         'vol_email_admin_title'             => 'Nuova Candidatura Volontario FAI',
-        'vol_email_admin_body'              => "<p>È stata ricevuta una nuova richiesta di registrazione come Volontario FAI sul portale:</p>\n<div class=\"info-box\">\n<p><strong>Candidato:</strong> {nome} {cognome}</p>\n<p><strong>Email:</strong> {email}</p>\n<p><strong>Telefono:</strong> {telefono}</p>\n<p><strong>Disponibilità / Mansione:</strong> {mansioni}</p>\n<p><strong>Data invio:</strong> {data_richiesta}</p>\n</div>\n<p>Puoi esaminare e approvare la candidatura direttamente dal pannello di controllo:</p>\n<p style=\"text-align:center;\"><a href=\"{link_admin}\" class=\"button\">Valuta Candidatura nel Pannello Admin &rarr;</a></p>",
+        'vol_email_admin_body'              => "<p>Gentile Staff della {delegazione},</p>\n<p>È stata inviata una nuova richiesta di registrazione come Volontario FAI tramite il portale online:</p>\n\n<div class=\"info-box\" style=\"background:#f8fafc; border-left:4px solid #004b23; padding:16px 20px; border-radius:6px; margin:20px 0;\">\n    <p style=\"margin:0 0 8px;\"><strong>👤 Candidato:</strong> {nome} {cognome}</p>\n    <p style=\"margin:0 0 8px;\"><strong>✉️ Email:</strong> <a href=\"mailto:{email}\" style=\"color:#004b23; font-weight:600;\">{email}</a></p>\n    <p style=\"margin:0 0 8px;\"><strong>📞 Telefono:</strong> {telefono}</p>\n    <p style=\"margin:0 0 8px;\"><strong>🏛️ Mansione / Disponibilità:</strong> {mansioni}</p>\n    <p style=\"margin:0;\"><strong>📅 Data richiesta:</strong> {data_richiesta}</p>\n</div>\n\n<p>La candidatura è attualmente <strong>In Attesa di Approvazione</strong>. Puoi esaminare i dettagli e approvare la scheda direttamente dal pannello di controllo:</p>\n\n<p style=\"text-align:center; margin:25px 0;\">\n    <a href=\"{link_admin}\" class=\"button\" style=\"background:#004b23; color:#ffffff; padding:12px 24px; border-radius:6px; font-weight:bold; text-decoration:none; display:inline-block;\">Valuta Candidatura nel Pannello Admin &rarr;</a>\n</p>",
 
-        // Email Candidato: Presa in carico (In Attesa)
+        // 2. Email Candidato: Presa in carico (In Attesa)
         'vol_email_pending_subject'         => 'Candidatura Volontario FAI Ricevuta - {delegazione}',
         'vol_email_pending_title'           => 'Grazie per la tua candidatura!',
-        'vol_email_pending_body'            => "<p>Gentile <strong>{nome}</strong>,</p>\n<p>Abbiamo ricevuto con entusiasmo la tua richiesta di entrare a far parte della <strong>Squadra Volontari del {delegazione}</strong>!</p>\n<div class=\"info-box\">\n<p>La tua candidatura è attualmente <strong>in fase di revisione</strong> da parte del nostro staff di Delegazione. Ti contatteremo a breve per confermare l'iscrizione e fornirti le istruzioni per accedere alla tua bacheca operativa.</p>\n</div>\n<p>Grazie di cuore per la tua passione e disponibilità a sostenere la bellezza e il patrimonio del nostro territorio.</p>\n<p>A presto,<br><em>Lo Staff della {delegazione}</em></p>",
+        'vol_email_pending_body'            => "<p>Gentile <strong>{nome}</strong>,</p>\n\n<p>Abbiamo ricevuto con entusiasmo la tua candidatura per entrare a far parte della <strong>Squadra Volontari del {delegazione}</strong>!</p>\n\n<div class=\"info-box\" style=\"background:#f0fdf4; border-left:4px solid #16a34a; padding:16px 20px; border-radius:6px; margin:20px 0;\">\n    <p style=\"margin:0 0 6px; color:#166534; font-weight:700;\">📋 Stato della tua richiesta: In fase di verifica</p>\n    <p style=\"margin:0; color:#334155; font-size:14px; line-height:1.5;\">La tua scheda è stata presa in carico dallo staff di Delegazione. Verificheremo i tuoi dati e ti invieremo un'email di conferma non appena il tuo account sarà approvato, fornendoti tutte le indicazioni per partecipare alle attività e alle riunioni.</p>\n</div>\n\n<p>Grazie di cuore per il tuo tempo e per la tua passione a sostegno della bellezza e del patrimonio del nostro territorio.</p>\n\n<p style=\"margin-top:25px;\">A presto,<br><strong>Lo Staff della {delegazione}</strong></p>",
 
-        // Email Volontario: Approvazione e Benvenuto
+        // 3. Email Volontario: Approvazione e Benvenuto
         'vol_email_approved_subject'        => 'Benvenuto nella Squadra Volontari del {delegazione}!',
         'vol_email_approved_title'          => 'La tua candidatura è stata approvata!',
-        'vol_email_approved_body'           => "<p>Gentile <strong>{nome}</strong>,</p>\n<p>Siamo felici di comunicarti che la tua candidatura come <strong>Volontario del {delegazione}</strong> è stata <strong>approvata con successo</strong>! 🎉</p>\n<div class=\"info-box\">\n<p>Il tuo account è ora pienamente attivo con il ruolo di <strong>Volontario FAI</strong>. Accedendo alla tua Area Riservata potrai:</p>\n<ul>\n<li>Consultare e dare disponibilità per i <strong>turni delle Giornate FAI</strong> e degli eventi locali</li>\n<li>Partecipare ai <strong>sondaggi di disponibilità</strong></li>\n<li>Visualizzare il calendario delle <strong>riunioni di delegazione</strong></li>\n<li>Consultare il materiale informativo e le guide per le visite</li>\n</ul>\n</div>\n<p style=\"text-align:center;\"><a href=\"{link_accesso}\" class=\"button\">Accedi alla tua Bacheca Volontario &rarr;</a></p>\n<p>Se hai bisogno di supporto o desideri ulteriori informazioni, rispondi pure a questa email.</p>\n<p>Benvenuto a bordo e buon lavoro per la nostra missione comune!</p>\n<p><em>Lo Staff della {delegazione}</em></p>",
+        'vol_email_approved_body'           => "<p>Gentile <strong>{nome}</strong>,</p>\n\n<p>Siamo felici di comunicarti che la tua candidatura come <strong>Volontario del {delegazione}</strong> è stata <strong>approvata con successo</strong>! 🎉</p>\n\n<div class=\"info-box\" style=\"background:#f8fafc; border-left:4px solid #004b23; padding:18px 20px; border-radius:6px; margin:20px 0;\">\n    <p style=\"margin:0 0 10px; font-weight:700; color:#004b23;\">🏛️ Cosa puoi fare adesso nella tua Area Riservata?</p>\n    <ul style=\"margin:0; padding-left:20px; color:#334155; line-height:1.6;\">\n        <li>Consultare e dare disponibilità per i <strong>turni delle Giornate FAI</strong> e degli eventi di delegazione</li>\n        <li>Partecipare ai <strong>sondaggi di disponibilità</strong> e pianificazione oraria</li>\n        <li>Visualizzare il calendario aggiornato delle <strong>riunioni di delegazione</strong></li>\n        <li>Scaricare e consultare i <strong>materiali informativi, guide e schede di visita</strong></li>\n    </ul>\n</div>\n\n<p style=\"text-align:center; margin:28px 0;\">\n    <a href=\"{link_accesso}\" class=\"button\" style=\"background:#004b23; color:#ffffff; padding:14px 28px; border-radius:6px; font-weight:bold; text-decoration:none; display:inline-block; font-size:15px;\">Accedi alla tua Bacheca Volontario &rarr;</a>\n</p>\n\n<p style=\"font-size:14px; color:#64748b;\"><em>Nota: Per accedere ti basterà utilizzare l'indirizzo email <strong>{email}</strong> e la password scelta in fase di registrazione.</em></p>\n\n<p style=\"margin-top:25px;\">Benvenuto a bordo e buon lavoro per la nostra missione comune!<br><strong>Lo Staff della {delegazione}</strong></p>",
     ];
 
-    if (isset($vol_settings[$key])) {
+    // Se esiste a database ed è valorizzato (non stringa vuota)
+    if (isset($vol_settings[$key]) && trim((string) $vol_settings[$key]) !== '') {
         return $vol_settings[$key];
     }
 
@@ -91,7 +93,8 @@ function dfn_get_volunteer_setting(string $key, $default = null)
 }
 
 /**
- * Salva i campi inviati tramite POST nella schermata Impostazioni Volontari.
+ * Salva i campi inviati tramite POST nella schermata Impostazioni Volontari,
+ * aggiornando solo i campi relativi al tab attivo senza sovrascrivere gli altri.
  */
 function dfn_volunteer_settings_save_fields(): void
 {
@@ -129,23 +132,28 @@ function dfn_volunteer_settings_save_fields(): void
 
     $merged = $existing_settings;
     $raw_input = $_POST['dfn_vol_settings'] ?? [];
+    $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'notifiche';
 
-    foreach ($fields as $field_key => $sanitize_type) {
-        $val = $raw_input[$field_key] ?? '';
+    if (is_array($raw_input)) {
+        foreach ($raw_input as $field_key => $val) {
+            if (! isset($fields[$field_key])) {
+                continue;
+            }
+            $sanitize_type = $fields[$field_key];
 
-        if ($sanitize_type === 'sanitize_email_list') {
-            $emails = array_map('sanitize_email', array_map('trim', explode(',', $val)));
-            $emails = array_filter($emails);
-            $merged[$field_key] = implode(', ', $emails);
-        } elseif ($sanitize_type === 'wp_kses_post') {
-            $merged[$field_key] = wp_kses_post(wp_unslash($val));
-        } else {
-            $merged[$field_key] = sanitize_text_field(wp_unslash($val));
+            if ($sanitize_type === 'sanitize_email_list') {
+                $emails = array_map('sanitize_email', array_map('trim', explode(',', $val)));
+                $emails = array_filter($emails);
+                $merged[$field_key] = implode(', ', $emails);
+            } elseif ($sanitize_type === 'wp_kses_post') {
+                $merged[$field_key] = wp_kses_post(wp_unslash($val));
+            } else {
+                $merged[$field_key] = sanitize_text_field(wp_unslash($val));
+            }
         }
     }
 
-    // Toggle checkboxes default 'no' if unchecked in POST
-    $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'notifiche';
+    // Toggle checkboxes default 'no' if unchecked in POST when saving the notifications tab
     if ($active_tab === 'notifiche') {
         $toggles = ['vol_require_approval', 'vol_enable_candidate_pending_email', 'vol_enable_approved_email'];
         foreach ($toggles as $t_key) {
@@ -156,6 +164,7 @@ function dfn_volunteer_settings_save_fields(): void
     }
 
     update_option('dfn_volunteer_settings', $merged);
+    $GLOBALS['dfn_volunteer_settings_cache'] = $merged;
 
     if (function_exists('dfn_log_write')) {
         dfn_log_write(
