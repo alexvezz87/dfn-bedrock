@@ -505,23 +505,58 @@ function dfn_user_has_module_access(string $module, ?int $user_id = null): bool
     return false;
 }
 
-// Assicura che gli amministratori abbiano sempre tutte le capabilities FAI attive
-add_filter('user_has_cap', function (array $allcaps, array $caps, array $args, WP_User $user): array {
-    if (! empty($allcaps['manage_options']) || ! empty($allcaps['administrator'])) {
-        foreach ($caps as $cap) {
-            if (strpos($cap, 'dfn_') === 0) {
+// Assicura che gli amministratori e gli utenti con ruoli FAI abbiano sempre le relative capabilities
+add_filter('user_has_cap', function ($allcaps, $caps, $args, $user = null) {
+    if (! is_array($allcaps)) {
+        $allcaps = [];
+    }
+
+    // 1. Amministratore o utente con manage_options possiede sempre tutte le capabilities DFN
+    $is_admin = ! empty($allcaps['manage_options']) || ! empty($allcaps['administrator']);
+    if (! $is_admin && is_object($user) && ! empty($user->roles) && in_array('administrator', (array) $user->roles, true)) {
+        $is_admin = true;
+    }
+
+    if ($is_admin) {
+        foreach ((array) $caps as $cap) {
+            if (strpos((string) $cap, 'dfn_') === 0) {
                 $allcaps[$cap] = true;
             }
         }
+        return $allcaps;
     }
+
+    // 2. Controllo dinamico dei ruoli FAI assegnati all'utente tramite matrice
+    if (is_object($user) && ! empty($user->ID)) {
+        $assigned_fai_roles = get_user_meta($user->ID, '_dfn_assigned_fai_roles', true);
+        if (! is_array($assigned_fai_roles)) {
+            $assigned_fai_roles = [];
+        }
+        if (! empty($user->roles)) {
+            $assigned_fai_roles = array_unique(array_merge($assigned_fai_roles, (array) $user->roles));
+        }
+
+        if (! empty($assigned_fai_roles) && function_exists('dfn_get_stored_roles_matrix')) {
+            $matrix = dfn_get_stored_roles_matrix();
+            foreach ((array) $caps as $cap) {
+                foreach ($assigned_fai_roles as $r_slug) {
+                    if (! empty($matrix[$r_slug][$cap])) {
+                        $allcaps[$cap] = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     return $allcaps;
 }, 10, 4);
 
 // Sincronizzazione automatica all'inizializzazione dell'admin se non ancora sincronizzato
 add_action('admin_init', function () {
-    if (! get_option('dfn_roles_synced_v2')) {
+    if (! get_option('dfn_roles_synced_v3')) {
         dfn_sync_wp_roles();
-        update_option('dfn_roles_synced_v2', '1');
+        update_option('dfn_roles_synced_v3', '1');
     }
 });
 
