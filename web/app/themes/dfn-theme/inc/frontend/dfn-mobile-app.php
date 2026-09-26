@@ -116,7 +116,11 @@ function dfn_ajax_mobile_search_events(): void
              FROM {$table_events} e 
              INNER JOIN {$table_posts} p ON e.product_id = p.ID 
              WHERE e.status = 'published' 
-               AND e.event_date_start >= %s 
+               AND CASE 
+                     WHEN e.event_date_end IS NOT NULL AND e.event_date_end != '' AND e.event_date_end != '0000-00-00' 
+                     THEN e.event_date_end 
+                     ELSE e.event_date_start 
+                   END >= %s 
                AND (p.post_title LIKE %s OR e.location LIKE %s)
              ORDER BY e.event_date_start ASC, e.event_time_start ASC 
              LIMIT 20",
@@ -130,7 +134,11 @@ function dfn_ajax_mobile_search_events(): void
              FROM {$table_events} e 
              INNER JOIN {$table_posts} p ON e.product_id = p.ID 
              WHERE e.status = 'published' 
-               AND e.event_date_start >= %s 
+               AND CASE 
+                     WHEN e.event_date_end IS NOT NULL AND e.event_date_end != '' AND e.event_date_end != '0000-00-00' 
+                     THEN e.event_date_end 
+                     ELSE e.event_date_start 
+                   END >= %s 
              ORDER BY e.event_date_start ASC, e.event_time_start ASC 
              LIMIT 10",
             $today
@@ -1149,16 +1157,27 @@ function dfn_render_mobile_app(): void
     $today        = date('Y-m-d');
     $events       = $wpdb->get_results($wpdb->prepare(
         "SELECT * FROM {$table_events} 
-         WHERE status = 'published' AND event_date_start >= %s 
-         ORDER BY event_date_start ASC, event_time_start ASC LIMIT 5",
+         WHERE status = 'published' 
+           AND CASE 
+                 WHEN event_date_end IS NOT NULL AND event_date_end != '' AND event_date_end != '0000-00-00' 
+                 THEN event_date_end 
+                 ELSE event_date_start 
+               END >= %s 
+         ORDER BY event_date_start ASC, event_time_start ASC LIMIT 10",
         $today
     ));
 
-    $all_published_events = $wpdb->get_results(
+    $all_published_events = $wpdb->get_results($wpdb->prepare(
         "SELECT * FROM {$table_events} 
          WHERE status = 'published' 
-         ORDER BY event_date_start DESC, id DESC"
-    );
+           AND CASE 
+                 WHEN event_date_end IS NOT NULL AND event_date_end != '' AND event_date_end != '0000-00-00' 
+                 THEN event_date_end 
+                 ELSE event_date_start 
+               END >= %s 
+         ORDER BY event_date_start ASC, event_time_start ASC, id ASC",
+        $today
+    ));
 
     $table_bookings = $wpdb->prefix . 'dfn_bookings';
     $pending_bookings = $wpdb->get_results(
@@ -1802,6 +1821,20 @@ function dfn_render_mobile_app(): void
         <!-- MODAL MOBILE CHECK-IN EVENTO -->
         <div id="dfn-mobile-checkin-modal" class="dfn-mobile-modal" style="display:none;">
             <div class="dfn-mobile-modal-content">
+                <style>
+                    .dfn-mci-stats-container { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 10px 0; }
+                    @media (min-width: 480px) { .dfn-mci-stats-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } }
+                    .dfn-mci-stats-card { background: var(--dfn-mobile-card-bg, #ffffff); border: 1px solid var(--dfn-mobile-card-border, #e2e8f0); border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+                    .dfn-mci-card-title { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--dfn-mobile-text-sub, #64748b); margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid var(--dfn-mobile-card-border, #e2e8f0); }
+                    .dfn-mci-stats-row { display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; gap: 6px !important; }
+                    .dfn-mci-stat { background: var(--dfn-mobile-bg, #f8fafc); border: 1.5px solid transparent; border-radius: 8px; padding: 6px 4px; text-align: center; cursor: pointer; user-select: none; }
+                    .dfn-mci-stat .val { display: block; font-size: 17px; font-weight: 800; line-height: 1.2; color: var(--dfn-mobile-text-main, #0f172a); }
+                    .dfn-mci-stat.success .val { color: #059669; }
+                    .dfn-mci-stat.warning .val { color: #d97706; }
+                    .dfn-mci-stat.info .val { color: #4f46e5; }
+                    .dfn-mci-stat .lbl { display: block; font-size: 10px; color: var(--dfn-mobile-text-sub, #64748b); font-weight: 600; margin-top: 2px; }
+                </style>
+
                 <div class="dfn-modal-header">
                     <div>
                         <h3 id="dfn-mci-event-title">Check-in Evento</h3>
@@ -1817,7 +1850,7 @@ function dfn_render_mobile_app(): void
                             <span class="dashicons dashicons-tickets-alt"></span>
                             <span>Prenotazioni Ricevute</span>
                         </div>
-                        <div class="dfn-mci-stats-row">
+                        <div class="dfn-mci-stats-row" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
                             <div class="dfn-mci-stat clickable active" data-filter="all" id="dfn-mci-stat-card-booked" title="Tutte le prenotazioni">
                                 <span class="val" id="dfn-mci-stat-booked">0</span>
                                 <span class="lbl">Totale</span>
@@ -1839,7 +1872,7 @@ function dfn_render_mobile_app(): void
                             <span class="dashicons dashicons-admin-users"></span>
                             <span>Stato Ingressi (Check-in)</span>
                         </div>
-                        <div class="dfn-mci-stats-row">
+                        <div class="dfn-mci-stats-row" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
                             <div class="dfn-mci-stat clickable" data-filter="all" id="dfn-mci-stat-card-expected" title="Totale ingressi attesi">
                                 <span class="val" id="dfn-mci-stat-expected">0</span>
                                 <span class="lbl">Attesi</span>

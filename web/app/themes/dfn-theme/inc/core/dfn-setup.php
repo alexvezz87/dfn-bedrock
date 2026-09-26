@@ -169,6 +169,7 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             || (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'gestione-eventi') !== false);
 
         if ($is_mobile_app_page) {
+            wp_enqueue_style('dashicons');
             wp_enqueue_style(
                 'dfn-mobile-app-css',
                 trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-mobile-app.css',
