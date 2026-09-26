@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.4.1');
+define('DFN_DB_VERSION', '2.4.2');
 
 /**
  * ========================================================================
@@ -536,6 +536,15 @@ function dfn_db_install(): void
         $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_guide (is_guide)");
         $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_safety (has_safety_course)");
     }
+
+    $row_sivol = $wpdb->get_results("SHOW COLUMNS FROM {$table_fai} LIKE 'is_sivol_registered'");
+    if (empty($row_sivol)) {
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN is_sivol_registered tinyint(1) NOT NULL DEFAULT 0");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_sivol (is_sivol_registered)");
+    }
+
+    // Assicura che i semplici soci senza status volontario abbiano volunteer_status = 'none' e is_volunteer = 0
+    $wpdb->query("UPDATE {$table_fai} SET volunteer_status = 'none' WHERE is_volunteer = 0 AND (volunteer_status = 'active' OR volunteer_status IS NULL OR volunteer_status = '')");
 
     // Ripulisce eventuali backslash anomali dai nomi in anagrafica FAI e prenotazioni
     $wpdb->query("UPDATE {$table_fai} SET first_name = REPLACE(first_name, '\\\\', ''), last_name = REPLACE(last_name, '\\\\', '')");
