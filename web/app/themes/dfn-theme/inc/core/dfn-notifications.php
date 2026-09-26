@@ -1316,4 +1316,169 @@ function dfn_send_booking_modification_notifications(int $booking_id): bool
     return $sent_user && $sent_admin;
 }
 
+/**
+ * ========================================================================
+ * SEZIONE NOTIFICHE & EMAIL MODULO VOLONTARI FAI (v2.1)
+ * ========================================================================
+ */
+
+/**
+ * Sostituisce i segnaposto dinamici nei template email del modulo Volontari.
+ *
+ * @param string       $text           Testo contenente i segnaposto {tag}.
+ * @param array|object $volunteer_data Dati anagrafici del volontario o candidato.
+ * @param int          $user_id        ID utente WordPress collegato (opzionale).
+ * @return string
+ */
+function dfn_replace_volunteer_email_placeholders(string $text, $volunteer_data, int $user_id = 0): string
+{
+    $v = is_object($volunteer_data) ? (array) $volunteer_data : (array) $volunteer_data;
+
+    $first_name = $v['first_name'] ?? '';
+    $last_name  = $v['last_name'] ?? '';
+    $email      = $v['email'] ?? '';
+    $phone      = ! empty($v['phone']) ? $v['phone'] : '—';
+    $card_no    = ! empty($v['card_number']) ? $v['card_number'] : 'Da assegnare';
+
+    // Costruzione etichetta mansioni / disponibilità
+    $mansioni_list = [];
+    if (! empty($v['is_guide'])) {
+        $mansioni_list[] = '🏛️ Guida Culturale / Cicerone';
+    }
+    if (! empty($v['has_safety_course'])) {
+        $mansioni_list[] = '🦺 Corso Sicurezza Attivo';
+    }
+    if (empty($mansioni_list)) {
+        $mansioni_list[] = '👥 Volontario Operativo / Accoglienza';
+    }
+    $mansioni_str = implode(', ', $mansioni_list);
+
+    $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+    $delegation_footer = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_footer', 'FAI - Delegazione di Novara') : 'FAI - Delegazione di Novara';
+    $created_at = ! empty($v['created_at']) ? date_i18n('d/m/Y H:i', strtotime($v['created_at'])) : current_time('d/m/Y H:i');
+
+    $access_url = function_exists('wc_get_account_endpoint_url') ? wc_get_account_endpoint_url('volontari-fai') : site_url('/mio-account/volontari-fai/');
+    $admin_url  = admin_url('admin.php?page=dfn-volunteers&status=pending');
+
+    $replacements = [
+        '{nome}'           => esc_html($first_name),
+        '{cognome}'        => esc_html($last_name),
+        '{email}'          => esc_html($email),
+        '{telefono}'       => esc_html($phone),
+        '{tessera_fai}'    => esc_html($card_no),
+        '{mansioni}'       => esc_html($mansioni_str),
+        '{delegazione}'    => esc_html($delegation_name),
+        '{citta}'          => esc_html($delegation_footer),
+        '{data_richiesta}' => esc_html($created_at),
+        '{link_accesso}'   => esc_url($access_url),
+        '{link_admin}'     => esc_url($admin_url),
+    ];
+
+    return str_replace(array_keys($replacements), array_values($replacements), $text);
+}
+
+/**
+ * Invia una notifica allo staff/amministratore quando viene inviata una nuova registrazione volontario online.
+ *
+ * @param array|object $volunteer_data Dati del candidato.
+ * @param int          $user_id        ID utente WP creato o collegato.
+ * @param string       $override_to    Email di destinazione opzionale (usata per i test).
+ * @return bool
+ */
+function dfn_send_volunteer_admin_notification($volunteer_data, int $user_id = 0, string $override_to = ''): bool
+{
+    $v = is_object($volunteer_data) ? (array) $volunteer_data : (array) $volunteer_data;
+
+    $recipients_str = $override_to ?: (function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_recipients', '') : '');
+    if (empty($recipients_str)) {
+        $recipients_str = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_email', get_option('admin_email')) : get_option('admin_email');
+    }
+
+    $emails = array_map('sanitize_email', array_map('trim', explode(',', $recipients_str)));
+    $emails = array_filter($emails, 'is_email');
+    if (empty($emails)) {
+        $emails = [ get_option('admin_email') ];
+    }
+
+    $raw_subject = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_subject', 'Nuova Candidatura Volontario FAI: {nome} {cognome}') : 'Nuova Candidatura Volontario FAI: {nome} {cognome}';
+    $raw_title   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_title', 'Nuova Candidatura Volontario FAI') : 'Nuova Candidatura Volontario FAI';
+    $raw_body    = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_admin_body', '') : '';
+
+    $subject = dfn_replace_volunteer_email_placeholders($raw_subject, $v, $user_id);
+    $title   = dfn_replace_volunteer_email_placeholders($raw_title, $v, $user_id);
+    $body    = dfn_replace_volunteer_email_placeholders($raw_body, $v, $user_id);
+
+    return dfn_send_notification_email($emails, $subject, $title, $body, [], '[Candidatura Volontario]');
+}
+
+/**
+ * Invia un'email automatica di presa in carico al candidato al momento della registrazione online.
+ *
+ * @param array|object $volunteer_data Dati del candidato.
+ * @param string       $override_to    Email di destinazione opzionale.
+ * @return bool
+ */
+function dfn_send_volunteer_candidate_pending_email($volunteer_data, string $override_to = ''): bool
+{
+    if (function_exists('dfn_get_volunteer_setting')) {
+        $enabled = dfn_get_volunteer_setting('vol_enable_candidate_pending_email', 'yes');
+        if ($enabled === 'no' && empty($override_to)) {
+            return true;
+        }
+    }
+
+    $v = is_object($volunteer_data) ? (array) $volunteer_data : (array) $volunteer_data;
+    $to = $override_to ?: ($v['email'] ?? '');
+
+    if (empty($to) || ! is_email($to)) {
+        return false;
+    }
+
+    $raw_subject = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_subject', 'Candidatura Volontario FAI Ricevuta - {delegazione}') : 'Candidatura Volontario FAI Ricevuta - {delegazione}';
+    $raw_title   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_title', 'Grazie per la tua candidatura!') : 'Grazie per la tua candidatura!';
+    $raw_body    = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_pending_body', '') : '';
+
+    $subject = dfn_replace_volunteer_email_placeholders($raw_subject, $v);
+    $title   = dfn_replace_volunteer_email_placeholders($raw_title, $v);
+    $body    = dfn_replace_volunteer_email_placeholders($raw_body, $v);
+
+    return dfn_send_notification_email($to, $subject, $title, $body, [], '[Presa in carico Volontario]');
+}
+
+/**
+ * Invia un'email di approvazione e benvenuto al volontario non appena l'amministratore approva la sua candidatura.
+ *
+ * @param array|object $volunteer_data Dati del volontario approvato.
+ * @param int          $user_id        ID utente WordPress collegato.
+ * @param string       $override_to    Email di destinazione opzionale.
+ * @return bool
+ */
+function dfn_send_volunteer_approved_email($volunteer_data, int $user_id = 0, string $override_to = ''): bool
+{
+    if (function_exists('dfn_get_volunteer_setting')) {
+        $enabled = dfn_get_volunteer_setting('vol_enable_approved_email', 'yes');
+        if ($enabled === 'no' && empty($override_to)) {
+            return true;
+        }
+    }
+
+    $v = is_object($volunteer_data) ? (array) $volunteer_data : (array) $volunteer_data;
+    $to = $override_to ?: ($v['email'] ?? '');
+
+    if (empty($to) || ! is_email($to)) {
+        return false;
+    }
+
+    $raw_subject = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_subject', 'Benvenuto nella Squadra Volontari del {delegazione}!') : 'Benvenuto nella Squadra Volontari del {delegazione}!';
+    $raw_title   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_title', 'La tua candidatura è stata approvata!') : 'La tua candidatura è stata approvata!';
+    $raw_body    = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_approved_body', '') : '';
+
+    $subject = dfn_replace_volunteer_email_placeholders($raw_subject, $v, $user_id);
+    $title   = dfn_replace_volunteer_email_placeholders($raw_title, $v, $user_id);
+    $body    = dfn_replace_volunteer_email_placeholders($raw_body, $v, $user_id);
+
+    return dfn_send_notification_email($to, $subject, $title, $body, [], '[Approvazione Volontario]');
+}
+
+
 

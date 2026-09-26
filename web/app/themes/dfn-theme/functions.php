@@ -90,6 +90,7 @@ if (function_exists('dfn_is_module_active') && dfn_is_module_active('prenotazion
 if (function_exists('dfn_is_module_active') && dfn_is_module_active('volontari')) {
     // Admin Volontari
     require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteers-admin.php';
+    require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteer-settings.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteer-logistics-admin.php';
 
     // Frontend Volontari
