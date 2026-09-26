@@ -238,34 +238,120 @@ function dfn_render_volunteers_list_page(): void
     global $wpdb;
     $table_fai = $wpdb->prefix . 'dfn_fai_members';
 
-    // Gestione Azioni (Elimina / Cambia stato volontario)
+    // Gestione Azioni (Approva, Rifiuta, Elimina, Cambia stato)
     if (isset($_GET['action'], $_GET['volunteer_id'], $_GET['_wpnonce'])) {
         $action = sanitize_text_field($_GET['action']);
         $vol_id = (int) $_GET['volunteer_id'];
 
         if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_vol_action_' . $vol_id)) {
-            if ($action === 'delete') {
-                // Rimuove lo status di volontario (mantenendo la tessera FAI se esistente) o elimina
-                $wpdb->update($table_fai, ['is_volunteer' => 0], ['id' => $vol_id], ['%d'], ['%d']);
+            if ($action === 'approve_volunteer') {
+                $vol = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $vol_id));
+                if ($vol) {
+                    $wpdb->update($table_fai, [
+                        'volunteer_status' => 'active',
+                        'is_volunteer'     => 1,
+                        'joined_date'      => ! empty($vol->joined_date) ? $vol->joined_date : current_time('Y-m-d'),
+                    ], ['id' => $vol_id], ['%s', '%d', '%s'], ['%d']);
+
+                    if ($vol->user_id) {
+                        $user = get_userdata($vol->user_id);
+                        if ($user) {
+                            $user->add_role('dfn_volunteer');
+                            $assigned = (array) get_user_meta($vol->user_id, '_dfn_assigned_fai_roles', true);
+                            if (! in_array('dfn_volunteer', $assigned, true)) {
+                                $assigned[] = 'dfn_volunteer';
+                                update_user_meta($vol->user_id, '_dfn_assigned_fai_roles', array_unique($assigned));
+                            }
+                        }
+                    }
+
+                    if (function_exists('dfn_send_volunteer_approved_email')) {
+                        dfn_send_volunteer_approved_email($vol, $vol->user_id ? (int) $vol->user_id : 0);
+                    }
+
+                    if (function_exists('dfn_log_volunteer_roster')) {
+                        dfn_log_volunteer_roster($vol_id, 'Candidatura approvata', 'Stato impostato su active, ruolo dfn_volunteer assegnato ed email di benvenuto inviata');
+                    }
+                    if (function_exists('dfn_log_write')) {
+                        dfn_log_write('volontari', wp_get_current_user()->display_name, sprintf("Approvata candidatura volontario: %s %s (#%d)", $vol->first_name, $vol->last_name, $vol_id), 'success');
+                    }
+
+                    echo '<div class="notice notice-success is-dismissible"><p>✅ <strong>Candidatura di ' . esc_html($vol->first_name . ' ' . $vol->last_name) . ' approvata con successo!</strong> Ruolo Volontario FAI assegnato ed email di benvenuto inviata.</p></div>';
+                }
+            } elseif ($action === 'reject_volunteer') {
+                $vol = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $vol_id));
+                if ($vol) {
+                    $wpdb->update($table_fai, [
+                        'volunteer_status' => 'inactive',
+                        'is_volunteer'     => 0,
+                    ], ['id' => $vol_id], ['%s', '%d'], ['%d']);
+
+                    if ($vol->user_id) {
+                        $user = get_userdata($vol->user_id);
+                        if ($user) {
+                            $user->remove_role('dfn_volunteer');
+                        }
+                    }
+
+                    if (function_exists('dfn_log_volunteer_roster')) {
+                        dfn_log_volunteer_roster($vol_id, 'Candidatura rifiutata / archiviata', 'Stato impostato su inactive');
+                    }
+
+                    echo '<div class="notice notice-warning is-dismissible"><p>⚠️ <strong>Candidatura di ' . esc_html($vol->first_name . ' ' . $vol->last_name) . ' archiviata / non approvata.</strong></p></div>';
+                }
+            } elseif ($action === 'delete') {
+                // Rimuove lo status di volontario (mantenendo la tessera FAI se esistente) o disattiva
+                $wpdb->update($table_fai, ['is_volunteer' => 0, 'volunteer_status' => 'inactive'], ['id' => $vol_id], ['%d', '%s'], ['%d']);
                 if (function_exists('dfn_log_volunteer_roster')) {
                     dfn_log_volunteer_roster($vol_id, 'Volontario rimosso dall\'elenco', 'Status is_volunteer impostato a 0');
                 }
-                echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario rimosso dall\'elenco.</p></div>';
+                echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario rimosso dall\'elenco attivo.</p></div>';
             } elseif ($action === 'toggle_status') {
                 $current_status = $wpdb->get_var($wpdb->prepare("SELECT volunteer_status FROM {$table_fai} WHERE id = %d", $vol_id));
                 $new_status = ($current_status === 'active') ? 'inactive' : 'active';
-                $wpdb->update($table_fai, ['volunteer_status' => $new_status], ['id' => $vol_id], ['%s'], ['%d']);
+                $wpdb->update($table_fai, ['volunteer_status' => $new_status, 'is_volunteer' => ($new_status === 'active' ? 1 : 0)], ['id' => $vol_id], ['%s', '%d'], ['%d']);
+                
+                $vol_uid = $wpdb->get_var($wpdb->prepare("SELECT user_id FROM {$table_fai} WHERE id = %d", $vol_id));
+                if ($vol_uid) {
+                    $u = get_userdata($vol_uid);
+                    if ($u) {
+                        if ($new_status === 'active') {
+                            $u->add_role('dfn_volunteer');
+                        } else {
+                            $u->remove_role('dfn_volunteer');
+                        }
+                    }
+                }
+
                 if (function_exists('dfn_log_volunteer_roster')) {
                     dfn_log_volunteer_roster($vol_id, 'Stato volontario modificato', "Nuovo stato: {$new_status}");
                 }
-                echo '<div class="notice notice-success is-dismissible"><p>✅ Stato volontario aggiornato.</p></div>';
+                echo '<div class="notice notice-success is-dismissible"><p>✅ Stato volontario aggiornato a ' . esc_html($new_status) . '.</p></div>';
             }
         }
     }
 
-    $search_query = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
-    $where = 'is_volunteer = 1';
+    // Conteggi filtri
+    $count_all      = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 OR volunteer_status IN ('active', 'pending', 'inactive')");
+    $count_active   = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE volunteer_status = 'active'");
+    $count_pending  = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE volunteer_status = 'pending'");
+    $count_inactive = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE volunteer_status = 'inactive'");
+
+    $status_filter = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'all';
+    $search_query  = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+
+    $where = '1=1';
     $params = [];
+
+    if ($status_filter === 'active') {
+        $where .= " AND volunteer_status = 'active'";
+    } elseif ($status_filter === 'pending') {
+        $where .= " AND volunteer_status = 'pending'";
+    } elseif ($status_filter === 'inactive') {
+        $where .= " AND volunteer_status = 'inactive'";
+    } else {
+        $where .= " AND (is_volunteer = 1 OR volunteer_status IN ('active', 'pending', 'inactive'))";
+    }
 
     if (! empty($search_query)) {
         $where .= ' AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s)';
@@ -273,16 +359,8 @@ function dfn_render_volunteers_list_page(): void
         $params = [$like, $like, $like, $like];
     }
 
-    $sql = "SELECT * FROM {$table_fai} WHERE {$where} ORDER BY last_name ASC, first_name ASC";
+    $sql = "SELECT * FROM {$table_fai} WHERE {$where} ORDER BY CASE WHEN volunteer_status = 'pending' THEN 0 ELSE 1 END, last_name ASC, first_name ASC";
     $volunteers = ! empty($params) ? $wpdb->get_results($wpdb->prepare($sql, $params)) : $wpdb->get_results($sql);
-
-    $total_volunteers = count($volunteers);
-    $active_volunteers = 0;
-    foreach ($volunteers as $v) {
-        if ($v->volunteer_status === 'active') {
-            $active_volunteers++;
-        }
-    }
 
     ?>
     <div class="wrap dfn-admin-wrap">
@@ -294,42 +372,83 @@ function dfn_render_volunteers_list_page(): void
                         Gestione Volontari FAI
                     </h1>
                 </div>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-add')); ?>" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:600; padding:4px 14px;">
-                    <span class="dashicons dashicons-plus-alt2" style="vertical-align:text-bottom; margin-right:4px;"></span> Aggiungi Volontario
-                </a>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-settings')); ?>" class="button button-secondary" style="font-weight:600;">
+                        <span class="dashicons dashicons-admin-generic" style="vertical-align:text-bottom; margin-right:2px;"></span> Impostazioni
+                    </a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-add')); ?>" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:600; padding:4px 14px;">
+                        <span class="dashicons dashicons-plus-alt2" style="vertical-align:text-bottom; margin-right:4px;"></span> Aggiungi Volontario
+                    </a>
+                </div>
             </div>
         </header>
 
         <!-- KPI STATISTICHE -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:20px;">
-            <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; border-top:3px solid #3b82f6; padding:16px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
-                <div style="width:40px; height:40px; border-radius:8px; background:#eff6ff; display:flex; align-items:center; justify-content:center; color:#2563eb;">
-                    <span class="dashicons dashicons-groups" style="font-size:22px;"></span>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" style="text-decoration:none; color:inherit;">
+                <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; border-top:3px solid #3b82f6; padding:16px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04); transition:transform 0.1s ease;">
+                    <div style="width:40px; height:40px; border-radius:8px; background:#eff6ff; display:flex; align-items:center; justify-content:center; color:#2563eb;">
+                        <span class="dashicons dashicons-groups" style="font-size:22px;"></span>
+                    </div>
+                    <div>
+                        <span style="font-size:22px; font-weight:700; color:#0f172a; display:block;"><?php echo intval($count_all); ?></span>
+                        <span style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Totale Iscritti</span>
+                    </div>
                 </div>
-                <div>
-                    <span style="font-size:22px; font-weight:700; color:#0f172a; display:block;"><?php echo intval($total_volunteers); ?></span>
-                    <span style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Totale Volontari</span>
+            </a>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=active')); ?>" style="text-decoration:none; color:inherit;">
+                <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; border-top:3px solid #004b23; padding:16px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+                    <div style="width:40px; height:40px; border-radius:8px; background:#f0fdf4; display:flex; align-items:center; justify-content:center; color:#004b23;">
+                        <span class="dashicons dashicons-yes-alt" style="font-size:22px;"></span>
+                    </div>
+                    <div>
+                        <span style="font-size:22px; font-weight:700; color:#004b23; display:block;"><?php echo intval($count_active); ?></span>
+                        <span style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Volontari Attivi</span>
+                    </div>
                 </div>
-            </div>
-            <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; border-top:3px solid #004b23; padding:16px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
-                <div style="width:40px; height:40px; border-radius:8px; background:#f0fdf4; display:flex; align-items:center; justify-content:center; color:#004b23;">
-                    <span class="dashicons dashicons-yes-alt" style="font-size:22px;"></span>
+            </a>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=pending')); ?>" style="text-decoration:none; color:inherit;">
+                <div style="background:#fff; border-radius:8px; border:<?php echo $count_pending > 0 ? '1.5px solid #f59e0b' : '1px solid #c3c4c7'; ?>; border-top:3px solid #f59e0b; padding:16px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+                    <div style="width:40px; height:40px; border-radius:8px; background:#fffbeb; display:flex; align-items:center; justify-content:center; color:#d97706;">
+                        <span class="dashicons dashicons-clock" style="font-size:22px;"></span>
+                    </div>
+                    <div>
+                        <span style="font-size:22px; font-weight:700; color:#b45309; display:block;"><?php echo intval($count_pending); ?></span>
+                        <span style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">In Attesa Approvazione</span>
+                    </div>
                 </div>
-                <div>
-                    <span style="font-size:22px; font-weight:700; color:#004b23; display:block;"><?php echo intval($active_volunteers); ?></span>
-                    <span style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Volontari Attivi</span>
+            </a>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=inactive')); ?>" style="text-decoration:none; color:inherit;">
+                <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; border-top:3px solid #94a3b8; padding:16px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+                    <div style="width:40px; height:40px; border-radius:8px; background:#f8fafc; display:flex; align-items:center; justify-content:center; color:#64748b;">
+                        <span class="dashicons dashicons-dismiss" style="font-size:22px;"></span>
+                    </div>
+                    <div>
+                        <span style="font-size:22px; font-weight:700; color:#475569; display:block;"><?php echo intval($count_inactive); ?></span>
+                        <span style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Inattivi</span>
+                    </div>
                 </div>
-            </div>
+            </a>
         </div>
 
-        <!-- BARRA DI RICERCA -->
-        <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:14px 18px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="display:flex; gap:8px; width:100%; max-width:400px;">
+        <!-- FILTRI TABS & BARRA DI RICERCA -->
+        <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:12px 18px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <ul class="subsubsub" style="margin:0; padding:0; display:flex; gap:6px; align-items:center;">
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" class="<?php echo $status_filter === 'all' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'all' ? '700' : '500'; ?>;">Tutti <span class="count">(<?php echo $count_all; ?>)</span></a> |</li>
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=active')); ?>" class="<?php echo $status_filter === 'active' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'active' ? '700' : '500'; ?>;">Attivi <span class="count">(<?php echo $count_active; ?>)</span></a> |</li>
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=pending')); ?>" class="<?php echo $status_filter === 'pending' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'pending' ? '700' : '500'; ?>; <?php echo $count_pending > 0 ? 'color:#b45309;' : ''; ?>">In Attesa Approvazione <?php if ($count_pending > 0): ?><span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:10px; padding:1px 6px; font-size:11px; margin-left:2px; font-weight:700;"><?php echo $count_pending; ?></span><?php else: ?><span class="count">(0)</span><?php endif; ?></a> |</li>
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=inactive')); ?>" class="<?php echo $status_filter === 'inactive' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'inactive' ? '700' : '500'; ?>;">Inattivi <span class="count">(<?php echo $count_inactive; ?>)</span></a></li>
+            </ul>
+
+            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="display:flex; gap:8px; width:100%; max-width:360px;">
                 <input type="hidden" name="page" value="dfn-volunteers">
-                <input type="text" name="s" value="<?php echo esc_attr($search_query); ?>" placeholder="Cerca per nome, cognome, email o tessera…" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 10px;">
-                <button type="submit" class="button button-secondary">Cerca</button>
+                <?php if ($status_filter !== 'all') : ?>
+                    <input type="hidden" name="status" value="<?php echo esc_attr($status_filter); ?>">
+                <?php endif; ?>
+                <input type="text" name="s" value="<?php echo esc_attr($search_query); ?>" placeholder="Cerca nome, email o tessera…" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:32px; padding:0 10px; font-size:13px;">
+                <button type="submit" class="button button-secondary" style="height:32px; line-height:30px;">Cerca</button>
                 <?php if (! empty($search_query)) : ?>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" class="button">Reset</a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers' . ($status_filter !== 'all' ? '&status=' . $status_filter : ''))); ?>" class="button" style="height:32px; line-height:30px;">Reset</a>
                 <?php endif; ?>
             </form>
         </div>
@@ -344,8 +463,8 @@ function dfn_render_volunteers_list_page(): void
                         <th style="width:180px; font-weight:700;">Contatti</th>
                         <th style="font-weight:700;">Incarichi &amp; Ruoli FAI <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
                         <th style="width:180px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
-                        <th style="width:85px; font-weight:700; text-align:center;">Stato</th>
-                        <th style="width:215px; font-weight:700; text-align:right;">Azioni</th>
+                        <th style="width:100px; font-weight:700; text-align:center;">Stato</th>
+                        <th style="width:230px; font-weight:700; text-align:right;">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -356,8 +475,9 @@ function dfn_render_volunteers_list_page(): void
                             if ($user) {
                                 $roles_label = function_exists('dfn_log_get_user_roles_label') ? dfn_log_get_user_roles_label($user) : implode(', ', (array) $user->roles);
                             }
+                            $is_pending = ($v->volunteer_status === 'pending');
                         ?>
-                            <tr>
+                            <tr style="<?php echo $is_pending ? 'background:#fffbeb;' : ''; ?>">
                                 <td>
                                     <strong style="color:#0f172a; font-size:13.5px; display:block; white-space:nowrap;">
                                         <?php echo esc_html($v->first_name . ' ' . $v->last_name); ?>
@@ -377,7 +497,7 @@ function dfn_render_volunteers_list_page(): void
                                             <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
                                         <?php endif; ?>
                                     <?php else : ?>
-                                        <span style="font-size:11px; background:#fffbeb; color:#b45309; border:1px dashed #fcd34d; padding:2px 7px; border-radius:6px; font-weight:600; white-space:nowrap;">
+                                        <span style="font-size:11px; background:#fff; color:#b45309; border:1px dashed #fcd34d; padding:2px 7px; border-radius:6px; font-weight:600; white-space:nowrap;">
                                             ⚠️ Da assegnare
                                         </span>
                                     <?php endif; ?>
@@ -414,7 +534,11 @@ function dfn_render_volunteers_list_page(): void
                                 <td style="text-align:center; vertical-align:middle;">
                                     <?php if ($v->volunteer_status === 'active') : ?>
                                         <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac; white-space:nowrap;">
-                                            Attivo
+                                            ✅ Attivo
+                                        </span>
+                                    <?php elseif ($v->volunteer_status === 'pending') : ?>
+                                        <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a; white-space:nowrap;">
+                                            ⏳ In Attesa
                                         </span>
                                     <?php else : ?>
                                         <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; white-space:nowrap;">
@@ -425,19 +549,31 @@ function dfn_render_volunteers_list_page(): void
                                 <td style="text-align:right; vertical-align:middle;">
                                     <div style="display:flex; justify-content:flex-end; align-items:center; gap:6px; flex-wrap:nowrap;">
                                         <?php 
-                                        $edit_url   = admin_url('admin.php?page=dfn-volunteer-add&volunteer_id=' . $v->id);
-                                        $toggle_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=toggle_status&volunteer_id=' . $v->id), 'dfn_vol_action_' . $v->id);
-                                        $delete_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=delete&volunteer_id=' . $v->id), 'dfn_vol_action_' . $v->id);
+                                        $edit_url    = admin_url('admin.php?page=dfn-volunteer-add&volunteer_id=' . $v->id);
+                                        $approve_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=approve_volunteer&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '')), 'dfn_vol_action_' . $v->id);
+                                        $reject_url  = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=reject_volunteer&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '')), 'dfn_vol_action_' . $v->id);
+                                        $toggle_url  = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=toggle_status&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '')), 'dfn_vol_action_' . $v->id);
+                                        $delete_url  = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=delete&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '')), 'dfn_vol_action_' . $v->id);
                                         ?>
-                                        <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="Modifica dati e ruoli" style="white-space:nowrap; padding:0 8px;">
-                                            ✏️ Modifica
-                                        </a>
-                                        <a href="<?php echo esc_url($toggle_url); ?>" class="button button-small" title="Attiva/Disattiva" style="white-space:nowrap; padding:0 8px;">
-                                            <?php echo ($v->volunteer_status === 'active') ? 'Disattiva' : 'Attiva'; ?>
-                                        </a>
-                                        <a href="<?php echo esc_url($delete_url); ?>" class="button button-small" style="color:#b91c1c; white-space:nowrap; padding:0 8px;" onclick="return confirm('Confermi la rimozione del volontario?');">
-                                            Rimuovi
-                                        </a>
+
+                                        <?php if ($is_pending) : ?>
+                                            <a href="<?php echo esc_url($approve_url); ?>" class="button button-primary button-small" style="background:#004b23; border-color:#003b1c; font-weight:700; white-space:nowrap; padding:0 10px;" title="Approva e abilita ruolo Volontario FAI">
+                                                ✅ Approva
+                                            </a>
+                                            <a href="<?php echo esc_url($reject_url); ?>" class="button button-small" style="color:#b91c1c; white-space:nowrap; padding:0 8px;" onclick="return confirm('Confermi il rifiuto della candidatura?');">
+                                                ❌ Rifiuta
+                                            </a>
+                                        <?php else : ?>
+                                            <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="Modifica dati e ruoli" style="white-space:nowrap; padding:0 8px;">
+                                                ✏️ Modifica
+                                            </a>
+                                            <a href="<?php echo esc_url($toggle_url); ?>" class="button button-small" title="Attiva/Disattiva" style="white-space:nowrap; padding:0 8px;">
+                                                <?php echo ($v->volunteer_status === 'active') ? 'Disattiva' : 'Attiva'; ?>
+                                            </a>
+                                            <a href="<?php echo esc_url($delete_url); ?>" class="button button-small" style="color:#b91c1c; white-space:nowrap; padding:0 8px;" onclick="return confirm('Confermi la rimozione del volontario?');">
+                                                Rimuovi
+                                            </a>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
@@ -445,7 +581,11 @@ function dfn_render_volunteers_list_page(): void
                     <?php else : ?>
                         <tr>
                             <td colspan="7" style="padding:30px; text-align:center; color:#64748b;">
-                                Nessun volontario registrato. <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-add')); ?>">Aggiungi il primo volontario</a>.
+                                <?php if ($status_filter === 'pending') : ?>
+                                    🎉 Nessuna candidatura in attesa di approvazione al momento.
+                                <?php else : ?>
+                                    Nessun volontario trovato con i filtri selezionati. <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-add')); ?>">Aggiungi un volontario manualmente</a>.
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endif; ?>
