@@ -809,6 +809,15 @@ function dfn_render_fai_members_page(): void
                                                         <span class="dashicons dashicons-admin-users" style="font-size: 18px; width: 18px; height: 18px;"></span>
                                                     </a>
                                                 <?php endif; ?>
+                                                <?php if (! empty($m->is_volunteer) && $m->volunteer_status === 'active') : ?>
+                                                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-add&volunteer_id=' . $m->id)); ?>" style="color: #15803d; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Gestisci scheda Volontario FAI', 'dfn-theme'); ?>">
+                                                        <span class="dashicons dashicons-groups" style="font-size: 18px; width: 18px; height: 18px;"></span>
+                                                    </a>
+                                                <?php else : ?>
+                                                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-add&from_member_id=' . $m->id)); ?>" style="color: #004b23; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Promuovi questo socio a Volontario FAI', 'dfn-theme'); ?>">
+                                                        <span class="dashicons dashicons-id-alt" style="font-size: 18px; width: 18px; height: 18px;"></span>
+                                                    </a>
+                                                <?php endif; ?>
                                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=edit&member_id=' . $m->id)); ?>" style="color: #004b23; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Modifica dati socio', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-edit" style="font-size: 18px; width: 18px; height: 18px;"></span>
                                                 </a>

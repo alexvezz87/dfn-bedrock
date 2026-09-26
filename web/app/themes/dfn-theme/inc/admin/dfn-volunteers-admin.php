@@ -1005,7 +1005,68 @@ function dfn_render_volunteers_list_page(): void
 }
 
 /**
- * Renderizza la schermata "Aggiungi Volontario".
+/**
+ * Aggiunge l'azione rapida "Rendi Volontario FAI" nella lista Utenti di WordPress (wp-admin/users.php).
+ */
+add_filter('user_row_actions', 'dfn_volunteer_user_row_actions', 10, 2);
+function dfn_volunteer_user_row_actions(array $actions, \WP_User $user): array
+{
+    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members')) {
+        return $actions;
+    }
+
+    $is_vol = in_array('dfn_volunteer', (array) $user->roles, true);
+    if ($is_vol) {
+        $url = admin_url('admin.php?page=dfn-volunteer-add&user_id=' . $user->ID);
+        $actions['dfn_vol'] = '<a href="' . esc_url($url) . '" style="color:#15803d; font-weight:600;">👥 Modifica Volontario FAI</a>';
+    } else {
+        $url = admin_url('admin.php?page=dfn-volunteer-add&user_id=' . $user->ID);
+        $actions['dfn_make_vol'] = '<a href="' . esc_url($url) . '" style="color:#004b23; font-weight:600;">➕ Rendi Volontario FAI</a>';
+    }
+
+    return $actions;
+}
+
+/**
+ * Sincronizza lo stato volontario quando viene assegnato il ruolo 'dfn_volunteer' a un utente WP.
+ */
+add_action('set_user_role', 'dfn_sync_user_volunteer_role', 10, 3);
+function dfn_sync_user_volunteer_role(int $user_id, string $role, array $old_roles): void
+{
+    if ($role === 'dfn_volunteer') {
+        global $wpdb;
+        $table_fai = $wpdb->prefix . 'dfn_fai_members';
+        $user = get_userdata($user_id);
+        if ($user) {
+            $existing = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE user_id = %d OR email = %s", $user_id, $user->user_email));
+            if ($existing) {
+                $wpdb->update($table_fai, [
+                    'is_volunteer'     => 1,
+                    'volunteer_status' => 'active',
+                    'user_id'          => $user_id,
+                ], ['id' => $existing->id], ['%d', '%s', '%d'], ['%d']);
+            } else {
+                $first_name = $user->first_name ?: $user->display_name;
+                $last_name  = $user->last_name ?: '';
+                $phone      = get_user_meta($user_id, 'billing_phone', true) ?: get_user_meta($user_id, 'phone', true) ?: '';
+                $wpdb->insert($table_fai, [
+                    'user_id'          => $user_id,
+                    'first_name'       => $first_name,
+                    'last_name'        => $last_name,
+                    'email'            => $user->user_email,
+                    'phone'            => $phone,
+                    'is_volunteer'     => 1,
+                    'volunteer_status' => 'active',
+                    'joined_date'      => current_time('Y-m-d'),
+                    'created_at'       => current_time('mysql'),
+                ], ['%d', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s']);
+            }
+        }
+    }
+}
+
+/**
+ * Renderizza la schermata "Aggiungi / Modifica Volontario".
  */
 function dfn_render_volunteer_add_page(): void
 {
@@ -1016,9 +1077,69 @@ function dfn_render_volunteer_add_page(): void
     global $wpdb;
     $table_fai = $wpdb->prefix . 'dfn_fai_members';
 
-    $vol_id = isset($_GET['volunteer_id']) ? (int) $_GET['volunteer_id'] : 0;
-    $volunteer_data = $vol_id > 0 ? $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d AND is_volunteer = 1", $vol_id)) : null;
+    $vol_id         = isset($_GET['volunteer_id']) ? (int) $_GET['volunteer_id'] : 0;
+    $from_member_id = isset($_GET['from_member_id']) ? (int) $_GET['from_member_id'] : 0;
+    $param_user_id  = isset($_GET['user_id']) ? (int) $_GET['user_id'] : 0;
 
+    $volunteer_data   = null;
+    $selected_user_id = 0;
+    $source_message   = '';
+
+    if ($vol_id > 0) {
+        $volunteer_data = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $vol_id));
+        if ($volunteer_data && $volunteer_data->user_id) {
+            $selected_user_id = (int) $volunteer_data->user_id;
+        }
+    } elseif ($from_member_id > 0) {
+        $member_row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $from_member_id));
+        if ($member_row) {
+            $volunteer_data = $member_row;
+            if ($member_row->user_id) {
+                $selected_user_id = (int) $member_row->user_id;
+            }
+            $source_message = sprintf('Promozione del socio FAI <strong>%s %s</strong> (Tessera: %s) a Volontario Ufficiale.', esc_html($member_row->first_name), esc_html($member_row->last_name), esc_html($member_row->card_number ?: 'Nessuna'));
+        }
+    } elseif ($param_user_id > 0) {
+        $selected_user_id = $param_user_id;
+        $existing_row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE user_id = %d", $param_user_id));
+        if ($existing_row) {
+            $volunteer_data = $existing_row;
+            $source_message = sprintf('Associazione account WordPress <strong>%s</strong> (già presente in anagrafica FAI).', esc_html($existing_row->first_name . ' ' . $existing_row->last_name));
+        } else {
+            $wp_u = get_userdata($param_user_id);
+            if ($wp_u) {
+                // Cerchiamo anche per email
+                $existing_by_email = ! empty($wp_u->user_email) ? $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE email = %s", $wp_u->user_email)) : null;
+                if ($existing_by_email) {
+                    $volunteer_data = $existing_by_email;
+                    $source_message = sprintf('Associazione account WordPress <strong>%s</strong> (trovato per email in anagrafica).', esc_html($wp_u->display_name));
+                } else {
+                    $volunteer_data = (object) [
+                        'id'                  => 0,
+                        'user_id'             => $wp_u->ID,
+                        'first_name'          => $wp_u->first_name ?: $wp_u->display_name,
+                        'last_name'           => $wp_u->last_name ?: '',
+                        'email'               => $wp_u->user_email,
+                        'phone'               => get_user_meta($wp_u->ID, 'billing_phone', true) ?: get_user_meta($wp_u->ID, 'phone', true) ?: '',
+                        'card_number'         => '',
+                        'card_expiry'         => '',
+                        'card_type'           => 'INDIVIDUALE',
+                        'verified'            => 0,
+                        'is_sivol_registered' => 0,
+                        'is_volunteer'        => 1,
+                        'volunteer_notes'     => '',
+                        'is_guide'            => 0,
+                        'has_safety_course'   => 0,
+                    ];
+                    $source_message = sprintf('Creazione volontario dall\'account utente WordPress <strong>%s</strong> (%s).', esc_html($wp_u->display_name), esc_html($wp_u->user_email));
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // SALVATAGGIO FORM VOLONTARIO (Nuovo o Modifica)
+    // -------------------------------------------------------------------------
     if (isset($_POST['dfn_save_volunteer']) && check_admin_referer('dfn_save_volunteer_nonce')) {
         $first_name   = sanitize_text_field($_POST['first_name'] ?? '');
         $last_name    = sanitize_text_field($_POST['last_name'] ?? '');
@@ -1048,12 +1169,30 @@ function dfn_render_volunteer_add_page(): void
         }
 
         if (! empty($first_name) && ! empty($last_name) && ! empty($email)) {
-            $is_guide          = isset($_POST['is_guide']) ? 1 : 0;
-            $has_safety_course = isset($_POST['has_safety_course']) ? 1 : 0;
+            $is_guide            = isset($_POST['is_guide']) ? 1 : 0;
+            $has_safety_course   = isset($_POST['has_safety_course']) ? 1 : 0;
             $submitted_fai_roles = isset($_POST['fai_roles']) && is_array($_POST['fai_roles']) ? array_map('sanitize_key', $_POST['fai_roles']) : [];
 
-            if ($volunteer_data) {
-                // Aggiornamento del volontario esistente
+            // Determina se stiamo aggiornando un record esistente o cercandone uno corrispondente
+            $target_record_id = ($volunteer_data && ! empty($volunteer_data->id)) ? (int) $volunteer_data->id : 0;
+
+            if (! $target_record_id) {
+                $existing_fai = null;
+                if (! empty($card_number)) {
+                    $existing_fai = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE card_number = %s", $card_number));
+                }
+                if (! $existing_fai && $user_id > 0) {
+                    $existing_fai = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE user_id = %d", $user_id));
+                }
+                if (! $existing_fai && ! empty($email)) {
+                    $existing_fai = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE email = %s", $email));
+                }
+                if ($existing_fai) {
+                    $target_record_id = (int) $existing_fai->id;
+                }
+            }
+
+            if ($target_record_id > 0) {
                 $wpdb->update(
                     $table_fai,
                     [
@@ -1065,155 +1204,185 @@ function dfn_render_volunteer_add_page(): void
                         'card_number'         => $card_number,
                         'card_expiry'         => $card_expiry,
                         'card_type'           => $card_type,
-                        'verified'            => ! empty($card_number) ? 1 : $volunteer_data->verified,
+                        'verified'            => ! empty($card_number) ? 1 : 0,
+                        'verified_at'         => ! empty($card_number) ? current_time('mysql') : null,
+                        'verified_by'         => ! empty($card_number) ? get_current_user_id() : null,
                         'is_sivol_registered' => $is_sivol,
                         'is_volunteer'        => 1,
+                        'volunteer_status'    => 'active',
                         'volunteer_notes'     => $notes,
                         'is_guide'            => $is_guide,
                         'has_safety_course'   => $has_safety_course,
                     ],
-                    [ 'id' => $volunteer_data->id ],
-                    [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%d' ],
+                    [ 'id' => $target_record_id ],
+                    [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%d', '%d' ],
                     [ '%d' ]
                 );
-                $saved_id = $volunteer_data->id;
+                $saved_id = $target_record_id;
             } else {
-                // Inserisce o aggiorna direttamente per numero tessera
-                $existing_fai = ! empty($card_number) ? $wpdb->get_row($wpdb->prepare(
-                    "SELECT * FROM {$table_fai} WHERE card_number = %s",
-                    $card_number
-                )) : null;
-
-                if ($existing_fai) {
-                    $wpdb->update(
-                        $table_fai,
-                        [
-                            'user_id'             => $user_id ?: $existing_fai->user_id,
-                            'first_name'          => $first_name,
-                            'last_name'           => $last_name,
-                            'email'               => $email,
-                            'phone'               => ! empty($phone) ? $phone : $existing_fai->phone,
-                            'card_expiry'         => ! empty($card_expiry) ? $card_expiry : $existing_fai->card_expiry,
-                            'card_type'           => $card_type,
-                            'verified'            => 1,
-                            'verified_at'         => current_time('mysql'),
-                            'verified_by'         => get_current_user_id(),
-                            'is_sivol_registered' => $is_sivol,
-                            'is_volunteer'        => 1,
-                            'volunteer_status'    => 'active',
-                            'volunteer_notes'     => $notes,
-                            'joined_date'         => current_time('Y-m-d'),
-                            'is_guide'            => $is_guide,
-                            'has_safety_course'   => $has_safety_course,
-                        ],
-                        [ 'id' => $existing_fai->id ],
-                        [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%d', '%d' ],
-                        [ '%d' ]
-                    );
-                    $saved_id = $existing_fai->id;
-                } else {
-                    $wpdb->insert(
-                        $table_fai,
-                        [
-                            'first_name'          => $first_name,
-                            'last_name'           => $last_name,
-                            'email'               => $email,
-                            'phone'               => $phone,
-                            'card_number'         => $card_number,
-                            'card_expiry'         => $card_expiry,
-                            'card_type'           => $card_type,
-                            'verified'            => ! empty($card_number) ? 1 : 0,
-                            'verified_at'         => ! empty($card_number) ? current_time('mysql') : null,
-                            'verified_by'         => ! empty($card_number) ? get_current_user_id() : null,
-                            'is_sivol_registered' => $is_sivol,
-                            'user_id'             => $user_id,
-                            'is_volunteer'        => 1,
-                            'volunteer_status'    => 'active',
-                            'volunteer_notes'     => $notes,
-                            'joined_date'         => current_time('Y-m-d'),
-                            'is_guide'            => $is_guide,
-                            'has_safety_course'   => $has_safety_course,
-                            'created_at'          => current_time('mysql'),
-                        ],
-                        [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%s' ]
-                    );
-                    $saved_id = $wpdb->insert_id;
-                }
+                $wpdb->insert(
+                    $table_fai,
+                    [
+                        'first_name'          => $first_name,
+                        'last_name'           => $last_name,
+                        'email'               => $email,
+                        'phone'               => $phone,
+                        'card_number'         => $card_number,
+                        'card_expiry'         => $card_expiry,
+                        'card_type'           => $card_type,
+                        'verified'            => ! empty($card_number) ? 1 : 0,
+                        'verified_at'         => ! empty($card_number) ? current_time('mysql') : null,
+                        'verified_by'         => ! empty($card_number) ? get_current_user_id() : null,
+                        'is_sivol_registered' => $is_sivol,
+                        'user_id'             => $user_id,
+                        'is_volunteer'        => 1,
+                        'volunteer_status'    => 'active',
+                        'volunteer_notes'     => $notes,
+                        'joined_date'         => current_time('Y-m-d'),
+                        'is_guide'            => $is_guide,
+                        'has_safety_course'   => $has_safety_course,
+                        'created_at'          => current_time('mysql'),
+                    ],
+                    [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%d', '%s', '%s', '%s', '%d', '%d', '%s' ]
+                );
+                $saved_id = $wpdb->insert_id;
             }
 
             // Sincronizzazione dei ruoli FAI assegnati all'account utente WordPress collegato
             if ($user_id && $user_id > 0) {
                 $target_wp_user = get_userdata($user_id);
                 if ($target_wp_user) {
-                    $stored_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
-                    $fai_slugs = array_diff(array_keys($stored_roles), ['administrator']);
+                    $target_wp_user->add_role('dfn_volunteer');
 
-                    // Rimuove vecchi ruoli FAI non più selezionati
+                    $stored_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
+                    $fai_slugs = array_diff(array_keys($stored_roles), ['administrator', 'dfn_volunteer']);
+
+                    // Rimuove vecchi ruoli FAI organizzativi non più selezionati
                     foreach ($fai_slugs as $s_role) {
                         if (! in_array($s_role, $submitted_fai_roles, true)) {
                             $target_wp_user->remove_role($s_role);
                         }
                     }
 
-                    // Aggiunge i nuovi ruoli selezionati
+                    // Aggiunge i nuovi ruoli organizzativi selezionati
+                    $all_assigned = ['dfn_volunteer'];
                     foreach ($submitted_fai_roles as $n_role) {
                         if (isset($stored_roles[$n_role])) {
                             $target_wp_user->add_role($n_role);
+                            $all_assigned[] = $n_role;
                         }
                     }
 
-                    // Se non ha nessun ruolo rimanente, impostiamo subscriber di sicurezza
-                    if (empty($target_wp_user->roles)) {
-                        $target_wp_user->add_role('subscriber');
-                    }
-
                     // Salva nei meta utente per lookup rapido
-                    update_user_meta($user_id, '_dfn_assigned_fai_roles', $submitted_fai_roles);
+                    update_user_meta($user_id, '_dfn_assigned_fai_roles', array_unique($all_assigned));
                 }
             }
 
             // Log dell'azione nel registro centrale Volontari FAI
             if (function_exists('dfn_log_volunteer_roster')) {
-                $roster_action = $volunteer_data ? 'Modifica anagrafica volontario' : 'Nuovo volontario registrato in anagrafica';
+                $roster_action = ($volunteer_data && ! empty($volunteer_data->id)) ? 'Modifica anagrafica volontario' : 'Nuovo volontario registrato in anagrafica';
                 $roster_details = sprintf("Tessera: %s (%s) | SiVol: %s | Ruoli: %s | Guida: %s | Sicurezza: %s", 
                     $card_number ?: 'Nessuna', 
                     $card_type, 
                     $is_sivol ? 'Sì' : 'No',
-                    ! empty($submitted_fai_roles) ? implode(', ', $submitted_fai_roles) : 'Nessuna',
+                    ! empty($submitted_fai_roles) ? implode(', ', $submitted_fai_roles) : 'Volontario base',
                     $is_guide ? 'Sì' : 'No',
                     $has_safety_course ? 'Sì' : 'No'
                 );
                 dfn_log_volunteer_roster($saved_id, $roster_action, $roster_details);
             }
 
-            echo '<div class="notice notice-success is-dismissible"><p>✅ Volontario e ruoli/deleghe salvati con successo!</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>✅ <strong>Volontario e ruoli salvati con successo!</strong> L\'account utente è stato attivato come Volontario FAI.</p></div>';
             $volunteer_data = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $saved_id));
+            if ($volunteer_data && $volunteer_data->user_id) {
+                $selected_user_id = (int) $volunteer_data->user_id;
+            }
         } else {
             echo '<div class="notice notice-error is-dismissible"><p>❌ Compila tutti i campi obbligatori (Nome, Cognome, Email).</p></div>';
         }
     }
 
-    // Lista utenti WP per associazione rapida opzionale
-    $wp_users = get_users(['number' => 200, 'orderby' => 'display_name']);
+    // Lista utenti WP con metadati arricchiti per auto-completamento istantaneo
+    $wp_users = get_users(['number' => 300, 'orderby' => 'display_name']);
+
+    // Mappa dati FAI esistenti per user_id ed email per arricchire il select
+    $all_fai_rows = $wpdb->get_results("SELECT id, user_id, first_name, last_name, email, phone, card_number, card_expiry, card_type, is_sivol_registered, is_guide, has_safety_course, volunteer_notes FROM {$table_fai}");
+    $fai_by_uid   = [];
+    $fai_by_email = [];
+    foreach ($all_fai_rows as $row) {
+        if (! empty($row->user_id)) {
+            $fai_by_uid[(int) $row->user_id] = $row;
+        }
+        if (! empty($row->email)) {
+            $fai_by_email[strtolower(trim($row->email))] = $row;
+        }
+    }
 
     // Tipi di tessera configurati
     $types_string = function_exists('dfn_get_setting') ? dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA') : 'INDIVIDUALE, COPPIA, FAMIGLIA';
     $types_list = array_map('trim', explode(',', $types_string));
 
-    $is_edit = (bool) $volunteer_data;
+    $is_edit = ($volunteer_data && ! empty($volunteer_data->id));
 
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header" style="margin-bottom: 24px;">
             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" style="text-decoration:none; color:#004b23; font-weight:700;">← Torna all'elenco volontari</a>
             <h1 style="font-size:24px; font-weight:700; color:#1d2327; margin:8px 0 0 0;">
-                <?php echo $is_edit ? 'Modifica Volontario: ' . esc_html($volunteer_data->first_name . ' ' . $volunteer_data->last_name) : 'Aggiungi Nuovo Volontario'; ?>
+                <?php echo $is_edit ? 'Modifica Volontario: ' . esc_html($volunteer_data->first_name . ' ' . $volunteer_data->last_name) : 'Aggiungi Nuovo Volontario FAI'; ?>
             </h1>
         </header>
 
+        <?php if (! empty($source_message)) : ?>
+            <div class="notice notice-info" style="border-left-color:#0284c7; margin-bottom:20px;">
+                <p>ℹ️ <?php echo wp_kses_post($source_message); ?> Verifica i dettagli e clicca su <strong>Salva Volontario</strong> in fondo per confermare.</p>
+            </div>
+        <?php endif; ?>
+
         <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:24px 28px; max-width:800px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
-            <form method="post" action="">
+            <form method="post" action="" id="dfn-volunteer-edit-form">
                 <?php wp_nonce_field('dfn_save_volunteer_nonce'); ?>
+
+                <!-- SELETTORE UTENTE WORDPRESS REGISTRATO (CON AUTOFILL) -->
+                <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:8px; padding:16px; margin-bottom:24px;">
+                    <label style="display:block; font-size:13px; font-weight:700; color:#0f172a; margin-bottom:6px;">
+                        👤 Collega Utente WordPress Registrato <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Account Utente'); ?>
+                    </label>
+                    <select name="user_id" id="dfn-volunteer-user-select" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px; font-size:13px;">
+                        <option value="0">-- Seleziona un utente per autocompilare o collegare --</option>
+                        <?php foreach ($wp_users as $u) : 
+                            $u_fai = $fai_by_uid[$u->ID] ?? ($fai_by_email[strtolower(trim($u->user_email))] ?? null);
+                            $u_phone = $u_fai ? ($u_fai->phone ?: '') : (get_user_meta($u->ID, 'billing_phone', true) ?: get_user_meta($u->ID, 'phone', true) ?: '');
+                            $u_card  = $u_fai ? ($u_fai->card_number ?: '') : '';
+                            $u_exp   = $u_fai ? ($u_fai->card_expiry ?: '') : '';
+                            $u_type  = $u_fai ? ($u_fai->card_type ?: 'INDIVIDUALE') : 'INDIVIDUALE';
+                            $u_sivol = $u_fai && ! empty($u_fai->is_sivol_registered) ? '1' : '0';
+                            $u_guide = $u_fai && ! empty($u_fai->is_guide) ? '1' : '0';
+                            $u_safe  = $u_fai && ! empty($u_fai->has_safety_course) ? '1' : '0';
+                            $u_notes = $u_fai ? ($u_fai->volunteer_notes ?: '') : '';
+                            $is_user_vol = in_array('dfn_volunteer', (array) $u->roles, true);
+                        ?>
+                            <option value="<?php echo esc_attr($u->ID); ?>"
+                                data-firstname="<?php echo esc_attr($u_fai && $u_fai->first_name ? $u_fai->first_name : ($u->first_name ?: $u->display_name)); ?>"
+                                data-lastname="<?php echo esc_attr($u_fai && $u_fai->last_name ? $u_fai->last_name : ($u->last_name ?: '')); ?>"
+                                data-email="<?php echo esc_attr($u->user_email); ?>"
+                                data-phone="<?php echo esc_attr($u_phone); ?>"
+                                data-card="<?php echo esc_attr($u_card); ?>"
+                                data-expiry="<?php echo esc_attr($u_exp); ?>"
+                                data-type="<?php echo esc_attr($u_type); ?>"
+                                data-sivol="<?php echo esc_attr($u_sivol); ?>"
+                                data-guide="<?php echo esc_attr($u_guide); ?>"
+                                data-safety="<?php echo esc_attr($u_safe); ?>"
+                                data-notes="<?php echo esc_attr($u_notes); ?>"
+                                <?php selected($selected_user_id, $u->ID); ?>>
+                                <?php echo esc_html($u->display_name . ' (' . $u->user_email . ')' . ($is_user_vol ? ' — [Già Volontario]' : '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="description" style="font-size:11.5px; color:#64748b; margin:6px 0 0 0;">
+                        💡 Selezionando un utente registrato, i campi anagrafici e la tessera (se presente) <strong>si compileranno automaticamente</strong>. L'utente riceverà l'accesso all'area Volontari nel suo account.
+                    </p>
+                </div>
 
                 <h3 style="font-size:15px; font-weight:700; color:#1d2327; margin-top:0; border-bottom:1px solid #f0f0f1; padding-bottom:8px;">
                     👤 Dati Anagrafici &amp; Contatti
@@ -1222,37 +1391,22 @@ function dfn_render_volunteer_add_page(): void
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Nome <span style="color:#ef4444;">*</span></label>
-                        <input type="text" name="first_name" required value="<?php echo esc_attr($is_edit ? $volunteer_data->first_name : ''); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <input type="text" name="first_name" id="dfn-field-first-name" required value="<?php echo esc_attr($volunteer_data ? $volunteer_data->first_name : ''); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Cognome <span style="color:#ef4444;">*</span></label>
-                        <input type="text" name="last_name" required value="<?php echo esc_attr($is_edit ? $volunteer_data->last_name : ''); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <input type="text" name="last_name" id="dfn-field-last-name" required value="<?php echo esc_attr($volunteer_data ? $volunteer_data->last_name : ''); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
-                </div>
-
-                <div style="margin-bottom:16px;">
-                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">
-                        Associa ad Utente Registrato (Opzionale) <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Account Utente'); ?>
-                    </label>
-                    <select name="user_id" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
-                        <option value="0">-- Cerca o seleziona un utente --</option>
-                        <?php foreach ($wp_users as $u) : ?>
-                            <option value="<?php echo esc_attr($u->ID); ?>" <?php selected($is_edit ? (int) $volunteer_data->user_id : 0, $u->ID); ?>>
-                                <?php echo esc_html($u->display_name . ' (' . $u->user_email . ')'); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <p class="description" style="font-size:11.5px; color:#64748b; margin:4px 0 0 0;">Puoi associare la tessera ad un account del sito. Comparirà nella sua area riservata con le prossime riunioni e turni.</p>
                 </div>
 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Email <span style="color:#ef4444;">*</span></label>
-                        <input type="email" name="email" required value="<?php echo esc_attr($is_edit ? $volunteer_data->email : ''); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <input type="email" name="email" id="dfn-field-email" required value="<?php echo esc_attr($volunteer_data ? $volunteer_data->email : ''); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Telefono</label>
-                        <input type="text" name="phone" value="<?php echo esc_attr($is_edit ? ($volunteer_data->phone ?: '') : ''); ?>" placeholder="+39 333 1234567" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <input type="text" name="phone" id="dfn-field-phone" value="<?php echo esc_attr($volunteer_data ? ($volunteer_data->phone ?: '') : ''); ?>" placeholder="+39 333 1234567" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
                 </div>
 
@@ -1263,29 +1417,29 @@ function dfn_render_volunteer_add_page(): void
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Numero Tessera</label>
-                        <input type="text" name="card_number" value="<?php echo esc_attr($is_edit ? $volunteer_data->card_number : ''); ?>" placeholder="Es. 12345678 (o lascia vuoto)" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <input type="text" name="card_number" id="dfn-field-card-number" value="<?php echo esc_attr($volunteer_data ? ($volunteer_data->card_number ?: '') : ''); ?>" placeholder="Es. 12345678 (o lascia vuoto)" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Scadenza Tessera</label>
-                        <input type="date" name="card_expiry" value="<?php echo esc_attr($is_edit && $volunteer_data->card_expiry ? $volunteer_data->card_expiry : ''); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <input type="date" name="card_expiry" id="dfn-field-card-expiry" value="<?php echo esc_attr($volunteer_data && ! empty($volunteer_data->card_expiry) ? $volunteer_data->card_expiry : ''); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
                 </div>
 
                 <div style="margin-bottom:16px;">
                     <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Tipologia Tessera</label>
-                    <select name="card_type" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                    <select name="card_type" id="dfn-field-card-type" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                         <?php foreach ($types_list as $t) : ?>
-                            <option value="<?php echo esc_attr($t); ?>" <?php selected($is_edit ? $volunteer_data->card_type : '', $t); ?>>
+                            <option value="<?php echo esc_attr($t); ?>" <?php selected($volunteer_data ? ($volunteer_data->card_type ?: '') : '', $t); ?>>
                                 <?php echo esc_html($t); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
 
-                <!-- Checkbox SiVol in Modifica Volontario -->
+                <!-- Checkbox SiVol in Modifica/Aggiunta Volontario -->
                 <div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:8px; padding:14px 16px; margin-bottom:20px;">
                     <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer;">
-                        <input type="checkbox" name="is_sivol_registered" value="1" <?php checked($is_edit && ! empty($volunteer_data->is_sivol_registered), true); ?> style="width:20px; height:20px; margin-top:2px; accent-color:#004b23;">
+                        <input type="checkbox" name="is_sivol_registered" id="dfn-field-is-sivol" value="1" <?php checked($volunteer_data && ! empty($volunteer_data->is_sivol_registered), true); ?> style="width:20px; height:20px; margin-top:2px; accent-color:#004b23;">
                         <div>
                             <strong style="font-size:13.5px; color:#14532d; display:block;">🌐 Registrato su SiVol FAI</strong>
                             <span style="font-size:12px; color:#166534; line-height:1.4; display:block; margin-top:2px;">
@@ -1301,7 +1455,7 @@ function dfn_render_volunteer_add_page(): void
 
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:12px;">
                     <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
-                        <input type="checkbox" name="is_guide" value="1" <?php checked($is_edit && ! empty($volunteer_data->is_guide), true); ?> style="width:18px; height:18px; margin-top:2px;">
+                        <input type="checkbox" name="is_guide" id="dfn-field-is-guide" value="1" <?php checked($volunteer_data && ! empty($volunteer_data->is_guide), true); ?> style="width:18px; height:18px; margin-top:2px;">
                         <div>
                             <strong style="font-size:13px; color:#0f172a; display:block;">🏛️ Volontario Guida</strong>
                             <span style="font-size:12px; color:#64748b;">Abilita e suggerisce automaticamente questo volontario quando si assegna la mansione di Guida durante gli eventi e le visite.</span>
@@ -1309,7 +1463,7 @@ function dfn_render_volunteer_add_page(): void
                     </label>
 
                     <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
-                        <input type="checkbox" name="has_safety_course" value="1" <?php checked($is_edit && ! empty($volunteer_data->has_safety_course), true); ?> style="width:18px; height:18px; margin-top:2px;">
+                        <input type="checkbox" name="has_safety_course" id="dfn-field-has-safety" value="1" <?php checked($volunteer_data && ! empty($volunteer_data->has_safety_course), true); ?> style="width:18px; height:18px; margin-top:2px;">
                         <div>
                             <strong style="font-size:13px; color:#0f172a; display:block;">🦺 Corso sulla Sicurezza Attivo</strong>
                             <span style="font-size:12px; color:#64748b;">Requisito obbligatorio per ricoprire il ruolo di <strong>Responsabile Scuola</strong> (con gli Apprendisti Ciceroni) nelle Giornate FAI.</span>
@@ -1320,7 +1474,7 @@ function dfn_render_volunteer_add_page(): void
                 <!-- SEZIONE INCARICHI DI DELEGAZIONE & RUOLI AMMINISTRATIVI -->
                 <?php
                 $all_stored_roles = function_exists('dfn_get_stored_roles') ? dfn_get_stored_roles() : [];
-                $linked_user_id = $is_edit && ! empty($volunteer_data->user_id) ? (int) $volunteer_data->user_id : 0;
+                $linked_user_id = $selected_user_id ?: ($volunteer_data && ! empty($volunteer_data->user_id) ? (int) $volunteer_data->user_id : 0);
                 $user_assigned_fai = $linked_user_id > 0 ? (array) get_user_meta($linked_user_id, '_dfn_assigned_fai_roles', true) : [];
                 if ($linked_user_id > 0 && empty($user_assigned_fai)) {
                     $u_obj = get_userdata($linked_user_id);
@@ -1339,7 +1493,7 @@ function dfn_render_volunteer_add_page(): void
                 <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:10px;">
                     <?php 
                     foreach ($all_stored_roles as $r_slug => $r_info) : 
-                        if ($r_slug === 'administrator') continue;
+                        if ($r_slug === 'administrator' || $r_slug === 'dfn_volunteer') continue;
                         $r_modules = ! empty($r_info['modules']) && is_array($r_info['modules']) ? $r_info['modules'] : (array) ($r_info['module'] ?? []);
                         $is_role_checked = in_array($r_slug, $user_assigned_fai, true);
                     ?>
@@ -1366,17 +1520,53 @@ function dfn_render_volunteer_add_page(): void
 
                 <div style="margin-bottom:24px;">
                     <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Note Delegazione / Disponibilità</label>
-                    <textarea name="notes" rows="3" placeholder="Es. Disponibile per visite guidate nei weekend, accoglienza banchetto..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:8px 10px;"><?php echo esc_textarea($is_edit ? ($volunteer_data->volunteer_notes ?: '') : ''); ?></textarea>
+                    <textarea name="notes" id="dfn-field-notes" rows="3" placeholder="Es. Disponibile per visite guidate nei weekend, accoglienza banchetto..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:8px 10px;"><?php echo esc_textarea($volunteer_data ? ($volunteer_data->volunteer_notes ?: '') : ''); ?></textarea>
                 </div>
 
                 <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f0f0f1; padding-top:16px;">
                     <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" class="button">Annulla</a>
                     <button type="submit" name="dfn_save_volunteer" class="button button-primary" style="background:#004b23; border-color:#003b1c; padding:4px 18px; font-weight:700;">
-                        <?php echo $is_edit ? '💾 Salva Modifiche Volontario' : '➕ Aggiungi Volontario'; ?>
+                        <?php echo $is_edit ? '💾 Salva Modifiche Volontario' : '➕ Salva &amp; Attiva Volontario'; ?>
                     </button>
                 </div>
             </form>
         </div>
+
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var userSelect = document.getElementById('dfn-volunteer-user-select');
+            if (!userSelect) return;
+
+            userSelect.addEventListener('change', function() {
+                var opt = this.options[this.selectedIndex];
+                if (!opt || opt.value === '0') return;
+
+                var fnInput = document.getElementById('dfn-field-first-name');
+                var lnInput = document.getElementById('dfn-field-last-name');
+                var emInput = document.getElementById('dfn-field-email');
+                var phInput = document.getElementById('dfn-field-phone');
+                var cdInput = document.getElementById('dfn-field-card-number');
+                var exInput = document.getElementById('dfn-field-card-expiry');
+                var tpInput = document.getElementById('dfn-field-card-type');
+                var svInput = document.getElementById('dfn-field-is-sivol');
+                var gdInput = document.getElementById('dfn-field-is-guide');
+                var sfInput = document.getElementById('dfn-field-has-safety');
+                var ntInput = document.getElementById('dfn-field-notes');
+
+                if (opt.getAttribute('data-firstname')) fnInput.value = opt.getAttribute('data-firstname');
+                if (opt.getAttribute('data-lastname')) lnInput.value = opt.getAttribute('data-lastname');
+                if (opt.getAttribute('data-email')) emInput.value = opt.getAttribute('data-email');
+                if (opt.getAttribute('data-phone')) phInput.value = opt.getAttribute('data-phone');
+                if (opt.getAttribute('data-card')) cdInput.value = opt.getAttribute('data-card');
+                if (opt.getAttribute('data-expiry')) exInput.value = opt.getAttribute('data-expiry');
+                if (opt.getAttribute('data-type') && tpInput) tpInput.value = opt.getAttribute('data-type');
+                if (svInput) svInput.checked = (opt.getAttribute('data-sivol') === '1');
+                if (gdInput && opt.getAttribute('data-guide') === '1') gdInput.checked = true;
+                if (sfInput && opt.getAttribute('data-safety') === '1') sfInput.checked = true;
+                if (ntInput && opt.getAttribute('data-notes') && !ntInput.value) ntInput.value = opt.getAttribute('data-notes');
+            });
+        });
+        </script>
 
         <!-- Overlay e Tooltip Modals Form Volontario -->
         <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
