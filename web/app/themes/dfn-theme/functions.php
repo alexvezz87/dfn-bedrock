@@ -29,12 +29,6 @@ require_once get_stylesheet_directory() . '/inc/core/dfn-user-switch.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-notifications.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-cron.php';
 
-// Amministrazione Core Condivisa
-require_once get_stylesheet_directory() . '/inc/admin/dfn-roles-admin.php';
-require_once get_stylesheet_directory() . '/inc/admin/dfn-settings.php';
-require_once get_stylesheet_directory() . '/inc/admin/dfn-logs.php';
-require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-members-admin.php';
-
 // Frontend Core Condiviso
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-gdpr.php'; // GDPR: Privacy & Cookie Consent
 require_once get_stylesheet_directory() . '/inc/frontend/dfn-myaccount.php';
@@ -49,19 +43,23 @@ if (function_exists('dfn_is_module_active') && dfn_is_module_active('prenotazion
     // Integrazioni WooCommerce
     require_once get_stylesheet_directory() . '/inc/woocommerce/dfn-gateway-in-loco.php';
 
-    // Admin Prenotazioni
+    // Admin Prenotazioni (in ordine esatto di menu)
     require_once get_stylesheet_directory() . '/inc/admin/dfn-events-manager.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-event-editor.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-slot-manager.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-scanner.php';
+    require_once get_stylesheet_directory() . '/inc/admin/dfn-settings.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteer-dashboard.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-report.php';
+    require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-members-admin.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-waitlist.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-quick-booking.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-pending-bookings.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-botteghino.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-accounting.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-reviews-admin.php';
+    require_once get_stylesheet_directory() . '/inc/admin/dfn-roles-admin.php';
+    require_once get_stylesheet_directory() . '/inc/admin/dfn-logs.php';
 
     // Frontend Prenotazioni
     require_once get_stylesheet_directory() . '/inc/frontend/dfn-checkout.php';
