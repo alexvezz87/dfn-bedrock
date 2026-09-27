@@ -2442,7 +2442,7 @@ function dfn_render_edit_account_notification_fields(int $user_id, bool $is_volu
         <label class="dfn-notification-item" for="dfn_notify_card_expiry">
             <input type="checkbox" id="dfn_notify_card_expiry" name="dfn_notify_card_expiry" value="1" <?php checked($checked_expiry, true); ?> />
             <span class="dfn-notification-item-content">
-                <span class="dfn-notification-item-title">🪪 <?php esc_html_e('Promemoria Scadenza Tessera FAI', 'dfn-theme'); ?></span>
+                <span class="dfn-notification-item-title"><?php esc_html_e('Promemoria Scadenza Tessera FAI', 'dfn-theme'); ?></span>
                 <span class="dfn-notification-item-desc"><?php esc_html_e('Ricevi una notifica automatica via email prima della scadenza della tua tessera FAI per rinnovarla in tempo utile.', 'dfn-theme'); ?></span>
             </span>
         </label>
@@ -2452,7 +2452,7 @@ function dfn_render_edit_account_notification_fields(int $user_id, bool $is_volu
             <label class="dfn-notification-item" for="dfn_notify_meetings">
                 <input type="checkbox" id="dfn_notify_meetings" name="dfn_notify_meetings" value="1" <?php checked($checked_meetings, true); ?> />
                 <span class="dfn-notification-item-content">
-                    <span class="dfn-notification-item-title">📅 <?php esc_html_e('Convocazioni e Promemoria Riunioni', 'dfn-theme'); ?></span>
+                    <span class="dfn-notification-item-title"><?php esc_html_e('Convocazioni e Promemoria Riunioni', 'dfn-theme'); ?></span>
                     <span class="dfn-notification-item-desc"><?php esc_html_e('Ricevi via email le convocazioni con ordine del giorno, data, orari, luogo e link di collegamento alle riunioni di delegazione.', 'dfn-theme'); ?></span>
                 </span>
             </label>
@@ -2461,7 +2461,7 @@ function dfn_render_edit_account_notification_fields(int $user_id, bool $is_volu
             <label class="dfn-notification-item" for="dfn_notify_shifts">
                 <input type="checkbox" id="dfn_notify_shifts" name="dfn_notify_shifts" value="1" <?php checked($checked_shifts, true); ?> />
                 <span class="dfn-notification-item-content">
-                    <span class="dfn-notification-item-title">📍 <?php esc_html_e('Turni Assegnati &amp; Sondaggi Eventi', 'dfn-theme'); ?></span>
+                    <span class="dfn-notification-item-title"><?php esc_html_e('Turni Assegnati &amp; Sondaggi Eventi', 'dfn-theme'); ?></span>
                     <span class="dfn-notification-item-desc"><?php esc_html_e('Ricevi notifiche sui turni assegnati alle Giornate FAI ed eventi locali, e l\'invito a compilare i sondaggi di disponibilità.', 'dfn-theme'); ?></span>
                 </span>
             </label>
