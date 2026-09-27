@@ -2079,6 +2079,11 @@
     margin: 24px auto 0 auto !important;
 }
 
+.woocommerce-account:has(.dfn-lost-password-confirmation-card) .woocommerce-notices-wrapper,
+.woocommerce-account:has(.dfn-lost-password-card) .woocommerce-notices-wrapper:empty {
+    display: none !important;
+}
+
 @media (max-width: 600px) {
     .woocommerce-account form.woocommerce-ResetPassword,
     .woocommerce-account .lost_reset_password,
