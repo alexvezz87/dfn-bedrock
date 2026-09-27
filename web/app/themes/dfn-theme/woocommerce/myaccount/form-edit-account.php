@@ -38,26 +38,26 @@ do_action('woocommerce_before_edit_account_form');
             <div class="dfn-accordion-collapse" style="display: block;">
                 <div class="dfn-accordion-body">
                     <div class="dfn-form-grid-2">
-                        <p class="woocommerce-form-row woocommerce-form-row--first form-row form-row-first">
+                        <div class="dfn-field-group">
                             <label for="account_first_name"><?php esc_html_e('Nome', 'woocommerce'); ?>&nbsp;<span class="required" aria-hidden="true">*</span></label>
                             <input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="account_first_name" id="account_first_name" autocomplete="given-name" value="<?php echo esc_attr($user->first_name); ?>" aria-required="true" />
-                        </p>
-                        <p class="woocommerce-form-row woocommerce-form-row--last form-row form-row-last">
+                        </div>
+                        <div class="dfn-field-group">
                             <label for="account_last_name"><?php esc_html_e('Cognome', 'woocommerce'); ?>&nbsp;<span class="required" aria-hidden="true">*</span></label>
                             <input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="account_last_name" id="account_last_name" autocomplete="family-name" value="<?php echo esc_attr($user->last_name); ?>" aria-required="true" />
-                        </p>
+                        </div>
                     </div>
 
-                    <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
+                    <div class="dfn-field-group">
                         <label for="account_display_name"><?php esc_html_e('Nome visualizzato', 'woocommerce'); ?>&nbsp;<span class="required" aria-hidden="true">*</span></label>
                         <input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="account_display_name" id="account_display_name" aria-describedby="account_display_name_description" value="<?php echo esc_attr($user->display_name); ?>" aria-required="true" />
                         <span id="account_display_name_description" class="dfn-field-hint"><em><?php echo wc_reviews_enabled() ? esc_html__('Questo sarà il nome visualizzato nella sezione account e nelle recensioni.', 'woocommerce') : esc_html__('Questo sarà il nome visualizzato nella sezione account.', 'woocommerce'); ?></em></span>
-                    </p>
+                    </div>
 
-                    <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide" style="margin-bottom: 0 !important;">
+                    <div class="dfn-field-group" style="margin-bottom: 0 !important;">
                         <label for="account_email"><?php esc_html_e('Indirizzo Email', 'woocommerce'); ?>&nbsp;<span class="required" aria-hidden="true">*</span></label>
                         <input type="email" class="woocommerce-Input woocommerce-Input--email input-text" name="account_email" id="account_email" autocomplete="email" value="<?php echo esc_attr($user->user_email); ?>" aria-required="true" />
-                    </p>
+                    </div>
 
                     <?php do_action('woocommerce_edit_account_form_fields'); ?>
                 </div>
@@ -82,38 +82,38 @@ do_action('woocommerce_before_edit_account_form');
             </button>
             <div class="dfn-accordion-collapse" style="display: none;">
                 <div class="dfn-accordion-body">
-                    <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
+                    <div class="dfn-field-group">
                         <label for="password_current"><?php esc_html_e('Password attuale (lascia vuoto per non modificare)', 'woocommerce'); ?></label>
-                        <span class="password-input dfn-password-input-wrap">
+                        <div class="dfn-password-input-wrap">
                             <input type="password" class="woocommerce-Input woocommerce-Input--password input-text" name="password_current" id="password_current" autocomplete="current-password" placeholder="<?php esc_attr_e('Password attuale', 'dfn-theme'); ?>" />
                             <button type="button" class="dfn-pwd-toggle-btn" aria-label="<?php esc_attr_e('Mostra password', 'dfn-theme'); ?>" tabindex="-1">
                                 <svg class="icon-eye-show" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                 <svg class="icon-eye-hide" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                             </button>
-                        </span>
-                    </p>
+                        </div>
+                    </div>
 
-                    <div class="dfn-form-grid-2" style="margin-bottom: 0;">
-                        <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
+                    <div class="dfn-form-grid-2" style="margin-bottom: 0 !important;">
+                        <div class="dfn-field-group">
                             <label for="password_1"><?php esc_html_e('Nuova password (lascia vuoto per non modificare)', 'woocommerce'); ?></label>
-                            <span class="password-input dfn-password-input-wrap">
+                            <div class="dfn-password-input-wrap">
                                 <input type="password" class="woocommerce-Input woocommerce-Input--password input-text" name="password_1" id="password_1" autocomplete="new-password" placeholder="<?php esc_attr_e('Nuova password', 'dfn-theme'); ?>" />
                                 <button type="button" class="dfn-pwd-toggle-btn" aria-label="<?php esc_attr_e('Mostra password', 'dfn-theme'); ?>" tabindex="-1">
                                     <svg class="icon-eye-show" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                     <svg class="icon-eye-hide" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                                 </button>
-                            </span>
-                        </p>
-                        <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
+                            </div>
+                        </div>
+                        <div class="dfn-field-group">
                             <label for="password_2"><?php esc_html_e('Conferma nuova password', 'woocommerce'); ?></label>
-                            <span class="password-input dfn-password-input-wrap">
+                            <div class="dfn-password-input-wrap">
                                 <input type="password" class="woocommerce-Input woocommerce-Input--password input-text" name="password_2" id="password_2" autocomplete="new-password" placeholder="<?php esc_attr_e('Ripeti nuova password', 'dfn-theme'); ?>" />
                                 <button type="button" class="dfn-pwd-toggle-btn" aria-label="<?php esc_attr_e('Mostra password', 'dfn-theme'); ?>" tabindex="-1">
                                     <svg class="icon-eye-show" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                     <svg class="icon-eye-hide" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                                 </button>
-                            </span>
-                        </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
