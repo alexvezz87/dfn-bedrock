@@ -1740,5 +1740,61 @@ function dfn_send_volunteer_approved_email($volunteer_data, int $user_id = 0, st
     return dfn_send_notification_email($to, $subject, $title, $body, [], '[Approvazione Volontario]', $sender);
 }
 
+/**
+ * --------------------------------------------------------------------------
+ * PERSONALIZZAZIONE EMAIL RESET PASSWORD (TEMPLATE FAI & MITTENTE DEDICATO)
+ * --------------------------------------------------------------------------
+ */
+
+/**
+ * Personalizza il nome del mittente (From Name) ESCLUSIVAMENTE per l'email di recupero password.
+ * Tutte le altre comunicazioni del sito e del sistema prenotazioni rimangono con il mittente predefinito.
+ *
+ * @param string $from_name Nome mittente originale.
+ * @param object $email     Istanza WC_Email.
+ * @return string
+ */
+add_filter('woocommerce_email_from_name', 'dfn_custom_reset_password_from_name', 20, 2);
+function dfn_custom_reset_password_from_name($from_name, $email = null)
+{
+    if ($email && is_object($email) && isset($email->id) && $email->id === 'customer_reset_password') {
+        $sender = function_exists('dfn_get_volunteer_email_sender') ? dfn_get_volunteer_email_sender() : null;
+        if (! empty($sender['name'])) {
+            return $sender['name'];
+        }
+        $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+        return 'Coordinamento Volontari ' . $delegation_name;
+    }
+    return $from_name;
+}
+
+/**
+ * Personalizza l'oggetto dell'email di reset password inviata da WooCommerce.
+ *
+ * @param string $subject Oggetto originale.
+ * @param object $object  Dati utente.
+ * @param object $email   Istanza WC_Email.
+ * @return string
+ */
+add_filter('woocommerce_email_subject_customer_reset_password', 'dfn_custom_reset_password_subject', 20, 3);
+function dfn_custom_reset_password_subject($subject, $object, $email = null)
+{
+    $sender = function_exists('dfn_get_volunteer_email_sender') ? dfn_get_volunteer_email_sender() : null;
+    $sender_name = ! empty($sender['name']) ? $sender['name'] : ('Coordinamento Volontari ' . (function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara'));
+    return sprintf('Richiesta di reimpostazione password — %s', $sender_name);
+}
+
+/**
+ * Fallback per l'oggetto del messaggio in caso di recupero password da form standard WordPress.
+ */
+add_filter('retrieve_password_title', 'dfn_custom_retrieve_password_title', 20, 3);
+function dfn_custom_retrieve_password_title($title, $user_login, $user_data)
+{
+    $sender = function_exists('dfn_get_volunteer_email_sender') ? dfn_get_volunteer_email_sender() : null;
+    $sender_name = ! empty($sender['name']) ? $sender['name'] : ('Coordinamento Volontari ' . (function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara'));
+    return sprintf('Richiesta di reimpostazione password — %s', $sender_name);
+}
+
+
 
 
