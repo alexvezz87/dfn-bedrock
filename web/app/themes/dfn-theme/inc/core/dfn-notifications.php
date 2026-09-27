@@ -33,20 +33,12 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
 
     $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
 
-    // Gestione Mittente Personalizzato (From & Reply-To)
-    $from_name  = ! empty($sender_override['name']) ? trim((string) $sender_override['name']) : '';
-    $from_email = ! empty($sender_override['email']) ? trim((string) $sender_override['email']) : '';
+    // Gestione Mittente Personalizzato (Solo Nome Mittente per garantire l'autenticazione SPF/DKIM del server SMTP)
+    $from_name = ! empty($sender_override['name']) ? trim((string) $sender_override['name']) : '';
+    $reply_to  = ! empty($sender_override['reply_to']) ? trim((string) $sender_override['reply_to']) : '';
 
-    if (! empty($from_name) && ! empty($from_email) && is_email($from_email)) {
-        $headers[] = sprintf('From: %s <%s>', $from_name, $from_email);
-        $headers[] = sprintf('Reply-To: %s <%s>', $from_name, $from_email);
-    } elseif (! empty($from_name)) {
-        $default_from_email = get_option('admin_email');
-        $headers[] = sprintf('From: %s <%s>', $from_name, $default_from_email);
-        $headers[] = sprintf('Reply-To: %s <%s>', $from_name, $default_from_email);
-    } elseif (! empty($from_email) && is_email($from_email)) {
-        $headers[] = sprintf('From: <%s>', $from_email);
-        $headers[] = sprintf('Reply-To: <%s>', $from_email);
+    if (! empty($reply_to) && is_email($reply_to)) {
+        $headers[] = sprintf('Reply-To: %s <%s>', $from_name ?: get_bloginfo('name'), $reply_to);
     }
 
     // Gestione Cc (Copia Visibile)
@@ -74,22 +66,13 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
         }
     }
 
-    // Filtri dinamici WordPress per garantire l'applicazione del mittente anche con plugin SMTP
-    $filter_from_name  = null;
-    $filter_from_email = null;
-
+    // Filtro dinamico per applicare il nome mittente (From Name) mantenendo l'indirizzo email del server SMTP
+    $filter_from_name = null;
     if (! empty($from_name)) {
         $filter_from_name = function () use ($from_name) {
             return $from_name;
         };
         add_filter('wp_mail_from_name', $filter_from_name, 9999);
-    }
-
-    if (! empty($from_email) && is_email($from_email)) {
-        $filter_from_email = function () use ($from_email) {
-            return $from_email;
-        };
-        add_filter('wp_mail_from', $filter_from_email, 9999);
     }
 
     // Se $to contiene virgole, lo convertiamo in array per wp_mail
@@ -102,8 +85,9 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
     if (is_string($to)) {
         if (trim(strtolower($to)) === 'no-email@dfn.it') {
             $GLOBALS['dfn_current_email_context'] = '';
-            if ($filter_from_name) remove_filter('wp_mail_from_name', $filter_from_name, 9999);
-            if ($filter_from_email) remove_filter('wp_mail_from', $filter_from_email, 9999);
+            if ($filter_from_name) {
+                remove_filter('wp_mail_from_name', $filter_from_name, 9999);
+            }
             return true;
         }
     } elseif (is_array($to)) {
@@ -112,8 +96,9 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
         });
         if (empty($to)) {
             $GLOBALS['dfn_current_email_context'] = '';
-            if ($filter_from_name) remove_filter('wp_mail_from_name', $filter_from_name, 9999);
-            if ($filter_from_email) remove_filter('wp_mail_from', $filter_from_email, 9999);
+            if ($filter_from_name) {
+                remove_filter('wp_mail_from_name', $filter_from_name, 9999);
+            }
             return true;
         }
     }
@@ -123,12 +108,9 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
 
     $sent = wp_mail($to, $subject, $body, $headers, $attachments);
 
-    // Rimozione filtri temporanei
+    // Rimozione filtro temporaneo sul nome mittente
     if ($filter_from_name !== null) {
         remove_filter('wp_mail_from_name', $filter_from_name, 9999);
-    }
-    if ($filter_from_email !== null) {
-        remove_filter('wp_mail_from', $filter_from_email, 9999);
     }
 
     $GLOBALS['dfn_current_email_context'] = '';
@@ -1638,23 +1620,20 @@ function dfn_build_volunteer_approved_email_html(array $v, int $user_id = 0): st
 
 /**
  * Restituisce i dati del mittente configurato per tutte le email relative ai Volontari FAI.
+ * Personalizza unicamente il nome visibile del mittente (From Name), preservando
+ * l'indirizzo email del server SMTP (es. noreply@dfnprenotazioni.it) per garantire la recapitabilità.
  *
- * @return array ['name' => string, 'email' => string]
+ * @return array ['name' => string]
  */
 function dfn_get_volunteer_email_sender(): array
 {
-    $delegation_name  = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
-    $delegation_email = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_email', get_option('admin_email')) : get_option('admin_email');
+    $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+    $default_name    = 'Coordinamento Volontari ' . $delegation_name;
 
-    $default_name  = 'Coordinamento Volontari ' . $delegation_name;
-    $default_email = $delegation_email;
-
-    $name  = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_sender_name', $default_name) : $default_name;
-    $email = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_sender_email', $default_email) : $default_email;
+    $name = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_sender_name', $default_name) : $default_name;
 
     return [
-        'name'  => trim((string) $name),
-        'email' => trim((string) $email),
+        'name' => trim((string) $name),
     ];
 }
 
