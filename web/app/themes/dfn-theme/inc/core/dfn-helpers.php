@@ -481,5 +481,41 @@ function dfn_handle_admin_pages_fallback_redirect(): void
     }
 }
 
+/**
+ * Verifica se un utente desidera ricevere notifiche email per la scadenza della tessera FAI.
+ * Di default ritorna true (opt-out).
+ *
+ * @param int $user_id ID utente.
+ * @return bool
+ */
+function dfn_user_wants_card_expiry_notification(int $user_id): bool
+{
+    $meta = get_user_meta($user_id, '_dfn_notify_card_expiry', true);
+    return ($meta !== '0');
+}
 
+/**
+ * Verifica se un utente desidera ricevere notifiche email per le riunioni di delegazione.
+ * Di default ritorna true (opt-out).
+ *
+ * @param int $user_id ID utente.
+ * @return bool
+ */
+function dfn_user_wants_meetings_notification(int $user_id): bool
+{
+    $meta = get_user_meta($user_id, '_dfn_notify_meetings', true);
+    return ($meta !== '0');
+}
 
+/**
+ * Verifica se un utente desidera ricevere notifiche email per i turni ed eventi assegnati.
+ * Di default ritorna true (opt-out).
+ *
+ * @param int $user_id ID utente.
+ * @return bool
+ */
+function dfn_user_wants_shifts_notification(int $user_id): bool
+{
+    $meta = get_user_meta($user_id, '_dfn_notify_shifts', true);
+    return ($meta !== '0');
+}

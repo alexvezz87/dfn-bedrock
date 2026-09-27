@@ -1328,6 +1328,13 @@ function dfn_render_volunteer_add_page(): void
 
                     // Salva nei meta utente per lookup rapido
                     update_user_meta($user_id, '_dfn_assigned_fai_roles', array_unique($all_assigned));
+
+                    // Salva le preferenze di notifica email del volontario se presenti nel form
+                    if (isset($_POST['dfn_admin_notif_prefs_present'])) {
+                        update_user_meta($user_id, '_dfn_notify_card_expiry', isset($_POST['dfn_notify_card_expiry']) ? '1' : '0');
+                        update_user_meta($user_id, '_dfn_notify_meetings', isset($_POST['dfn_notify_meetings']) ? '1' : '0');
+                        update_user_meta($user_id, '_dfn_notify_shifts', isset($_POST['dfn_notify_shifts']) ? '1' : '0');
+                    }
                 }
             }
 
@@ -1570,6 +1577,35 @@ function dfn_render_volunteer_add_page(): void
                         </label>
                     <?php endforeach; ?>
                 </div>
+
+                <?php if ($linked_user_id > 0) : 
+                    $admin_wants_expiry   = function_exists('dfn_user_wants_card_expiry_notification') ? dfn_user_wants_card_expiry_notification($linked_user_id) : true;
+                    $admin_wants_meetings = function_exists('dfn_user_wants_meetings_notification') ? dfn_user_wants_meetings_notification($linked_user_id) : true;
+                    $admin_wants_shifts   = function_exists('dfn_user_wants_shifts_notification') ? dfn_user_wants_shifts_notification($linked_user_id) : true;
+                ?>
+                    <input type="hidden" name="dfn_admin_notif_prefs_present" value="1">
+                    <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px; margin-top:20px;">
+                        🔔 Preferenze Notifiche Email Volontario
+                    </h3>
+                    <p style="font-size:12px; color:#64748b; margin-top:4px; margin-bottom:12px;">
+                        Stato delle preferenze di notifica email configurate dal volontario nella sua area riservata.
+                    </p>
+
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; margin-bottom:20px; display:flex; flex-direction:column; gap:10px;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="dfn_notify_card_expiry" value="1" <?php checked($admin_wants_expiry, true); ?> style="width:16px; height:16px; accent-color:#004b23;">
+                            <span style="font-size:13px; color:#1e293b; font-weight:600;">🪪 Notifica Promemoria Scadenza Tessera FAI</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="dfn_notify_meetings" value="1" <?php checked($admin_wants_meetings, true); ?> style="width:16px; height:16px; accent-color:#004b23;">
+                            <span style="font-size:13px; color:#1e293b; font-weight:600;">📅 Convocazioni e Promemoria Riunioni di Delegazione</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="dfn_notify_shifts" value="1" <?php checked($admin_wants_shifts, true); ?> style="width:16px; height:16px; accent-color:#004b23;">
+                            <span style="font-size:13px; color:#1e293b; font-weight:600;">📍 Notifiche Turni Assegnati e Aggiornamenti Eventi</span>
+                        </label>
+                    </div>
+                <?php endif; ?>
 
                 <div style="margin-bottom:24px;">
                     <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Note Delegazione / Disponibilità</label>

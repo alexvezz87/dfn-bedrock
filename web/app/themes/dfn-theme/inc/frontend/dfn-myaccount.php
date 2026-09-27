@@ -2397,3 +2397,94 @@ function dfn_custom_myaccount_dashboard_content(): void
     <?php
 }
 
+/**
+ * ========================================================================
+ * PREFERENZE DI NOTIFICA EMAIL NEL PROFILO UTENTE (edit-account)
+ * ========================================================================
+ */
+
+/**
+ * Renderizza il blocco di preferenze notifiche email nel form Modifica Account (edit-account).
+ */
+add_action('woocommerce_edit_account_form', 'dfn_render_edit_account_notification_preferences');
+function dfn_render_edit_account_notification_preferences(): void
+{
+    $user_id = get_current_user_id();
+    if (! $user_id) {
+        return;
+    }
+
+    $is_volunteer = function_exists('dfn_is_user_volunteer') && dfn_is_user_volunteer($user_id);
+
+    // Recupera lo stato attuale dei flag (default: true / 1 se non impostato)
+    $notify_expiry   = get_user_meta($user_id, '_dfn_notify_card_expiry', true);
+    $checked_expiry  = ($notify_expiry === '' || $notify_expiry === false || $notify_expiry === '1' || $notify_expiry === 1);
+
+    $notify_meetings = get_user_meta($user_id, '_dfn_notify_meetings', true);
+    $checked_meetings = ($notify_meetings === '' || $notify_meetings === false || $notify_meetings === '1' || $notify_meetings === 1);
+
+    $notify_shifts   = get_user_meta($user_id, '_dfn_notify_shifts', true);
+    $checked_shifts  = ($notify_shifts === '' || $notify_shifts === false || $notify_shifts === '1' || $notify_shifts === 1);
+    ?>
+    <div class="dfn-notification-preferences-card">
+        <?php wp_nonce_field('dfn_save_notification_prefs', 'dfn_notification_prefs_nonce'); ?>
+        <div class="dfn-notification-preferences-header">
+            <span style="font-size: 20px;">🔔</span>
+            <h3 class="dfn-notification-preferences-title"><?php echo $is_volunteer ? esc_html__('Preferenze di Notifica Volontario', 'dfn-theme') : esc_html__('Preferenze di Notifica Email', 'dfn-theme'); ?></h3>
+        </div>
+        <p class="dfn-notification-preferences-subtitle">
+            <?php echo $is_volunteer 
+                ? esc_html__('Gestisci le comunicazioni operative e i promemoria automatici che desideri ricevere via email dalla Delegazione FAI.', 'dfn-theme')
+                : esc_html__('Personalizza le comunicazioni e i promemoria automatici che desideri ricevere via email dal FAI Novara.', 'dfn-theme'); ?>
+        </p>
+
+        <div class="dfn-notification-items-list">
+            <!-- 1. Scadenza Tessera FAI -->
+            <label class="dfn-notification-item">
+                <input type="checkbox" name="dfn_notify_card_expiry" value="1" <?php checked($checked_expiry, true); ?>>
+                <div class="dfn-notification-item-content">
+                    <span class="dfn-notification-item-title">🪪 <?php esc_html_e('Promemoria Scadenza Tessera FAI', 'dfn-theme'); ?></span>
+                    <span class="dfn-notification-item-desc"><?php esc_html_e('Ricevi una notifica automatica via email prima della scadenza della tua tessera FAI per rinnovarla in tempo utile.', 'dfn-theme'); ?></span>
+                </div>
+            </label>
+
+            <?php if ($is_volunteer) : ?>
+                <!-- 2. Riunioni di Delegazione -->
+                <label class="dfn-notification-item">
+                    <input type="checkbox" name="dfn_notify_meetings" value="1" <?php checked($checked_meetings, true); ?>>
+                    <div class="dfn-notification-item-content">
+                        <span class="dfn-notification-item-title">📅 <?php esc_html_e('Convocazioni e Promemoria Riunioni', 'dfn-theme'); ?></span>
+                        <span class="dfn-notification-item-desc"><?php esc_html_e('Ricevi via email le convocazioni con ordine del giorno, data, orari, luogo e link di collegamento alle riunioni di delegazione.', 'dfn-theme'); ?></span>
+                    </div>
+                </label>
+
+                <!-- 3. Turni ed Eventi -->
+                <label class="dfn-notification-item">
+                    <input type="checkbox" name="dfn_notify_shifts" value="1" <?php checked($checked_shifts, true); ?>>
+                    <div class="dfn-notification-item-content">
+                        <span class="dfn-notification-item-title">📍 <?php esc_html_e('Turni Assegnati &amp; Sondaggi Eventi', 'dfn-theme'); ?></span>
+                        <span class="dfn-notification-item-desc"><?php esc_html_e('Ricevi notifiche sui turni assegnati alle Giornate FAI ed eventi locali, e l\'invito a compilare i sondaggi di disponibilità.', 'dfn-theme'); ?></span>
+                    </div>
+                </label>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php
+}
+
+/**
+ * Salva le preferenze di notifica al salvataggio dei dettagli account.
+ */
+add_action('woocommerce_save_account_details', 'dfn_save_edit_account_notification_preferences', 10, 1);
+function dfn_save_edit_account_notification_preferences(int $user_id): void
+{
+    if (isset($_POST['dfn_notification_prefs_nonce']) && wp_verify_nonce($_POST['dfn_notification_prefs_nonce'], 'dfn_save_notification_prefs')) {
+        $notify_expiry   = isset($_POST['dfn_notify_card_expiry']) ? '1' : '0';
+        $notify_meetings = isset($_POST['dfn_notify_meetings']) ? '1' : '0';
+        $notify_shifts   = isset($_POST['dfn_notify_shifts']) ? '1' : '0';
+
+        update_user_meta($user_id, '_dfn_notify_card_expiry', $notify_expiry);
+        update_user_meta($user_id, '_dfn_notify_meetings', $notify_meetings);
+        update_user_meta($user_id, '_dfn_notify_shifts', $notify_shifts);
+    }
+}
