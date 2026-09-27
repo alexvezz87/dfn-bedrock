@@ -14,23 +14,40 @@ if (! defined('ABSPATH')) {
 }
 
 /**
- * Invia un'email HTML formattata con il template premium di FAI Prenotazioni.
+ * Invia un'email HTML formattata con il template premium di FAI Prenotazioni / Volontari.
  *
- * @param string $to          Destinatario.
- * @param string $subject     Oggetto dell'email.
- * @param string $title       Titolo visivo all'interno del template.
- * @param string $content_html Contenuto HTML principale.
- * @param array  $attachments  Allegati (opzionale).
- * @param string $context_info Tag di contesto opzionale per il logger (es. '[Ordine #123] [Booking #45]').
+ * @param string|array $to              Destinatario o lista di destinatari.
+ * @param string       $subject         Oggetto dell'email.
+ * @param string       $title           Titolo visivo all'interno del template.
+ * @param string       $content_html     Contenuto HTML principale.
+ * @param array        $attachments      Allegati (opzionale).
+ * @param string       $context_info     Tag di contesto opzionale per il logger (es. '[Ordine #123] [Booking #45]').
+ * @param array        $sender_override  Mittente personalizzato opzionale: ['name' => '...', 'email' => '...'].
  * @return bool True se l'invio ha avuto successo, false altrimenti.
  */
-function dfn_send_notification_email($to, $subject, $title, $content_html, $attachments = [], string $context_info = '')
+function dfn_send_notification_email($to, $subject, $title, $content_html, $attachments = [], string $context_info = '', array $sender_override = [])
 {
     if (! empty($context_info)) {
         $GLOBALS['dfn_current_email_context'] = rtrim($context_info) . ' ';
     }
 
     $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
+
+    // Gestione Mittente Personalizzato (From & Reply-To)
+    $from_name  = ! empty($sender_override['name']) ? trim((string) $sender_override['name']) : '';
+    $from_email = ! empty($sender_override['email']) ? trim((string) $sender_override['email']) : '';
+
+    if (! empty($from_name) && ! empty($from_email) && is_email($from_email)) {
+        $headers[] = sprintf('From: %s <%s>', $from_name, $from_email);
+        $headers[] = sprintf('Reply-To: %s <%s>', $from_name, $from_email);
+    } elseif (! empty($from_name)) {
+        $default_from_email = get_option('admin_email');
+        $headers[] = sprintf('From: %s <%s>', $from_name, $default_from_email);
+        $headers[] = sprintf('Reply-To: %s <%s>', $from_name, $default_from_email);
+    } elseif (! empty($from_email) && is_email($from_email)) {
+        $headers[] = sprintf('From: <%s>', $from_email);
+        $headers[] = sprintf('Reply-To: <%s>', $from_email);
+    }
 
     // Gestione Cc (Copia Visibile)
     $cc_raw = dfn_get_setting('email_cc', '');
@@ -57,6 +74,24 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
         }
     }
 
+    // Filtri dinamici WordPress per garantire l'applicazione del mittente anche con plugin SMTP
+    $filter_from_name  = null;
+    $filter_from_email = null;
+
+    if (! empty($from_name)) {
+        $filter_from_name = function () use ($from_name) {
+            return $from_name;
+        };
+        add_filter('wp_mail_from_name', $filter_from_name, 9999);
+    }
+
+    if (! empty($from_email) && is_email($from_email)) {
+        $filter_from_email = function () use ($from_email) {
+            return $from_email;
+        };
+        add_filter('wp_mail_from', $filter_from_email, 9999);
+    }
+
     // Se $to contiene virgole, lo convertiamo in array per wp_mail
     if (is_string($to) && strpos($to, ',') !== false) {
         $to = array_map('sanitize_email', array_map('trim', explode(',', $to)));
@@ -67,6 +102,8 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
     if (is_string($to)) {
         if (trim(strtolower($to)) === 'no-email@dfn.it') {
             $GLOBALS['dfn_current_email_context'] = '';
+            if ($filter_from_name) remove_filter('wp_mail_from_name', $filter_from_name, 9999);
+            if ($filter_from_email) remove_filter('wp_mail_from', $filter_from_email, 9999);
             return true;
         }
     } elseif (is_array($to)) {
@@ -75,6 +112,8 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
         });
         if (empty($to)) {
             $GLOBALS['dfn_current_email_context'] = '';
+            if ($filter_from_name) remove_filter('wp_mail_from_name', $filter_from_name, 9999);
+            if ($filter_from_email) remove_filter('wp_mail_from', $filter_from_email, 9999);
             return true;
         }
     }
@@ -83,6 +122,15 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
     $body = dfn_get_email_html_template($title, $content_html);
 
     $sent = wp_mail($to, $subject, $body, $headers, $attachments);
+
+    // Rimozione filtri temporanei
+    if ($filter_from_name !== null) {
+        remove_filter('wp_mail_from_name', $filter_from_name, 9999);
+    }
+    if ($filter_from_email !== null) {
+        remove_filter('wp_mail_from', $filter_from_email, 9999);
+    }
+
     $GLOBALS['dfn_current_email_context'] = '';
 
     return $sent;
@@ -1589,6 +1637,28 @@ function dfn_build_volunteer_approved_email_html(array $v, int $user_id = 0): st
 }
 
 /**
+ * Restituisce i dati del mittente configurato per tutte le email relative ai Volontari FAI.
+ *
+ * @return array ['name' => string, 'email' => string]
+ */
+function dfn_get_volunteer_email_sender(): array
+{
+    $delegation_name  = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+    $delegation_email = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_email', get_option('admin_email')) : get_option('admin_email');
+
+    $default_name  = 'Coordinamento Volontari ' . $delegation_name;
+    $default_email = $delegation_email;
+
+    $name  = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_sender_name', $default_name) : $default_name;
+    $email = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_sender_email', $default_email) : $default_email;
+
+    return [
+        'name'  => trim((string) $name),
+        'email' => trim((string) $email),
+    ];
+}
+
+/**
  * Invia una notifica allo staff/amministratore quando viene inviata una nuova registrazione volontario online.
  *
  * @param array|object $volunteer_data Dati del candidato.
@@ -1617,8 +1687,9 @@ function dfn_send_volunteer_admin_notification($volunteer_data, int $user_id = 0
     $subject = dfn_replace_volunteer_email_placeholders((string) $raw_subject, $v, $user_id);
     $title   = dfn_replace_volunteer_email_placeholders((string) $raw_title, $v, $user_id);
     $body    = dfn_build_volunteer_admin_email_html($v, $user_id);
+    $sender  = dfn_get_volunteer_email_sender();
 
-    return dfn_send_notification_email($emails, $subject, $title, $body, [], '[Candidatura Volontario]');
+    return dfn_send_notification_email($emails, $subject, $title, $body, [], '[Candidatura Volontario]', $sender);
 }
 
 /**
@@ -1650,8 +1721,9 @@ function dfn_send_volunteer_candidate_pending_email($volunteer_data, string $ove
     $subject = dfn_replace_volunteer_email_placeholders((string) $raw_subject, $v);
     $title   = dfn_replace_volunteer_email_placeholders((string) $raw_title, $v);
     $body    = dfn_build_volunteer_pending_email_html($v);
+    $sender  = dfn_get_volunteer_email_sender();
 
-    return dfn_send_notification_email($to, $subject, $title, $body, [], '[Presa in carico Volontario]');
+    return dfn_send_notification_email($to, $subject, $title, $body, [], '[Presa in carico Volontario]', $sender);
 }
 
 /**
@@ -1684,8 +1756,9 @@ function dfn_send_volunteer_approved_email($volunteer_data, int $user_id = 0, st
     $subject = dfn_replace_volunteer_email_placeholders((string) $raw_subject, $v, $user_id);
     $title   = dfn_replace_volunteer_email_placeholders((string) $raw_title, $v, $user_id);
     $body    = dfn_build_volunteer_approved_email_html($v, $user_id);
+    $sender  = dfn_get_volunteer_email_sender();
 
-    return dfn_send_notification_email($to, $subject, $title, $body, [], '[Approvazione Volontario]');
+    return dfn_send_notification_email($to, $subject, $title, $body, [], '[Approvazione Volontario]', $sender);
 }
 
 

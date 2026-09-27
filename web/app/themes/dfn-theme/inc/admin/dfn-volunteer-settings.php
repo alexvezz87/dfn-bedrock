@@ -56,6 +56,8 @@ function dfn_get_volunteer_setting(string $key, $default = null)
     $delegation_email = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_email', get_option('admin_email')) : get_option('admin_email');
 
     $defaults = [
+        'vol_email_sender_name'              => 'Coordinamento Volontari ' . $delegation_name,
+        'vol_email_sender_email'             => $delegation_email,
         'vol_email_admin_recipients'         => $delegation_email,
         'vol_require_approval'               => 'yes',
         'vol_enable_candidate_pending_email' => 'yes',
@@ -120,6 +122,8 @@ function dfn_volunteer_settings_save_fields(): void
     }
 
     $fields = [
+        'vol_email_sender_name'              => 'sanitize_text_field',
+        'vol_email_sender_email'             => 'sanitize_email',
         'vol_email_admin_recipients'         => 'sanitize_email_list',
         'vol_require_approval'               => 'sanitize_text_field',
         'vol_enable_candidate_pending_email' => 'sanitize_text_field',
@@ -465,9 +469,47 @@ function dfn_render_volunteer_settings_page(): void
 
             <!-- TAB 1: NOTIFICHE & DESTINATARI -->
             <?php if ($active_tab === 'notifiche') : ?>
+                <!-- CARD 1: MITTENTE PERSONALIZZATO -->
+                <div style="background:#fff; border-radius:10px; border:1px solid #c3c4c7; padding:24px 28px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-bottom:24px;">
+                    <h2 style="font-size:18px; font-weight:700; color:#004b23; margin:0 0 12px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
+                        📮 Mittente Email Personalizzato (From &amp; Reply-To)
+                    </h2>
+                    <p style="color:#64748b; font-size:13.5px; margin-top:-4px; margin-bottom:18px; line-height:1.5;">
+                        Personalizza il nome e l'indirizzo email visualizzati dai volontari e dai candidati quando ricevono comunicazioni (presa in carico, approvazioni, notifiche). In questo modo il mittente sarà chiaramente identificato come <strong>Coordinamento Volontari</strong> anziché con il mittente generale del sistema prenotazioni visite (<em>DFN Prenotazioni</em>).
+                    </p>
+
+                    <table class="form-table" role="presentation" style="margin-top:0;">
+                        <tbody>
+                            <tr>
+                                <th scope="row" style="width:280px;">
+                                    <label for="vol_email_sender_name"><strong>Nome Mittente Email</strong></label>
+                                </th>
+                                <td>
+                                    <input type="text" name="dfn_vol_settings[vol_email_sender_name]" id="vol_email_sender_name" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_sender_name')); ?>" class="regular-text" style="width:100%; max-width:480px;" placeholder="es. Coordinamento Volontari <?php echo esc_attr($delegation_name); ?>" />
+                                    <p class="description" style="margin-top:6px;">
+                                        Nome visualizzato come mittente nell'inbox del destinatario (es. <em>Coordinamento Volontari FAI Novara</em>).
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="vol_email_sender_email"><strong>Indirizzo Email Mittente / Rispondi a</strong></label>
+                                </th>
+                                <td>
+                                    <input type="email" name="dfn_vol_settings[vol_email_sender_email]" id="vol_email_sender_email" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_sender_email')); ?>" class="regular-text" style="width:100%; max-width:480px;" placeholder="es. <?php echo esc_attr(function_exists('dfn_get_setting') ? dfn_get_setting('delegation_email', get_option('admin_email')) : get_option('admin_email')); ?>" />
+                                    <p class="description" style="margin-top:6px;">
+                                        Indirizzo email mittente e Reply-To da cui partono le comunicazioni e a cui arriveranno eventuali risposte dei volontari.
+                                    </p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- CARD 2: NOTIFICHE CANDIDATURE E APPROVAZIONE -->
                 <div style="background:#fff; border-radius:10px; border:1px solid #c3c4c7; padding:24px 28px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-bottom:24px;">
                     <h2 style="font-size:18px; font-weight:700; color:#004b23; margin:0 0 16px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
-                        🔔 Notifiche Candidature e Approvazione
+                        🔔 Destinatari e Flussi Automatici
                     </h2>
 
                     <table class="form-table" role="presentation" style="margin-top:0;">
@@ -479,7 +521,7 @@ function dfn_render_volunteer_settings_page(): void
                                 <td>
                                     <input type="text" name="dfn_vol_settings[vol_email_admin_recipients]" id="vol_email_admin_recipients" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_recipients')); ?>" class="regular-text" style="width:100%; max-width:480px;" />
                                     <p class="description" style="margin-top:6px;">
-                                        Indirizzi email a cui inviare la notifica quando un candidato compila il form di registrazione online. Separa più indirizzi con una virgola.
+                                        Indirizzi email dello staff a cui inviare la notifica quando un candidato compila il form di registrazione online. Separa più indirizzi con una virgola.
                                     </p>
                                 </td>
                             </tr>
