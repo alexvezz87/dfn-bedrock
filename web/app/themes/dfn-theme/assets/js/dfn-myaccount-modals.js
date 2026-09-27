@@ -225,19 +225,17 @@
         }
     });
 
-    // Toggle visibilità password (supporta sia .dfn-pwd-toggle-btn con SVG che fallback)
-    $(document).on('click', '.dfn-pwd-toggle-btn, .password-input .show-password-input', function(e) {
+    // Toggle visibilità password
+    $(document).on('click', '.dfn-pwd-toggle-btn', function(e) {
         e.preventDefault();
         e.stopPropagation();
         var $btn   = $(this);
-        var $wrap  = $btn.closest('.dfn-password-input-wrap, .password-input');
+        var $wrap  = $btn.closest('.dfn-password-input-wrap');
         var $input = $wrap.find('input');
         if ($input.length) {
             var isPass = $input.attr('type') === 'password';
             $input.attr('type', isPass ? 'text' : 'password');
             $btn.toggleClass('is-active', isPass);
-            $btn.find('.icon-eye-show').toggle(!isPass);
-            $btn.find('.icon-eye-hide').toggle(isPass);
         }
     });
 
