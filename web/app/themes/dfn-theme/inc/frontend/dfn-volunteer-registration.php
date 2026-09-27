@@ -5,12 +5,14 @@
  * Gestisce la candidatura e registrazione online per i volontari di delegazione:
  * - URL dedicato: /registrazione-volontario/
  * - Shortcode: [dfn_registrazione_volontario]
- * - Pre-popolamento dati per utenti già autenticati o presenti nel database
+ * - Controllo di sicurezza rigoroso: impedisce sovrascrittura password/dati di account esistenti
+ * - Box di login integrato per utenti già registrati con recupero password
+ * - Pre-popolamento automatico per utenti autenticati (omissione campi password)
  * - Workflow approvazione preventiva (status 'pending') con invio notifiche email
- * - Assegnazione sicura del ruolo secondario 'dfn_volunteer' dopo l'approvazione admin
+ * - Controllo live asincrono disponibilità email
  *
  * @package DFN_Theme
- * @since   2.4.1
+ * @since   2.4.2
  */
 
 if (! defined('ABSPATH')) {
@@ -22,6 +24,10 @@ add_shortcode('dfn_registrazione_volontario', 'dfn_render_volunteer_registration
 
 // 2. Garantisce l'esistenza della pagina WordPress
 add_action('init', 'dfn_ensure_volunteer_registration_page_exists');
+
+// 3. Endpoint AJAX per controllo live esistenza email
+add_action('wp_ajax_nopriv_dfn_check_volunteer_email', 'dfn_ajax_check_volunteer_email');
+add_action('wp_ajax_dfn_check_volunteer_email', 'dfn_ajax_check_volunteer_email');
 
 /**
  * Crea la pagina WordPress 'Registrazione Volontari FAI' se non esiste già.
@@ -53,11 +59,32 @@ function dfn_ensure_volunteer_registration_page_exists(): void
     }
 }
 
+/**
+ * Endpoint AJAX: verifica se un'email è già registrata in WordPress.
+ */
+function dfn_ajax_check_volunteer_email(): void
+{
+    $email = sanitize_email($_POST['email'] ?? '');
+    if (! is_email($email)) {
+        wp_send_json_success(['exists' => false]);
+    }
+
+    if (is_user_logged_in()) {
+        $current = wp_get_current_user();
+        if (strtolower($current->user_email) === strtolower($email)) {
+            wp_send_json_success(['exists' => false, 'is_self' => true]);
+        }
+    }
+
+    $exists = (bool) email_exists($email);
+    wp_send_json_success(['exists' => $exists]);
+}
+
 // Variabile globale temporanea per passare esito o errori da template_redirect allo shortcode
 global $dfn_vol_reg_result;
-$dfn_vol_reg_result = ['status' => '', 'message' => ''];
+$dfn_vol_reg_result = ['status' => '', 'message' => '', 'show_login' => false];
 
-// 3. Intercetta l'URL /registrazione-volontario/ per elaborazione POST e template custom
+// 4. Intercetta l'URL /registrazione-volontario/ per elaborazione POST e template custom
 add_action('template_redirect', 'dfn_handle_volunteer_registration_page_rewrite');
 
 /**
@@ -71,7 +98,37 @@ function dfn_handle_volunteer_registration_page_rewrite(): void
     if ($path === 'registrazione-volontario' || strpos($path, 'registrazione-volontario') !== false) {
         global $wp_query, $dfn_vol_reg_result;
 
-        // Processa prima l'invio del form POST PRIMA che qualsiasi HTML o header venga inviato
+        // A. Gestione Login Inline
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['dfn_vol_login_nonce'])) {
+            if (wp_verify_nonce($_POST['dfn_vol_login_nonce'], 'dfn_vol_login_action')) {
+                $creds = [
+                    'user_login'    => sanitize_text_field(wp_unslash($_POST['log'] ?? '')),
+                    'user_password' => $_POST['pwd'] ?? '',
+                    'remember'      => true,
+                ];
+                $signon = wp_signon($creds, is_ssl());
+                if (is_wp_error($signon)) {
+                    $dfn_vol_reg_result = [
+                        'status'     => 'error',
+                        'message'    => 'Credenziali di accesso non corrette: ' . strip_tags($signon->get_error_message()),
+                        'show_login' => true,
+                    ];
+                } else {
+                    wp_set_current_user($signon->ID);
+                    wp_set_auth_cookie($signon->ID, true);
+                    wp_safe_redirect(remove_query_arg(['login_error'], $request_uri));
+                    exit;
+                }
+            } else {
+                $dfn_vol_reg_result = [
+                    'status'     => 'error',
+                    'message'    => 'Sessione di accesso scaduta. Riprova.',
+                    'show_login' => true,
+                ];
+            }
+        }
+
+        // B. Processa l'invio del form di candidatura
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['dfn_vol_reg_nonce'])) {
             $dfn_vol_reg_result = dfn_process_volunteer_registration();
         }
@@ -102,16 +159,16 @@ function dfn_handle_volunteer_registration_page_rewrite(): void
 /**
  * Processa l'invio del form di registrazione/candidatura volontario.
  *
- * @return array{status: string, message: string}
+ * @return array{status: string, message: string, show_login?: bool}
  */
 function dfn_process_volunteer_registration(): array
 {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' || ! isset($_POST['dfn_vol_reg_nonce'])) {
-        return ['status' => '', 'message' => ''];
+        return ['status' => '', 'message' => '', 'show_login' => false];
     }
 
     if (! wp_verify_nonce($_POST['dfn_vol_reg_nonce'], 'dfn_vol_reg_action')) {
-        return ['status' => 'error', 'message' => 'Sessione scaduta. Ricarica la pagina e riprova.'];
+        return ['status' => 'error', 'message' => 'Sessione scaduta. Ricarica la pagina e riprova.', 'show_login' => false];
     }
 
     $is_logged_in     = is_user_logged_in();
@@ -127,29 +184,40 @@ function dfn_process_volunteer_registration(): array
     $is_guide         = ! empty($_POST['is_guide']) ? 1 : 0;
 
     if (empty($first_name) || empty($last_name) || empty($email)) {
-        return ['status' => 'error', 'message' => 'Compila tutti i campi obbligatori (Nome, Cognome, Email).'];
+        return ['status' => 'error', 'message' => 'Compila tutti i campi obbligatori (Nome, Cognome, Email).', 'show_login' => false];
     }
 
     if (! is_email($email)) {
-        return ['status' => 'error', 'message' => 'Indirizzo email non valido.'];
+        return ['status' => 'error', 'message' => 'Indirizzo email non valido.', 'show_login' => false];
     }
 
-    // Se l'utente non è loggato ed è un nuovo account, verifichiamo la password
-    $existing_user = get_user_by('email', $email);
-    if (! $is_logged_in && ! $existing_user) {
+    // =========================================================================
+    // CONTROLLO DI SICUREZZA RIGOROSO: UTENTE NON AUTENTICATO
+    // =========================================================================
+    if (! $is_logged_in) {
+        $existing_user_by_email = get_user_by('email', $email);
+        if ($existing_user_by_email) {
+            return [
+                'status'     => 'error',
+                'message'    => sprintf('L\'indirizzo email %s è già associato a un account esistente. Se sei già registrato su questo sito, effettua il login dal box in alto per candidarti con il tuo profilo.', esc_html($email)),
+                'show_login' => true,
+            ];
+        }
+
+        if (! empty($username_input) && username_exists($username_input)) {
+            return [
+                'status'     => 'error',
+                'message'    => sprintf('Il nome utente "%s" è già in uso. Scegline un altro oppure effettua l\'accesso in alto.', esc_html($username_input)),
+                'show_login' => true,
+            ];
+        }
+
         if (empty($password) || strlen($password) < 6) {
-            return ['status' => 'error', 'message' => 'La password deve contenere almeno 6 caratteri.'];
+            return ['status' => 'error', 'message' => 'La password deve contenere almeno 6 caratteri.', 'show_login' => false];
         }
 
         if ($password !== $password_confirm) {
-            return ['status' => 'error', 'message' => 'Le due password inserite non coincidono. Ricontrolla e riprova.'];
-        }
-    } elseif (! $is_logged_in && $existing_user && ! empty($password)) {
-        if (strlen($password) < 6) {
-            return ['status' => 'error', 'message' => 'La password deve contenere almeno 6 caratteri.'];
-        }
-        if ($password !== $password_confirm) {
-            return ['status' => 'error', 'message' => 'Le due password inserite non coincidono. Ricontrolla e riprova.'];
+            return ['status' => 'error', 'message' => 'Le due password inserite non coincidono. Ricontrolla e riprova.', 'show_login' => false];
         }
     }
 
@@ -160,22 +228,12 @@ function dfn_process_volunteer_registration(): array
     $user_id = 0;
     if ($is_logged_in && $current_wp_user) {
         $user_id = $current_wp_user->ID;
+        // Aggiorna solo nome e cognome se presenti, NESSUNA modifica alla password
         wp_update_user([
             'ID'         => $user_id,
             'first_name' => $first_name,
             'last_name'  => $last_name,
         ]);
-    } elseif ($existing_user) {
-        $user_id = $existing_user->ID;
-        $update_args = [
-            'ID'         => $user_id,
-            'first_name' => $first_name,
-            'last_name'  => $last_name,
-        ];
-        if (! empty($password)) {
-            $update_args['user_pass'] = $password;
-        }
-        wp_update_user($update_args);
     } else {
         // Creazione nuovo account utente WP
         $username = $username_input;
@@ -183,14 +241,13 @@ function dfn_process_volunteer_registration(): array
             $username = sanitize_user(strtolower($first_name . '.' . $last_name), true);
         }
 
-        // Se l'username scelto esiste già, proviamo ad aggiungere un suffisso univoco
         if (username_exists($username)) {
             $username = $username . '.' . wp_rand(10, 99);
         }
 
         $user_id = wp_create_user($username, $password, $email);
         if (is_wp_error($user_id)) {
-            return ['status' => 'error', 'message' => 'Errore nella creazione dell\'account: ' . $user_id->get_error_message()];
+            return ['status' => 'error', 'message' => 'Errore nella creazione dell\'account: ' . $user_id->get_error_message(), 'show_login' => false];
         }
 
         wp_update_user([
@@ -290,12 +347,10 @@ function dfn_process_volunteer_registration(): array
 
     // Se è richiesta l'approvazione preventiva
     if ($require_approval === 'yes') {
-        // Invio mail di presa in carico al candidato
         if (function_exists('dfn_send_volunteer_candidate_pending_email')) {
             dfn_send_volunteer_candidate_pending_email($volunteer_data);
         }
 
-        // Log attività
         if (function_exists('dfn_log_write')) {
             dfn_log_write(
                 'volontari',
@@ -306,9 +361,10 @@ function dfn_process_volunteer_registration(): array
         }
 
         return [
-            'status'  => 'pending_success',
-            'message' => 'Candidatura inviata con successo!',
-            'data'    => $volunteer_data
+            'status'     => 'pending_success',
+            'message'    => 'Candidatura inviata con successo!',
+            'data'       => $volunteer_data,
+            'show_login' => false
         ];
     }
 
@@ -354,13 +410,36 @@ function dfn_process_volunteer_registration(): array
 function dfn_render_volunteer_registration_shortcode($atts = []): string
 {
     global $dfn_vol_reg_result;
-    $result = is_array($dfn_vol_reg_result) ? $dfn_vol_reg_result : ['status' => '', 'message' => ''];
+    $result = is_array($dfn_vol_reg_result) ? $dfn_vol_reg_result : ['status' => '', 'message' => '', 'show_login' => false];
+
+    // Se inviato login da shortcode non intercettato da template_redirect
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['dfn_vol_login_nonce']) && empty($result['status'])) {
+        if (wp_verify_nonce($_POST['dfn_vol_login_nonce'], 'dfn_vol_login_action')) {
+            $creds = [
+                'user_login'    => sanitize_text_field(wp_unslash($_POST['log'] ?? '')),
+                'user_password' => $_POST['pwd'] ?? '',
+                'remember'      => true,
+            ];
+            $signon = wp_signon($creds, is_ssl());
+            if (is_wp_error($signon)) {
+                $result = [
+                    'status'     => 'error',
+                    'message'    => 'Credenziali di accesso non corrette: ' . strip_tags($signon->get_error_message()),
+                    'show_login' => true,
+                ];
+            } else {
+                wp_set_current_user($signon->ID);
+                wp_set_auth_cookie($signon->ID, true);
+                wp_safe_redirect($_SERVER['REQUEST_URI'] ?? home_url('/registrazione-volontario/'));
+                exit;
+            }
+        }
+    }
 
     // 1. Schermata di avvenuta candidatura in attesa di approvazione
     if ($result['status'] === 'pending_success') {
         $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
         $home_url = home_url('/');
-        $events_url = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/eventi/');
 
         return '<div class="dfn-vol-reg-container" style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04); overflow: hidden; border: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; text-align: center;">
             <div style="background: linear-gradient(135deg, #004b23 0%, #002e15 100%); color: #ffffff; padding: 36px 28px;">
@@ -421,11 +500,11 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
     // Se è già un volontario attivo
     if ($is_active_vol && $current_user) {
         $account_url = function_exists('wc_get_account_endpoint_url') ? wc_get_account_endpoint_url('volontari-fai') : site_url('/mio-account/volontari-fai/');
-        return '<div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); text-align: center; border-top: 5px solid #004b23; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="font-size: 44px; margin-bottom: 12px;">🎉</div>
-            <h2 style="color: #004b23; margin: 0 0 10px; font-size: 22px; font-weight: 700;">Sei già registrato come Volontario FAI!</h2>
-            <p style="color: #475569; font-size: 14.5px; margin-bottom: 24px;">Ciao <strong>' . esc_html($current_user->display_name) . '</strong>, il tuo profilo volontario è attivo e pronto per le prossime attività di delegazione.</p>
-            <a href="' . esc_url($account_url) . '" class="button" style="background: #004b23; color: #ffffff; padding: 10px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 15px;">
+        return '<div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 36px 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); text-align: center; border-top: 6px solid #004b23; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="font-size: 48px; margin-bottom: 14px;">🎉</div>
+            <h2 style="color: #004b23; margin: 0 0 10px; font-size: 22px; font-weight: 800;">Sei già registrato come Volontario FAI!</h2>
+            <p style="color: #475569; font-size: 15px; margin-bottom: 24px; line-height: 1.5;">Ciao <strong>' . esc_html($current_user->display_name) . '</strong>, il tuo profilo volontario è attivo e abilitato a consultare i turni e le attività di Delegazione.</p>
+            <a href="' . esc_url($account_url) . '" class="button" style="background: #004b23; color: #ffffff; padding: 12px 26px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 15px;">
                 🏛️ Vai alla tua Bacheca Volontario &rarr;
             </a>
         </div>';
@@ -433,12 +512,12 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
 
     // Se ha già inviato una candidatura che è in attesa di approvazione
     if ($is_pending_vol && $current_user) {
-        return '<div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); text-align: center; border-top: 5px solid #eab308; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="font-size: 44px; margin-bottom: 12px;">⏳</div>
-            <h2 style="color: #b45309; margin: 0 0 10px; font-size: 22px; font-weight: 700;">Candidatura in Fase di Approvazione</h2>
-            <p style="color: #475569; font-size: 14.5px; margin-bottom: 20px;">Ciao <strong>' . esc_html($current_user->display_name) . '</strong>, la tua richiesta di adesione come Volontario FAI è stata registrata ed è attualmente in fase di revisione da parte dello staff di Delegazione.</p>
-            <div style="background: #fefce8; border: 1px solid #fef08a; padding: 12px 16px; border-radius: 8px; font-size: 13.5px; color: #854d0e; text-align: left;">
-                Riceverai un\'email di conferma non appena il tuo account sarà approvato e abilitato alla bacheca turni.
+        return '<div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 36px 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); text-align: center; border-top: 6px solid #eab308; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="font-size: 48px; margin-bottom: 14px;">⏳</div>
+            <h2 style="color: #b45309; margin: 0 0 10px; font-size: 22px; font-weight: 800;">Candidatura in Fase di Approvazione</h2>
+            <p style="color: #475569; font-size: 15px; margin-bottom: 20px; line-height: 1.5;">Ciao <strong>' . esc_html($current_user->display_name) . '</strong>, la tua richiesta di adesione come Volontario FAI è stata registrata ed è attualmente in fase di revisione da parte dello staff di Delegazione.</p>
+            <div style="background: #fefce8; border: 1px solid #fef08a; padding: 14px 18px; border-radius: 8px; font-size: 14px; color: #854d0e; text-align: left; line-height: 1.5;">
+                Riceverai un\'email di conferma non appena la tua candidatura sarà approvata e abilitata all\'accesso turni.
             </div>
         </div>';
     }
@@ -450,9 +529,15 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
     $pre_phone      = $_POST['phone'] ?? ($current_user ? get_user_meta($current_user->ID, 'billing_phone', true) : '');
     $pre_username   = $_POST['username'] ?? ($current_user ? $current_user->user_login : '');
 
+    $show_login_init = ! empty($result['show_login']);
+
+    $lost_password_url = function_exists('wc_get_endpoint_url') && function_exists('wc_get_page_permalink') 
+        ? wc_get_endpoint_url('lost-password', '', wc_get_page_permalink('myaccount')) 
+        : wp_lostpassword_url(get_permalink());
+
     ob_start();
     ?>
-    <div class="dfn-vol-reg-container" style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04); overflow: hidden; border: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <div class="dfn-vol-reg-container" style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04); overflow: hidden; border: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
         
         <!-- HEADER FORM -->
         <div style="background: linear-gradient(135deg, #004b23 0%, #002e15 100%); color: #ffffff; padding: 30px 28px; text-align: center;">
@@ -471,17 +556,63 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
         <div style="padding: 28px 28px 32px;">
             
             <?php if (! empty($result['message'])) : ?>
-                <div style="background: <?php echo $result['status'] === 'error' ? '#fef2f2' : '#f0fdf4'; ?>; border: 1px solid <?php echo $result['status'] === 'error' ? '#fecaca' : '#bbf7d0'; ?>; color: <?php echo $result['status'] === 'error' ? '#991b1b' : '#166534'; ?>; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 13.5px; font-weight: 600;">
+                <div style="background: <?php echo $result['status'] === 'error' ? '#fef2f2' : '#f0fdf4'; ?>; border: 1.5px solid <?php echo $result['status'] === 'error' ? '#fecaca' : '#bbf7d0'; ?>; color: <?php echo $result['status'] === 'error' ? '#991b1b' : '#166534'; ?>; padding: 14px 18px; border-radius: 10px; margin-bottom: 22px; font-size: 13.5px; font-weight: 600; line-height: 1.5;">
                     <?php echo $result['status'] === 'error' ? '⚠️ ' : '✅ '; ?><?php echo esc_html($result['message']); ?>
                 </div>
             <?php endif; ?>
 
-            <?php if ($current_user) : ?>
-                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #166534; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 18px;">👤</span>
-                    <div>
-                        Sei autenticato come <strong><?php echo esc_html($current_user->display_name); ?></strong> (<code><?php echo esc_html($current_user->user_email); ?></code>). La candidatura verrà associata al tuo account esistente.
+            <!-- BOX LOGIN PER UTENTI GIÀ REGISTRATI (SE NON AUTENTICATI) -->
+            <?php if (! $current_user) : ?>
+                <div class="dfn-vol-login-card" id="dfn-vol-login-card" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; transition: all 0.2s ease;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" id="dfn-toggle-login-btn">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 22px;">🔑</span>
+                            <div>
+                                <strong style="color: #004b23; font-size: 14.5px; display: block;">Sei già registrato sul sito?</strong>
+                                <span style="font-size: 12.5px; color: #64748b;">Accedi con il tuo account per autocompilare la candidatura</span>
+                            </div>
+                        </div>
+                        <span id="dfn-login-toggle-text" style="font-size: 12.5px; font-weight: 700; color: #004b23; background: #e0f2fe; padding: 5px 12px; border-radius: 6px; white-space: nowrap;">
+                            <?php echo $show_login_init ? 'Chiudi &uarr;' : 'Accedi &darr;'; ?>
+                        </span>
                     </div>
+
+                    <div id="dfn-vol-login-form-wrapper" style="<?php echo $show_login_init ? 'display: block;' : 'display: none;'; ?> margin-top: 16px; padding-top: 16px; border-top: 1px dashed #cbd5e1;">
+                        <form method="post" action="" id="dfn-vol-inline-login-form" style="margin: 0;">
+                            <?php wp_nonce_field('dfn_vol_login_action', 'dfn_vol_login_nonce'); ?>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Email o Nome Utente *</label>
+                                    <input type="text" name="log" id="dfn-login-user-input" required placeholder="tua@email.it" style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; box-sizing: border-box; outline: none;" />
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Password *</label>
+                                    <input type="password" name="pwd" required placeholder="••••••••" style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; box-sizing: border-box; outline: none;" />
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 4px;">
+                                <button type="submit" class="button" style="background: #004b23; color: #ffffff; padding: 8px 20px; border: none; border-radius: 6px; font-weight: 700; font-size: 13.5px; cursor: pointer;">
+                                    Accedi e Compila &rarr;
+                                </button>
+                                <a href="<?php echo esc_url($lost_password_url); ?>" target="_blank" style="font-size: 12.5px; color: #0284c7; text-decoration: underline; font-weight: 600;">
+                                    Hai dimenticato la password?
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            <?php else : ?>
+                <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; font-size: 13.5px; color: #166534; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 22px;">👤</span>
+                        <div>
+                            Connesso come <strong><?php echo esc_html($current_user->display_name); ?></strong> (<code><?php echo esc_html($current_user->user_email); ?></code>).
+                            <div style="font-size: 12px; color: #15803d; margin-top: 2px;">La candidatura verrà collegata in modo sicuro al tuo account esistente.</div>
+                        </div>
+                    </div>
+                    <a href="<?php echo esc_url(wp_logout_url(get_permalink())); ?>" style="font-size: 12.5px; color: #dc2626; text-decoration: underline; font-weight: 600;">
+                        Esci / Cambia account
+                    </a>
                 </div>
             <?php endif; ?>
 
@@ -510,7 +641,7 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
                         </label>
                         <input type="text" name="username" id="dfn-reg-username" required placeholder="mario.rossi" value="<?php echo esc_attr($pre_username); ?>" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box; outline: none;" />
                         <span style="font-size: 11.5px; color: #64748b; margin-top: 4px; display: block;">
-                            Scegli il tuo nome utente di accesso.
+                            Scegli il tuo nome utente di accesso per la Bacheca Volontari.
                         </span>
                     </div>
                 <?php endif; ?>
@@ -519,10 +650,13 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
                     <label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px;">
                         Indirizzo Email *
                     </label>
-                    <input type="email" name="email" required placeholder="mario.rossi@email.com" value="<?php echo esc_attr($pre_email); ?>" <?php echo $current_user ? 'readonly style="background:#f8fafc; color:#64748b; width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box;"' : 'style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box; outline: none;"'; ?> />
-                    <span style="font-size: 11.5px; color: #64748b; margin-top: 4px; display: block;">
+                    <input type="email" name="email" id="dfn-reg-email" required placeholder="mario.rossi@email.com" value="<?php echo esc_attr($pre_email); ?>" <?php echo $current_user ? 'readonly style="background:#f8fafc; color:#64748b; width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box;"' : 'style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14.5px; box-sizing: border-box; outline: none;"'; ?> />
+                    <span id="dfn-email-status-desc" style="font-size: 11.5px; color: #64748b; margin-top: 4px; display: block;">
                         Riceverai qui le comunicazioni di approvazione e le notifiche di delegazione.
                     </span>
+                    <div id="dfn-email-duplicate-warning" style="display:none; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:10px 14px; border-radius:8px; margin-top:8px; font-size:12.5px; font-weight:600;">
+                        ⚠️ Questa email risulta già registrata. <a href="#" id="dfn-trigger-open-login" style="color:#0284c7; text-decoration:underline;">Clicca qui per accedere in alto</a> e compila la candidatura con il tuo account.
+                    </div>
                 </div>
 
                 <div style="margin-bottom: 16px;">
@@ -535,7 +669,7 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
                     </span>
                 </div>
 
-                <!-- SEZIONE PASSWORD SE UTENTE NON LOGGATO -->
+                <!-- SEZIONE PASSWORD: SOLO PER UTENTI NON ANCORA REGISTRATI -->
                 <?php if (! $current_user) : ?>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 6px;">
                         <div>
@@ -592,10 +726,97 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
 
     </div>
 
-    <!-- Script Gestione Toggle Password e Validazione Match -->
+    <!-- SCRIPT GESTIONE LOGIN TOGGLE, CHECK EMAIL E VALIDAZIONE PASSWORD -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Toggle mostra/nascondi password
+        var ajaxUrl = '<?php echo esc_url(admin_url('admin-ajax.php')); ?>';
+
+        // 1. Toggle Box Login
+        var toggleBtn = document.getElementById('dfn-toggle-login-btn');
+        var loginWrapper = document.getElementById('dfn-vol-login-form-wrapper');
+        var toggleText = document.getElementById('dfn-login-toggle-text');
+        var loginCard = document.getElementById('dfn-vol-login-card');
+        var loginUserInput = document.getElementById('dfn-login-user-input');
+
+        function openLoginForm() {
+            if (!loginWrapper) return;
+            loginWrapper.style.display = 'block';
+            if (toggleText) toggleText.innerHTML = 'Chiudi &uarr;';
+            if (loginCard) {
+                loginCard.style.borderColor = '#004b23';
+                loginCard.style.background = '#f0fdf4';
+            }
+            if (loginUserInput) loginUserInput.focus();
+        }
+
+        function closeLoginForm() {
+            if (!loginWrapper) return;
+            loginWrapper.style.display = 'none';
+            if (toggleText) toggleText.innerHTML = 'Accedi &darr;';
+            if (loginCard) {
+                loginCard.style.borderColor = '#cbd5e1';
+                loginCard.style.background = '#f8fafc';
+            }
+        }
+
+        if (toggleBtn && loginWrapper) {
+            toggleBtn.addEventListener('click', function(e) {
+                if (loginWrapper.style.display === 'none' || loginWrapper.style.display === '') {
+                    openLoginForm();
+                } else {
+                    closeLoginForm();
+                }
+            });
+        }
+
+        var triggerOpenLogin = document.getElementById('dfn-trigger-open-login');
+        if (triggerOpenLogin) {
+            triggerOpenLogin.addEventListener('click', function(e) {
+                e.preventDefault();
+                openLoginForm();
+                if (loginCard) loginCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        }
+
+        // 2. Controllo live esistenza email (blur)
+        var emailInput = document.getElementById('dfn-reg-email');
+        var duplicateWarning = document.getElementById('dfn-email-duplicate-warning');
+        <?php if (! $current_user) : ?>
+        if (emailInput && duplicateWarning) {
+            emailInput.addEventListener('blur', function() {
+                var emailVal = this.value.trim();
+                if (emailVal.length > 3 && emailVal.indexOf('@') !== -1) {
+                    var formData = new FormData();
+                    formData.append('action', 'dfn_check_volunteer_email');
+                    formData.append('email', emailVal);
+
+                    fetch(ajaxUrl, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.success && res.data && res.data.exists) {
+                            duplicateWarning.style.display = 'block';
+                            emailInput.style.borderColor = '#ef4444';
+                            openLoginForm();
+                            if (loginUserInput && !loginUserInput.value) {
+                                loginUserInput.value = emailVal;
+                            }
+                        } else {
+                            duplicateWarning.style.display = 'none';
+                            emailInput.style.borderColor = '#cbd5e1';
+                        }
+                    })
+                    .catch(function() {});
+                } else {
+                    duplicateWarning.style.display = 'none';
+                }
+            });
+        }
+        <?php endif; ?>
+
+        // 3. Toggle mostra/nascondi password
         document.querySelectorAll('.dfn-toggle-pass-btn').forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -613,7 +834,7 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
             });
         });
 
-        // Auto-compilazione dinamica Username (nome.cognome)
+        // 4. Auto-compilazione dinamica Username (nome.cognome)
         var firstNameInput = document.getElementById('dfn-reg-first-name');
         var lastNameInput = document.getElementById('dfn-reg-last-name');
         var usernameInput = document.getElementById('dfn-reg-username');
@@ -647,7 +868,7 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
             lastNameInput.addEventListener('input', updateSuggestedUsername);
         }
 
-        // Controllo live corrispondenza password
+        // 5. Controllo live corrispondenza password
         var pass = document.getElementById('dfn-reg-pass');
         var passConfirm = document.getElementById('dfn-reg-pass-confirm');
         var msg = document.getElementById('dfn-pass-match-msg');
