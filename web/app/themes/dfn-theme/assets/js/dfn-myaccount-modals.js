@@ -241,4 +241,43 @@
         }
     });
 
+    // =========================================================================
+    // DFN ACCORDION (Fisarmonica Modifica Profilo / Account)
+    // =========================================================================
+    $(document).on('click', '.dfn-accordion-header', function(e) {
+        e.preventDefault();
+        var $item = $(this).closest('.dfn-accordion-item');
+        var $collapse = $item.find('.dfn-accordion-collapse');
+        var isOpen = $item.hasClass('is-open');
+
+        if (isOpen) {
+            $collapse.slideUp(250, function() {
+                $item.removeClass('is-open');
+                $item.find('.dfn-accordion-header').attr('aria-expanded', 'false');
+            });
+        } else {
+            $collapse.slideDown(250, function() {
+                $item.addClass('is-open');
+                $item.find('.dfn-accordion-header').attr('aria-expanded', 'true');
+            });
+        }
+    });
+
+    // Auto-apertura sezioni in caso di errori WooCommerce al reload
+    $(document).ready(function() {
+        var $notices = $('.woocommerce-error, .woocommerce-message, .woocommerce-info');
+        if ($notices.length) {
+            var noticeText = $notices.text().toLowerCase();
+            if (noticeText.indexOf('password') !== -1) {
+                var $pwdAccordion = $('[data-accordion="password"]');
+                if ($pwdAccordion.length && !$pwdAccordion.hasClass('is-open')) {
+                    $pwdAccordion.addClass('is-open');
+                    $pwdAccordion.find('.dfn-accordion-collapse').show();
+                    $pwdAccordion.find('.dfn-accordion-header').attr('aria-expanded', 'true');
+                }
+            }
+        }
+    });
+
 })(jQuery);
+
