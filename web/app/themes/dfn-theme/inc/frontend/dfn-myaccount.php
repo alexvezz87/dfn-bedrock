@@ -33,6 +33,40 @@ function dfn_render_login_page_header(): void
     echo '</div>';
 }
 
+// Personalizza il messaggio di conferma invio email di reset password in card FAI
+add_filter('woocommerce_lost_password_confirmation_message', 'dfn_render_lost_password_confirmation_card', 20, 1);
+function dfn_render_lost_password_confirmation_card(string $message): string
+{
+    ob_start();
+    ?>
+    <div class="dfn-auth-card dfn-lost-password-confirmation-card">
+        <div class="dfn-card-header">
+            <div class="dfn-card-icon-badge dfn-badge-success">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+            </div>
+            <h2 class="dfn-card-title"><?php esc_html_e('Email Inviata con Successo', 'dfn-theme'); ?></h2>
+            <p class="dfn-card-subtitle" style="color: #475569; font-size: 14.5px; line-height: 1.6;">
+                <?php esc_html_e('Abbiamo inviato un\'email con il link per reimpostare la tua password all\'indirizzo associato al tuo account.', 'dfn-theme'); ?>
+            </p>
+        </div>
+
+        <div class="dfn-confirmation-info-box" style="background-color: #f8fafc; border-left: 4px solid #004d35; padding: 16px 18px; border-radius: 6px; margin: 20px 0; font-size: 13.5px; color: #334155; line-height: 1.55;">
+            ⏱️ <?php esc_html_e('L\'effettiva ricezione nella tua casella di posta potrebbe richiedere qualche minuto. Per favore controlla anche la cartella Spam e attendi almeno 10 minuti prima di effettuare una nuova richiesta.', 'dfn-theme'); ?>
+        </div>
+
+        <div style="text-align: center; margin-top: 28px;">
+            <a href="<?php echo esc_url(wc_get_page_permalink('myaccount')); ?>" class="button dfn-btn-primary" style="display: inline-flex; width: 100%; box-sizing: border-box; justify-content: center; align-items: center;">
+                &larr; <?php esc_html_e('Torna ad Accedi / Registrati', 'dfn-theme'); ?>
+            </a>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
 // Aggiunge la voce di menu rapida "Biglietto Gruppo" alla lista degli ordini cliente
 add_filter('woocommerce_my_account_my_orders_actions', 'dfn_add_group_tickets_action_button', 10, 2);
 
