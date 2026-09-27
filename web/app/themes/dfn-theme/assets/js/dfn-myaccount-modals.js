@@ -225,18 +225,18 @@
         }
     });
 
-    // Toggle visibilità password
-    $(document).on('click', '.password-input .show-password-input, .dfn-toggle-pwd-btn', function(e) {
+    // Toggle visibilità password (supporta sia .dfn-pwd-toggle-btn con SVG che fallback)
+    $(document).on('click', '.dfn-pwd-toggle-btn, .password-input .show-password-input', function(e) {
         e.preventDefault();
         var $btn   = $(this);
         var $input = $btn.closest('.password-input').find('input');
         if ($input.length) {
             if ($input.attr('type') === 'password') {
                 $input.attr('type', 'text');
-                $btn.addClass('display-password');
+                $btn.addClass('is-active');
             } else {
                 $input.attr('type', 'password');
-                $btn.removeClass('display-password');
+                $btn.removeClass('is-active');
             }
         }
     });

@@ -1,6 +1,6 @@
 <?php
 /**
- * Lost password form override for DFN Theme
+ * Lost password form override for DFN Theme - Compact FAI Card
  *
  * @package DFN_Theme
  * @version 2.1.0
@@ -14,14 +14,14 @@ do_action('woocommerce_before_lost_password_form');
 <div class="dfn-auth-card dfn-lost-password-card">
     <div class="dfn-card-header">
         <div class="dfn-card-icon-badge">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
         </div>
         <h2 class="dfn-card-title"><?php esc_html_e('Recupero Password', 'dfn-theme'); ?></h2>
         <p class="dfn-card-subtitle">
-            <?php echo apply_filters('woocommerce_lost_password_message', esc_html__('Hai perso la password? Inserisci il tuo nome utente o l\'indirizzo email. Riceverai tramite email un link per generarne una nuova.', 'woocommerce')); ?>
+            <?php echo apply_filters('woocommerce_lost_password_message', esc_html__('Inserisci il tuo nome utente o l\'indirizzo email per ricevere il link di ripristino.', 'woocommerce')); ?>
         </p>
     </div>
 
@@ -35,7 +35,7 @@ do_action('woocommerce_before_lost_password_form');
 
         <?php do_action('woocommerce_lostpassword_form'); ?>
 
-        <p class="woocommerce-form-row form-row" style="margin-top: 20px;">
+        <p class="woocommerce-form-row form-row" style="margin-top: 14px; margin-bottom: 0;">
             <input type="hidden" name="wc_reset_password" value="true" />
             <button type="submit" class="woocommerce-Button button dfn-btn-primary" value="<?php esc_attr_e('Invia link di recupero', 'dfn-theme'); ?>">
                 <?php esc_html_e('Invia link di recupero', 'dfn-theme'); ?> &rarr;
