@@ -246,6 +246,7 @@
     // =========================================================================
     $(document).on('click', '.dfn-accordion-header', function(e) {
         e.preventDefault();
+        $(this).trigger('blur');
         var $item = $(this).closest('.dfn-accordion-item');
         var $collapse = $item.find('.dfn-accordion-collapse');
         var isOpen = $item.hasClass('is-open');
