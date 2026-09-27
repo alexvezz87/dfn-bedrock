@@ -420,6 +420,14 @@ function dfn_render_volunteers_list_page(): void
     $count_inactive = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status = 'inactive'");
     $count_official = $count_active + $count_inactive;
 
+    $warning_days = intval(function_exists('dfn_get_setting') ? dfn_get_setting('fai_expiry_warning_days', 15) : 15);
+    if ($warning_days < 15) {
+        $warning_days = 15;
+    }
+
+    $count_expired  = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status IN ('active', 'inactive') AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry < CURDATE()");
+    $count_expiring = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status IN ('active', 'inactive') AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry >= CURDATE() AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)", $warning_days));
+
     $status_filter = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'all';
     $search_query  = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
 
@@ -430,6 +438,10 @@ function dfn_render_volunteers_list_page(): void
         $where .= " AND volunteer_status = 'active'";
     } elseif ($status_filter === 'inactive') {
         $where .= " AND volunteer_status = 'inactive'";
+    } elseif ($status_filter === 'expired') {
+        $where .= " AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry < CURDATE()";
+    } elseif ($status_filter === 'expiring') {
+        $where .= $wpdb->prepare(" AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry >= CURDATE() AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)", $warning_days);
     }
 
     if (! empty($search_query)) {
@@ -634,10 +646,16 @@ function dfn_render_volunteers_list_page(): void
 
             <!-- FILTRI TABS & BARRA DI RICERCA -->
             <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:12px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                <ul class="subsubsub" style="margin:0; padding:0; display:flex; gap:6px; align-items:center;">
+                <ul class="subsubsub" style="margin:0; padding:0; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                     <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" class="<?php echo $status_filter === 'all' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'all' ? '700' : '500'; ?>;">Tutti i Volontari <span class="count">(<?php echo $count_official; ?>)</span></a> |</li>
                     <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=active')); ?>" class="<?php echo $status_filter === 'active' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'active' ? '700' : '500'; ?>; color:<?php echo $status_filter === 'active' ? '#004b23' : ''; ?>;">Attivi <span class="count">(<?php echo $count_active; ?>)</span></a> |</li>
-                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=inactive')); ?>" class="<?php echo $status_filter === 'inactive' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'inactive' ? '700' : '500'; ?>;">Inattivi <span class="count">(<?php echo $count_inactive; ?>)</span></a></li>
+                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=inactive')); ?>" class="<?php echo $status_filter === 'inactive' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'inactive' ? '700' : '500'; ?>;">Inattivi <span class="count">(<?php echo $count_inactive; ?>)</span></a><?php if ($count_expiring > 0 || $count_expired > 0) : ?> |<?php endif; ?></li>
+                    <?php if ($count_expiring > 0) : ?>
+                        <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=expiring')); ?>" class="<?php echo $status_filter === 'expiring' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'expiring' ? '700' : '500'; ?>; color:#d97706;">⏳ In Scadenza <span class="count">(<?php echo $count_expiring; ?>)</span></a><?php if ($count_expired > 0) : ?> |<?php endif; ?></li>
+                    <?php endif; ?>
+                    <?php if ($count_expired > 0) : ?>
+                        <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=expired')); ?>" class="<?php echo $status_filter === 'expired' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'expired' ? '700' : '500'; ?>; color:#dc2626;">⚠️ Scadute <span class="count">(<?php echo $count_expired; ?>)</span></a></li>
+                    <?php endif; ?>
                 </ul>
 
                 <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="display:flex; gap:8px; width:100%; max-width:360px;">
@@ -660,7 +678,7 @@ function dfn_render_volunteers_list_page(): void
                 <thead>
                     <tr>
                         <th style="width:170px; font-weight:700;">Volontario</th>
-                        <th style="width:135px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
+                        <th style="width:145px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
                         <th style="width:115px; font-weight:700; text-align:center;">SiVol <?php dfn_tooltip_icon('dfn-tip-vol-sivol', 'Informazioni: Registrazione SiVol'); ?></th>
                         <th style="width:175px; font-weight:700;">Contatti</th>
                         <th style="font-weight:700;">Incarichi &amp; Ruoli FAI <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
@@ -690,12 +708,47 @@ function dfn_render_volunteers_list_page(): void
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <?php if (! empty($v->card_number)) : ?>
-                                        <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;">
-                                            💳 <?php echo esc_html($v->card_number); ?>
-                                        </code>
-                                        <?php if ($v->card_expiry) : ?>
-                                            <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
+                                    <?php 
+                                    if (! empty($v->card_number)) : 
+                                        $today = current_time('Y-m-d');
+                                        $is_card_expired  = false;
+                                        $is_card_expiring = false;
+
+                                        if (! empty($v->card_expiry) && $v->card_expiry !== '0000-00-00') {
+                                            $exp_date = date('Y-m-d', strtotime($v->card_expiry));
+                                            if ($exp_date < $today) {
+                                                $is_card_expired = true;
+                                            } else {
+                                                $limit_date = date('Y-m-d', strtotime("+{$warning_days} days", strtotime($today)));
+                                                if ($exp_date <= $limit_date) {
+                                                    $is_card_expiring = true;
+                                                }
+                                            }
+                                        }
+                                    ?>
+                                        <?php if ($is_card_expired) : ?>
+                                            <code style="background:#fee2e2; padding:3px 7px; border-radius:5px; border:1px solid #f87171; font-weight:700; color:#991b1b; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
+                                                💳 <?php echo esc_html($v->card_number); ?>
+                                            </code>
+                                            <div style="font-size:11px; font-weight:700; color:#dc2626; margin-top:3px; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+                                                <span>Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></span>
+                                                <span style="background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; border-radius:4px; padding:0 4px; font-size:9.5px; font-weight:800; text-transform:uppercase;">Scaduta</span>
+                                            </div>
+                                        <?php elseif ($is_card_expiring) : ?>
+                                            <code style="background:#fef3c7; padding:3px 7px; border-radius:5px; border:1px solid #f59e0b; font-weight:700; color:#92400e; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
+                                                💳 <?php echo esc_html($v->card_number); ?>
+                                            </code>
+                                            <div style="font-size:11px; font-weight:700; color:#d97706; margin-top:3px; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+                                                <span>Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></span>
+                                                <span style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; border-radius:4px; padding:0 4px; font-size:9.5px; font-weight:800; text-transform:uppercase;">In scadenza</span>
+                                            </div>
+                                        <?php else : ?>
+                                            <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;">
+                                                💳 <?php echo esc_html($v->card_number); ?>
+                                            </code>
+                                            <?php if ($v->card_expiry && $v->card_expiry !== '0000-00-00') : ?>
+                                                <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     <?php else : ?>
                                         <span style="font-size:11px; background:#fff; color:#b45309; border:1px dashed #fcd34d; padding:2px 7px; border-radius:6px; font-weight:600; white-space:nowrap;">
