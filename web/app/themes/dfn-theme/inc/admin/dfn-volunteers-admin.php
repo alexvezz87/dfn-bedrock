@@ -262,14 +262,15 @@ function dfn_render_volunteers_list_page(): void
         if (! isset($_POST['_wpnonce']) || ! wp_verify_nonce($_POST['_wpnonce'], 'dfn_approve_vol_nonce')) {
             echo '<div class="notice notice-error is-dismissible"><p>❌ Errore di sicurezza / Sessione scaduta. Riprova.</p></div>';
         } else {
-            $vol_id       = (int) ($_POST['volunteer_id'] ?? 0);
-            $card_number  = sanitize_text_field($_POST['card_number'] ?? '');
-            $card_expiry  = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
-            $card_type    = sanitize_text_field($_POST['card_type'] ?? 'INDIVIDUALE');
-            $is_sivol     = ! empty($_POST['is_sivol_registered']) ? 1 : 0;
-            $is_guide     = ! empty($_POST['is_guide']) ? 1 : 0;
-            $has_safety   = ! empty($_POST['has_safety_course']) ? 1 : 0;
-            $vol_notes    = sanitize_textarea_field($_POST['volunteer_notes'] ?? '');
+            $vol_id          = (int) ($_POST['volunteer_id'] ?? 0);
+            $card_number     = sanitize_text_field($_POST['card_number'] ?? '');
+            $fai_registry_id = sanitize_text_field($_POST['fai_registry_id'] ?? '');
+            $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
+            $card_type       = sanitize_text_field($_POST['card_type'] ?? 'INDIVIDUALE');
+            $is_sivol        = ! empty($_POST['is_sivol_registered']) ? 1 : 0;
+            $is_guide        = ! empty($_POST['is_guide']) ? 1 : 0;
+            $has_safety      = ! empty($_POST['has_safety_course']) ? 1 : 0;
+            $vol_notes       = sanitize_textarea_field($_POST['volunteer_notes'] ?? '');
             $submitted_fai_roles = isset($_POST['fai_roles']) && is_array($_POST['fai_roles']) ? array_map('sanitize_key', $_POST['fai_roles']) : [];
 
             $vol = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $vol_id));
@@ -279,6 +280,7 @@ function dfn_render_volunteers_list_page(): void
                     $table_fai,
                     [
                         'card_number'         => $card_number,
+                        'fai_registry_id'     => ! empty($fai_registry_id) ? $fai_registry_id : null,
                         'card_expiry'         => $card_expiry,
                         'card_type'           => $card_type,
                         'verified'            => ! empty($card_number) ? 1 : $vol->verified,
@@ -293,7 +295,7 @@ function dfn_render_volunteers_list_page(): void
                         'volunteer_notes'     => $vol_notes,
                     ],
                     ['id' => $vol_id],
-                    ['%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%d', '%d', '%s'],
+                    ['%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%d', '%d', '%s'],
                     ['%d']
                 );
 
@@ -445,9 +447,9 @@ function dfn_render_volunteers_list_page(): void
     }
 
     if (! empty($search_query)) {
-        $where .= ' AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s)';
+        $where .= ' AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s OR fai_registry_id LIKE %s)';
         $like = '%' . $wpdb->esc_like($search_query) . '%';
-        $params = [$like, $like, $like, $like];
+        $params = [$like, $like, $like, $like, $like];
     }
 
     $sql_official = "SELECT * FROM {$table_fai} WHERE {$where} ORDER BY last_name ASC, first_name ASC";
@@ -749,6 +751,11 @@ function dfn_render_volunteers_list_page(): void
                                             <?php if ($v->card_expiry && $v->card_expiry !== '0000-00-00') : ?>
                                                 <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
                                             <?php endif; ?>
+                                        <?php endif; ?>
+                                        <?php if (! empty($v->fai_registry_id)) : ?>
+                                            <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
+                                                <span style="color:#004b23; font-weight:700;">ID:</span> <?php echo esc_html($v->fai_registry_id); ?>
+                                            </div>
                                         <?php endif; ?>
                                     <?php else : ?>
                                         <span style="font-size:11px; background:#fff; color:#b45309; border:1px dashed #fcd34d; padding:2px 7px; border-radius:6px; font-weight:600; white-space:nowrap;">
@@ -1197,14 +1204,15 @@ function dfn_render_volunteer_add_page(): void
         $first_name   = sanitize_text_field($_POST['first_name'] ?? '');
         $last_name    = sanitize_text_field($_POST['last_name'] ?? '');
         $email        = sanitize_email($_POST['email'] ?? '');
-        $phone        = sanitize_text_field($_POST['phone'] ?? '');
-        $card_number  = sanitize_text_field($_POST['card_number'] ?? '');
-        $card_expiry  = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
-        $card_type    = isset($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
-        $is_sivol     = ! empty($_POST['is_sivol_registered']) ? 1 : 0;
-        $notes        = sanitize_textarea_field($_POST['notes'] ?? '');
-        $user_id_raw  = (int) ($_POST['user_id'] ?? 0);
-        $user_id      = $user_id_raw > 0 ? $user_id_raw : null;
+        $phone           = sanitize_text_field($_POST['phone'] ?? '');
+        $card_number     = sanitize_text_field($_POST['card_number'] ?? '');
+        $fai_registry_id = sanitize_text_field($_POST['fai_registry_id'] ?? '');
+        $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
+        $card_type       = isset($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
+        $is_sivol        = ! empty($_POST['is_sivol_registered']) ? 1 : 0;
+        $notes           = sanitize_textarea_field($_POST['notes'] ?? '');
+        $user_id_raw     = (int) ($_POST['user_id'] ?? 0);
+        $user_id         = $user_id_raw > 0 ? $user_id_raw : null;
 
         // Validazione tipo tessera configurato
         $types_string = function_exists('dfn_get_setting') ? dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA') : 'INDIVIDUALE, COPPIA, FAMIGLIA';
@@ -1255,6 +1263,7 @@ function dfn_render_volunteer_add_page(): void
                         'email'               => $email,
                         'phone'               => $phone,
                         'card_number'         => $card_number,
+                        'fai_registry_id'     => ! empty($fai_registry_id) ? $fai_registry_id : null,
                         'card_expiry'         => $card_expiry,
                         'card_type'           => $card_type,
                         'verified'            => ! empty($card_number) ? 1 : 0,
@@ -1268,7 +1277,7 @@ function dfn_render_volunteer_add_page(): void
                         'has_safety_course'   => $has_safety_course,
                     ],
                     [ 'id' => $target_record_id ],
-                    [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%d', '%d' ],
+                    [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%d', '%d' ],
                     [ '%d' ]
                 );
                 $saved_id = $target_record_id;
@@ -1281,6 +1290,7 @@ function dfn_render_volunteer_add_page(): void
                         'email'               => $email,
                         'phone'               => $phone,
                         'card_number'         => $card_number,
+                        'fai_registry_id'     => ! empty($fai_registry_id) ? $fai_registry_id : null,
                         'card_expiry'         => $card_expiry,
                         'card_type'           => $card_type,
                         'verified'            => ! empty($card_number) ? 1 : 0,
@@ -1474,10 +1484,14 @@ function dfn_render_volunteer_add_page(): void
                     💳 Dettagli Tessera FAI (Opzionale) &amp; Piattaforma SiVol
                 </h3>
 
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px;">
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Numero Tessera</label>
                         <input type="text" name="card_number" id="dfn-field-card-number" value="<?php echo esc_attr($volunteer_data ? ($volunteer_data->card_number ?: '') : ''); ?>" placeholder="Es. 12345678 (o lascia vuoto)" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">ID Anagrafica (SiVol / App FAI)</label>
+                        <input type="text" name="fai_registry_id" id="dfn-field-fai-registry-id" value="<?php echo esc_attr($volunteer_data && ! empty($volunteer_data->fai_registry_id) ? $volunteer_data->fai_registry_id : ''); ?>" placeholder="Es. 4312492" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Scadenza Tessera</label>

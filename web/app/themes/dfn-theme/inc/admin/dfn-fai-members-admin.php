@@ -210,11 +210,12 @@ function dfn_render_fai_members_page(): void
             $first_name  = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['first_name'] ?? '') : sanitize_text_field(wp_unslash($_POST['first_name'] ?? ''));
             $last_name   = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['last_name'] ?? '') : sanitize_text_field(wp_unslash($_POST['last_name'] ?? ''));
             $email       = ! empty($_POST['email']) ? sanitize_email($_POST['email']) : null;
-            $phone       = sanitize_text_field(wp_unslash($_POST['phone'] ?? ''));
-            $card_number = sanitize_text_field(wp_unslash($_POST['card_number'] ?? ''));
-            $card_expiry = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
-            $card_type   = isset($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
-            $user_id     = ! empty($_POST['user_id']) ? intval($_POST['user_id']) : null;
+            $phone           = sanitize_text_field(wp_unslash($_POST['phone'] ?? ''));
+            $card_number     = sanitize_text_field(wp_unslash($_POST['card_number'] ?? ''));
+            $fai_registry_id = sanitize_text_field(wp_unslash($_POST['fai_registry_id'] ?? ''));
+            $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
+            $card_type       = isset($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
+            $user_id         = ! empty($_POST['user_id']) ? intval($_POST['user_id']) : null;
 
             if ($user_id > 0 && empty($email)) {
                 $u_data = get_userdata($user_id);
@@ -247,19 +248,20 @@ function dfn_render_fai_members_page(): void
                     $message_type = 'error';
                 } else {
                     $data = [
-                        'first_name'  => $first_name,
-                        'last_name'   => $last_name,
-                        'email'       => $email,
-                        'phone'       => ! empty($phone) ? $phone : null,
-                        'card_number' => $card_number,
-                        'card_expiry' => $card_expiry,
-                        'card_type'   => $card_type,
-                        'user_id'     => $user_id,
-                        'verified'    => 1,
-                        'verified_by' => get_current_user_id(),
-                        'verified_at' => current_time('mysql'),
+                        'first_name'      => $first_name,
+                        'last_name'       => $last_name,
+                        'email'           => $email,
+                        'phone'           => ! empty($phone) ? $phone : null,
+                        'card_number'     => $card_number,
+                        'fai_registry_id' => ! empty($fai_registry_id) ? $fai_registry_id : null,
+                        'card_expiry'     => $card_expiry,
+                        'card_type'       => $card_type,
+                        'user_id'         => $user_id,
+                        'verified'        => 1,
+                        'verified_by'     => get_current_user_id(),
+                        'verified_at'     => current_time('mysql'),
                     ];
-                    $formats = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' ];
+                    $formats = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' ];
 
                     if ($id > 0) {
                         $wpdb->update($table, $data, [ 'id' => $id ], $formats, [ '%d' ]);
@@ -315,8 +317,9 @@ function dfn_render_fai_members_page(): void
         $unverified_members = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$table} 
              WHERE verified = 0 
-               AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s)
+               AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s OR fai_registry_id LIKE %s)
              ORDER BY created_at DESC",
+            $search_query,
             $search_query,
             $search_query,
             $search_query,
@@ -348,9 +351,10 @@ function dfn_render_fai_members_page(): void
                    AND card_expiry IS NOT NULL 
                    AND card_expiry >= CURDATE() 
                    AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)
-                   AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s)
+                   AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s OR fai_registry_id LIKE %s)
                  ORDER BY {$orderby_sql} {$order_sql}",
                 $warning_days,
+                $search_query,
                 $search_query,
                 $search_query,
                 $search_query,
@@ -372,8 +376,9 @@ function dfn_render_fai_members_page(): void
         $members = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$table} 
              WHERE verified = 1 
-               AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s) 
+               AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s OR fai_registry_id LIKE %s) 
              ORDER BY {$orderby_sql} {$order_sql}",
+            $search_query,
             $search_query,
             $search_query,
             $search_query,
@@ -516,6 +521,14 @@ function dfn_render_fai_members_page(): void
                         <div style="margin-bottom: 12px;">
                             <label style="display: block; font-weight: 700; margin-bottom: 5px; font-size: 13px;"><?php esc_html_e('Numero Tessera *', 'dfn-theme'); ?></label>
                             <input type="text" name="card_number" required style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1;" value="<?php echo $edit_member ? esc_attr($edit_member->card_number) : ''; ?>">
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-weight: 700; margin-bottom: 5px; font-size: 13px;"><?php esc_html_e('ID Anagrafica (SiVol / App FAI)', 'dfn-theme'); ?></label>
+                            <input type="text" name="fai_registry_id" placeholder="<?php esc_attr_e('Es. 4312492 (visibile su SiVol / App)', 'dfn-theme'); ?>" style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1;" value="<?php echo $edit_member ? esc_attr($edit_member->fai_registry_id ?? '') : ''; ?>">
+                            <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0; line-height: 1.3;">
+                                <?php esc_html_e('Identificativo numerico SiVol utilizzato per generare il QR Code ufficiale FAI.', 'dfn-theme'); ?>
+                            </p>
                         </div>
  
                         <div style="margin-bottom: 20px;">
@@ -773,7 +786,7 @@ function dfn_render_fai_members_page(): void
                                         <td><?php echo esc_html($m->email ?: ''); ?></td>
                                         <td>
                                             <?php if ($is_expired) : ?>
-                                                <code style="background:#fee2e2; padding:3px 7px; border-radius:4px; border:1px solid #f87171; font-weight:700; color:#991b1b; white-space:nowrap;">
+                                                <code style="background:#fee222; padding:3px 7px; border-radius:4px; border:1px solid #f87171; font-weight:700; color:#991b1b; white-space:nowrap;">
                                                     <?php echo esc_html($m->card_number); ?>
                                                 </code>
                                             <?php elseif ($is_expiring) : ?>
@@ -782,6 +795,11 @@ function dfn_render_fai_members_page(): void
                                                 </code>
                                             <?php else : ?>
                                                 <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;"><?php echo esc_html($m->card_number); ?></code>
+                                            <?php endif; ?>
+                                            <?php if (! empty($m->fai_registry_id)) : ?>
+                                                <div style="font-size: 11px; color: #64748b; margin-top: 3px; font-weight: 600;">
+                                                    <span style="color: #004b23; font-weight: 700;">ID:</span> <?php echo esc_html($m->fai_registry_id); ?>
+                                                </div>
                                             <?php endif; ?>
                                         </td>
                                         <td>
