@@ -2074,14 +2074,18 @@
 }
 
 /* Container notices on lost password */
-.woocommerce-account .woocommerce > .woocommerce-notices-wrapper {
-    max-width: 520px !important;
-    margin: 24px auto 0 auto !important;
+.woocommerce-lost-password .woocommerce-notices-wrapper,
+.woocommerce-ResetPassword-page .woocommerce-notices-wrapper,
+.woocommerce-account .woocommerce:has(.dfn-auth-card) > .woocommerce-notices-wrapper {
+    display: none !important;
 }
 
-.woocommerce-account:has(.dfn-lost-password-confirmation-card) .woocommerce-notices-wrapper,
-.woocommerce-account:has(.dfn-lost-password-card) .woocommerce-notices-wrapper:empty {
-    display: none !important;
+.woocommerce-account .woocommerce:has(.dfn-auth-card) {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
 }
 
 @media (max-width: 600px) {
