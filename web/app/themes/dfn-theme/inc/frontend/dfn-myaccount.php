@@ -537,9 +537,10 @@ function dfn_fai_cards_endpoint_content(): void
 
     // Gestione invio form aggiunta tessera FAI
     if (isset($_POST['dfn_add_fai_card_nonce']) && wp_verify_nonce($_POST['dfn_add_fai_card_nonce'], 'dfn_add_fai_card_action')) {
-        $first_name  = isset($_POST['dfn_fai_first_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_first_name']) : sanitize_text_field(wp_unslash($_POST['dfn_fai_first_name']))) : '';
-        $last_name   = isset($_POST['dfn_fai_last_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_last_name']) : sanitize_text_field(wp_unslash($_POST['dfn_fai_last_name']))) : '';
-        $card_number = isset($_POST['dfn_fai_card_number']) ? sanitize_text_field(wp_unslash($_POST['dfn_fai_card_number'])) : '';
+        $first_name     = isset($_POST['dfn_fai_first_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_first_name']) : sanitize_text_field(wp_unslash($_POST['dfn_fai_first_name']))) : '';
+        $last_name      = isset($_POST['dfn_fai_last_name']) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_last_name']) : sanitize_text_field(wp_unslash($_POST['dfn_fai_last_name']))) : '';
+        $card_number    = isset($_POST['dfn_fai_card_number']) ? sanitize_text_field(wp_unslash($_POST['dfn_fai_card_number'])) : '';
+        $fai_registry_id = isset($_POST['dfn_fai_registry_id']) ? sanitize_text_field(wp_unslash($_POST['dfn_fai_registry_id'])) : '';
 
         if (empty($first_name) || empty($last_name) || empty($card_number)) {
             $notice_message = __('Compila tutti i campi richiesti (Nome, Cognome e Numero Tessera).', 'dfn-theme');
@@ -563,16 +564,17 @@ function dfn_fai_cards_endpoint_content(): void
                 $inserted = $wpdb->insert(
                     $table_fai,
                     [
-                        'first_name'  => $first_name,
-                        'last_name'   => $last_name,
-                        'email'       => $current_user->user_email,
-                        'card_number' => $card_number,
-                        'card_type'   => 'INDIVIDUALE',
-                        'verified'    => 0,
-                        'user_id'     => $current_user_id,
-                        'created_at'  => current_time('mysql'),
+                        'first_name'      => $first_name,
+                        'last_name'       => $last_name,
+                        'email'           => $current_user->user_email,
+                        'card_number'     => $card_number,
+                        'fai_registry_id' => ! empty($fai_registry_id) ? $fai_registry_id : null,
+                        'card_type'       => 'INDIVIDUALE',
+                        'verified'        => 0,
+                        'user_id'         => $current_user_id,
+                        'created_at'      => current_time('mysql'),
                     ],
-                    ['%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s']
+                    ['%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s']
                 );
 
                 if ($inserted) {
@@ -637,19 +639,24 @@ function dfn_fai_cards_endpoint_content(): void
             <form method="POST" class="dfn-add-fai-card-form" style="display: flex !important; flex-wrap: wrap !important; align-items: flex-end !important; gap: 10px !important; width: 100% !important;">
                 <div style="display:none;"><?php wp_nonce_field('dfn_add_fai_card_action', 'dfn_add_fai_card_nonce'); ?></div>
 
-                <div style="flex: 1 1 22%; min-width: 110px;">
+                <div style="flex: 1 1 20%; min-width: 110px;">
                     <label for="dfn_fai_first_name" style="display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;"><?php esc_html_e('Nome *', 'dfn-theme'); ?></label>
                     <input type="text" name="dfn_fai_first_name" id="dfn_fai_first_name" required value="<?php echo esc_attr($default_first_name); ?>" placeholder="<?php esc_attr_e('Nome', 'dfn-theme'); ?>" style="width: 100%; height: 40px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; background: #ffffff;">
                 </div>
 
-                <div style="flex: 1 1 22%; min-width: 110px;">
+                <div style="flex: 1 1 20%; min-width: 110px;">
                     <label for="dfn_fai_last_name" style="display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;"><?php esc_html_e('Cognome *', 'dfn-theme'); ?></label>
                     <input type="text" name="dfn_fai_last_name" id="dfn_fai_last_name" required value="<?php echo esc_attr($default_last_name); ?>" placeholder="<?php esc_attr_e('Cognome', 'dfn-theme'); ?>" style="width: 100%; height: 40px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; background: #ffffff;">
                 </div>
 
-                <div style="flex: 1 1 28%; min-width: 130px;">
+                <div style="flex: 1 1 24%; min-width: 130px;">
                     <label for="dfn_fai_card_number" style="display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;"><?php esc_html_e('N° Tessera FAI *', 'dfn-theme'); ?></label>
                     <input type="text" name="dfn_fai_card_number" id="dfn_fai_card_number" required placeholder="<?php esc_attr_e('Es: 12345678', 'dfn-theme'); ?>" style="width: 100%; height: 40px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; background: #ffffff;">
+                </div>
+
+                <div style="flex: 1 1 20%; min-width: 110px;">
+                    <label for="dfn_fai_registry_id" style="display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;"><?php esc_html_e('ID Anagrafica', 'dfn-theme'); ?> <span style="font-weight: normal; color: #94a3b8; font-size: 10px;">(opzionale)</span></label>
+                    <input type="text" name="dfn_fai_registry_id" id="dfn_fai_registry_id" placeholder="<?php esc_attr_e('Es: 4312492', 'dfn-theme'); ?>" style="width: 100%; height: 40px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; background: #ffffff;">
                 </div>
 
                 <div style="flex: 0 0 auto;">
@@ -683,6 +690,9 @@ function dfn_fai_cards_endpoint_content(): void
                                 <h4 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 800; color: #1e293b;"><?php echo esc_html(strtoupper(function_exists('dfn_sanitize_name') ? dfn_sanitize_name($p_card->first_name . ' ' . $p_card->last_name) : str_replace('\\', '', $p_card->first_name . ' ' . $p_card->last_name))); ?></h4>
                                 <div style="font-size: 13px; color: #475569; font-weight: 600;">
                                     N° Tessera: <strong style="color: #004b23;"><?php echo esc_html($p_card->card_number); ?></strong>
+                                    <?php if (! empty($p_card->fai_registry_id)) : ?>
+                                        <span style="font-size: 12px; color: #64748b; margin-left: 8px;">(ID: <?php echo esc_html($p_card->fai_registry_id); ?>)</span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                             <div style="font-size: 11px; color: #94a3b8; border-top: 1px dashed #fde68a; padding-top: 8px;">
@@ -719,6 +729,9 @@ function dfn_fai_cards_endpoint_content(): void
                         $is_expired   = ($expiry_time < time());
                         $expiry_class = $is_expired ? 'expired' : 'active';
                     }
+
+                    // QR Code Payload (Usa ID Anagrafica se presente per parità con App FAI ufficiale, altrimenti numero tessera)
+                    $qr_payload = ! empty($card->fai_registry_id) ? $card->fai_registry_id : $card->card_number;
                     ?>
                     <div class="dfn-fai-digital-card dfn-fai-card-type-<?php echo esc_attr($type_class); ?>">
                         <!-- Header with FAI Logo and Verified Badge -->
@@ -752,7 +765,12 @@ function dfn_fai_cards_endpoint_content(): void
 
                             <div class="dfn-fai-card-right">
                                 <div class="dfn-fai-card-qrcode-box">
-                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&amp;data=<?php echo urlencode($card->card_number); ?>" alt="QR Code Tessera" />
+                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&amp;data=<?php echo urlencode($qr_payload); ?>" alt="QR Code Tessera" />
+                                    <?php if (! empty($card->fai_registry_id)) : ?>
+                                        <div class="dfn-fai-card-qrcode-id" style="font-size: 11px; font-weight: 700; color: #1e293b; text-align: center; margin-top: 4px; letter-spacing: 0.3px;">
+                                            <?php echo esc_html($card->fai_registry_id); ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -2397,3 +2415,74 @@ function dfn_custom_myaccount_dashboard_content(): void
     <?php
 }
 
+/**
+ * ========================================================================
+ * PREFERENZE DI NOTIFICA EMAIL NEL PROFILO UTENTE (edit-account)
+ * ========================================================================
+ */
+
+/**
+ * Renderizza i campi di selezione preferenze notifiche email (utilizzato nel template Accordion).
+ */
+function dfn_render_edit_account_notification_fields(int $user_id, bool $is_volunteer): void
+{
+    // Recupera lo stato attuale dei flag (default: true / 1 se non impostato)
+    $notify_expiry   = get_user_meta($user_id, '_dfn_notify_card_expiry', true);
+    $checked_expiry  = ($notify_expiry === '' || $notify_expiry === false || $notify_expiry === '1' || $notify_expiry === 1);
+
+    $notify_meetings = get_user_meta($user_id, '_dfn_notify_meetings', true);
+    $checked_meetings = ($notify_meetings === '' || $notify_meetings === false || $notify_meetings === '1' || $notify_meetings === 1);
+
+    $notify_shifts   = get_user_meta($user_id, '_dfn_notify_shifts', true);
+    $checked_shifts  = ($notify_shifts === '' || $notify_shifts === false || $notify_shifts === '1' || $notify_shifts === 1);
+    ?>
+    <?php wp_nonce_field('dfn_save_notification_prefs', 'dfn_notification_prefs_nonce'); ?>
+    <div class="dfn-notification-items-list">
+        <!-- 1. Scadenza Tessera FAI -->
+        <label class="dfn-notification-item" for="dfn_notify_card_expiry">
+            <input type="checkbox" id="dfn_notify_card_expiry" name="dfn_notify_card_expiry" value="1" <?php checked($checked_expiry, true); ?> />
+            <span class="dfn-notification-item-content">
+                <span class="dfn-notification-item-title">🪪 <?php esc_html_e('Promemoria Scadenza Tessera FAI', 'dfn-theme'); ?></span>
+                <span class="dfn-notification-item-desc"><?php esc_html_e('Ricevi una notifica automatica via email prima della scadenza della tua tessera FAI per rinnovarla in tempo utile.', 'dfn-theme'); ?></span>
+            </span>
+        </label>
+
+        <?php if ($is_volunteer) : ?>
+            <!-- 2. Riunioni di Delegazione -->
+            <label class="dfn-notification-item" for="dfn_notify_meetings">
+                <input type="checkbox" id="dfn_notify_meetings" name="dfn_notify_meetings" value="1" <?php checked($checked_meetings, true); ?> />
+                <span class="dfn-notification-item-content">
+                    <span class="dfn-notification-item-title">📅 <?php esc_html_e('Convocazioni e Promemoria Riunioni', 'dfn-theme'); ?></span>
+                    <span class="dfn-notification-item-desc"><?php esc_html_e('Ricevi via email le convocazioni con ordine del giorno, data, orari, luogo e link di collegamento alle riunioni di delegazione.', 'dfn-theme'); ?></span>
+                </span>
+            </label>
+
+            <!-- 3. Turni ed Eventi -->
+            <label class="dfn-notification-item" for="dfn_notify_shifts">
+                <input type="checkbox" id="dfn_notify_shifts" name="dfn_notify_shifts" value="1" <?php checked($checked_shifts, true); ?> />
+                <span class="dfn-notification-item-content">
+                    <span class="dfn-notification-item-title">📍 <?php esc_html_e('Turni Assegnati &amp; Sondaggi Eventi', 'dfn-theme'); ?></span>
+                    <span class="dfn-notification-item-desc"><?php esc_html_e('Ricevi notifiche sui turni assegnati alle Giornate FAI ed eventi locali, e l\'invito a compilare i sondaggi di disponibilità.', 'dfn-theme'); ?></span>
+                </span>
+            </label>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
+/**
+ * Salva le preferenze di notifica al salvataggio dei dettagli account.
+ */
+add_action('woocommerce_save_account_details', 'dfn_save_edit_account_notification_preferences', 10, 1);
+function dfn_save_edit_account_notification_preferences(int $user_id): void
+{
+    if (isset($_POST['dfn_notification_prefs_nonce']) && wp_verify_nonce($_POST['dfn_notification_prefs_nonce'], 'dfn_save_notification_prefs')) {
+        $notify_expiry   = isset($_POST['dfn_notify_card_expiry']) ? '1' : '0';
+        $notify_meetings = isset($_POST['dfn_notify_meetings']) ? '1' : '0';
+        $notify_shifts   = isset($_POST['dfn_notify_shifts']) ? '1' : '0';
+
+        update_user_meta($user_id, '_dfn_notify_card_expiry', $notify_expiry);
+        update_user_meta($user_id, '_dfn_notify_meetings', $notify_meetings);
+        update_user_meta($user_id, '_dfn_notify_shifts', $notify_shifts);
+    }
+}

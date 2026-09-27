@@ -819,19 +819,34 @@
 
 .dfn-fai-card-qrcode-box {
     width: 85px;
-    height: 85px;
+    height: auto;
+    min-height: 85px;
     background: #ffffff;
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 8px;
     padding: 4px;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .dfn-fai-card-qrcode-box img {
-    width: 100% !important;
-    height: 100% !important;
+    width: 75px !important;
+    height: 75px !important;
     object-fit: contain;
     display: block;
+}
+
+.dfn-fai-card-qrcode-id {
+    font-size: 11px;
+    font-weight: 700;
+    color: #1e293b;
+    text-align: center;
+    margin-top: 3px;
+    letter-spacing: 0.3px;
+    line-height: 1.1;
 }
 
 /* Card footer text */
@@ -1519,7 +1534,12 @@
     }
     .dfn-fai-card-qrcode-box {
         width: 75px !important;
-        height: 75px !important;
+        height: auto !important;
+        min-height: 75px !important;
+    }
+    .dfn-fai-card-qrcode-box img {
+        width: 67px !important;
+        height: 67px !important;
     }
     .dfn-fai-card-holder-name {
         font-size: 16px !important;
@@ -2142,34 +2162,169 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 }
 
 /* ==========================================================================
-   STILE DEDICATO: DETTAGLI ACCOUNT (woocommerce-EditAccountForm)
+   STILE DEDICATO: DETTAGLI ACCOUNT (ACCORDION & NOTIFICHE FAI)
    ========================================================================== */
-.woocommerce-EditAccountForm.edit-account {
-    background: #ffffff !important;
-    padding: 32px !important;
-    border-radius: 16px !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03) !important;
+.woocommerce-EditAccountForm.edit-account,
+.dfn-edit-account-form {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    margin-top: 10px !important;
 }
 
+.dfn-accordion-group {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.dfn-accordion-item {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.dfn-accordion-item:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 14px rgba(0, 75, 35, 0.05);
+}
+
+.dfn-accordion-item.is-open {
+    border-color: #004b23;
+    box-shadow: 0 6px 20px rgba(0, 75, 35, 0.08);
+}
+
+.dfn-accordion-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    background: #ffffff;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.2s ease;
+    gap: 16px;
+    box-sizing: border-box;
+}
+
+.dfn-accordion-header:hover {
+    background: #f8fafc;
+}
+
+.dfn-accordion-item.is-open .dfn-accordion-header {
+    background: #f0fdf4;
+    border-bottom: 1px solid #dcfce7;
+}
+
+.dfn-accordion-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+}
+
+.dfn-accordion-icon {
+    font-size: 22px;
+    line-height: 1;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.dfn-accordion-item.is-open .dfn-accordion-icon {
+    background: #ffffff;
+    border-color: #86efac;
+    transform: scale(1.05);
+    box-shadow: 0 2px 6px rgba(0, 75, 35, 0.08);
+}
+
+.dfn-accordion-text {
+    flex: 1;
+}
+
+.dfn-accordion-title {
+    font-size: 16.5px !important;
+    font-weight: 800 !important;
+    color: #004b23 !important;
+    margin: 0 0 3px 0 !important;
+    letter-spacing: -0.2px !important;
+}
+
+.dfn-accordion-subtitle {
+    font-size: 13px !important;
+    color: #64748b !important;
+    margin: 0 !important;
+    line-height: 1.4 !important;
+    font-weight: 400 !important;
+}
+
+.dfn-accordion-chevron {
+    color: #64748b;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.dfn-accordion-item.is-open .dfn-accordion-chevron {
+    transform: rotate(180deg);
+    color: #004b23;
+}
+
+.dfn-accordion-collapse {
+    width: 100%;
+}
+
+.dfn-accordion-body {
+    padding: 26px 24px;
+    background: #ffffff;
+}
+
+/* Form Inputs inside Accordion */
+.dfn-accordion-body p.form-row,
 .woocommerce-EditAccountForm.edit-account p.form-row {
-    margin-bottom: 22px !important;
+    margin-bottom: 20px !important;
 }
 
-.woocommerce-EditAccountForm.edit-account label {
+.dfn-accordion-body p.form-row:last-child {
+    margin-bottom: 0 !important;
+}
+
+.dfn-accordion-body label,
+.woocommerce-EditAccountForm.edit-account label:not(.dfn-notification-item) {
     font-size: 13px !important;
     font-weight: 700 !important;
     color: #334155 !important;
-    margin-bottom: 8px !important;
+    margin-bottom: 7px !important;
     display: block !important;
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
 }
 
+.dfn-accordion-body label .required,
 .woocommerce-EditAccountForm.edit-account label .required {
     color: #ef4444 !important;
 }
 
+.dfn-accordion-body input.input-text,
+.dfn-accordion-body input[type="text"],
+.dfn-accordion-body input[type="email"],
+.dfn-accordion-body input[type="password"],
 .woocommerce-EditAccountForm.edit-account input.input-text,
 .woocommerce-EditAccountForm.edit-account input[type="text"],
 .woocommerce-EditAccountForm.edit-account input[type="email"],
@@ -2177,7 +2332,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     width: 100% !important;
     height: 48px !important;
     padding: 0 16px !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1.5px solid #cbd5e1 !important;
     border-radius: 10px !important;
     background-color: #f8fafc !important;
     font-size: 15px !important;
@@ -2186,70 +2341,203 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     transition: all 0.2s ease !important;
 }
 
-.woocommerce-EditAccountForm.edit-account input.input-text:focus,
-.woocommerce-EditAccountForm.edit-account input[type="text"]:focus,
-.woocommerce-EditAccountForm.edit-account input[type="email"]:focus,
-.woocommerce-EditAccountForm.edit-account input[type="password"]:focus {
+.dfn-accordion-body input:focus,
+.woocommerce-EditAccountForm.edit-account input:focus {
     border-color: #004b23 !important;
     background-color: #ffffff !important;
-    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.1) !important;
+    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.12) !important;
     outline: none !important;
 }
 
-.woocommerce-EditAccountForm.edit-account span.woocommerce-input-wrapper {
-    width: 100% !important;
-    display: block !important;
-}
-
-.woocommerce-EditAccountForm.edit-account em {
-    font-size: 13px !important;
+.dfn-field-hint {
+    font-size: 12.5px !important;
     color: #64748b !important;
     font-style: normal !important;
     display: block !important;
     margin-top: 6px !important;
+    line-height: 1.4 !important;
 }
 
-/* Modifica Password Fieldset */
-.woocommerce-EditAccountForm.edit-account fieldset {
-    border: 1px solid #e2e8f0 !important;
-    background-color: #f8fafc !important;
+.dfn-form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 640px) {
+    .dfn-form-grid-2 {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+    .dfn-accordion-header {
+        padding: 16px 16px;
+        gap: 12px;
+    }
+    .dfn-accordion-body {
+        padding: 20px 16px;
+    }
+    .dfn-accordion-title {
+        font-size: 15px !important;
+    }
+    .dfn-accordion-subtitle {
+        font-size: 12px !important;
+    }
+}
+
+/* ==========================================================================
+   PREFERENZE DI NOTIFICA EMAIL — CARDS & CHECKBOX
+   ========================================================================== */
+.dfn-notification-items-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+}
+
+.woocommerce-EditAccountForm.edit-account label.dfn-notification-item,
+.dfn-accordion-body label.dfn-notification-item,
+.dfn-notification-item {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+    padding: 16px 18px !important;
     border-radius: 12px !important;
-    padding: 24px !important;
-    margin: 30px 0 24px 0 !important;
+    background: #f8fafc !important;
+    border: 1.5px solid #e2e8f0 !important;
+    margin: 0 !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
 }
 
-.woocommerce-EditAccountForm.edit-account fieldset legend {
-    font-size: 14px !important;
-    font-weight: 700 !important;
-    color: #004b23 !important;
+.woocommerce-EditAccountForm.edit-account label.dfn-notification-item:hover,
+.dfn-accordion-body label.dfn-notification-item:hover,
+.dfn-notification-item:hover {
+    background: #f0fdf4 !important;
+    border-color: #86efac !important;
+    box-shadow: 0 4px 12px rgba(0, 75, 35, 0.05) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Reset categorico delle checkbox per evitare dimensioni 100% o wrap errati */
+.woocommerce-EditAccountForm.edit-account label.dfn-notification-item input[type="checkbox"],
+.dfn-accordion-body label.dfn-notification-item input[type="checkbox"],
+.dfn-notification-item input[type="checkbox"] {
+    appearance: auto !important;
+    -webkit-appearance: checkbox !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    max-width: 20px !important;
+    min-height: 20px !important;
+    max-height: 20px !important;
+    margin: 3px 0 0 0 !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    accent-color: #004b23 !important;
+    flex-shrink: 0 !important;
+    display: inline-block !important;
+    position: static !important;
+    box-shadow: none !important;
+    border: 1.5px solid #94a3b8 !important;
+    border-radius: 4px !important;
     background: #ffffff !important;
-    padding: 6px 14px !important;
-    border-radius: 8px !important;
-    border: 1px solid #cbd5e1 !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
+    box-sizing: border-box !important;
+    transform: none !important;
 }
 
-/* Submit Button */
+.dfn-notification-item-content {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    text-align: left !important;
+}
+
+.woocommerce-EditAccountForm.edit-account .dfn-notification-item-title,
+.dfn-accordion-body .dfn-notification-item-title,
+.dfn-notification-item-title {
+    display: flex !important;
+    align-items: center !important;
+    font-size: 14.5px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    line-height: 1.35 !important;
+}
+
+.woocommerce-EditAccountForm.edit-account .dfn-notification-item-desc,
+.dfn-accordion-body .dfn-notification-item-desc,
+.dfn-notification-item-desc {
+    display: block !important;
+    font-size: 13px !important;
+    color: #64748b !important;
+    line-height: 1.45 !important;
+    font-weight: 400 !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    margin: 0 !important;
+}
+
+/* ==========================================================================
+   BOTTOM ACTION BAR (SALVA MODIFICHE)
+   ========================================================================== */
+.dfn-account-form-actions {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    margin-top: 20px;
+    box-sizing: border-box;
+}
+
+.dfn-btn-save-account,
 .woocommerce-EditAccountForm.edit-account button.woocommerce-Button.button[name="save_account_details"] {
     background-color: #004b23 !important;
     color: #ffffff !important;
     font-weight: 700 !important;
     font-size: 15px !important;
-    padding: 14px 32px !important;
+    padding: 14px 34px !important;
     border-radius: 10px !important;
     border: none !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
     box-shadow: 0 4px 12px rgba(0, 75, 35, 0.2) !important;
-    margin-top: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin: 0 !important;
 }
 
+.dfn-btn-save-account:hover,
 .woocommerce-EditAccountForm.edit-account button.woocommerce-Button.button[name="save_account_details"]:hover {
     background-color: #00381a !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 6px 16px rgba(0, 75, 35, 0.3) !important;
+    box-shadow: 0 6px 18px rgba(0, 75, 35, 0.3) !important;
+}
+
+@media (max-width: 640px) {
+    .dfn-account-form-actions {
+        padding: 16px;
+    }
+    .dfn-btn-save-account,
+    .woocommerce-EditAccountForm.edit-account button.woocommerce-Button.button[name="save_account_details"] {
+        width: 100% !important;
+        justify-content: center !important;
+    }
 }
 
 /* ==========================================================================

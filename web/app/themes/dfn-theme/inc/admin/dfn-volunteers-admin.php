@@ -262,14 +262,15 @@ function dfn_render_volunteers_list_page(): void
         if (! isset($_POST['_wpnonce']) || ! wp_verify_nonce($_POST['_wpnonce'], 'dfn_approve_vol_nonce')) {
             echo '<div class="notice notice-error is-dismissible"><p>❌ Errore di sicurezza / Sessione scaduta. Riprova.</p></div>';
         } else {
-            $vol_id       = (int) ($_POST['volunteer_id'] ?? 0);
-            $card_number  = sanitize_text_field($_POST['card_number'] ?? '');
-            $card_expiry  = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
-            $card_type    = sanitize_text_field($_POST['card_type'] ?? 'INDIVIDUALE');
-            $is_sivol     = ! empty($_POST['is_sivol_registered']) ? 1 : 0;
-            $is_guide     = ! empty($_POST['is_guide']) ? 1 : 0;
-            $has_safety   = ! empty($_POST['has_safety_course']) ? 1 : 0;
-            $vol_notes    = sanitize_textarea_field($_POST['volunteer_notes'] ?? '');
+            $vol_id          = (int) ($_POST['volunteer_id'] ?? 0);
+            $card_number     = sanitize_text_field($_POST['card_number'] ?? '');
+            $fai_registry_id = sanitize_text_field($_POST['fai_registry_id'] ?? '');
+            $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
+            $card_type       = sanitize_text_field($_POST['card_type'] ?? 'INDIVIDUALE');
+            $is_sivol        = ! empty($_POST['is_sivol_registered']) ? 1 : 0;
+            $is_guide        = ! empty($_POST['is_guide']) ? 1 : 0;
+            $has_safety      = ! empty($_POST['has_safety_course']) ? 1 : 0;
+            $vol_notes       = sanitize_textarea_field($_POST['volunteer_notes'] ?? '');
             $submitted_fai_roles = isset($_POST['fai_roles']) && is_array($_POST['fai_roles']) ? array_map('sanitize_key', $_POST['fai_roles']) : [];
 
             $vol = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $vol_id));
@@ -279,6 +280,7 @@ function dfn_render_volunteers_list_page(): void
                     $table_fai,
                     [
                         'card_number'         => $card_number,
+                        'fai_registry_id'     => ! empty($fai_registry_id) ? $fai_registry_id : null,
                         'card_expiry'         => $card_expiry,
                         'card_type'           => $card_type,
                         'verified'            => ! empty($card_number) ? 1 : $vol->verified,
@@ -293,7 +295,7 @@ function dfn_render_volunteers_list_page(): void
                         'volunteer_notes'     => $vol_notes,
                     ],
                     ['id' => $vol_id],
-                    ['%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%d', '%d', '%s'],
+                    ['%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%d', '%d', '%s'],
                     ['%d']
                 );
 
@@ -420,6 +422,14 @@ function dfn_render_volunteers_list_page(): void
     $count_inactive = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status = 'inactive'");
     $count_official = $count_active + $count_inactive;
 
+    $warning_days = intval(function_exists('dfn_get_setting') ? dfn_get_setting('fai_expiry_warning_days', 15) : 15);
+    if ($warning_days < 15) {
+        $warning_days = 15;
+    }
+
+    $count_expired  = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status IN ('active', 'inactive') AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry < CURDATE()");
+    $count_expiring = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status IN ('active', 'inactive') AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry >= CURDATE() AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)", $warning_days));
+
     $status_filter = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'all';
     $search_query  = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
 
@@ -430,12 +440,16 @@ function dfn_render_volunteers_list_page(): void
         $where .= " AND volunteer_status = 'active'";
     } elseif ($status_filter === 'inactive') {
         $where .= " AND volunteer_status = 'inactive'";
+    } elseif ($status_filter === 'expired') {
+        $where .= " AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry < CURDATE()";
+    } elseif ($status_filter === 'expiring') {
+        $where .= $wpdb->prepare(" AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry >= CURDATE() AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)", $warning_days);
     }
 
     if (! empty($search_query)) {
-        $where .= ' AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s)';
+        $where .= ' AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s OR fai_registry_id LIKE %s)';
         $like = '%' . $wpdb->esc_like($search_query) . '%';
-        $params = [$like, $like, $like, $like];
+        $params = [$like, $like, $like, $like, $like];
     }
 
     $sql_official = "SELECT * FROM {$table_fai} WHERE {$where} ORDER BY last_name ASC, first_name ASC";
@@ -634,10 +648,16 @@ function dfn_render_volunteers_list_page(): void
 
             <!-- FILTRI TABS & BARRA DI RICERCA -->
             <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:12px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                <ul class="subsubsub" style="margin:0; padding:0; display:flex; gap:6px; align-items:center;">
+                <ul class="subsubsub" style="margin:0; padding:0; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                     <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" class="<?php echo $status_filter === 'all' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'all' ? '700' : '500'; ?>;">Tutti i Volontari <span class="count">(<?php echo $count_official; ?>)</span></a> |</li>
                     <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=active')); ?>" class="<?php echo $status_filter === 'active' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'active' ? '700' : '500'; ?>; color:<?php echo $status_filter === 'active' ? '#004b23' : ''; ?>;">Attivi <span class="count">(<?php echo $count_active; ?>)</span></a> |</li>
-                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=inactive')); ?>" class="<?php echo $status_filter === 'inactive' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'inactive' ? '700' : '500'; ?>;">Inattivi <span class="count">(<?php echo $count_inactive; ?>)</span></a></li>
+                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=inactive')); ?>" class="<?php echo $status_filter === 'inactive' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'inactive' ? '700' : '500'; ?>;">Inattivi <span class="count">(<?php echo $count_inactive; ?>)</span></a><?php if ($count_expiring > 0 || $count_expired > 0) : ?> |<?php endif; ?></li>
+                    <?php if ($count_expiring > 0) : ?>
+                        <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=expiring')); ?>" class="<?php echo $status_filter === 'expiring' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'expiring' ? '700' : '500'; ?>; color:#d97706;">⏳ In Scadenza <span class="count">(<?php echo $count_expiring; ?>)</span></a><?php if ($count_expired > 0) : ?> |<?php endif; ?></li>
+                    <?php endif; ?>
+                    <?php if ($count_expired > 0) : ?>
+                        <li><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers&status=expired')); ?>" class="<?php echo $status_filter === 'expired' ? 'current' : ''; ?>" style="font-size:13px; font-weight:<?php echo $status_filter === 'expired' ? '700' : '500'; ?>; color:#dc2626;">⚠️ Scadute <span class="count">(<?php echo $count_expired; ?>)</span></a></li>
+                    <?php endif; ?>
                 </ul>
 
                 <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="display:flex; gap:8px; width:100%; max-width:360px;">
@@ -660,7 +680,7 @@ function dfn_render_volunteers_list_page(): void
                 <thead>
                     <tr>
                         <th style="width:170px; font-weight:700;">Volontario</th>
-                        <th style="width:135px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
+                        <th style="width:145px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
                         <th style="width:115px; font-weight:700; text-align:center;">SiVol <?php dfn_tooltip_icon('dfn-tip-vol-sivol', 'Informazioni: Registrazione SiVol'); ?></th>
                         <th style="width:175px; font-weight:700;">Contatti</th>
                         <th style="font-weight:700;">Incarichi &amp; Ruoli FAI <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
@@ -690,12 +710,52 @@ function dfn_render_volunteers_list_page(): void
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <?php if (! empty($v->card_number)) : ?>
-                                        <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;">
-                                            💳 <?php echo esc_html($v->card_number); ?>
-                                        </code>
-                                        <?php if ($v->card_expiry) : ?>
-                                            <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
+                                    <?php 
+                                    if (! empty($v->card_number)) : 
+                                        $today = current_time('Y-m-d');
+                                        $is_card_expired  = false;
+                                        $is_card_expiring = false;
+
+                                        if (! empty($v->card_expiry) && $v->card_expiry !== '0000-00-00') {
+                                            $exp_date = date('Y-m-d', strtotime($v->card_expiry));
+                                            if ($exp_date < $today) {
+                                                $is_card_expired = true;
+                                            } else {
+                                                $limit_date = date('Y-m-d', strtotime("+{$warning_days} days", strtotime($today)));
+                                                if ($exp_date <= $limit_date) {
+                                                    $is_card_expiring = true;
+                                                }
+                                            }
+                                        }
+                                    ?>
+                                        <?php if ($is_card_expired) : ?>
+                                            <code style="background:#fee2e2; padding:3px 7px; border-radius:5px; border:1px solid #f87171; font-weight:700; color:#991b1b; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
+                                                💳 <?php echo esc_html($v->card_number); ?>
+                                            </code>
+                                            <div style="font-size:11px; font-weight:700; color:#dc2626; margin-top:3px; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+                                                <span>Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></span>
+                                                <span style="background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; border-radius:4px; padding:0 4px; font-size:9.5px; font-weight:800; text-transform:uppercase;">Scaduta</span>
+                                            </div>
+                                        <?php elseif ($is_card_expiring) : ?>
+                                            <code style="background:#fef3c7; padding:3px 7px; border-radius:5px; border:1px solid #f59e0b; font-weight:700; color:#92400e; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
+                                                💳 <?php echo esc_html($v->card_number); ?>
+                                            </code>
+                                            <div style="font-size:11px; font-weight:700; color:#d97706; margin-top:3px; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+                                                <span>Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></span>
+                                                <span style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; border-radius:4px; padding:0 4px; font-size:9.5px; font-weight:800; text-transform:uppercase;">In scadenza</span>
+                                            </div>
+                                        <?php else : ?>
+                                            <code style="background:#f1f5f9; padding:3px 6px; border-radius:4px; border:1px solid #e2e8f0; font-weight:600; color:#334155; white-space:nowrap;">
+                                                💳 <?php echo esc_html($v->card_number); ?>
+                                            </code>
+                                            <?php if ($v->card_expiry && $v->card_expiry !== '0000-00-00') : ?>
+                                                <div style="font-size:11px; color:#64748b; margin-top:2px; white-space:nowrap;">Scad: <?php echo esc_html(date_i18n('d/m/Y', strtotime($v->card_expiry))); ?></div>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                        <?php if (! empty($v->fai_registry_id)) : ?>
+                                            <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
+                                                <span style="color:#004b23; font-weight:700;">ID:</span> <?php echo esc_html($v->fai_registry_id); ?>
+                                            </div>
                                         <?php endif; ?>
                                     <?php else : ?>
                                         <span style="font-size:11px; background:#fff; color:#b45309; border:1px dashed #fcd34d; padding:2px 7px; border-radius:6px; font-weight:600; white-space:nowrap;">
@@ -1144,14 +1204,15 @@ function dfn_render_volunteer_add_page(): void
         $first_name   = sanitize_text_field($_POST['first_name'] ?? '');
         $last_name    = sanitize_text_field($_POST['last_name'] ?? '');
         $email        = sanitize_email($_POST['email'] ?? '');
-        $phone        = sanitize_text_field($_POST['phone'] ?? '');
-        $card_number  = sanitize_text_field($_POST['card_number'] ?? '');
-        $card_expiry  = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
-        $card_type    = isset($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
-        $is_sivol     = ! empty($_POST['is_sivol_registered']) ? 1 : 0;
-        $notes        = sanitize_textarea_field($_POST['notes'] ?? '');
-        $user_id_raw  = (int) ($_POST['user_id'] ?? 0);
-        $user_id      = $user_id_raw > 0 ? $user_id_raw : null;
+        $phone           = sanitize_text_field($_POST['phone'] ?? '');
+        $card_number     = sanitize_text_field($_POST['card_number'] ?? '');
+        $fai_registry_id = sanitize_text_field($_POST['fai_registry_id'] ?? '');
+        $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
+        $card_type       = isset($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
+        $is_sivol        = ! empty($_POST['is_sivol_registered']) ? 1 : 0;
+        $notes           = sanitize_textarea_field($_POST['notes'] ?? '');
+        $user_id_raw     = (int) ($_POST['user_id'] ?? 0);
+        $user_id         = $user_id_raw > 0 ? $user_id_raw : null;
 
         // Validazione tipo tessera configurato
         $types_string = function_exists('dfn_get_setting') ? dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA') : 'INDIVIDUALE, COPPIA, FAMIGLIA';
@@ -1202,6 +1263,7 @@ function dfn_render_volunteer_add_page(): void
                         'email'               => $email,
                         'phone'               => $phone,
                         'card_number'         => $card_number,
+                        'fai_registry_id'     => ! empty($fai_registry_id) ? $fai_registry_id : null,
                         'card_expiry'         => $card_expiry,
                         'card_type'           => $card_type,
                         'verified'            => ! empty($card_number) ? 1 : 0,
@@ -1215,7 +1277,7 @@ function dfn_render_volunteer_add_page(): void
                         'has_safety_course'   => $has_safety_course,
                     ],
                     [ 'id' => $target_record_id ],
-                    [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%d', '%d' ],
+                    [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%s', '%s', '%d', '%d' ],
                     [ '%d' ]
                 );
                 $saved_id = $target_record_id;
@@ -1228,6 +1290,7 @@ function dfn_render_volunteer_add_page(): void
                         'email'               => $email,
                         'phone'               => $phone,
                         'card_number'         => $card_number,
+                        'fai_registry_id'     => ! empty($fai_registry_id) ? $fai_registry_id : null,
                         'card_expiry'         => $card_expiry,
                         'card_type'           => $card_type,
                         'verified'            => ! empty($card_number) ? 1 : 0,
@@ -1275,6 +1338,13 @@ function dfn_render_volunteer_add_page(): void
 
                     // Salva nei meta utente per lookup rapido
                     update_user_meta($user_id, '_dfn_assigned_fai_roles', array_unique($all_assigned));
+
+                    // Salva le preferenze di notifica email del volontario se presenti nel form
+                    if (isset($_POST['dfn_admin_notif_prefs_present'])) {
+                        update_user_meta($user_id, '_dfn_notify_card_expiry', isset($_POST['dfn_notify_card_expiry']) ? '1' : '0');
+                        update_user_meta($user_id, '_dfn_notify_meetings', isset($_POST['dfn_notify_meetings']) ? '1' : '0');
+                        update_user_meta($user_id, '_dfn_notify_shifts', isset($_POST['dfn_notify_shifts']) ? '1' : '0');
+                    }
                 }
             }
 
@@ -1414,10 +1484,14 @@ function dfn_render_volunteer_add_page(): void
                     💳 Dettagli Tessera FAI (Opzionale) &amp; Piattaforma SiVol
                 </h3>
 
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px;">
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Numero Tessera</label>
                         <input type="text" name="card_number" id="dfn-field-card-number" value="<?php echo esc_attr($volunteer_data ? ($volunteer_data->card_number ?: '') : ''); ?>" placeholder="Es. 12345678 (o lascia vuoto)" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">ID Anagrafica (SiVol / App FAI)</label>
+                        <input type="text" name="fai_registry_id" id="dfn-field-fai-registry-id" value="<?php echo esc_attr($volunteer_data && ! empty($volunteer_data->fai_registry_id) ? $volunteer_data->fai_registry_id : ''); ?>" placeholder="Es. 4312492" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
                     </div>
                     <div>
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Scadenza Tessera</label>
@@ -1517,6 +1591,35 @@ function dfn_render_volunteer_add_page(): void
                         </label>
                     <?php endforeach; ?>
                 </div>
+
+                <?php if ($linked_user_id > 0) : 
+                    $admin_wants_expiry   = function_exists('dfn_user_wants_card_expiry_notification') ? dfn_user_wants_card_expiry_notification($linked_user_id) : true;
+                    $admin_wants_meetings = function_exists('dfn_user_wants_meetings_notification') ? dfn_user_wants_meetings_notification($linked_user_id) : true;
+                    $admin_wants_shifts   = function_exists('dfn_user_wants_shifts_notification') ? dfn_user_wants_shifts_notification($linked_user_id) : true;
+                ?>
+                    <input type="hidden" name="dfn_admin_notif_prefs_present" value="1">
+                    <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px; margin-top:20px;">
+                        🔔 Preferenze Notifiche Email Volontario
+                    </h3>
+                    <p style="font-size:12px; color:#64748b; margin-top:4px; margin-bottom:12px;">
+                        Stato delle preferenze di notifica email configurate dal volontario nella sua area riservata.
+                    </p>
+
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; margin-bottom:20px; display:flex; flex-direction:column; gap:10px;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="dfn_notify_card_expiry" value="1" <?php checked($admin_wants_expiry, true); ?> style="width:16px; height:16px; accent-color:#004b23;">
+                            <span style="font-size:13px; color:#1e293b; font-weight:600;">🪪 Notifica Promemoria Scadenza Tessera FAI</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="dfn_notify_meetings" value="1" <?php checked($admin_wants_meetings, true); ?> style="width:16px; height:16px; accent-color:#004b23;">
+                            <span style="font-size:13px; color:#1e293b; font-weight:600;">📅 Convocazioni e Promemoria Riunioni di Delegazione</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="dfn_notify_shifts" value="1" <?php checked($admin_wants_shifts, true); ?> style="width:16px; height:16px; accent-color:#004b23;">
+                            <span style="font-size:13px; color:#1e293b; font-weight:600;">📍 Notifiche Turni Assegnati e Aggiornamenti Eventi</span>
+                        </label>
+                    </div>
+                <?php endif; ?>
 
                 <div style="margin-bottom:24px;">
                     <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Note Delegazione / Disponibilità</label>

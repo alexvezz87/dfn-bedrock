@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.4.2');
+define('DFN_DB_VERSION', '2.4.3');
 
 /**
  * ========================================================================
@@ -190,6 +190,7 @@ function dfn_db_install(): void
         email varchar(255) DEFAULT NULL,
         phone varchar(50) DEFAULT NULL,
         card_number varchar(50) NOT NULL,
+        fai_registry_id varchar(50) DEFAULT NULL,
         card_expiry date DEFAULT NULL,
         card_type varchar(20) NOT NULL DEFAULT 'INDIVIDUALE',
         verified tinyint(1) NOT NULL DEFAULT 0,
@@ -207,6 +208,7 @@ function dfn_db_install(): void
         PRIMARY KEY  (id),
         KEY idx_email (email),
         KEY idx_card (card_number),
+        KEY idx_registry (fai_registry_id),
         KEY idx_user (user_id),
         KEY idx_expiry (card_expiry),
         KEY idx_volunteer (is_volunteer),
@@ -541,6 +543,12 @@ function dfn_db_install(): void
     if (empty($row_sivol)) {
         $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN is_sivol_registered tinyint(1) NOT NULL DEFAULT 0");
         $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_sivol (is_sivol_registered)");
+    }
+
+    $row_reg = $wpdb->get_results("SHOW COLUMNS FROM {$table_fai} LIKE 'fai_registry_id'");
+    if (empty($row_reg)) {
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN fai_registry_id varchar(50) DEFAULT NULL AFTER card_number");
+        $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_registry (fai_registry_id)");
     }
 
     // Assicura che i semplici soci senza status volontario abbiano volunteer_status = 'none' e is_volunteer = 0
