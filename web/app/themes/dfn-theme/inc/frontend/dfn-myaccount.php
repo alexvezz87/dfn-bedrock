@@ -34,6 +34,11 @@ function dfn_render_login_page_header(): void
 }
 
 // Personalizza il messaggio di conferma invio email di reset password in card FAI
+add_action('woocommerce_before_lost_password_confirmation_message', function() {
+    if (function_exists('wc_clear_notices')) {
+        wc_clear_notices();
+    }
+});
 add_filter('woocommerce_lost_password_confirmation_message', '__return_empty_string');
 add_action('woocommerce_after_lost_password_confirmation_message', 'dfn_render_lost_password_confirmation_card');
 function dfn_render_lost_password_confirmation_card(): void
