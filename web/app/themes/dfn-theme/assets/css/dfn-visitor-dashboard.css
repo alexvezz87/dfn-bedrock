@@ -2076,7 +2076,11 @@
 /* Container notices on lost password */
 .woocommerce-lost-password .woocommerce-notices-wrapper,
 .woocommerce-ResetPassword-page .woocommerce-notices-wrapper,
-.woocommerce-account .woocommerce:has(.dfn-auth-card) > .woocommerce-notices-wrapper {
+.woocommerce-account .woocommerce:has(.dfn-auth-card) > .woocommerce-notices-wrapper,
+.woocommerce-lost-password .woocommerce-message,
+.woocommerce-account:has(.dfn-lost-password-confirmation-card) .woocommerce-message,
+.woocommerce-account:has(.dfn-lost-password-card) .woocommerce-message,
+.woocommerce-account:has(.dfn-lost-password-confirmation-card) .woocommerce-notices-wrapper {
     display: none !important;
 }
 
