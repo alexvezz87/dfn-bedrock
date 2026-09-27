@@ -225,4 +225,20 @@
         }
     });
 
+    // Toggle visibilità password
+    $(document).on('click', '.password-input .show-password-input, .dfn-toggle-pwd-btn', function(e) {
+        e.preventDefault();
+        var $btn   = $(this);
+        var $input = $btn.closest('.password-input').find('input');
+        if ($input.length) {
+            if ($input.attr('type') === 'password') {
+                $input.attr('type', 'text');
+                $btn.addClass('display-password');
+            } else {
+                $input.attr('type', 'password');
+                $btn.removeClass('display-password');
+            }
+        }
+    });
+
 })(jQuery);
