@@ -34,10 +34,10 @@ function dfn_render_login_page_header(): void
 }
 
 // Personalizza il messaggio di conferma invio email di reset password in card FAI
-add_filter('woocommerce_lost_password_confirmation_message', 'dfn_render_lost_password_confirmation_card', 20, 1);
-function dfn_render_lost_password_confirmation_card(string $message): string
+add_filter('woocommerce_lost_password_confirmation_message', '__return_empty_string');
+add_action('woocommerce_after_lost_password_confirmation_message', 'dfn_render_lost_password_confirmation_card');
+function dfn_render_lost_password_confirmation_card(): void
 {
-    ob_start();
     ?>
     <div class="dfn-auth-card dfn-lost-password-confirmation-card">
         <div class="dfn-card-header">
@@ -53,7 +53,7 @@ function dfn_render_lost_password_confirmation_card(string $message): string
             </p>
         </div>
 
-        <div class="dfn-confirmation-info-box" style="background-color: #f8fafc; border-left: 4px solid #004d35; padding: 16px 18px; border-radius: 6px; margin: 20px 0; font-size: 13.5px; color: #334155; line-height: 1.55;">
+        <div class="dfn-confirmation-info-box" style="background-color: #f8fafc; border-left: 4px solid #004d35; padding: 16px 18px; border-radius: 6px; margin: 20px 0; font-size: 13.5px; color: #334155; line-height: 1.55; text-align: left;">
             ⏱️ <?php esc_html_e('L\'effettiva ricezione nella tua casella di posta potrebbe richiedere qualche minuto. Per favore controlla anche la cartella Spam e attendi almeno 10 minuti prima di effettuare una nuova richiesta.', 'dfn-theme'); ?>
         </div>
 
@@ -64,7 +64,6 @@ function dfn_render_lost_password_confirmation_card(string $message): string
         </div>
     </div>
     <?php
-    return ob_get_clean();
 }
 
 // Aggiunge la voce di menu rapida "Biglietto Gruppo" alla lista degli ordini cliente
