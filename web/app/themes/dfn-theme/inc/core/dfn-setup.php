@@ -477,25 +477,60 @@ function dfn_setup_roles_and_caps(): void
 }
 
 /**
- * Sblocca l'accesso al backend WP per i volontari.
+ * Sblocca l'accesso al backend WP solo per gli utenti autorizzati (es. Segreteria / Amministrazione).
  *
- * WooCommerce blocca l'accesso admin ai ruoli non-admin.
- * Questa funzione lo sblocca per chi ha la capability dello scanner.
+ * WooCommerce blocca di default l'accesso admin ai ruoli non-admin.
+ * I volontari standard NON devono accedere al backend wp-admin.
  *
  * @param bool $prevent_access Se bloccare l'accesso.
- * @return bool False per sbloccare, valore originale altrimenti.
+ * @return bool False per consentire l'accesso admin, True/valore originale per bloccare.
  */
 function dfn_sblocca_backend_volontari(bool $prevent_access): bool
 {
-    if (current_user_can('dfn_use_scanner') || current_user_can('cv_use_scanner') || current_user_can('dfn_quick_booking')) {
+    // Non bloccare MAI le richieste AJAX, REST API o autosave
+    if (wp_doing_ajax() || (defined('DOING_AJAX') && DOING_AJAX) || (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) || (defined('REST_REQUEST') && REST_REQUEST)) {
         return false;
     }
+
+    // Gli amministratori e gli operatori di segreteria/prenotazione rapida possono accedere al backend
+    if (current_user_can('manage_options') || current_user_can('dfn_quick_booking')) {
+        return false;
+    }
+
     return $prevent_access;
 }
 add_filter('woocommerce_prevent_admin_access', 'dfn_sblocca_backend_volontari', 20, 1);
 
 /**
- * Redirect i volontari allo scanner dopo il login WooCommerce.
+ * Protegge /wp-admin/ reindirizzando i volontari e clienti a /mio-account/.
+ */
+function dfn_block_wp_admin_for_volunteers(): void
+{
+    if (wp_doing_ajax() || (defined('DOING_AJAX') && DOING_AJAX) || (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) || (defined('REST_REQUEST') && REST_REQUEST)) {
+        return;
+    }
+
+    if (! is_user_logged_in()) {
+        return;
+    }
+
+    $user = wp_get_current_user();
+
+    // Gli amministratori e gli utenti con ruoli operativi di backend (es. segreteria) possono accedere a wp-admin
+    if (user_can($user, 'manage_options') || user_can($user, 'dfn_quick_booking')) {
+        return;
+    }
+
+    // I volontari e gli utenti cliente senza privilegi amministrativi vengono rediretti a /mio-account/
+    wp_safe_redirect(home_url('/mio-account/'));
+    exit;
+}
+add_action('admin_init', 'dfn_block_wp_admin_for_volunteers');
+
+/**
+ * Redirect dopo il login WooCommerce.
+ *
+ * Gli amministratori mantengono il normale redirect WooCommerce.
  *
  * @param string  $redirect URL di redirect.
  * @param WP_User $user     Utente loggato.
@@ -503,18 +538,27 @@ add_filter('woocommerce_prevent_admin_access', 'dfn_sblocca_backend_volontari', 
  */
 function dfn_redirect_volunteer_wc(string $redirect, $user): string
 {
-    if (is_a($user, 'WP_User') && (in_array('dfn_volunteer', (array) $user->roles, true) || in_array('cv_scanner', (array) $user->roles, true))) {
-        return admin_url('admin.php?page=dfn-scanner-live');
+    if (! is_a($user, 'WP_User')) {
+        return $redirect;
     }
-    if (is_a($user, 'WP_User') && in_array('dfn_segretaria', (array) $user->roles, true)) {
+
+    // Gli amministratori mantengono sempre il loro redirect naturale
+    if (in_array('administrator', (array) $user->roles, true) || (method_exists($user, 'has_cap') && $user->has_cap('manage_options'))) {
+        return $redirect;
+    }
+
+    // Ruolo Segreteria: reindirizza al desk prenotazioni rapide
+    if (in_array('dfn_segretaria', (array) $user->roles, true)) {
         return admin_url('admin.php?page=dfn-quick-booking');
     }
-    return $redirect;
+
+    // Tutti gli altri utenti (volontari, clienti): vanno su /mio-account/ (o sul redirect richiesto)
+    return ! empty($redirect) ? $redirect : home_url('/mio-account/');
 }
 add_filter('woocommerce_login_redirect', 'dfn_redirect_volunteer_wc', 99, 2);
 
 /**
- * Redirect i volontari allo scanner dopo il login WordPress standard.
+ * Redirect dopo il login WordPress standard (/wp-login.php).
  *
  * @param string  $redirect_to URL di redirect richiesto.
  * @param string  $request     URL della pagina corrente.
@@ -523,13 +567,22 @@ add_filter('woocommerce_login_redirect', 'dfn_redirect_volunteer_wc', 99, 2);
  */
 function dfn_redirect_volunteer_wp(string $redirect_to, string $request, $user): string
 {
-    if (is_a($user, 'WP_User') && (in_array('dfn_volunteer', (array) $user->roles, true) || in_array('cv_scanner', (array) $user->roles, true))) {
-        return admin_url('admin.php?page=dfn-scanner-live');
+    if (! is_a($user, 'WP_User')) {
+        return $redirect_to;
     }
-    if (is_a($user, 'WP_User') && in_array('dfn_segretaria', (array) $user->roles, true)) {
+
+    // Gli amministratori vanno sempre alla bacheca WP Admin standard (/wp-admin/)
+    if (in_array('administrator', (array) $user->roles, true) || (method_exists($user, 'has_cap') && $user->has_cap('manage_options'))) {
+        return $redirect_to;
+    }
+
+    // Ruolo Segreteria: reindirizza al desk prenotazioni rapide
+    if (in_array('dfn_segretaria', (array) $user->roles, true)) {
         return admin_url('admin.php?page=dfn-quick-booking');
     }
-    return $redirect_to;
+
+    // I volontari e i clienti ordinari vengono indirizzati a /mio-account/
+    return home_url('/mio-account/');
 }
 add_filter('login_redirect', 'dfn_redirect_volunteer_wp', 99, 3);
 
