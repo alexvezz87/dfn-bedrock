@@ -101,8 +101,8 @@ function dfn_render_volunteer_dashboard(): void
                 <span class="dashicons dashicons-businessman"></span>
                 <h1><?php esc_html_e('Bacheca Turno Volontario FAI', 'dfn-theme'); ?></h1>
             </div>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-scanner-live')); ?>" class="page-title-action dfn-btn dfn-btn-primary" style="background: #004b23; border: none; font-size: 15px; padding: 10px 20px;">
-                <span class="dashicons dashicons-camera"></span> <?php esc_html_e('Avvia Scanner Fotocamera', 'dfn-theme'); ?>
+            <a href="<?php echo esc_url(home_url('/gestione-eventi/')); ?>" class="page-title-action dfn-btn dfn-btn-primary" style="background: #004b23; border: none; font-size: 15px; padding: 10px 20px;">
+                <span class="dashicons dashicons-smartphone"></span> <?php esc_html_e('Apri Web App Gestione Eventi', 'dfn-theme'); ?>
             </a>
         </header>
 

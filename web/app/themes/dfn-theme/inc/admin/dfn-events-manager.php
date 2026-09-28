@@ -52,16 +52,6 @@ function dfn_admin_register_menus()
         'dfn_render_event_editor',
     );
 
-    // Sottomenu "Scanner Live"
-    add_submenu_page(
-        'dfn-events',
-        __('Scanner Live', 'dfn-theme'),
-        __('Scanner Live', 'dfn-theme'),
-        'dfn_act_scanner',
-        'dfn-scanner-live',
-        'dfn_render_pagina_scanner_live',
-    );
-
     // Sottomenu "Gestione Turni" (Nascosto dal menu principale ma accessibile via URL)
     add_submenu_page(
         null, // null lo nasconde dalla barra laterale di default
