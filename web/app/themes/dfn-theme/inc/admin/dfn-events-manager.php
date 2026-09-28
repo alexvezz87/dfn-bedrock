@@ -349,8 +349,31 @@ function dfn_render_events_manager()
         }
     }
 
-    // Carica gli eventi
-    $events = $wpdb->get_results("SELECT * FROM {$table_events} ORDER BY event_date_start DESC");
+    // Carica gli eventi e suddividili tra attivi/in programma e conclusi
+    $all_events = $wpdb->get_results("SELECT * FROM {$table_events}");
+    $today = current_time('Y-m-d');
+
+    $upcoming_events = [];
+    $past_events     = [];
+
+    foreach ($all_events as $evt) {
+        $evt_end = ! empty($evt->event_date_end) ? $evt->event_date_end : $evt->event_date_start;
+        if ($evt_end >= $today) {
+            $upcoming_events[] = $evt;
+        } else {
+            $past_events[] = $evt;
+        }
+    }
+
+    // Ordina eventi futuri/in corso in ordine cronologico crescente (il più vicino in alto)
+    usort($upcoming_events, function ($a, $b) {
+        return strcmp($a->event_date_start, $b->event_date_start);
+    });
+
+    // Ordina eventi passati in ordine cronologico decrescente (il più recente in alto)
+    usort($past_events, function ($a, $b) {
+        return strcmp($b->event_date_start, $a->event_date_start);
+    });
     ?>
     <div class="wrap dfn-admin-wrap">
         <header class="dfn-admin-header">
@@ -369,190 +392,240 @@ function dfn_render_events_manager()
             </div>
         <?php endif; ?>
 
-        <div class="dfn-card dfn-main-card">
-            <div class="dfn-card-header">
-                <h2><?php esc_html_e('Elenco Eventi Attivi', 'dfn-theme'); ?></h2>
-                <span class="dfn-count-badge"><?php echo count($events); ?> <?php esc_html_e('Eventi in totale', 'dfn-theme'); ?></span>
-            </div>
+        <!-- 1. TABELLA EVENTI IN PROGRAMMA & IN CORSO -->
+        <?php
+        dfn_render_events_table_section(
+            $upcoming_events,
+            __('Eventi in Programma & In Corso', 'dfn-theme'),
+            __('Eventi attivi', 'dfn-theme'),
+            'background:#f0fdf4; color:#004b23; border:1px solid #bbf7d0; font-weight:700;',
+            'dashicons-calendar-alt',
+            __('Nessun evento in programma al momento.', 'dfn-theme'),
+            false
+        );
+        ?>
 
-            <table class="wp-list-table widefat fixed striped table-view-list dfn-events-table">
-                <thead>
+        <!-- 2. TABELLA EVENTI CONCLUSI & PASSATI -->
+        <?php
+        dfn_render_events_table_section(
+            $past_events,
+            __('Eventi Conclusi & Passati', 'dfn-theme'),
+            __('Eventi conclusi', 'dfn-theme'),
+            'background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:700;',
+            'dashicons-archive',
+            __('Nessun evento passato registrato nello storico.', 'dfn-theme'),
+            true
+        );
+        ?>
+    </div>
+    <?php
+}
+
+/**
+ * Renderizza una singola tabella di eventi (in corso/futuri o conclusi).
+ *
+ * @param array  $events_list Elenco degli oggetti evento.
+ * @param string $card_title  Titolo della card.
+ * @param string $badge_label Testo del badge di conteggio.
+ * @param string $badge_style Stili inline per il badge di conteggio.
+ * @param string $dashicon    Classe dashicons per il titolo.
+ * @param string $empty_msg   Messaggio da mostrare se la lista è vuota.
+ * @param bool   $is_past     Se true indica che la tabella è per eventi passati.
+ */
+function dfn_render_events_table_section(array $events_list, string $card_title, string $badge_label, string $badge_style, string $dashicon, string $empty_msg, bool $is_past = false): void
+{
+    global $wpdb;
+    ?>
+    <div class="dfn-card dfn-main-card" style="margin-bottom: 30px;">
+        <div class="dfn-card-header">
+            <h2>
+                <span class="dashicons <?php echo esc_attr($dashicon); ?>" style="<?php echo $is_past ? 'color:#64748b;' : 'color:#004b23;'; ?> margin-right:6px; vertical-align:middle;"></span>
+                <?php echo esc_html($card_title); ?>
+            </h2>
+            <span class="dfn-count-badge" style="<?php echo esc_attr($badge_style); ?>">
+                <?php echo count($events_list); ?> <?php echo esc_html($badge_label); ?>
+            </span>
+        </div>
+
+        <table class="wp-list-table widefat fixed striped table-view-list dfn-events-table">
+            <thead>
+                <tr>
+                    <th class="column-title"><?php esc_html_e('Nome Prodotto WooCommerce / Evento', 'dfn-theme'); ?></th>
+                    <th title="<?php esc_attr_e('Data di inizio (e fine) dell\'evento e luogo di ritrovo', 'dfn-theme'); ?>"><?php esc_html_e('Data & Luogo', 'dfn-theme'); ?></th>
+                    <th title="<?php esc_attr_e('Orario di apertura/chiusura e modalità di pagamento configurata', 'dfn-theme'); ?>"><?php esc_html_e('Orario & Canali', 'dfn-theme'); ?></th>
+                    <th title="<?php esc_attr_e('Fasce Orarie = turni con capacità fissa | Flusso Libero = accesso senza turni | Automatica = slot assegnato dal sistema | Self-selection = l\'utente sceglie il turno', 'dfn-theme'); ?>"><?php esc_html_e('Tipologia / Allocazione', 'dfn-theme'); ?></th>
+                    <th title="<?php esc_attr_e('Posti prenotati rispetto alla capacità totale configurata', 'dfn-theme'); ?>"><?php esc_html_e('Capacità', 'dfn-theme'); ?></th>
+                    <th title="<?php esc_attr_e('Bozza = non visibile | Pubblicato = attivo online | Archiviato = terminato', 'dfn-theme'); ?>"><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
+                    <th class="column-actions"><?php esc_html_e('Azioni di Gestione', 'dfn-theme'); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($events_list)) : ?>
                     <tr>
-                        <th class="column-title"><?php esc_html_e('Nome Prodotto WooCommerce / Evento', 'dfn-theme'); ?></th>
-                        <th title="<?php esc_attr_e('Data di inizio (e fine) dell\'evento e luogo di ritrovo', 'dfn-theme'); ?>"><?php esc_html_e('Data & Luogo', 'dfn-theme'); ?></th>
-                        <th title="<?php esc_attr_e('Orario di apertura/chiusura e modalità di pagamento configurata', 'dfn-theme'); ?>"><?php esc_html_e('Orario & Canali', 'dfn-theme'); ?></th>
-                        <th title="<?php esc_attr_e('Fasce Orarie = turni con capacità fissa | Flusso Libero = accesso senza turni | Automatica = slot assegnato dal sistema | Self-selection = l\'utente sceglie il turno', 'dfn-theme'); ?>"><?php esc_html_e('Tipologia / Allocazione', 'dfn-theme'); ?></th>
-                        <th title="<?php esc_attr_e('Posti prenotati rispetto alla capacità totale configurata', 'dfn-theme'); ?>"><?php esc_html_e('Capacità', 'dfn-theme'); ?></th>
-                        <th title="<?php esc_attr_e('Bozza = non visibile | Pubblicato = attivo online | Archiviato = terminato', 'dfn-theme'); ?>"><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
-                        <th class="column-actions"><?php esc_html_e('Azioni di Gestione', 'dfn-theme'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($events)) : ?>
-                        <tr>
-                            <td colspan="7" class="dfn-empty-row">
-                                <div class="dfn-empty-state">
-                                    <span class="dashicons dashicons-calendar-alt"></span>
-                                    <p><?php esc_html_e('Nessun evento configurato nel database custom.', 'dfn-theme'); ?></p>
+                        <td colspan="7" class="dfn-empty-row" style="text-align: center; padding: 35px 20px;">
+                            <div class="dfn-empty-state">
+                                <span class="dashicons <?php echo esc_attr($dashicon); ?>" style="font-size: 32px; width: 32px; height: 32px; color: #94a3b8; margin-bottom: 10px;"></span>
+                                <p style="font-size: 14px; color: #64748b; margin: 0 0 12px 0;"><?php echo esc_html($empty_msg); ?></p>
+                                <?php if (! $is_past) : ?>
                                     <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit')); ?>" class="button button-primary">
-                                        <?php esc_html_e('Aggiungi il tuo primo evento', 'dfn-theme'); ?>
+                                        <?php esc_html_e('Aggiungi un nuovo evento', 'dfn-theme'); ?>
                                     </a>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                <?php else : ?>
+                    <?php foreach ($events_list as $event) :
+                        $product_name = get_the_title($event->product_id) ?: __('Prodotto non trovato (ID: ' . $event->product_id . ')', 'dfn-theme');
+                        $formatted_date = date_i18n('d M Y', strtotime($event->event_date_start));
+                        if ($event->event_date_end && $event->event_date_end !== $event->event_date_start) {
+                            $formatted_date .= ' &rarr; ' . date_i18n('d M Y', strtotime($event->event_date_end));
+                        }
+
+                        // Ricalcola conteggi prima del caricamento per sicurezza ed evitare dati sporchi
+                        if (function_exists('dfn_db_recalculate_event_slots_booked_count')) {
+                            dfn_db_recalculate_event_slots_booked_count($event->id);
+                        }
+
+                        // Calcola slot occupati / totali
+                        if ('free_flow' === $event->access_type) {
+                            $slot_booked = $wpdb->get_var($wpdb->prepare(
+                                "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
+                                $event->id,
+                            )) ?: 0;
+                            $slots_total = 0;
+                        } else {
+                            $slot_booked = $wpdb->get_var($wpdb->prepare(
+                                "SELECT SUM(booked_count) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
+                                $event->id,
+                            )) ?: 0;
+                            $slots_total = $wpdb->get_var($wpdb->prepare(
+                                "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
+                                $event->id,
+                            )) ?: 0;
+                        }
+
+                        // Badge stili
+                        $status_class = 'dfn-status-' . $event->status;
+                        $allocation_mode_label = ('automatic' === $event->allocation_mode) ? '🤖 Automatica' : '👈 Self Selection';
+                        $payment_mode_label = '💳 Online';
+                        if ('in_loco' === $event->payment_mode) {
+                            $payment_mode_label = '💵 In Loco';
+                        }
+                        if ('hybrid' === $event->payment_mode) {
+                            $payment_mode_label = '🔄 Ibrida';
+                        }
+                        if ('gratuito' === $event->payment_mode) {
+                            $payment_mode_label = '🎁 Gratuito';
+                        }
+                        ?>
+                        <tr <?php echo $is_past ? 'style="opacity: 0.9;"' : ''; ?>>
+                            <td class="column-title">
+                                <strong><a class="row-title" href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php echo esc_html($product_name); ?></a></strong>
+                                <?php if (! empty($event->is_test_event)) : ?>
+                                    <span class="dfn-badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:11px; font-weight:bold; padding:2px 6px; border-radius:4px; margin-left:6px; vertical-align:middle;">🧪 TEST</span>
+                                <?php endif; ?>
+                                <div class="row-actions">
+                                    <span class="edit"><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php esc_html_e('Modifica', 'dfn-theme'); ?></a> | </span>
+                                    <span class="duplicate"><a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=duplicate&event_id=' . $event->id), 'dfn_dup_event_' . $event->id)); ?>" style="color:#004b23; font-weight:600;"><?php esc_html_e('Duplica', 'dfn-theme'); ?></a> | </span>
+                                    <span class="view"><a href="<?php echo esc_url(get_permalink($event->product_id)); ?>" target="_blank"><?php esc_html_e('Vedi Prodotto', 'dfn-theme'); ?></a> | </span>
+                                    <span class="trash"><a class="submitdelete dfn-btn-delete" href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=delete&event_id=' . $event->id), 'dfn_del_event_' . $event->id)); ?>"><?php esc_html_e('Elimina', 'dfn-theme'); ?></a></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div><strong><?php echo esc_html($formatted_date); ?></strong></div>
+                                <span class="dfn-small-sub"><span class="dashicons dashicons-location-alt"></span> <?php echo esc_html(! empty($event->city) ? $event->city . ' — ' . $event->location : $event->location); ?></span>
+                            </td>
+                            <td>
+                                <div><?php echo date('H:i', strtotime($event->event_time_start)); ?> - <?php echo $event->event_time_end ? date('H:i', strtotime($event->event_time_end)) : 'FINE'; ?></div>
+                                <span class="dfn-small-sub"><span class="dashicons dashicons-cart"></span> <?php echo esc_html($payment_mode_label); ?></span>
+                            </td>
+                            <td>
+                                <div><strong title="<?php echo ('time_slots' === $event->access_type) ? esc_attr__('Fasce Orarie: l\'evento è diviso in turni orari con capacità fissa per turno', 'dfn-theme') : esc_attr__('Flusso Libero: gli utenti prenotano senza scegliere un turno specifico', 'dfn-theme'); ?>"><?php echo ('time_slots' === $event->access_type) ? '⏰ Fasce Orarie' : '🚪 Flusso Libero'; ?></strong></div>
+                                <span class="dfn-small-sub" title="<?php echo ('automatic' === $event->allocation_mode) ? esc_attr__('Automatica: il sistema assegna il turno meno affollato disponibile', 'dfn-theme') : esc_attr__('Self-selection: l\'utente sceglie autonomamente il proprio turno orario', 'dfn-theme'); ?>"><?php echo esc_html($allocation_mode_label); ?></span>
+                            </td>
+                            <td>
+                                <?php if ('time_slots' === $event->access_type) : ?>
+                                    <div class="dfn-progress-bar-container">
+                                        <div class="dfn-progress-text"><?php echo esc_html((string) $slot_booked); ?> / <?php echo esc_html((string) ($event->slot_capacity * $slots_total)); ?> <?php esc_html_e('posti', 'dfn-theme'); ?></div>
+                                        <div class="dfn-progress-bar">
+                                            <?php
+                                            $pct = 0;
+                                            $max_cap = $event->slot_capacity * $slots_total;
+                                            if ($max_cap > 0) {
+                                                $pct = min(100, round(($slot_booked / $max_cap) * 100));
+                                            }
+                                            ?>
+                                            <span class="dfn-progress-fill" style="width: <?php echo $pct; ?>%;"></span>
+                                        </div>
+                                    </div>
+                                    <span class="dfn-small-sub"><?php echo esc_html($slots_total); ?> <?php esc_html_e('turni generati', 'dfn-theme'); ?></span>
+                                <?php else : ?>
+                                    <div><strong><?php echo esc_html($slot_booked); ?> / <?php echo esc_html($event->total_capacity); ?></strong></div>
+                                    <span class="dfn-small-sub"><?php esc_html_e('Capacità totale', 'dfn-theme'); ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="dfn-badge <?php echo esc_attr($status_class); ?>">
+                                    <?php
+                                    if ('published' === $event->status) {
+                                        esc_html_e('Pubblicato', 'dfn-theme');
+                                    } elseif ('private' === $event->status) {
+                                        esc_html_e('Privato', 'dfn-theme');
+                                    } elseif ('archived' === $event->status) {
+                                        esc_html_e('Archiviato', 'dfn-theme');
+                                    } else {
+                                        esc_html_e('Bozza', 'dfn-theme');
+                                    }
+                                    ?>
+                                </span>
+                            </td>
+                            <td class="column-actions">
+                                <div class="dfn-actions-row">
+                                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>" class="button button-small dfn-action-btn" title="<?php esc_attr_e('Modifica la configurazione dell\'evento', 'dfn-theme'); ?>">
+                                        <span class="dashicons dashicons-edit"></span> <?php esc_html_e('Modifica', 'dfn-theme'); ?>
+                                    </a>
+                                    <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=duplicate&event_id=' . $event->id), 'dfn_dup_event_' . $event->id)); ?>" class="button button-small dfn-action-btn" style="color:#004b23; font-weight:600;" title="<?php esc_attr_e('Crea una copia esatta di questo evento in stato Bozza', 'dfn-theme'); ?>">
+                                        <span class="dashicons dashicons-admin-page"></span> <?php esc_html_e('Duplica', 'dfn-theme'); ?>
+                                    </a>
+                                    <?php if ('time_slots' === $event->access_type) : ?>
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-slot-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-turni" title="<?php esc_attr_e('Gestione Visuale dei Turni e delle Prenotazioni', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-admin-generic"></span> <?php esc_html_e('Turni', 'dfn-theme'); ?>
+                                        </a>
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn" style="background:#004b23; border-color:#003b1c; color:#fff;" title="<?php esc_attr_e('Tabellone Check-in per il banchetto', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-tickets-alt"></span> <?php esc_html_e('Check-in', 'dfn-theme'); ?>
+                                        </a>
+                                        <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=recalculate_slots&event_id=' . $event->id), 'dfn_recalc_slots_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-recalc" title="<?php esc_attr_e('Ricalcola e allinea i conteggi delle prenotazioni', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-calculator"></span> <?php esc_html_e('Ricalcola', 'dfn-theme'); ?>
+                                        </a>
+                                        <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=generate_slots&event_id=' . $event->id), 'dfn_gen_slots_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-reset" title="<?php esc_attr_e('Genera/Rigenera tutti i turni orari per questo evento', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-update"></span> <?php esc_html_e('Reset Slot', 'dfn-theme'); ?>
+                                        </a>
+                                    <?php else : ?>
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-slot-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-turni" title="<?php esc_attr_e('Visualizza e gestisci le prenotazioni per questo evento', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-list-view"></span> <?php esc_html_e('Prenotazioni', 'dfn-theme'); ?>
+                                        </a>
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn" style="background:#004b23; border-color:#003b1c; color:#fff;" title="<?php esc_attr_e('Tabellone Check-in per il banchetto', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-tickets-alt"></span> <?php esc_html_e('Check-in', 'dfn-theme'); ?>
+                                        </a>
+                                    <?php endif; ?>
+
+                                    <?php if ('published' === $event->status) : ?>
+                                        <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=toggle_status&status=draft&event_id=' . $event->id), 'dfn_status_event_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-status-draft" title="<?php esc_attr_e('Passa a bozza per nasconderlo', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-hidden"></span> <?php esc_html_e('Bozza', 'dfn-theme'); ?>
+                                        </a>
+                                    <?php else : ?>
+                                        <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=toggle_status&status=published&event_id=' . $event->id), 'dfn_status_event_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-status-pub" title="<?php esc_attr_e('Pubblica evento', 'dfn-theme'); ?>">
+                                            <span class="dashicons dashicons-yes-alt"></span> <?php esc_html_e('Attiva', 'dfn-theme'); ?>
+                                        </a>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
-                    <?php else : ?>
-                        <?php foreach ($events as $event) :
-                            $product_name = get_the_title($event->product_id) ?: __('Prodotto non trovato (ID: ' . $event->product_id . ')', 'dfn-theme');
-                            $formatted_date = date_i18n('d M Y', strtotime($event->event_date_start));
-                            if ($event->event_date_end && $event->event_date_end !== $event->event_date_start) {
-                                $formatted_date .= ' &rarr; ' . date_i18n('d M Y', strtotime($event->event_date_end));
-                            }
-
-                            // Ricalcola conteggi prima del caricamento per sicurezza ed evitare dati sporchi
-                            if (function_exists('dfn_db_recalculate_event_slots_booked_count')) {
-                                dfn_db_recalculate_event_slots_booked_count($event->id);
-                            }
-
-                            // Calcola slot occupati / totali
-                            if ('free_flow' === $event->access_type) {
-                                $slot_booked = $wpdb->get_var($wpdb->prepare(
-                                    "SELECT SUM(total_persons) FROM {$wpdb->prefix}dfn_bookings WHERE event_id = %d AND status != 'cancelled'",
-                                    $event->id,
-                                )) ?: 0;
-                                $slots_total = 0;
-                            } else {
-                                $slot_booked = $wpdb->get_var($wpdb->prepare(
-                                    "SELECT SUM(booked_count) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
-                                    $event->id,
-                                )) ?: 0;
-                                $slots_total = $wpdb->get_var($wpdb->prepare(
-                                    "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_event_slots WHERE event_id = %d",
-                                    $event->id,
-                                )) ?: 0;
-                            }
-
-                            // Badge stili
-                            $status_class = 'dfn-status-' . $event->status;
-                            $allocation_mode_label = ('automatic' === $event->allocation_mode) ? '🤖 Automatica' : '👈 Self Selection';
-                            $payment_mode_label = '💳 Online';
-                            if ('in_loco' === $event->payment_mode) {
-                                $payment_mode_label = '💵 In Loco';
-                            }
-                            if ('hybrid' === $event->payment_mode) {
-                                $payment_mode_label = '🔄 Ibrida';
-                            }
-                            if ('gratuito' === $event->payment_mode) {
-                                $payment_mode_label = '🎁 Gratuito';
-                            }
-                            ?>
-                            <tr>
-                                <td class="column-title">
-                                    <strong><a class="row-title" href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php echo esc_html($product_name); ?></a></strong>
-                                    <?php if (! empty($event->is_test_event)) : ?>
-                                        <span class="dfn-badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:11px; font-weight:bold; padding:2px 6px; border-radius:4px; margin-left:6px; vertical-align:middle;">🧪 TEST</span>
-                                    <?php endif; ?>
-                                    <div class="row-actions">
-                                        <span class="edit"><a href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>"><?php esc_html_e('Modifica', 'dfn-theme'); ?></a> | </span>
-                                        <span class="duplicate"><a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=duplicate&event_id=' . $event->id), 'dfn_dup_event_' . $event->id)); ?>" style="color:#004b23; font-weight:600;"><?php esc_html_e('Duplica', 'dfn-theme'); ?></a> | </span>
-                                        <span class="view"><a href="<?php echo esc_url(get_permalink($event->product_id)); ?>" target="_blank"><?php esc_html_e('Vedi Prodotto', 'dfn-theme'); ?></a> | </span>
-                                        <span class="trash"><a class="submitdelete dfn-btn-delete" href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=delete&event_id=' . $event->id), 'dfn_del_event_' . $event->id)); ?>"><?php esc_html_e('Elimina', 'dfn-theme'); ?></a></span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div><strong><?php echo esc_html($formatted_date); ?></strong></div>
-                                    <span class="dfn-small-sub"><span class="dashicons dashicons-location-alt"></span> <?php echo esc_html(! empty($event->city) ? $event->city . ' — ' . $event->location : $event->location); ?></span>
-                                </td>
-                                <td>
-                                    <div><?php echo date('H:i', strtotime($event->event_time_start)); ?> - <?php echo $event->event_time_end ? date('H:i', strtotime($event->event_time_end)) : 'FINE'; ?></div>
-                                    <span class="dfn-small-sub"><span class="dashicons dashicons-cart"></span> <?php echo esc_html($payment_mode_label); ?></span>
-                                </td>
-                                <td>
-                                    <div><strong title="<?php echo ('time_slots' === $event->access_type) ? esc_attr__('Fasce Orarie: l\'evento è diviso in turni orari con capacità fissa per turno', 'dfn-theme') : esc_attr__('Flusso Libero: gli utenti prenotano senza scegliere un turno specifico', 'dfn-theme'); ?>"><?php echo ('time_slots' === $event->access_type) ? '⏰ Fasce Orarie' : '🚪 Flusso Libero'; ?></strong></div>
-                                    <span class="dfn-small-sub" title="<?php echo ('automatic' === $event->allocation_mode) ? esc_attr__('Automatica: il sistema assegna il turno meno affollato disponibile', 'dfn-theme') : esc_attr__('Self-selection: l\'utente sceglie autonomamente il proprio turno orario', 'dfn-theme'); ?>"><?php echo esc_html($allocation_mode_label); ?></span>
-                                </td>
-                                <td>
-                                    <?php if ('time_slots' === $event->access_type) : ?>
-                                        <div class="dfn-progress-bar-container">
-                                            <div class="dfn-progress-text"><?php echo esc_html((string) $slot_booked); ?> / <?php echo esc_html((string) ($event->slot_capacity * $slots_total)); ?> <?php esc_html_e('posti', 'dfn-theme'); ?></div>
-                                            <div class="dfn-progress-bar">
-                                                <?php
-                                                $pct = 0;
-                                        $max_cap = $event->slot_capacity * $slots_total;
-                                        if ($max_cap > 0) {
-                                            $pct = min(100, round(($slot_booked / $max_cap) * 100));
-                                        }
-                                        ?>
-                                                <span class="dfn-progress-fill" style="width: <?php echo $pct; ?>%;"></span>
-                                            </div>
-                                        </div>
-                                        <span class="dfn-small-sub"><?php echo esc_html($slots_total); ?> <?php esc_html_e('turni generati', 'dfn-theme'); ?></span>
-                                    <?php else : ?>
-                                        <div><strong><?php echo esc_html($slot_booked); ?> / <?php echo esc_html($event->total_capacity); ?></strong></div>
-                                        <span class="dfn-small-sub"><?php esc_html_e('Capacità totale', 'dfn-theme'); ?></span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="dfn-badge <?php echo esc_attr($status_class); ?>">
-                                        <?php
-                                        if ('published' === $event->status) {
-                                            esc_html_e('Pubblicato', 'dfn-theme');
-                                        } elseif ('private' === $event->status) {
-                                            esc_html_e('Privato', 'dfn-theme');
-                                        } elseif ('archived' === $event->status) {
-                                            esc_html_e('Archiviato', 'dfn-theme');
-                                        } else {
-                                            esc_html_e('Bozza', 'dfn-theme');
-                                        }
-                            ?>
-                                    </span>
-                                </td>
-                                <td class="column-actions">
-                                    <div class="dfn-actions-row">
-                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-event-edit&id=' . $event->id)); ?>" class="button button-small dfn-action-btn" title="<?php esc_attr_e('Modifica la configurazione dell\'evento', 'dfn-theme'); ?>">
-                                            <span class="dashicons dashicons-edit"></span> <?php esc_html_e('Modifica', 'dfn-theme'); ?>
-                                        </a>
-                                        <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=duplicate&event_id=' . $event->id), 'dfn_dup_event_' . $event->id)); ?>" class="button button-small dfn-action-btn" style="color:#004b23; font-weight:600;" title="<?php esc_attr_e('Crea una copia esatta di questo evento in stato Bozza', 'dfn-theme'); ?>">
-                                            <span class="dashicons dashicons-admin-page"></span> <?php esc_html_e('Duplica', 'dfn-theme'); ?>
-                                        </a>
-                                        <?php if ('time_slots' === $event->access_type) : ?>
-                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-slot-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-turni" title="<?php esc_attr_e('Gestione Visuale dei Turni e delle Prenotazioni', 'dfn-theme'); ?>">
-                                                <span class="dashicons dashicons-admin-generic"></span> <?php esc_html_e('Turni', 'dfn-theme'); ?>
-                                            </a>
-                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn" style="background:#004b23; border-color:#003b1c; color:#fff;" title="<?php esc_attr_e('Tabellone Check-in per il banchetto', 'dfn-theme'); ?>">
-                                                <span class="dashicons dashicons-tickets-alt"></span> <?php esc_html_e('Check-in', 'dfn-theme'); ?>
-                                            </a>
-                                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=recalculate_slots&event_id=' . $event->id), 'dfn_recalc_slots_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-recalc" title="<?php esc_attr_e('Ricalcola e allinea i conteggi delle prenotazioni', 'dfn-theme'); ?>">
-                                                <span class="dashicons dashicons-calculator"></span> <?php esc_html_e('Ricalcola', 'dfn-theme'); ?>
-                                            </a>
-                                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=generate_slots&event_id=' . $event->id), 'dfn_gen_slots_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-reset" title="<?php esc_attr_e('Genera/Rigenera tutti i turni orari per questo evento', 'dfn-theme'); ?>">
-                                                <span class="dashicons dashicons-update"></span> <?php esc_html_e('Reset Slot', 'dfn-theme'); ?>
-                                            </a>
-                                        <?php else : ?>
-                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-slot-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-turni" title="<?php esc_attr_e('Visualizza e gestisci le prenotazioni per questo evento', 'dfn-theme'); ?>">
-                                                <span class="dashicons dashicons-list-view"></span> <?php esc_html_e('Prenotazioni', 'dfn-theme'); ?>
-                                            </a>
-                                            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-checkin-manager&event_id=' . $event->id)); ?>" class="button button-small dfn-action-btn" style="background:#004b23; border-color:#003b1c; color:#fff;" title="<?php esc_attr_e('Tabellone Check-in per il banchetto', 'dfn-theme'); ?>">
-                                                <span class="dashicons dashicons-tickets-alt"></span> <?php esc_html_e('Check-in', 'dfn-theme'); ?>
-                                            </a>
-                                        <?php endif; ?>
-
-                                        <?php if ('published' === $event->status) : ?>
-                                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=toggle_status&status=draft&event_id=' . $event->id), 'dfn_status_event_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-status-draft" title="<?php esc_attr_e('Passa a bozza per nasconderlo', 'dfn-theme'); ?>">
-                                                <span class="dashicons dashicons-hidden"></span> <?php esc_html_e('Bozza', 'dfn-theme'); ?>
-                                            </a>
-                                        <?php else : ?>
-                                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-events&action=toggle_status&status=published&event_id=' . $event->id), 'dfn_status_event_' . $event->id)); ?>" class="button button-small dfn-action-btn dfn-btn-status-pub" title="<?php esc_attr_e('Pubblica evento', 'dfn-theme'); ?>">
-                                                <span class="dashicons dashicons-yes-alt"></span> <?php esc_html_e('Attiva', 'dfn-theme'); ?>
-                                            </a>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
     </div>
     <?php
 }
