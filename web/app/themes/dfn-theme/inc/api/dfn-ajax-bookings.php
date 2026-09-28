@@ -935,6 +935,7 @@ function dfn_ajax_create_direct_booking(): void
         }
 
         $cart_item_data = [
+            'dfn_booking_event_id'=> $event->id,
             'dfn_booking_date'    => $date,
             'dfn_booking_slot_id' => $slot_id,
             'dfn_qty_standard'    => $qty_standard,
@@ -963,70 +964,6 @@ function dfn_ajax_create_direct_booking(): void
         ]);
         exit;
     }
-
-add_action('woocommerce_before_calculate_totals', 'dfn_override_cart_item_prices', 10, 1);
-/**
- * Imposta il prezzo unitario del carrello in base al prezzo standard dell'evento DFN.
- */
-function dfn_override_cart_item_prices($cart)
-{
-    if (is_admin() && ! defined('DOING_AJAX')) {
-        return;
-    }
-    if (did_action('woocommerce_before_calculate_totals') >= 2) {
-        return;
-    }
-
-    foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
-        if (isset($cart_item['dfn_booking_slot_id'])) {
-            $slot_id = intval($cart_item['dfn_booking_slot_id']);
-            $slot    = dfn_db_get_slot($slot_id);
-            if ($slot) {
-                $event = dfn_db_get_event($slot->event_id);
-                if ($event && isset($event->price_standard)) {
-                    $price_standard = floatval($event->price_standard);
-                    $cart_item['data']->set_price($price_standard);
-                }
-            }
-        }
-    }
-}
-
-add_action('woocommerce_cart_calculate_fees', 'dfn_add_fai_discount_fee_to_cart', 10, 1);
-/**
- * Applica eventuale sconto o adeguamento Soci FAI alle commissioni del carrello WooCommerce.
- */
-function dfn_add_fai_discount_fee_to_cart($cart)
-{
-    if (is_admin() && ! defined('DOING_AJAX')) {
-        return;
-    }
-
-    foreach ($cart->get_cart() as $cart_item) {
-        if (isset($cart_item['dfn_booking_slot_id'])) {
-            $slot_id = intval($cart_item['dfn_booking_slot_id']);
-            $slot    = dfn_db_get_slot($slot_id);
-            if ($slot) {
-                $event = dfn_db_get_event($slot->event_id);
-                if ($event) {
-                    $qty_fai = isset($cart_item['dfn_qty_fai']) ? intval($cart_item['dfn_qty_fai']) : 0;
-                    if ($qty_fai > 0) {
-                        $price_standard = floatval($event->price_standard);
-                        $price_fai      = floatval($event->price_fai);
-                        $unit_discount  = $price_standard - $price_fai;
-                        $total_discount = $unit_discount * $qty_fai;
-                        if ($total_discount !== 0.00) {
-                            $fee_name = $total_discount > 0.00
-                                ? sprintf(__('Sconto Soci FAI (%d tessere)', 'dfn-theme'), $qty_fai)
-                                : sprintf(__('Adeguamento Soci FAI (%d tessere)', 'dfn-theme'), $qty_fai);
-                            $cart->add_fee($fee_name, -$total_discount);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
     // 2. Creazione programmatica dell'ordine WooCommerce
     try {
@@ -1164,6 +1101,82 @@ function dfn_add_fai_discount_fee_to_cart($cart)
 
     } catch (\Exception $e) {
         wp_send_json_error([ 'message' => $e->getMessage() ]);
+    }
+}
+
+add_action('woocommerce_before_calculate_totals', 'dfn_override_cart_item_prices', 10, 1);
+/**
+ * Imposta il prezzo unitario del carrello in base al prezzo standard dell'evento DFN.
+ */
+function dfn_override_cart_item_prices($cart): void
+{
+    if (is_admin() && ! (defined('DOING_AJAX') && DOING_AJAX)) {
+        return;
+    }
+    if (did_action('woocommerce_before_calculate_totals') >= 2) {
+        return;
+    }
+
+    foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+        $event = null;
+        if (! empty($cart_item['dfn_booking_event_id'])) {
+            $event = dfn_db_get_event(intval($cart_item['dfn_booking_event_id']));
+        } elseif (! empty($cart_item['dfn_booking_slot_id'])) {
+            $slot_id = intval($cart_item['dfn_booking_slot_id']);
+            $slot    = dfn_db_get_slot($slot_id);
+            if ($slot) {
+                $event = dfn_db_get_event($slot->event_id);
+            }
+        } elseif (! empty($cart_item['product_id'])) {
+            $event = dfn_db_get_event_by_product(intval($cart_item['product_id']));
+        }
+
+        if ($event && isset($event->price_standard)) {
+            $price_standard = floatval($event->price_standard);
+            $cart_item['data']->set_price($price_standard);
+        }
+    }
+}
+
+add_action('woocommerce_cart_calculate_fees', 'dfn_add_fai_discount_fee_to_cart', 10, 1);
+/**
+ * Applica eventuale sconto o adeguamento Soci FAI alle commissioni del carrello WooCommerce.
+ */
+function dfn_add_fai_discount_fee_to_cart($cart): void
+{
+    if (is_admin() && ! (defined('DOING_AJAX') && DOING_AJAX)) {
+        return;
+    }
+
+    foreach ($cart->get_cart() as $cart_item) {
+        $event = null;
+        if (! empty($cart_item['dfn_booking_event_id'])) {
+            $event = dfn_db_get_event(intval($cart_item['dfn_booking_event_id']));
+        } elseif (! empty($cart_item['dfn_booking_slot_id'])) {
+            $slot_id = intval($cart_item['dfn_booking_slot_id']);
+            $slot    = dfn_db_get_slot($slot_id);
+            if ($slot) {
+                $event = dfn_db_get_event($slot->event_id);
+            }
+        } elseif (! empty($cart_item['product_id'])) {
+            $event = dfn_db_get_event_by_product(intval($cart_item['product_id']));
+        }
+
+        if ($event) {
+            $qty_fai = isset($cart_item['dfn_qty_fai']) ? intval($cart_item['dfn_qty_fai']) : 0;
+            if ($qty_fai > 0) {
+                $price_standard = floatval($event->price_standard);
+                $price_fai      = floatval($event->price_fai);
+                $unit_discount  = $price_standard - $price_fai;
+                $total_discount = $unit_discount * $qty_fai;
+                if ($total_discount !== 0.00) {
+                    $fee_name = $total_discount > 0.00
+                        ? sprintf(__('Sconto Soci FAI (%d tessere)', 'dfn-theme'), $qty_fai)
+                        : sprintf(__('Adeguamento Soci FAI (%d tessere)', 'dfn-theme'), $qty_fai);
+                    $cart->add_fee($fee_name, -$total_discount);
+                }
+            }
+        }
     }
 }
 

@@ -483,15 +483,21 @@ function dfn_setup_roles_and_caps(): void
  * I volontari standard NON devono accedere al backend wp-admin.
  *
  * @param bool $prevent_access Se bloccare l'accesso.
- * @return bool False per consentire l'accesso admin, True per bloccare.
+ * @return bool False per consentire l'accesso admin, True/valore originale per bloccare.
  */
 function dfn_sblocca_backend_volontari(bool $prevent_access): bool
 {
-    // Solo la segreteria (prenotazione rapida) o chi ha permessi gestionali può accedere a wp-admin
+    // Non bloccare MAI le richieste AJAX, REST API o autosave
+    if (wp_doing_ajax() || (defined('DOING_AJAX') && DOING_AJAX) || (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) || (defined('REST_REQUEST') && REST_REQUEST)) {
+        return false;
+    }
+
+    // Gli amministratori e gli operatori di segreteria/prenotazione rapida possono accedere al backend
     if (current_user_can('manage_options') || current_user_can('dfn_quick_booking')) {
         return false;
     }
-    return true;
+
+    return $prevent_access;
 }
 add_filter('woocommerce_prevent_admin_access', 'dfn_sblocca_backend_volontari', 20, 1);
 
@@ -500,7 +506,7 @@ add_filter('woocommerce_prevent_admin_access', 'dfn_sblocca_backend_volontari', 
  */
 function dfn_block_wp_admin_for_volunteers(): void
 {
-    if (wp_doing_ajax() || (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) || (defined('REST_REQUEST') && REST_REQUEST)) {
+    if (wp_doing_ajax() || (defined('DOING_AJAX') && DOING_AJAX) || (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) || (defined('REST_REQUEST') && REST_REQUEST)) {
         return;
     }
 
