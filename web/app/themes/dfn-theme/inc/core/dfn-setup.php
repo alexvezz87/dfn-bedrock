@@ -495,7 +495,9 @@ function dfn_sblocca_backend_volontari(bool $prevent_access): bool
 add_filter('woocommerce_prevent_admin_access', 'dfn_sblocca_backend_volontari', 20, 1);
 
 /**
- * Redirect i volontari allo scanner dopo il login WooCommerce.
+ * Redirect i volontari e la segreteria dopo il login WooCommerce.
+ *
+ * Gli amministratori non vengono mai intercettati e mantengono il normale redirect WooCommerce.
  *
  * @param string  $redirect URL di redirect.
  * @param WP_User $user     Utente loggato.
@@ -503,18 +505,31 @@ add_filter('woocommerce_prevent_admin_access', 'dfn_sblocca_backend_volontari', 
  */
 function dfn_redirect_volunteer_wc(string $redirect, $user): string
 {
-    if (is_a($user, 'WP_User') && (in_array('dfn_volunteer', (array) $user->roles, true) || in_array('cv_scanner', (array) $user->roles, true))) {
-        return admin_url('admin.php?page=dfn-scanner-live');
+    if (! is_a($user, 'WP_User')) {
+        return $redirect;
     }
-    if (is_a($user, 'WP_User') && in_array('dfn_segretaria', (array) $user->roles, true)) {
+
+    // Gli amministratori mantengono sempre il loro redirect naturale
+    if (in_array('administrator', (array) $user->roles, true) || (method_exists($user, 'has_cap') && $user->has_cap('manage_options'))) {
+        return $redirect;
+    }
+
+    // Ruolo Segreteria: reindirizza al desk prenotazioni rapide
+    if (in_array('dfn_segretaria', (array) $user->roles, true)) {
         return admin_url('admin.php?page=dfn-quick-booking');
     }
+
+    // Ruolo Volontario: se non specificato altro redirect, vai alla bacheca account / hub
+    if (in_array('dfn_volunteer', (array) $user->roles, true) || in_array('cv_scanner', (array) $user->roles, true)) {
+        return ! empty($redirect) ? $redirect : home_url('/mio-account/');
+    }
+
     return $redirect;
 }
 add_filter('woocommerce_login_redirect', 'dfn_redirect_volunteer_wc', 99, 2);
 
 /**
- * Redirect i volontari allo scanner dopo il login WordPress standard.
+ * Redirect dopo il login WordPress standard (/wp-login.php).
  *
  * @param string  $redirect_to URL di redirect richiesto.
  * @param string  $request     URL della pagina corrente.
@@ -523,12 +538,25 @@ add_filter('woocommerce_login_redirect', 'dfn_redirect_volunteer_wc', 99, 2);
  */
 function dfn_redirect_volunteer_wp(string $redirect_to, string $request, $user): string
 {
-    if (is_a($user, 'WP_User') && (in_array('dfn_volunteer', (array) $user->roles, true) || in_array('cv_scanner', (array) $user->roles, true))) {
-        return admin_url('admin.php?page=dfn-scanner-live');
+    if (! is_a($user, 'WP_User')) {
+        return $redirect_to;
     }
-    if (is_a($user, 'WP_User') && in_array('dfn_segretaria', (array) $user->roles, true)) {
+
+    // Gli amministratori vanno sempre alla bacheca WP Admin standard (/wp-admin/)
+    if (in_array('administrator', (array) $user->roles, true) || (method_exists($user, 'has_cap') && $user->has_cap('manage_options'))) {
+        return $redirect_to;
+    }
+
+    // Ruolo Segreteria: reindirizza al desk prenotazioni rapide
+    if (in_array('dfn_segretaria', (array) $user->roles, true)) {
         return admin_url('admin.php?page=dfn-quick-booking');
     }
+
+    // Ruolo Volontario standard: reindirizza alla nuova WebApp PWA frontend /gestione-eventi/
+    if (in_array('dfn_volunteer', (array) $user->roles, true) || in_array('cv_scanner', (array) $user->roles, true)) {
+        return home_url('/gestione-eventi/');
+    }
+
     return $redirect_to;
 }
 add_filter('login_redirect', 'dfn_redirect_volunteer_wp', 99, 3);
