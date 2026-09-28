@@ -457,7 +457,6 @@ function dfn_handle_admin_pages_fallback_redirect(): void
         $valid_admin_pages = [
             'dfn-events',
             'dfn-event-edit',
-            'dfn-scanner-live',
             'dfn-slot-manager',
             'dfn-checkin-manager',
             'dfn-quick-booking',
