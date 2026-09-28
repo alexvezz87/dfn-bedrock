@@ -2,8 +2,8 @@
 /**
  * DFN Booking & Volunteer System — Volunteer Settings Panel
  *
- * Fornisce un pannello di configurazione per il modulo Volontari FAI:
- * - Destinatari notifiche amministrative (nuove registrazioni e candidature)
+ * Fornisce un pannello di configurazione per il modulo Volontari FAI strutturato a tab verticali:
+ * - Mittente & Destinatari notifiche amministrative (nuove registrazioni e candidature)
  * - Modalità approvazione preventiva (Sì/No)
  * - Modelli email guidati (senza bisogno di conoscere l'HTML) con ANTEPRIMA GRAFICA LIVE in tempo reale
  * - Strumento di test invio email
@@ -188,7 +188,7 @@ function dfn_volunteer_settings_save_fields(): void
         }
     }
 
-    update_option('dfn_volunteer_settings', $merged);
+    $updated = update_option('dfn_volunteer_settings', $merged);
     $GLOBALS['dfn_volunteer_settings_cache'] = $merged;
 
     if (function_exists('dfn_log_write')) {
@@ -200,7 +200,21 @@ function dfn_volunteer_settings_save_fields(): void
         );
     }
 
-    echo '<div class="notice notice-success is-dismissible" style="margin-top:15px;"><p>✅ <strong>Impostazioni Volontari salvate con successo.</strong></p></div>';
+    if ($updated) {
+        add_settings_error(
+            'dfn_vol_settings_messages',
+            'dfn_vol_settings_updated',
+            __('Impostazioni Volontari salvate con successo.', 'dfn-theme'),
+            'updated'
+        );
+    } else {
+        add_settings_error(
+            'dfn_vol_settings_messages',
+            'dfn_vol_settings_no_change',
+            __('Nessuna modifica rilevata o impostazioni già aggiornate.', 'dfn-theme'),
+            'info'
+        );
+    }
 }
 
 /**
@@ -217,41 +231,104 @@ function dfn_render_volunteer_settings_page(): void
         dfn_volunteer_settings_save_fields();
     }
 
-    $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'notifiche';
-    $tab_url_base = admin_url('admin.php?page=dfn-volunteer-settings');
+    // Mostra messaggi di notifica/errore
+    settings_errors('dfn_vol_settings_messages');
 
+    $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'notifiche';
     $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
 
+    $tabs = [
+        'notifiche'     => '&#128276; Notifiche &amp; Destinatari',
+        'modelli-email' => '&#128221; Modelli E-mail',
+        'test-invio'    => '&#129514; Test Invio E-mail',
+    ];
     ?>
     <style>
-        .dfn-email-editor-card {
-            background: #ffffff;
-            border-radius: 12px;
-            border: 1px solid #cbd5e1;
-            padding: 24px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-            margin-bottom: 32px;
+        .dfn-settings-wrap {
+            max-width: 1380px;
         }
-        .dfn-editor-header {
+        .dfn-vol-accordion-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .dfn-vol-accordion-item {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: border-color 0.15s ease;
+        }
+        .dfn-vol-accordion-item.is-open {
+            border-color: #004b23;
+            box-shadow: 0 2px 8px rgba(0,75,35,0.08);
+        }
+        .dfn-vol-accordion-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #f1f5f9;
-            padding-bottom: 14px;
+            padding: 14px 20px;
+            background: #f8fafc;
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid transparent;
+            transition: background-color 0.15s ease;
         }
-        .dfn-card-title {
-            font-size: 18px;
+        .dfn-vol-accordion-item.is-open .dfn-vol-accordion-header {
+            background: #f0fdf4;
+            border-bottom: 1px solid #bbf7d0;
+        }
+        .dfn-vol-accordion-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
             font-weight: 700;
             color: #0f172a;
-            margin: 0;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
         }
-        .dfn-placeholders-bar {
+        .dfn-vol-accordion-badge {
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #166534;
+            background: #dcfce7;
+            padding: 3px 9px;
+            border-radius: 12px;
+        }
+        .dfn-vol-accordion-arrow {
+            font-size: 12px;
+            color: #64748b;
+            transition: transform 0.2s ease;
+        }
+        .dfn-vol-accordion-item.is-open .dfn-vol-accordion-arrow {
+            transform: rotate(180deg);
+        }
+        .dfn-vol-accordion-body {
+            display: none;
+            padding: 24px;
+            background: #ffffff;
+        }
+        .dfn-vol-accordion-item.is-open .dfn-vol-accordion-body {
+            display: block;
+        }
+        .dfn-email-builder-grid {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 24px;
+            align-items: start;
+        }
+        @media (max-width: 1100px) {
+            .dfn-email-builder-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .dfn-form-col {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .dfn-chips-bar {
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
@@ -259,78 +336,57 @@ function dfn_render_volunteer_settings_page(): void
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
-            padding: 10px 14px;
-            margin-bottom: 18px;
+            padding: 8px 12px;
+            margin-bottom: 14px;
         }
-        .dfn-insert-tag-btn {
+        .dfn-chip-btn {
             background: #ffffff;
             border: 1px solid #cbd5e1;
             padding: 3px 8px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 600;
             font-family: monospace;
-            color: #0f172a;
+            color: #004b23;
             cursor: pointer;
             transition: all 0.1s ease;
             user-select: none;
         }
-        .dfn-insert-tag-btn:hover {
-            background: #eff6ff;
-            border-color: #3b82f6;
-            color: #1d4ed8;
+        .dfn-chip-btn:hover {
+            background: #f0fdf4;
+            border-color: #004b23;
+            color: #166534;
             transform: translateY(-1px);
         }
-        .dfn-builder-grid {
-            display: grid;
-            grid-template-columns: 1.15fr 0.85fr;
-            gap: 24px;
-            align-items: start;
-        }
-        @media (max-width: 1024px) {
-            .dfn-builder-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        .dfn-form-section {
+        .dfn-form-card {
             background: #fafafa;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             padding: 16px 18px;
-            margin-bottom: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
-        .dfn-form-section-title {
-            font-size: 13.5px;
+        .dfn-form-card-title {
+            font-size: 13px;
             font-weight: 700;
             color: #004b23;
             text-transform: uppercase;
-            letter-spacing: 0.4px;
-            margin: 0 0 12px;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
+        }
+        .dfn-field-box {
             display: flex;
-            align-items: center;
-            gap: 6px;
+            flex-direction: column;
+            gap: 4px;
         }
-        .dfn-field-group {
-            margin-bottom: 12px;
-        }
-        .dfn-field-group:last-child {
-            margin-bottom: 0;
-        }
-        .dfn-field-group label {
-            display: block;
+        .dfn-field-box label {
             font-size: 13px;
             font-weight: 600;
             color: #334155;
-            margin-bottom: 4px;
         }
-        .dfn-field-group .dfn-field-desc {
-            font-size: 11.5px;
-            color: #64748b;
-            margin-top: 3px;
-            line-height: 1.4;
-        }
-        .dfn-field-group input[type="text"],
-        .dfn-field-group textarea {
+        .dfn-field-box input[type="text"],
+        .dfn-field-box textarea {
             width: 100%;
             border-radius: 6px;
             border: 1.5px solid #cbd5e1;
@@ -342,852 +398,858 @@ function dfn_render_volunteer_settings_page(): void
             box-sizing: border-box;
             font-family: inherit;
         }
-        .dfn-field-group input[type="text"]:focus,
-        .dfn-field-group textarea:focus {
+        .dfn-field-box input[type="text"]:focus,
+        .dfn-field-box textarea:focus {
             border-color: #004b23;
             outline: none;
             box-shadow: 0 0 0 1px #004b23;
         }
-        .dfn-field-group textarea {
-            resize: vertical;
+        .dfn-help-text {
+            font-size: 11.5px;
+            color: #64748b;
+            line-height: 1.4;
+            margin-top: 2px;
         }
-
-        /* Mockup Anteprima Grafica Live */
-        .dfn-preview-sticky {
+        .dfn-mockup-wrapper {
             position: sticky;
-            top: 40px;
+            top: 35px;
         }
-        .dfn-preview-mockup-wrapper {
-            background: #f4f6f8;
-            border-radius: 10px;
-            padding: 20px 14px;
-            border: 1px solid #cbd5e1;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
-        }
-        .dfn-preview-mockup-card {
+        .dfn-mockup-card {
             background: #ffffff;
-            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.07);
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            border: 1px solid #e2e8f0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-        .dfn-mockup-header {
+        .dfn-mockup-header-banner {
             background: #004b23;
-            padding: 22px 20px;
+            color: #ffffff;
+            padding: 20px 24px;
             text-align: center;
             border-bottom: 4px solid #e74f30;
         }
-        .dfn-mockup-header h3 {
-            color: #ffffff;
+        .dfn-mockup-header-banner h3 {
             margin: 0;
-            font-size: 19px;
+            color: #ffffff !important;
+            font-size: 18px !important;
             font-weight: 700;
             letter-spacing: -0.2px;
         }
-        .dfn-mockup-body {
-            padding: 24px 20px;
-            color: #2d3748;
-            font-size: 14.5px;
-            line-height: 1.6;
+        .dfn-mockup-content {
+            padding: 24px;
+            color: #334155;
+            font-size: 13.5px;
+            line-height: 1.65;
         }
-        .dfn-mockup-body .info-box {
-            background-color: #f8fafc;
-            border-left: 4px solid #004b23;
-            padding: 14px 18px;
-            margin: 16px 0;
-            border-radius: 4px;
-            font-size: 14px;
+        .dfn-mockup-content p {
+            margin: 0 0 14px 0;
+            font-size: 13.5px;
+            line-height: 1.65;
+            color: #334155;
         }
-        .dfn-mockup-body .info-box-title {
-            font-weight: 700;
-            font-size: 14.5px;
-            color: #004b23;
-            margin: 0 0 10px;
+        .dfn-mockup-content p:last-child {
+            margin-bottom: 0;
         }
-        .dfn-mockup-body .button {
-            display: inline-block;
-            background-color: #004b23;
-            color: #ffffff !important;
-            padding: 12px 24px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 14px;
-            margin: 14px 0;
-            text-align: center;
-            border-bottom: 3px solid #002e15;
-            box-shadow: 0 2px 6px rgba(0,75,35,0.2);
-        }
-        .dfn-mockup-footer {
+        .dfn-mockup-footer-bar {
             background: #f8fafc;
-            padding: 12px 20px;
             border-top: 1px solid #e2e8f0;
+            padding: 12px 18px;
             text-align: center;
             font-size: 11.5px;
             color: #64748b;
         }
+        .dfn-mockup-content .info-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #004b23;
+            border-radius: 6px;
+            padding: 14px 18px;
+            margin: 16px 0;
+        }
+        .dfn-mockup-content .info-box-title {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #004b23;
+            margin-bottom: 6px;
+        }
+        .dfn-mockup-content .button {
+            display: inline-block;
+            background: #004b23;
+            color: #ffffff !important;
+            padding: 10px 22px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 13px;
+            box-shadow: 0 2px 6px rgba(0,75,35,0.25);
+            border: none;
+        }
     </style>
 
-    <div class="wrap dfn-admin-wrap" style="max-width: 1240px;">
-        <header class="dfn-admin-header" style="margin-bottom: 24px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
-                <div>
-                    <span class="dashicons dashicons-admin-generic" style="font-size:32px; width:32px; height:32px; color:#004b23; vertical-align:middle;"></span>
-                    <h1 style="font-size:24px; font-weight:700; color:#1d2327; margin:0 0 0 8px; display:inline-block; vertical-align:middle;">
-                        Impostazioni Gestione Volontari FAI
-                    </h1>
-                </div>
-                <div>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" class="button button-secondary">
-                        &larr; Torna a Elenco Volontari
-                    </a>
-                </div>
+    <div class="wrap dfn-settings-wrap">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:12px;">
+            <div>
+                <h1 class="wp-heading-inline" style="margin:0; font-size:24px; font-weight:700;">⚙️ Impostazioni Gestione Volontari FAI</h1>
+                <p class="description" style="margin:6px 0 0 0; font-size:14px; color:#64748b;">
+                    Configura i destinatari delle notifiche, le regole di approvazione preventiva e compila i testi delle email attraverso i campi guidati con anteprima grafica renderizzata in tempo reale.
+                </p>
             </div>
-            <p style="color:#64748b; font-size:14px; margin: 8px 0 0 40px;">
-                Configura i destinatari delle notifiche, le regole di approvazione preventiva e compila i testi delle email attraverso i campi guidati con anteprima grafica renderizzata in tempo reale.
-            </p>
-        </header>
+            <div>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" class="button button-secondary" style="font-weight:600;">
+                    &larr; <?php esc_html_e('Torna a Elenco Volontari', 'dfn-theme'); ?>
+                </a>
+            </div>
+        </div>
+        <hr class="wp-header-end">
 
-        <!-- NAV TABS -->
-        <h2 class="nav-tab-wrapper" style="margin-bottom: 24px; border-bottom: 2px solid #cbd5e1;">
-            <a href="<?php echo esc_url(add_query_arg('tab', 'notifiche', $tab_url_base)); ?>" class="nav-tab <?php echo $active_tab === 'notifiche' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'notifiche' ? 'border-bottom-color:#fff; font-weight:700; color:#004b23;' : ''; ?>">
-                🔔 Notifiche &amp; Destinatari
-            </a>
-            <a href="<?php echo esc_url(add_query_arg('tab', 'modelli-email', $tab_url_base)); ?>" class="nav-tab <?php echo $active_tab === 'modelli-email' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'modelli-email' ? 'border-bottom-color:#fff; font-weight:700; color:#004b23;' : ''; ?>">
-                ✉️ Modelli Email Volontari (Compilazione Guidata &amp; Anteprima Live)
-            </a>
-            <a href="<?php echo esc_url(add_query_arg('tab', 'test-invio', $tab_url_base)); ?>" class="nav-tab <?php echo $active_tab === 'test-invio' ? 'nav-tab-active' : ''; ?>" style="<?php echo $active_tab === 'test-invio' ? 'border-bottom-color:#fff; font-weight:700; color:#004b23;' : ''; ?>">
-                🧪 Test Invio Email
-            </a>
-        </h2>
+        <div class="dfn-settings-container" style="display: flex; gap: 20px; margin-top: 20px; background: #fff; border: 1px solid #ccd0d4; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden;">
+            
+            <!-- Sidebar Navigation Tabs (Vertical) -->
+            <div class="dfn-settings-sidebar" style="width: 240px; background: #f6f7f7; border-right: 1px solid #ccd0d4; flex-shrink: 0;">
+                <ul style="list-style: none; margin: 0; padding: 0;">
+                    <?php foreach ($tabs as $tab_id => $tab_label) :
+                        $is_active = ($active_tab === $tab_id);
+                        $tab_url = admin_url('admin.php?page=dfn-volunteer-settings&tab=' . $tab_id);
+                        $bg = $is_active ? '#ffffff' : 'transparent';
+                        $color = $is_active ? '#004b23' : '#2c3338';
+                        $border_left = $is_active ? '4px solid #004b23' : '4px solid transparent';
+                        $font_weight = $is_active ? '600' : 'normal';
+                        ?>
+                        <li style="margin: 0; border-bottom: 1px solid #e5e5e5;">
+                            <a href="<?php echo esc_url($tab_url); ?>" style="display: block; padding: 15px 20px; color: <?php echo esc_attr($color); ?>; background-color: <?php echo esc_attr($bg); ?>; border-left: <?php echo esc_attr($border_left); ?>; font-weight: <?php echo esc_attr($font_weight); ?>; text-decoration: none; outline: none; box-shadow: none; transition: all 0.1s ease-in-out;">
+                                <?php echo $tab_label; ?>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
 
-        <form method="post" action="<?php echo esc_url(add_query_arg('tab', $active_tab, $tab_url_base)); ?>">
-            <?php wp_nonce_field('dfn_save_vol_settings_action', 'dfn_vol_settings_nonce'); ?>
+            <!-- Form Content Area -->
+            <div class="dfn-settings-content" style="flex-grow: 1; padding: 30px 40px; min-width: 0;">
+                <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-settings&tab=' . $active_tab)); ?>">
+                    <?php wp_nonce_field('dfn_save_vol_settings_action', 'dfn_vol_settings_nonce'); ?>
 
-            <!-- TAB 1: NOTIFICHE & DESTINATARI -->
-            <?php if ($active_tab === 'notifiche') : ?>
-                <!-- CARD 1: NOME MITTENTE PERSONALIZZATO -->
-                <div style="background:#fff; border-radius:10px; border:1px solid #c3c4c7; padding:24px 28px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-bottom:24px;">
-                    <h2 style="font-size:18px; font-weight:700; color:#004b23; margin:0 0 12px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
-                        🏷️ Nome Mittente Email Volontari (From Name)
-                    </h2>
-                    <p style="color:#64748b; font-size:13.5px; margin-top:-4px; margin-bottom:18px; line-height:1.5;">
-                        Personalizza il <strong>nome mittente</strong> visualizzato nelle caselle di posta dei volontari e dei candidati quando ricevono comunicazioni (presa in carico candidatura, approvazione account, notifiche). L'indirizzo email di invio rimarrà invariato (quello autenticato dal server/plugin SMTP, es. <em>noreply@dfnprenotazioni.it</em>) per garantire la massima recapitabilità e conformità SPF/DKIM evitando filtri antispam.
-                    </p>
+                    <?php if ($active_tab === 'notifiche') : ?>
+                        <!-- TAB 1: NOTIFICHE & DESTINATARI -->
+                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">🔔 Destinatari, Flussi &amp; Mittente</h2>
+                        <p class="description" style="margin-bottom: 25px;">Configura il nome mittente delle comunicazioni, gli indirizzi di notifica per lo staff e le regole di approvazione preventiva delle candidature dei volontari.</p>
 
-                    <table class="form-table" role="presentation" style="margin-top:0;">
-                        <tbody>
+                        <table class="form-table" role="presentation">
                             <tr>
-                                <th scope="row" style="width:280px;">
-                                    <label for="vol_email_sender_name"><strong>Nome Mittente Visualizzato</strong></label>
-                                </th>
+                                <th scope="row"><label for="vol_email_sender_name">Nome Mittente Email (From Name)</label></th>
                                 <td>
-                                    <input type="text" name="dfn_vol_settings[vol_email_sender_name]" id="vol_email_sender_name" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_sender_name')); ?>" class="regular-text" style="width:100%; max-width:480px;" placeholder="es. Coordinamento Volontari <?php echo esc_attr($delegation_name); ?>" />
-                                    <p class="description" style="margin-top:6px;">
-                                        Nome che apparirà come mittente nell'inbox (es. <em>Coordinamento Volontari FAI Novara</em>).
-                                    </p>
+                                    <input name="dfn_vol_settings[vol_email_sender_name]" type="text" id="vol_email_sender_name" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_sender_name')); ?>" class="regular-text" style="max-width:480px;" placeholder="es. Coordinamento Volontari <?php echo esc_attr($delegation_name); ?>" />
+                                    <p class="description"><strong>Comportamento:</strong> Il nome visualizzato come mittente nelle caselle di posta dei volontari e dei candidati quando ricevono comunicazioni (es. <em>Coordinamento Volontari FAI Novara</em>). L'indirizzo email di invio rimane quello di sistema del server SMTP per garantire la massima recapitabilità SPF/DKIM ed evitare filtri antispam.</p>
                                 </td>
                             </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- CARD 2: NOTIFICHE CANDIDATURE E APPROVAZIONE -->
-                <div style="background:#fff; border-radius:10px; border:1px solid #c3c4c7; padding:24px 28px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-bottom:24px;">
-                    <h2 style="font-size:18px; font-weight:700; color:#004b23; margin:0 0 16px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
-                        🔔 Destinatari e Flussi Automatici
-                    </h2>
-
-                    <table class="form-table" role="presentation" style="margin-top:0;">
-                        <tbody>
                             <tr>
-                                <th scope="row" style="width:280px;">
-                                    <label for="vol_email_admin_recipients"><strong>Destinatari Notifiche Admin</strong></label>
-                                </th>
+                                <th scope="row"><label for="vol_email_admin_recipients">Destinatari Notifiche Staff</label></th>
                                 <td>
-                                    <input type="text" name="dfn_vol_settings[vol_email_admin_recipients]" id="vol_email_admin_recipients" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_recipients')); ?>" class="regular-text" style="width:100%; max-width:480px;" />
-                                    <p class="description" style="margin-top:6px;">
-                                        Indirizzi email dello staff a cui inviare la notifica quando un candidato compila il form di registrazione online. Separa più indirizzi con una virgola.
-                                    </p>
+                                    <input name="dfn_vol_settings[vol_email_admin_recipients]" type="text" id="vol_email_admin_recipients" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_recipients')); ?>" class="regular-text" style="max-width:480px;" />
+                                    <p class="description"><strong>Comportamento:</strong> Gli indirizzi email dello staff FAI (separati da virgola se multipli) a cui inviare una notifica immediata quando un candidato compila il form di registrazione online.</p>
                                 </td>
                             </tr>
-
                             <tr>
-                                <th scope="row">
-                                    <label for="vol_require_approval"><strong>Approvazione Preventiva</strong></label>
-                                </th>
+                                <th scope="row">Approvazione Preventiva</th>
                                 <td>
-                                    <label style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; cursor:pointer;">
+                                    <label for="vol_require_approval" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
                                         <input type="checkbox" name="dfn_vol_settings[vol_require_approval]" id="vol_require_approval" value="yes" <?php checked(dfn_get_volunteer_setting('vol_require_approval', 'yes'), 'yes'); ?> style="accent-color:#004b23;" />
                                         Richiedi approvazione manuale dell'amministratore prima di abilitare l'accesso volontario
                                     </label>
-                                    <p class="description" style="margin-top:6px;">
-                                        <strong>Consigliato:</strong> Se attivo, le nuove registrazioni online entrano in stato <em>In Attesa</em>. L'utente non riceve il ruolo Volontario né l'accesso alla bacheca turni fino a quando un amministratore non approva esplicitamente la candidatura dal pannello.
-                                    </p>
+                                    <p class="description" style="margin-top:6px;"><strong>Consigliato:</strong> Se attivo, le nuove registrazioni online entrano in stato <em>In Attesa</em>. L'utente non riceve il ruolo Volontario né l'accesso alla bacheca turni fino a quando un amministratore non approva esplicitamente la candidatura dal pannello.</p>
                                 </td>
                             </tr>
-
                             <tr>
-                                <th scope="row">
-                                    <label for="vol_enable_candidate_pending_email"><strong>Email di Ricezione al Candidato</strong></label>
-                                </th>
+                                <th scope="row">Email di Ricezione al Candidato</th>
                                 <td>
-                                    <label style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; cursor:pointer;">
+                                    <label for="vol_enable_candidate_pending_email" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
                                         <input type="checkbox" name="dfn_vol_settings[vol_enable_candidate_pending_email]" id="vol_enable_candidate_pending_email" value="yes" <?php checked(dfn_get_volunteer_setting('vol_enable_candidate_pending_email', 'yes'), 'yes'); ?> style="accent-color:#004b23;" />
                                         Invia email automatica di presa in carico al candidato al termine dell'invio del form
                                     </label>
-                                    <p class="description" style="margin-top:6px;">
-                                        Informa subito l'utente che la sua richiesta è stata ricevuta e che verrà ricontattato dallo staff.
-                                    </p>
+                                    <p class="description" style="margin-top:6px;"><strong>Comportamento:</strong> Informa subito l'utente che la sua richiesta è stata ricevuta e che la candidatura è attualmente in fase di valutazione da parte dello staff.</p>
                                 </td>
                             </tr>
-
                             <tr>
-                                <th scope="row">
-                                    <label for="vol_enable_approved_email"><strong>Email di Benvenuto ad Approvazione</strong></label>
-                                </th>
+                                <th scope="row">Email di Benvenuto ad Approvazione</th>
                                 <td>
-                                    <label style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; cursor:pointer;">
+                                    <label for="vol_enable_approved_email" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
                                         <input type="checkbox" name="dfn_vol_settings[vol_enable_approved_email]" id="vol_enable_approved_email" value="yes" <?php checked(dfn_get_volunteer_setting('vol_enable_approved_email', 'yes'), 'yes'); ?> style="accent-color:#004b23;" />
                                         Invia email di conferma e istruzioni al volontario quando la candidatura viene approvata
                                     </label>
-                                    <p class="description" style="margin-top:6px;">
-                                        Invia una mail formattata con il pulsante di accesso alla bacheca volontari, promemoria riunioni e istruzioni operative.
-                                    </p>
+                                    <p class="description" style="margin-top:6px;"><strong>Comportamento:</strong> Invia una mail formattata con il pulsante di accesso alla bacheca volontari, promemoria riunioni e credenziali operative quando la candidatura viene approvata.</p>
                                 </td>
                             </tr>
-                        </tbody>
-                    </table>
-                </div>
+                        </table>
 
-                <div style="margin-top:20px;">
-                    <button type="submit" class="button button-primary button-large" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:4px 24px;">
-                        Salva Impostazioni Notifiche
-                    </button>
-                </div>
-            <?php endif; ?>
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                            <?php submit_button(__('Salva Impostazioni', 'dfn-theme'), 'primary', 'submit', false, [ 'style' => 'background: #004b23; border-color: #003318; box-shadow: none; text-shadow: none;' ]); ?>
+                        </div>
 
-            <!-- TAB 2: MODELLI EMAIL CON COMPILAZIONE GUIDATA E ANTEPRIMA LIVE -->
-            <?php if ($active_tab === 'modelli-email') : ?>
-                <!-- GUIDA AI SEGNAPOSTO -->
-                <div class="dfn-placeholders-bar">
-                    <span style="font-size:13px; font-weight:700; color:#004b23; margin-right:6px;">
-                        🏷️ Clicca per inserire un segnaposto nel campo attivo:
-                    </span>
-                    <span class="dfn-insert-tag-btn" data-tag="{nome}">+ {nome}</span>
-                    <span class="dfn-insert-tag-btn" data-tag="{cognome}">+ {cognome}</span>
-                    <span class="dfn-insert-tag-btn" data-tag="{email}">+ {email}</span>
-                    <span class="dfn-insert-tag-btn" data-tag="{telefono}">+ {telefono}</span>
-                    <span class="dfn-insert-tag-btn" data-tag="{tessera_fai}">+ {tessera_fai}</span>
-                    <span class="dfn-insert-tag-btn" data-tag="{mansioni}">+ {mansioni}</span>
-                    <span class="dfn-insert-tag-btn" data-tag="{delegazione}">+ {delegazione}</span>
-                    <span class="dfn-insert-tag-btn" data-tag="{data_richiesta}">+ {data_richiesta}</span>
-                    <span class="dfn-insert-tag-btn" data-tag="{link_accesso}">+ {link_accesso}</span>
-                    <span class="dfn-insert-tag-btn" data-tag="{link_admin}">+ {link_admin}</span>
-                </div>
+                    <?php elseif ($active_tab === 'modelli-email') : ?>
+                        <!-- TAB 2: MODELLI EMAIL CON COMPILAZIONE GUIDATA E ANTEPRIMA LIVE -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;">
+                            <div>
+                                <h2 style="color:#004b23; margin:0 0 4px; font-size:20px; font-weight:700;">📝 Modelli E-mail Volontari (Compilazione Guidata &amp; Anteprima Live)</h2>
+                                <p class="description" style="margin:0; font-size:13.5px; color:#64748b;">
+                                    Personalizza i testi di tutte le e-mail senza dover conoscere il codice HTML: compila i campi guidati a sinistra e visualizza l'anteprima grafica renderizzata in tempo reale sulla destra.
+                                </p>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="button button-secondary" id="dfn-expand-all-vol-emails" style="font-size:12px;">📂 Espandi Tutti</button>
+                                <button type="button" class="button button-secondary" id="dfn-collapse-all-vol-emails" style="font-size:12px;">📁 Comprimi Tutti</button>
+                            </div>
+                        </div>
 
-                <!-- ========================================================= -->
-                <!-- 1. MODELLO EMAIL ADMIN -->
-                <!-- ========================================================= -->
-                <div class="dfn-email-editor-card" id="dfn-card-1">
-                    <div class="dfn-editor-header">
-                        <h2 class="dfn-card-title">
-                            <span style="font-size:22px;">👤</span>
-                            1. Notifica Nuova Candidatura (allo Staff / Amministratore)
-                        </h2>
-                        <span style="font-size:12px; font-weight:600; color:#166534; background:#dcfce7; padding:4px 10px; border-radius:20px;">
-                            Inviata automaticamente allo Staff FAI
-                        </span>
-                    </div>
-
-                    <div class="dfn-builder-grid">
-                        <!-- COLONNA SINISTRA: FORM GUIDATO -->
-                        <div class="dfn-form-col">
-                            <!-- Sezione Intestazione -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">📧 Oggetto &amp; Intestazione</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_admin_subject">Oggetto dell'email</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_admin_subject]" id="vol_email_admin_subject" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_subject')); ?>" class="dfn-input-watch" data-card="1" />
+                        <div class="dfn-vol-accordion-list">
+                            <!-- ========================================================= -->
+                            <!-- 1. NOTIFICA ADMIN -->
+                            <!-- ========================================================= -->
+                            <div class="dfn-vol-accordion-item is-open" id="dfn-vol-accordion-1">
+                                <div class="dfn-vol-accordion-header">
+                                    <div class="dfn-vol-accordion-title-wrap">
+                                        <span>👤 1. Notifica Nuova Candidatura (allo Staff / Amministratore)</span>
+                                        <span class="dfn-vol-accordion-badge">Inviata allo Staff FAI</span>
+                                    </div>
+                                    <span class="dfn-vol-accordion-arrow dashicons dashicons-arrow-down-alt2"></span>
                                 </div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_admin_title">Titolo Banner Verde (Header)</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_admin_title]" id="vol_email_admin_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_title')); ?>" class="dfn-input-watch" data-card="1" />
+                                <div class="dfn-vol-accordion-body">
+                                    <div class="dfn-chips-bar">
+                                        <span style="font-size:12px; font-weight:700; color:#004b23; margin-right:4px;">🏷️ Segnaposto dinamici:</span>
+                                        <span class="dfn-chip-btn" data-card="1" data-tag="{nome}">+ {nome}</span>
+                                        <span class="dfn-chip-btn" data-card="1" data-tag="{cognome}">+ {cognome}</span>
+                                        <span class="dfn-chip-btn" data-card="1" data-tag="{email}">+ {email}</span>
+                                        <span class="dfn-chip-btn" data-card="1" data-tag="{telefono}">+ {telefono}</span>
+                                        <span class="dfn-chip-btn" data-card="1" data-tag="{tessera_fai}">+ {tessera_fai}</span>
+                                        <span class="dfn-chip-btn" data-card="1" data-tag="{mansioni}">+ {mansioni}</span>
+                                        <span class="dfn-chip-btn" data-card="1" data-tag="{delegazione}">+ {delegazione}</span>
+                                        <span class="dfn-chip-btn" data-card="1" data-tag="{data_richiesta}">+ {data_richiesta}</span>
+                                        <span class="dfn-chip-btn" data-card="1" data-tag="{link_admin}">+ {link_admin}</span>
+                                    </div>
+
+                                    <div class="dfn-email-builder-grid">
+                                        <!-- Form Col -->
+                                        <div class="dfn-form-col">
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">📧 Oggetto &amp; Intestazione</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_admin_subject">Oggetto E-mail</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_admin_subject]" id="vol_email_admin_subject" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_subject')); ?>" class="dfn-input-watch" data-card="1" />
+                                                    <div class="dfn-help-text">Oggetto visibile nella casella di posta dello staff.</div>
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_admin_title">Titolo Banner Verde (Header)</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_admin_title]" id="vol_email_admin_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_title')); ?>" class="dfn-input-watch" data-card="1" />
+                                                    <div class="dfn-help-text">Titolo principale stampato in alto nel banner verde.</div>
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">📝 Messaggio Introduttivo</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_admin_intro">Testo di apertura</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_admin_intro]" id="vol_email_admin_intro" rows="3" class="dfn-input-watch" data-card="1"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_admin_intro')); ?></textarea>
+                                                    <div class="dfn-help-text">Saluto iniziale allo staff. I doppi a capo creano nuovi paragrafi.</div>
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">📋 Riquadro Dati Candidato</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_admin_box_title">Titolo del Riquadro Dati</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_admin_box_title]" id="vol_email_admin_box_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_box_title')); ?>" class="dfn-input-watch" data-card="1" />
+                                                    <div class="dfn-help-text">I dati anagrafici del candidato vengono formattati automaticamente all'interno di questo box.</div>
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">🔘 Azione e Istruzioni Staff</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_admin_instructions">Istruzioni di revisione</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_admin_instructions]" id="vol_email_admin_instructions" rows="2" class="dfn-input-watch" data-card="1"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_admin_instructions')); ?></textarea>
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_admin_btn_text">Testo del Pulsante di Valutazione</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_admin_btn_text]" id="vol_email_admin_btn_text" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_btn_text')); ?>" class="dfn-input-watch" data-card="1" />
+                                                    <div class="dfn-help-text">Collega direttamente alla schermata di approvazione nel pannello WordPress.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Preview Col -->
+                                        <div class="dfn-mockup-wrapper">
+                                            <div style="font-size:12px; font-weight:700; color:#004b23; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                                                <span>✨ Anteprima Grafica Live (in tempo reale)</span>
+                                            </div>
+                                            <div class="dfn-mockup-card">
+                                                <div class="dfn-mockup-header-banner">
+                                                    <h3 id="dfn-preview-title-1"></h3>
+                                                </div>
+                                                <div class="dfn-mockup-content" id="dfn-preview-body-1"></div>
+                                                <div class="dfn-mockup-footer-bar">
+                                                    FAI - Fondo per l'Ambiente Italiano &bull; <?php echo esc_html($delegation_name); ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Sezione Corpo del Messaggio -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">📝 Messaggio Introduttivo</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_admin_intro">Testo di apertura</label>
-                                    <textarea name="dfn_vol_settings[vol_email_admin_intro]" id="vol_email_admin_intro" rows="3" class="dfn-input-watch" data-card="1"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_admin_intro')); ?></textarea>
-                                    <div class="dfn-field-desc">Inserisci il saluto iniziale allo staff. I doppi a capo creano nuovi paragrafi.</div>
+                            <!-- ========================================================= -->
+                            <!-- 2. RICEZIONE CANDIDATO (PENDING) -->
+                            <!-- ========================================================= -->
+                            <div class="dfn-vol-accordion-item is-open" id="dfn-vol-accordion-2">
+                                <div class="dfn-vol-accordion-header">
+                                    <div class="dfn-vol-accordion-title-wrap">
+                                        <span>⏳ 2. Ricezione Candidatura (al Candidato - In Attesa di Verifica)</span>
+                                        <span class="dfn-vol-accordion-badge" style="color:#0369a1; background:#e0f2fe;">Inviata al Candidato</span>
+                                    </div>
+                                    <span class="dfn-vol-accordion-arrow dashicons dashicons-arrow-down-alt2"></span>
+                                </div>
+                                <div class="dfn-vol-accordion-body">
+                                    <div class="dfn-chips-bar">
+                                        <span style="font-size:12px; font-weight:700; color:#004b23; margin-right:4px;">🏷️ Segnaposto dinamici:</span>
+                                        <span class="dfn-chip-btn" data-card="2" data-tag="{nome}">+ {nome}</span>
+                                        <span class="dfn-chip-btn" data-card="2" data-tag="{cognome}">+ {cognome}</span>
+                                        <span class="dfn-chip-btn" data-card="2" data-tag="{email}">+ {email}</span>
+                                        <span class="dfn-chip-btn" data-card="2" data-tag="{delegazione}">+ {delegazione}</span>
+                                    </div>
+
+                                    <div class="dfn-email-builder-grid">
+                                        <!-- Form Col -->
+                                        <div class="dfn-form-col">
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">📧 Oggetto &amp; Intestazione</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_pending_subject">Oggetto E-mail</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_pending_subject]" id="vol_email_pending_subject" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_pending_subject')); ?>" class="dfn-input-watch" data-card="2" />
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_pending_title">Titolo Banner Verde (Header)</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_pending_title]" id="vol_email_pending_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_pending_title')); ?>" class="dfn-input-watch" data-card="2" />
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">👋 Saluto &amp; Messaggio Iniziale</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_pending_intro">Testo di apertura</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_pending_intro]" id="vol_email_pending_intro" rows="3" class="dfn-input-watch" data-card="2"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_pending_intro')); ?></textarea>
+                                                    <div class="dfn-help-text">Puoi usare <code>{nome}</code> per personalizzare il saluto (es. <em>Gentile {nome},</em>).</div>
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">📋 Riquadro Informativo di Verifica</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_pending_box_title">Titolo del Riquadro</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_pending_box_title]" id="vol_email_pending_box_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_pending_box_title')); ?>" class="dfn-input-watch" data-card="2" />
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_pending_box_text">Contenuto del Riquadro (Passaggi successivi)</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_pending_box_text]" id="vol_email_pending_box_text" rows="3" class="dfn-input-watch" data-card="2"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_pending_box_text')); ?></textarea>
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">✍️ Chiusura &amp; Firma</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_pending_closing">Messaggio di ringraziamento finale</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_pending_closing]" id="vol_email_pending_closing" rows="2" class="dfn-input-watch" data-card="2"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_pending_closing')); ?></textarea>
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_pending_signature">Firma / Saluti</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_pending_signature]" id="vol_email_pending_signature" rows="2" class="dfn-input-watch" data-card="2"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_pending_signature')); ?></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Preview Col -->
+                                        <div class="dfn-mockup-wrapper">
+                                            <div style="font-size:12px; font-weight:700; color:#004b23; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                                                <span>✨ Anteprima Grafica Live (in tempo reale)</span>
+                                            </div>
+                                            <div class="dfn-mockup-card">
+                                                <div class="dfn-mockup-header-banner">
+                                                    <h3 id="dfn-preview-title-2"></h3>
+                                                </div>
+                                                <div class="dfn-mockup-content" id="dfn-preview-body-2"></div>
+                                                <div class="dfn-mockup-footer-bar">
+                                                    FAI - Fondo per l'Ambiente Italiano &bull; <?php echo esc_html($delegation_name); ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Sezione Riquadro Dati Candidato -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">📋 Riquadro Dati Candidato</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_admin_box_title">Titolo del Riquadro Dati</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_admin_box_title]" id="vol_email_admin_box_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_box_title')); ?>" class="dfn-input-watch" data-card="1" />
-                                    <div class="dfn-field-desc">I campi del candidato (nome, email, telefono, mansioni, data) vengono impaginati automaticamente con stile FAI all'interno di questo box.</div>
+                            <!-- ========================================================= -->
+                            <!-- 3. VOLONTARIO APPROVATO -->
+                            <!-- ========================================================= -->
+                            <div class="dfn-vol-accordion-item is-open" id="dfn-vol-accordion-3">
+                                <div class="dfn-vol-accordion-header">
+                                    <div class="dfn-vol-accordion-title-wrap">
+                                        <span>🎉 3. Email di Approvazione &amp; Benvenuto (al Volontario Approvato)</span>
+                                        <span class="dfn-vol-accordion-badge" style="color:#15803d; background:#dcfce7;">Inviata ad Approvazione</span>
+                                    </div>
+                                    <span class="dfn-vol-accordion-arrow dashicons dashicons-arrow-down-alt2"></span>
                                 </div>
-                            </div>
+                                <div class="dfn-vol-accordion-body">
+                                    <div class="dfn-chips-bar">
+                                        <span style="font-size:12px; font-weight:700; color:#004b23; margin-right:4px;">🏷️ Segnaposto dinamici:</span>
+                                        <span class="dfn-chip-btn" data-card="3" data-tag="{nome}">+ {nome}</span>
+                                        <span class="dfn-chip-btn" data-card="3" data-tag="{cognome}">+ {cognome}</span>
+                                        <span class="dfn-chip-btn" data-card="3" data-tag="{email}">+ {email}</span>
+                                        <span class="dfn-chip-btn" data-card="3" data-tag="{delegazione}">+ {delegazione}</span>
+                                        <span class="dfn-chip-btn" data-card="3" data-tag="{link_accesso}">+ {link_accesso}</span>
+                                    </div>
 
-                            <!-- Sezione Istruzioni e Pulsante -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">🔘 Azione e Istruzioni Staff</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_admin_instructions">Istruzioni di revisione</label>
-                                    <textarea name="dfn_vol_settings[vol_email_admin_instructions]" id="vol_email_admin_instructions" rows="2" class="dfn-input-watch" data-card="1"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_admin_instructions')); ?></textarea>
-                                </div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_admin_btn_text">Testo del Pulsante di Valutazione</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_admin_btn_text]" id="vol_email_admin_btn_text" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_admin_btn_text')); ?>" class="dfn-input-watch" data-card="1" />
-                                    <div class="dfn-field-desc">Il pulsante collegherà direttamente alla schermata di approvazione nel pannello WordPress.</div>
+                                    <div class="dfn-email-builder-grid">
+                                        <!-- Form Col -->
+                                        <div class="dfn-form-col">
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">📧 Oggetto &amp; Intestazione</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_approved_subject">Oggetto E-mail</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_approved_subject]" id="vol_email_approved_subject" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_approved_subject')); ?>" class="dfn-input-watch" data-card="3" />
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_approved_title">Titolo Banner Verde (Header)</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_approved_title]" id="vol_email_approved_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_approved_title')); ?>" class="dfn-input-watch" data-card="3" />
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">🎉 Saluto &amp; Congratulazioni</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_approved_intro">Testo di congratulazioni e benvenuto</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_approved_intro]" id="vol_email_approved_intro" rows="3" class="dfn-input-watch" data-card="3"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_approved_intro')); ?></textarea>
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">🏛️ Riquadro Opportunità &amp; Bacheca Volontari</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_approved_box_title">Titolo del Riquadro</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_approved_box_title]" id="vol_email_approved_box_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_approved_box_title')); ?>" class="dfn-input-watch" data-card="3" />
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_approved_box_bullets">Punti Elenco (Cosa può fare il volontario)</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_approved_box_bullets]" id="vol_email_approved_box_bullets" rows="4" class="dfn-input-watch" data-card="3"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_approved_box_bullets')); ?></textarea>
+                                                    <div class="dfn-help-text">💡 Inserisci una voce per riga: il sistema creerà automaticamente la lista puntata formattata.</div>
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">🔘 Accesso &amp; Credenziali</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_approved_btn_text">Testo del Pulsante di Accesso</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_approved_btn_text]" id="vol_email_approved_btn_text" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_approved_btn_text')); ?>" class="dfn-input-watch" data-card="3" />
+                                                    <div class="dfn-help-text">Collega direttamente alla bacheca volontario nell'area riservata.</div>
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_approved_notes">Nota credenziali di accesso</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_approved_notes]" id="vol_email_approved_notes" rows="2" class="dfn-input-watch" data-card="3"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_approved_notes')); ?></textarea>
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_approved_signature">Firma / Saluti Finali</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_approved_signature]" id="vol_email_approved_signature" rows="2" class="dfn-input-watch" data-card="3"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_approved_signature')); ?></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Preview Col -->
+                                        <div class="dfn-mockup-wrapper">
+                                            <div style="font-size:12px; font-weight:700; color:#004b23; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                                                <span>✨ Anteprima Grafica Live (in tempo reale)</span>
+                                            </div>
+                                            <div class="dfn-mockup-card">
+                                                <div class="dfn-mockup-header-banner">
+                                                    <h3 id="dfn-preview-title-3"></h3>
+                                                </div>
+                                                <div class="dfn-mockup-content" id="dfn-preview-body-3"></div>
+                                                <div class="dfn-mockup-footer-bar">
+                                                    FAI - Fondo per l'Ambiente Italiano &bull; <?php echo esc_html($delegation_name); ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- COLONNA DESTRA: ANTEPRIMA GRAFICA LIVE -->
-                        <div class="dfn-preview-sticky">
-                            <div style="font-size:12px; font-weight:700; color:#004b23; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                                <span>✨ Anteprima Grafica Live (in tempo reale)</span>
-                            </div>
-                            <div class="dfn-preview-mockup-wrapper">
-                                <div class="dfn-preview-mockup-card">
-                                    <div class="dfn-mockup-header">
-                                        <h3 id="dfn-preview-title-1"></h3>
-                                    </div>
-                                    <div class="dfn-mockup-body" id="dfn-preview-body-1"></div>
-                                    <div class="dfn-mockup-footer">
-                                        FAI - Fondo per l'Ambiente Italiano &bull; <?php echo esc_html($delegation_name); ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ========================================================= -->
-                <!-- 2. MODELLO EMAIL CANDIDATO PENDING -->
-                <!-- ========================================================= -->
-                <div class="dfn-email-editor-card" id="dfn-card-2">
-                    <div class="dfn-editor-header">
-                        <h2 class="dfn-card-title">
-                            <span style="font-size:22px;">⏳</span>
-                            2. Ricezione Candidatura (al Candidato - In Attesa di Verifica)
-                        </h2>
-                        <span style="font-size:12px; font-weight:600; color:#0284c7; background:#e0f2fe; padding:4px 10px; border-radius:20px;">
-                            Inviata al candidato dopo aver completato il form
-                        </span>
-                    </div>
-
-                    <div class="dfn-builder-grid">
-                        <!-- COLONNA SINISTRA: FORM GUIDATO -->
-                        <div class="dfn-form-col">
-                            <!-- Sezione Intestazione -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">📧 Oggetto &amp; Intestazione</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_pending_subject">Oggetto dell'email</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_pending_subject]" id="vol_email_pending_subject" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_pending_subject')); ?>" class="dfn-input-watch" data-card="2" />
-                                </div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_pending_title">Titolo Banner Verde (Header)</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_pending_title]" id="vol_email_pending_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_pending_title')); ?>" class="dfn-input-watch" data-card="2" />
-                                </div>
-                            </div>
-
-                            <!-- Sezione Apertura -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">👋 Saluto &amp; Messaggio Iniziale</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_pending_intro">Testo di apertura</label>
-                                    <textarea name="dfn_vol_settings[vol_email_pending_intro]" id="vol_email_pending_intro" rows="3" class="dfn-input-watch" data-card="2"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_pending_intro')); ?></textarea>
-                                    <div class="dfn-field-desc">Puoi usare <code>{nome}</code> per personalizzare il saluto (es. <em>Gentile {nome},</em>).</div>
-                                </div>
-                            </div>
-
-                            <!-- Sezione Riquadro Informativo -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">📋 Riquadro Informativo di Verifica</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_pending_box_title">Titolo del Riquadro</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_pending_box_title]" id="vol_email_pending_box_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_pending_box_title')); ?>" class="dfn-input-watch" data-card="2" />
-                                </div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_pending_box_text">Contenuto del Riquadro (Spiegazione passaggi successivi)</label>
-                                    <textarea name="dfn_vol_settings[vol_email_pending_box_text]" id="vol_email_pending_box_text" rows="3" class="dfn-input-watch" data-card="2"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_pending_box_text')); ?></textarea>
-                                </div>
-                            </div>
-
-                            <!-- Sezione Chiusura e Firma -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">✍️ Chiusura &amp; Firma</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_pending_closing">Messaggio di ringraziamento finale</label>
-                                    <textarea name="dfn_vol_settings[vol_email_pending_closing]" id="vol_email_pending_closing" rows="2" class="dfn-input-watch" data-card="2"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_pending_closing')); ?></textarea>
-                                </div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_pending_signature">Firma / Saluti</label>
-                                    <textarea name="dfn_vol_settings[vol_email_pending_signature]" id="vol_email_pending_signature" rows="2" class="dfn-input-watch" data-card="2"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_pending_signature')); ?></textarea>
-                                </div>
-                            </div>
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:13.5px; color:#64748b;">💾 Modifica i testi guidati e clicca su Salva per confermare.</span>
+                            <?php submit_button(__('Salva Tutti i Modelli Email', 'dfn-theme'), 'primary', 'submit', false, [ 'style' => 'background: #004b23; border-color: #003318; box-shadow: none; text-shadow: none;' ]); ?>
                         </div>
 
-                        <!-- COLONNA DESTRA: ANTEPRIMA GRAFICA LIVE -->
-                        <div class="dfn-preview-sticky">
-                            <div style="font-size:12px; font-weight:700; color:#004b23; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                                <span>✨ Anteprima Grafica Live (in tempo reale)</span>
-                            </div>
-                            <div class="dfn-preview-mockup-wrapper">
-                                <div class="dfn-preview-mockup-card">
-                                    <div class="dfn-mockup-header">
-                                        <h3 id="dfn-preview-title-2"></h3>
-                                    </div>
-                                    <div class="dfn-mockup-body" id="dfn-preview-body-2"></div>
-                                    <div class="dfn-mockup-footer">
-                                        FAI - Fondo per l'Ambiente Italiano &bull; <?php echo esc_html($delegation_name); ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                        <!-- JAVASCRIPT LIVE PREVIEW & ACCORDION BEHAVIOR -->
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            var sampleData = {
+                                '{nome}': 'Mario',
+                                '{cognome}': 'Rossi',
+                                '{email}': 'mario.rossi@email.it',
+                                '{telefono}': '+39 333 1234567',
+                                '{tessera_fai}': '12345678',
+                                '{mansioni}': '🏛️ Guida Culturale / Cicerone, 🦺 Corso Sicurezza',
+                                '{delegazione}': '<?php echo esc_js($delegation_name); ?>',
+                                '{citta}': 'FAI - Delegazione di Novara',
+                                '{data_richiesta}': '<?php echo esc_js(current_time('d/m/Y H:i')); ?>',
+                                '{link_accesso}': '#preview-link',
+                                '{link_admin}': '#preview-admin-link'
+                            };
 
-                <!-- ========================================================= -->
-                <!-- 3. MODELLO EMAIL VOLONTARIO APPROVED -->
-                <!-- ========================================================= -->
-                <div class="dfn-email-editor-card" id="dfn-card-3">
-                    <div class="dfn-editor-header">
-                        <h2 class="dfn-card-title">
-                            <span style="font-size:22px;">🎉</span>
-                            3. Email di Approvazione &amp; Benvenuto (al Volontario Approvato)
-                        </h2>
-                        <span style="font-size:12px; font-weight:600; color:#15803d; background:#dcfce7; padding:4px 10px; border-radius:20px;">
-                            Inviata all'approvazione della candidatura dall'Admin
-                        </span>
-                    </div>
-
-                    <div class="dfn-builder-grid">
-                        <!-- COLONNA SINISTRA: FORM GUIDATO -->
-                        <div class="dfn-form-col">
-                            <!-- Sezione Intestazione -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">📧 Oggetto &amp; Intestazione</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_approved_subject">Oggetto dell'email</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_approved_subject]" id="vol_email_approved_subject" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_approved_subject')); ?>" class="dfn-input-watch" data-card="3" />
-                                </div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_approved_title">Titolo Banner Verde (Header)</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_approved_title]" id="vol_email_approved_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_approved_title')); ?>" class="dfn-input-watch" data-card="3" />
-                                </div>
-                            </div>
-
-                            <!-- Sezione Saluto & Benvenuto -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">🎉 Saluto &amp; Congratulazioni</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_approved_intro">Testo di congratulazioni e benvenuto</label>
-                                    <textarea name="dfn_vol_settings[vol_email_approved_intro]" id="vol_email_approved_intro" rows="3" class="dfn-input-watch" data-card="3"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_approved_intro')); ?></textarea>
-                                </div>
-                            </div>
-
-                            <!-- Sezione Riquadro Attività & Punti Elenco -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">🏛️ Riquadro Opportunità &amp; Bacheca Volontari</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_approved_box_title">Titolo del Riquadro</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_approved_box_title]" id="vol_email_approved_box_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_approved_box_title')); ?>" class="dfn-input-watch" data-card="3" />
-                                </div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_approved_box_bullets">Punti Elenco (Cosa può fare il volontario)</label>
-                                    <textarea name="dfn_vol_settings[vol_email_approved_box_bullets]" id="vol_email_approved_box_bullets" rows="4" class="dfn-input-watch" data-card="3"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_approved_box_bullets')); ?></textarea>
-                                    <div class="dfn-field-desc">💡 Inserisci una voce per riga: il sistema creerà automaticamente la lista con punti elenco formattata.</div>
-                                </div>
-                            </div>
-
-                            <!-- Sezione Pulsante & Note -->
-                            <div class="dfn-form-section">
-                                <div class="dfn-form-section-title">🔘 Accesso &amp; Credenziali</div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_approved_btn_text">Testo del Pulsante di Accesso</label>
-                                    <input type="text" name="dfn_vol_settings[vol_email_approved_btn_text]" id="vol_email_approved_btn_text" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_approved_btn_text')); ?>" class="dfn-input-watch" data-card="3" />
-                                    <div class="dfn-field-desc">Collega direttamente alla bacheca volontario nel conto utente.</div>
-                                </div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_approved_notes">Nota credenziali di accesso</label>
-                                    <textarea name="dfn_vol_settings[vol_email_approved_notes]" id="vol_email_approved_notes" rows="2" class="dfn-input-watch" data-card="3"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_approved_notes')); ?></textarea>
-                                </div>
-                                <div class="dfn-field-group">
-                                    <label for="vol_email_approved_signature">Firma / Saluti Finali</label>
-                                    <textarea name="dfn_vol_settings[vol_email_approved_signature]" id="vol_email_approved_signature" rows="2" class="dfn-input-watch" data-card="3"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_approved_signature')); ?></textarea>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- COLONNA DESTRA: ANTEPRIMA GRAFICA LIVE -->
-                        <div class="dfn-preview-sticky">
-                            <div style="font-size:12px; font-weight:700; color:#004b23; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                                <span>✨ Anteprima Grafica Live (in tempo reale)</span>
-                            </div>
-                            <div class="dfn-preview-mockup-wrapper">
-                                <div class="dfn-preview-mockup-card">
-                                    <div class="dfn-mockup-header">
-                                        <h3 id="dfn-preview-title-3"></h3>
-                                    </div>
-                                    <div class="dfn-mockup-body" id="dfn-preview-body-3"></div>
-                                    <div class="dfn-mockup-footer">
-                                        FAI - Fondo per l'Ambiente Italiano &bull; <?php echo esc_html($delegation_name); ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-top:20px; position:sticky; bottom:20px; z-index:10; background:rgba(255,255,255,0.95); backdrop-filter:blur(6px); padding:14px 20px; border-radius:10px; border:1px solid #cbd5e1; box-shadow:0 4px 15px rgba(0,0,0,0.08); display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:14px; color:#334155; font-weight:600;">
-                        💾 Modifica i testi guidati e clicca su Salva per confermare.
-                    </span>
-                    <button type="submit" class="button button-primary button-large" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:6px 28px; font-size:15px;">
-                        Salva Tutti i Modelli Email
-                    </button>
-                </div>
-
-                <!-- SCRIPT LIVE PREVIEW & PLACEHOLDER INSERTION -->
-                <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    var sampleData = {
-                        '{nome}': 'Mario',
-                        '{cognome}': 'Rossi',
-                        '{email}': 'mario.rossi@email.it',
-                        '{telefono}': '+39 333 1234567',
-                        '{tessera_fai}': '12345678',
-                        '{mansioni}': '🏛️ Guida Culturale / Cicerone, 🦺 Corso Sicurezza',
-                        '{delegazione}': '<?php echo esc_js($delegation_name); ?>',
-                        '{citta}': 'FAI - Delegazione di Novara',
-                        '{data_richiesta}': '<?php echo esc_js(current_time('d/m/Y H:i')); ?>',
-                        '{link_accesso}': '#preview-link',
-                        '{link_admin}': '#preview-admin-link'
-                    };
-
-                    function escapeHtml(str) {
-                        if (!str) return '';
-                        var div = document.createElement('div');
-                        div.textContent = str;
-                        return div.innerHTML;
-                    }
-
-                    function applyPlaceholders(str) {
-                        if (!str) return '';
-                        for (var key in sampleData) {
-                            var regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-                            str = str.replace(regex, sampleData[key]);
-                        }
-                        return str;
-                    }
-
-                    function formatParagraphs(text) {
-                        if (!text || !text.trim()) return '';
-                        var parts = text.split(/\n\s*\n/);
-                        return parts.map(function(p) {
-                            p = p.trim();
-                            return p ? '<p style="margin:0 0 14px; font-size:14.5px; line-height:1.6; color:#2d3748;">' + escapeHtml(p).replace(/\n/g, '<br>') + '</p>' : '';
-                        }).join('');
-                    }
-
-                    function renderPreviewCard1() {
-                        var titleEl   = document.getElementById('vol_email_admin_title');
-                        var introEl   = document.getElementById('vol_email_admin_intro');
-                        var boxTEl    = document.getElementById('vol_email_admin_box_title');
-                        var instrEl   = document.getElementById('vol_email_admin_instructions');
-                        var btnEl     = document.getElementById('vol_email_admin_btn_text');
-
-                        var titleTarget = document.getElementById('dfn-preview-title-1');
-                        var bodyTarget  = document.getElementById('dfn-preview-body-1');
-                        if (!titleTarget || !bodyTarget) return;
-
-                        var title    = applyPlaceholders(titleEl ? titleEl.value : '');
-                        var intro    = applyPlaceholders(introEl ? introEl.value : '');
-                        var boxTitle = applyPlaceholders(boxTEl ? boxTEl.value : '');
-                        var instr    = applyPlaceholders(instrEl ? instrEl.value : '');
-                        var btnText  = applyPlaceholders(btnEl ? btnEl.value : '');
-
-                        titleTarget.textContent = title;
-
-                        var html = formatParagraphs(intro);
-
-                        html += '<div class="info-box">';
-                        if (boxTitle) {
-                            html += '<div class="info-box-title">' + escapeHtml(boxTitle) + '</div>';
-                        }
-                        html += '<table style="width:100%; border-collapse:collapse; font-size:13.5px;">';
-                        html += '<tr><td style="padding:4px 0; font-weight:600; width:120px; color:#475569;">Candidato:</td><td style="padding:4px 0; font-weight:600; color:#0f172a;">Mario Rossi</td></tr>';
-                        html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Email:</td><td style="padding:4px 0;"><a href="mailto:mario.rossi@email.it" style="color:#004b23; font-weight:600;">mario.rossi@email.it</a></td></tr>';
-                        html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Telefono:</td><td style="padding:4px 0; color:#0f172a;">+39 333 1234567</td></tr>';
-                        html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Disponibilità:</td><td style="padding:4px 0; color:#0f172a;">🏛️ Guida Culturale / Cicerone, 🦺 Corso Sicurezza</td></tr>';
-                        html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Data invio:</td><td style="padding:4px 0; color:#0f172a;">' + sampleData['{data_richiesta}'] + '</td></tr>';
-                        html += '</table></div>';
-
-                        if (instr) {
-                            html += formatParagraphs(instr);
-                        }
-
-                        if (btnText) {
-                            html += '<div style="text-align:center; margin:22px 0;"><a href="#" class="button" onclick="return false;">' + escapeHtml(btnText) + '</a></div>';
-                        }
-
-                        bodyTarget.innerHTML = html;
-                    }
-
-                    function renderPreviewCard2() {
-                        var titleEl    = document.getElementById('vol_email_pending_title');
-                        var introEl    = document.getElementById('vol_email_pending_intro');
-                        var boxTEl     = document.getElementById('vol_email_pending_box_title');
-                        var boxTextEl  = document.getElementById('vol_email_pending_box_text');
-                        var closingEl  = document.getElementById('vol_email_pending_closing');
-                        var sigEl      = document.getElementById('vol_email_pending_signature');
-
-                        var titleTarget = document.getElementById('dfn-preview-title-2');
-                        var bodyTarget  = document.getElementById('dfn-preview-body-2');
-                        if (!titleTarget || !bodyTarget) return;
-
-                        var title    = applyPlaceholders(titleEl ? titleEl.value : '');
-                        var intro    = applyPlaceholders(introEl ? introEl.value : '');
-                        var boxTitle = applyPlaceholders(boxTEl ? boxTEl.value : '');
-                        var boxText  = applyPlaceholders(boxTextEl ? boxTextEl.value : '');
-                        var closing  = applyPlaceholders(closingEl ? closingEl.value : '');
-                        var sig      = applyPlaceholders(sigEl ? sigEl.value : '');
-
-                        titleTarget.textContent = title;
-
-                        var html = formatParagraphs(intro);
-
-                        if (boxTitle || boxText) {
-                            html += '<div class="info-box" style="border-left-color:#166534;">';
-                            if (boxTitle) {
-                                html += '<div class="info-box-title" style="color:#166534;">' + escapeHtml(boxTitle) + '</div>';
+                            function escapeHtml(str) {
+                                if (!str) return '';
+                                var div = document.createElement('div');
+                                div.textContent = str;
+                                return div.innerHTML;
                             }
-                            if (boxText) {
-                                html += '<p style="margin:0; font-size:14px; color:#334155; line-height:1.5;">' + escapeHtml(boxText).replace(/\n/g, '<br>') + '</p>';
-                            }
-                            html += '</div>';
-                        }
 
-                        if (closing) {
-                            html += formatParagraphs(closing);
-                        }
-
-                        if (sig) {
-                            html += '<p style="margin-top:20px; font-size:14.5px; color:#2d3748; line-height:1.5;">' + escapeHtml(sig).replace(/\n/g, '<br>') + '</p>';
-                        }
-
-                        bodyTarget.innerHTML = html;
-                    }
-
-                    function renderPreviewCard3() {
-                        var titleEl   = document.getElementById('vol_email_approved_title');
-                        var introEl   = document.getElementById('vol_email_approved_intro');
-                        var boxTEl    = document.getElementById('vol_email_approved_box_title');
-                        var bulletsEl = document.getElementById('vol_email_approved_box_bullets');
-                        var btnEl     = document.getElementById('vol_email_approved_btn_text');
-                        var notesEl   = document.getElementById('vol_email_approved_notes');
-                        var sigEl     = document.getElementById('vol_email_approved_signature');
-
-                        var titleTarget = document.getElementById('dfn-preview-title-3');
-                        var bodyTarget  = document.getElementById('dfn-preview-body-3');
-                        if (!titleTarget || !bodyTarget) return;
-
-                        var title    = applyPlaceholders(titleEl ? titleEl.value : '');
-                        var intro    = applyPlaceholders(introEl ? introEl.value : '');
-                        var boxTitle = applyPlaceholders(boxTEl ? boxTEl.value : '');
-                        var bullets  = applyPlaceholders(bulletsEl ? bulletsEl.value : '');
-                        var btnText  = applyPlaceholders(btnEl ? btnEl.value : '');
-                        var notes    = applyPlaceholders(notesEl ? notesEl.value : '');
-                        var sig      = applyPlaceholders(sigEl ? sigEl.value : '');
-
-                        titleTarget.textContent = title;
-
-                        var html = formatParagraphs(intro);
-
-                        if (boxTitle || bullets) {
-                            html += '<div class="info-box">';
-                            if (boxTitle) {
-                                html += '<div class="info-box-title">' + escapeHtml(boxTitle) + '</div>';
-                            }
-                            if (bullets) {
-                                var lines = bullets.split(/\r?\n/);
-                                var items = lines.map(function(l) {
-                                    var clean = l.replace(/^[\s•\-\*]+/, '').trim();
-                                    return clean ? '<li style="margin-bottom:5px;">' + escapeHtml(clean) + '</li>' : '';
-                                }).filter(Boolean);
-                                if (items.length) {
-                                    html += '<ul style="margin:0; padding-left:18px; color:#334155; line-height:1.6; font-size:13.5px;">' + items.join('') + '</ul>';
+                            function applyPlaceholders(str) {
+                                if (!str) return '';
+                                for (var key in sampleData) {
+                                    var regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                                    str = str.replace(regex, sampleData[key]);
                                 }
-                            }
-                            html += '</div>';
-                        }
-
-                        if (btnText) {
-                            html += '<div style="text-align:center; margin:24px 0;"><a href="#" class="button" onclick="return false;">' + escapeHtml(btnText) + '</a></div>';
-                        }
-
-                        if (notes) {
-                            html += '<p style="font-size:13.5px; color:#64748b; line-height:1.5;"><em>' + escapeHtml(notes).replace(/\n/g, '<br>') + '</em></p>';
-                        }
-
-                        if (sig) {
-                            html += '<p style="margin-top:20px; font-size:14.5px; color:#2d3748; line-height:1.5;">' + escapeHtml(sig).replace(/\n/g, '<br>') + '</p>';
-                        }
-
-                        bodyTarget.innerHTML = html;
-                    }
-
-                    function updateCard(cardNum) {
-                        if (cardNum === '1' || cardNum === 1) renderPreviewCard1();
-                        if (cardNum === '2' || cardNum === 2) renderPreviewCard2();
-                        if (cardNum === '3' || cardNum === 3) renderPreviewCard3();
-                    }
-
-                    // Inizializza tutte e 3 le anteprime
-                    renderPreviewCard1();
-                    renderPreviewCard2();
-                    renderPreviewCard3();
-
-                    // Aggiorna in tempo reale ad ogni digitazione
-                    document.querySelectorAll('.dfn-input-watch').forEach(function(input) {
-                        input.addEventListener('input', function() {
-                            updateCard(this.dataset.card);
-                        });
-                    });
-
-                    // Inserimento Tag dinamico nel campo attivo
-                    var activeInput = document.getElementById('vol_email_admin_intro');
-                    document.querySelectorAll('.dfn-input-watch').forEach(function(el) {
-                        el.addEventListener('focus', function() {
-                            activeInput = this;
-                        });
-                    });
-
-                    document.querySelectorAll('.dfn-insert-tag-btn').forEach(function(tagBtn) {
-                        tagBtn.addEventListener('click', function() {
-                            var tag = this.dataset.tag;
-                            if (!activeInput) activeInput = document.getElementById('vol_email_admin_intro');
-                            
-                            var start = activeInput.selectionStart !== undefined ? activeInput.selectionStart : activeInput.value.length;
-                            var end   = activeInput.selectionEnd !== undefined ? activeInput.selectionEnd : activeInput.value.length;
-                            var val   = activeInput.value;
-
-                            activeInput.value = val.substring(0, start) + tag + val.substring(end);
-                            activeInput.focus();
-                            if (activeInput.setSelectionRange) {
-                                activeInput.setSelectionRange(start + tag.length, start + tag.length);
+                                return str;
                             }
 
-                            var card = activeInput.dataset.card;
-                            if (card) updateCard(card);
+                            function formatParagraphs(text) {
+                                if (!text || !text.trim()) return '';
+                                var parts = text.split(/\n\s*\n/);
+                                return parts.map(function(p) {
+                                    p = p.trim();
+                                    return p ? '<p style="margin:0 0 14px; font-size:13.5px; line-height:1.6; color:#2d3748;">' + escapeHtml(p).replace(/\n/g, '<br>') + '</p>' : '';
+                                }).join('');
+                            }
+
+                            function renderPreviewCard1() {
+                                var titleEl   = document.getElementById('vol_email_admin_title');
+                                var introEl   = document.getElementById('vol_email_admin_intro');
+                                var boxTEl    = document.getElementById('vol_email_admin_box_title');
+                                var instrEl   = document.getElementById('vol_email_admin_instructions');
+                                var btnEl     = document.getElementById('vol_email_admin_btn_text');
+
+                                var titleTarget = document.getElementById('dfn-preview-title-1');
+                                var bodyTarget  = document.getElementById('dfn-preview-body-1');
+                                if (!titleTarget || !bodyTarget) return;
+
+                                var title    = applyPlaceholders(titleEl ? titleEl.value : '');
+                                var intro    = applyPlaceholders(introEl ? introEl.value : '');
+                                var boxTitle = applyPlaceholders(boxTEl ? boxTEl.value : '');
+                                var instr    = applyPlaceholders(instrEl ? instrEl.value : '');
+                                var btnText  = applyPlaceholders(btnEl ? btnEl.value : '');
+
+                                titleTarget.textContent = title || 'Nuova Candidatura Volontario FAI';
+
+                                var html = formatParagraphs(intro);
+
+                                html += '<div class="info-box">';
+                                if (boxTitle) {
+                                    html += '<div class="info-box-title">' + escapeHtml(boxTitle) + '</div>';
+                                }
+                                html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                html += '<tr><td style="padding:4px 0; font-weight:600; width:110px; color:#475569;">Candidato:</td><td style="padding:4px 0; font-weight:600; color:#0f172a;">Mario Rossi</td></tr>';
+                                html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Email:</td><td style="padding:4px 0;"><a href="mailto:mario.rossi@email.it" style="color:#004b23; font-weight:600;">mario.rossi@email.it</a></td></tr>';
+                                html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Telefono:</td><td style="padding:4px 0; color:#0f172a;">+39 333 1234567</td></tr>';
+                                html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Disponibilità:</td><td style="padding:4px 0; color:#0f172a;">🏛️ Guida Culturale / Cicerone, 🦺 Corso Sicurezza</td></tr>';
+                                html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">Data invio:</td><td style="padding:4px 0; color:#0f172a;">' + sampleData['{data_richiesta}'] + '</td></tr>';
+                                html += '</table></div>';
+
+                                if (instr) {
+                                    html += formatParagraphs(instr);
+                                }
+
+                                if (btnText) {
+                                    html += '<div style="text-align:center; margin:20px 0;"><a href="#" class="button" onclick="return false;">' + escapeHtml(btnText) + '</a></div>';
+                                }
+
+                                bodyTarget.innerHTML = html;
+                            }
+
+                            function renderPreviewCard2() {
+                                var titleEl    = document.getElementById('vol_email_pending_title');
+                                var introEl    = document.getElementById('vol_email_pending_intro');
+                                var boxTEl     = document.getElementById('vol_email_pending_box_title');
+                                var boxTextEl  = document.getElementById('vol_email_pending_box_text');
+                                var closingEl  = document.getElementById('vol_email_pending_closing');
+                                var sigEl      = document.getElementById('vol_email_pending_signature');
+
+                                var titleTarget = document.getElementById('dfn-preview-title-2');
+                                var bodyTarget  = document.getElementById('dfn-preview-body-2');
+                                if (!titleTarget || !bodyTarget) return;
+
+                                var title    = applyPlaceholders(titleEl ? titleEl.value : '');
+                                var intro    = applyPlaceholders(introEl ? introEl.value : '');
+                                var boxTitle = applyPlaceholders(boxTEl ? boxTEl.value : '');
+                                var boxText  = applyPlaceholders(boxTextEl ? boxTextEl.value : '');
+                                var closing  = applyPlaceholders(closingEl ? closingEl.value : '');
+                                var sig      = applyPlaceholders(sigEl ? sigEl.value : '');
+
+                                titleTarget.textContent = title || 'Grazie per la tua candidatura!';
+
+                                var html = formatParagraphs(intro);
+
+                                if (boxTitle || boxText) {
+                                    html += '<div class="info-box" style="border-left-color:#166534;">';
+                                    if (boxTitle) {
+                                        html += '<div class="info-box-title" style="color:#166534;">' + escapeHtml(boxTitle) + '</div>';
+                                    }
+                                    if (boxText) {
+                                        html += '<p style="margin:0; font-size:13.5px; color:#334155; line-height:1.5;">' + escapeHtml(boxText).replace(/\n/g, '<br>') + '</p>';
+                                    }
+                                    html += '</div>';
+                                }
+
+                                if (closing) {
+                                    html += formatParagraphs(closing);
+                                }
+
+                                if (sig) {
+                                    html += '<p style="margin-top:18px; font-size:13.5px; color:#2d3748; line-height:1.5;">' + escapeHtml(sig).replace(/\n/g, '<br>') + '</p>';
+                                }
+
+                                bodyTarget.innerHTML = html;
+                            }
+
+                            function renderPreviewCard3() {
+                                var titleEl   = document.getElementById('vol_email_approved_title');
+                                var introEl   = document.getElementById('vol_email_approved_intro');
+                                var boxTEl    = document.getElementById('vol_email_approved_box_title');
+                                var bulletsEl = document.getElementById('vol_email_approved_box_bullets');
+                                var btnEl     = document.getElementById('vol_email_approved_btn_text');
+                                var notesEl   = document.getElementById('vol_email_approved_notes');
+                                var sigEl     = document.getElementById('vol_email_approved_signature');
+
+                                var titleTarget = document.getElementById('dfn-preview-title-3');
+                                var bodyTarget  = document.getElementById('dfn-preview-body-3');
+                                if (!titleTarget || !bodyTarget) return;
+
+                                var title    = applyPlaceholders(titleEl ? titleEl.value : '');
+                                var intro    = applyPlaceholders(introEl ? introEl.value : '');
+                                var boxTitle = applyPlaceholders(boxTEl ? boxTEl.value : '');
+                                var bullets  = applyPlaceholders(bulletsEl ? bulletsEl.value : '');
+                                var btnText  = applyPlaceholders(btnEl ? btnEl.value : '');
+                                var notes    = applyPlaceholders(notesEl ? notesEl.value : '');
+                                var sig      = applyPlaceholders(sigEl ? sigEl.value : '');
+
+                                titleTarget.textContent = title || 'La tua candidatura è stata approvata!';
+
+                                var html = formatParagraphs(intro);
+
+                                if (boxTitle || bullets) {
+                                    html += '<div class="info-box">';
+                                    if (boxTitle) {
+                                        html += '<div class="info-box-title">' + escapeHtml(boxTitle) + '</div>';
+                                    }
+                                    if (bullets) {
+                                        var lines = bullets.split(/\r?\n/);
+                                        var items = lines.map(function(l) {
+                                            var clean = l.replace(/^[\s•\-\*]+/, '').trim();
+                                            return clean ? '<li style="margin-bottom:5px;">' + escapeHtml(clean) + '</li>' : '';
+                                        }).filter(Boolean);
+                                        if (items.length) {
+                                            html += '<ul style="margin:0; padding-left:18px; color:#334155; line-height:1.6; font-size:13px;">' + items.join('') + '</ul>';
+                                        }
+                                    }
+                                    html += '</div>';
+                                }
+
+                                if (btnText) {
+                                    html += '<div style="text-align:center; margin:22px 0;"><a href="#" class="button" onclick="return false;">' + escapeHtml(btnText) + '</a></div>';
+                                }
+
+                                if (notes) {
+                                    html += '<p style="font-size:13px; color:#64748b; line-height:1.5;"><em>' + escapeHtml(notes).replace(/\n/g, '<br>') + '</em></p>';
+                                }
+
+                                if (sig) {
+                                    html += '<p style="margin-top:18px; font-size:13.5px; color:#2d3748; line-height:1.5;">' + escapeHtml(sig).replace(/\n/g, '<br>') + '</p>';
+                                }
+
+                                bodyTarget.innerHTML = html;
+                            }
+
+                            function updateCard(cardNum) {
+                                if (cardNum === '1' || cardNum === 1) renderPreviewCard1();
+                                if (cardNum === '2' || cardNum === 2) renderPreviewCard2();
+                                if (cardNum === '3' || cardNum === 3) renderPreviewCard3();
+                            }
+
+                            // Inizializza tutte e 3 le anteprime
+                            renderPreviewCard1();
+                            renderPreviewCard2();
+                            renderPreviewCard3();
+
+                            // Aggiorna in tempo reale ad ogni digitazione
+                            document.querySelectorAll('.dfn-input-watch').forEach(function(input) {
+                                input.addEventListener('input', function() {
+                                    updateCard(this.dataset.card);
+                                });
+                            });
+
+                            // Accordion Toggle
+                            document.querySelectorAll('.dfn-vol-accordion-header').forEach(function(header) {
+                                header.addEventListener('click', function() {
+                                    var item = this.closest('.dfn-vol-accordion-item');
+                                    item.classList.toggle('is-open');
+                                    var cardId = item.id.replace('dfn-vol-accordion-', '');
+                                    updateCard(cardId);
+                                });
+                            });
+
+                            // Expand / Collapse All
+                            var expandBtn = document.getElementById('dfn-expand-all-vol-emails');
+                            var collapseBtn = document.getElementById('dfn-collapse-all-vol-emails');
+                            if (expandBtn) {
+                                expandBtn.addEventListener('click', function() {
+                                    document.querySelectorAll('.dfn-vol-accordion-item').forEach(function(item) {
+                                        item.classList.add('is-open');
+                                    });
+                                    renderPreviewCard1();
+                                    renderPreviewCard2();
+                                    renderPreviewCard3();
+                                });
+                            }
+                            if (collapseBtn) {
+                                collapseBtn.addEventListener('click', function() {
+                                    document.querySelectorAll('.dfn-vol-accordion-item').forEach(function(item) {
+                                        item.classList.remove('is-open');
+                                    });
+                                });
+                            }
+
+                            // Inserimento Tag dinamico nel campo attivo
+                            var activeInputByCard = {};
+                            document.querySelectorAll('.dfn-input-watch').forEach(function(el) {
+                                el.addEventListener('focus', function() {
+                                    var card = this.dataset.card;
+                                    if (card) activeInputByCard[card] = this;
+                                });
+                            });
+
+                            document.querySelectorAll('.dfn-chip-btn').forEach(function(tagBtn) {
+                                tagBtn.addEventListener('click', function() {
+                                    var tag = this.dataset.tag;
+                                    var card = this.dataset.card;
+                                    var activeInput = activeInputByCard[card];
+
+                                    if (!activeInput) {
+                                        var container = document.getElementById('dfn-vol-accordion-' + card);
+                                        if (container) {
+                                            activeInput = container.querySelector('textarea.dfn-input-watch') || container.querySelector('input.dfn-input-watch');
+                                        }
+                                    }
+                                    if (!activeInput) return;
+
+                                    var start = activeInput.selectionStart !== undefined ? activeInput.selectionStart : activeInput.value.length;
+                                    var end   = activeInput.selectionEnd !== undefined ? activeInput.selectionEnd : activeInput.value.length;
+                                    var val   = activeInput.value;
+
+                                    activeInput.value = val.substring(0, start) + tag + val.substring(end);
+                                    activeInput.focus();
+                                    if (activeInput.setSelectionRange) {
+                                        activeInput.setSelectionRange(start + tag.length, start + tag.length);
+                                    }
+
+                                    updateCard(card);
+                                });
+                            });
                         });
-                    });
-                });
-                </script>
-            <?php endif; ?>
+                        </script>
 
-            <!-- TAB 3: TEST INVIO EMAIL -->
-            <?php if ($active_tab === 'test-invio') : ?>
-                <div style="background:#fff; border-radius:10px; border:1px solid #c3c4c7; padding:24px 28px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-bottom:24px;">
-                    <h2 style="font-size:18px; font-weight:700; color:#004b23; margin:0 0 12px;">
-                        🧪 Test di Invio Email Notifiche Volontari
-                    </h2>
-                    <p style="color:#475569; font-size:14px; margin-bottom:20px;">
-                        Invia un'email di prova al tuo indirizzo per verificare la formattazione, i colori del template e i testi configurati.
-                    </p>
+                    <?php elseif ($active_tab === 'test-invio') : ?>
+                        <!-- TAB 3: TEST INVIO EMAIL -->
+                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">🧪 Test di Invio Email Notifiche Volontari</h2>
+                        <p class="description" style="margin-bottom: 25px;">Invia un'email di prova al tuo indirizzo per verificare la formattazione, i colori del template istituzionale FAI e i testi configurati.</p>
 
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; max-width:800px; margin-bottom:24px;">
-                        <div>
-                            <label for="dfn-test-vol-template" style="display:block; font-weight:700; margin-bottom:6px; font-size:13.5px;">
-                                Seleziona Modello da Testare:
-                            </label>
-                            <select id="dfn-test-vol-template" style="width:100%; height:38px; border-radius:6px;">
-                                <option value="admin_notification">1. Notifica Nuovo Candidato (Admin)</option>
-                                <option value="candidate_pending">2. Ricezione Candidatura (Candidato - In Attesa)</option>
-                                <option value="volunteer_approved">3. Approvazione &amp; Benvenuto (Volontario)</option>
-                            </select>
+                        <table class="form-table" role="presentation">
+                            <tr>
+                                <th scope="row"><label for="dfn-test-vol-template">Modello da Testare</label></th>
+                                <td>
+                                    <select id="dfn-test-vol-template" class="regular-text" style="height:36px; max-width:440px;">
+                                        <option value="admin_notification">1. Notifica Nuovo Candidato (Admin)</option>
+                                        <option value="candidate_pending">2. Ricezione Candidatura (Candidato - In Attesa)</option>
+                                        <option value="volunteer_approved">3. Approvazione &amp; Benvenuto (Volontario)</option>
+                                    </select>
+                                    <p class="description">Seleziona quale tipologia di email generare con dati di test simulati.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="dfn-test-vol-email">Indirizzo Email Destinazione</label></th>
+                                <td>
+                                    <input type="email" id="dfn-test-vol-email" value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>" class="regular-text" style="max-width:440px;" />
+                                    <p class="description">L'indirizzo a cui recapitare l'email di test.</p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <div style="margin-top: 25px;">
+                            <button type="button" id="dfn-send-vol-test-btn" class="button button-primary button-large" style="background:#004b23; border-color:#003318; font-weight:600; box-shadow:none; text-shadow:none;">
+                                🚀 Invia Email di Test
+                            </button>
+                            <span id="dfn-vol-test-spinner" class="spinner" style="float:none; vertical-align:middle; margin-left:8px;"></span>
                         </div>
-                        <div>
-                            <label for="dfn-test-vol-email" style="display:block; font-weight:700; margin-bottom:6px; font-size:13.5px;">
-                                Indirizzo Email di Destinazione:
-                            </label>
-                            <input type="email" id="dfn-test-vol-email" value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>" style="width:100%; height:38px; border-radius:6px; padding:0 10px;" />
-                        </div>
-                    </div>
 
-                    <button type="button" id="dfn-send-vol-test-btn" class="button button-primary button-large" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:4px 24px;">
-                        🚀 Invia Email di Test
-                    </button>
-                    <span id="dfn-vol-test-spinner" class="spinner" style="float:none; vertical-align:middle; margin-left:8px;"></span>
+                        <div id="dfn-vol-test-result" style="margin-top:20px; display:none; max-width:600px;"></div>
 
-                    <div id="dfn-vol-test-result" style="margin-top:20px; display:none;"></div>
-                </div>
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            var btn = document.getElementById('dfn-send-vol-test-btn');
+                            var spinner = document.getElementById('dfn-vol-test-spinner');
+                            var resultBox = document.getElementById('dfn-vol-test-result');
 
-                <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    var btn = document.getElementById('dfn-send-vol-test-btn');
-                    var spinner = document.getElementById('dfn-vol-test-spinner');
-                    var resultBox = document.getElementById('dfn-vol-test-result');
+                            if (!btn) return;
 
-                    if (!btn) return;
+                            btn.addEventListener('click', function() {
+                                var template = document.getElementById('dfn-test-vol-template').value;
+                                var email = document.getElementById('dfn-test-vol-email').value;
 
-                    btn.addEventListener('click', function() {
-                        var template = document.getElementById('dfn-test-vol-template').value;
-                        var email = document.getElementById('dfn-test-vol-email').value;
+                                if (!email) {
+                                    alert('Inserisci un indirizzo email valido.');
+                                    return;
+                                }
 
-                        if (!email) {
-                            alert('Inserisci un indirizzo email valido.');
-                            return;
-                        }
+                                btn.disabled = true;
+                                spinner.classList.add('is-active');
+                                resultBox.style.display = 'none';
 
-                        btn.disabled = true;
-                        spinner.classList.add('is-active');
-                        resultBox.style.display = 'none';
+                                var data = new FormData();
+                                data.append('action', 'dfn_send_volunteer_test_email');
+                                data.append('template', template);
+                                data.append('email', email);
+                                data.append('nonce', '<?php echo wp_create_nonce('dfn_vol_test_email_nonce'); ?>');
 
-                        var data = new FormData();
-                        data.append('action', 'dfn_send_volunteer_test_email');
-                        data.append('template', template);
-                        data.append('email', email);
-                        data.append('nonce', '<?php echo wp_create_nonce('dfn_vol_test_email_nonce'); ?>');
-
-                        fetch(ajaxurl, {
-                            method: 'POST',
-                            body: data
-                        })
-                        .then(function(res) { return res.json(); })
-                        .then(function(res) {
-                            btn.disabled = false;
-                            spinner.classList.remove('is-active');
-                            resultBox.style.display = 'block';
-                            if (res.success) {
-                                resultBox.innerHTML = '<div class="notice notice-success inline" style="padding:12px; font-weight:600;">✅ ' + res.data.message + '</div>';
-                            } else {
-                                resultBox.innerHTML = '<div class="notice notice-error inline" style="padding:12px; font-weight:600;">❌ Errore: ' + (res.data ? res.data.message : 'Impossibile inviare') + '</div>';
-                            }
-                        })
-                        .catch(function(err) {
-                            btn.disabled = false;
-                            spinner.classList.remove('is-active');
-                            resultBox.style.display = 'block';
-                            resultBox.innerHTML = '<div class="notice notice-error inline" style="padding:12px; font-weight:600;">❌ Errore di connessione.</div>';
+                                fetch(ajaxurl, {
+                                    method: 'POST',
+                                    body: data
+                                })
+                                .then(function(res) { return res.json(); })
+                                .then(function(res) {
+                                    btn.disabled = false;
+                                    spinner.classList.remove('is-active');
+                                    resultBox.style.display = 'block';
+                                    if (res.success) {
+                                        resultBox.innerHTML = '<div class="notice notice-success inline" style="padding:12px; font-weight:600;">✅ ' + res.data.message + '</div>';
+                                    } else {
+                                        resultBox.innerHTML = '<div class="notice notice-error inline" style="padding:12px; font-weight:600;">❌ Errore: ' + (res.data ? res.data.message : 'Impossibile inviare') + '</div>';
+                                    }
+                                })
+                                .catch(function(err) {
+                                    btn.disabled = false;
+                                    spinner.classList.remove('is-active');
+                                    resultBox.style.display = 'block';
+                                    resultBox.innerHTML = '<div class="notice notice-error inline" style="padding:12px; font-weight:600;">❌ Errore di connessione.</div>';
+                                });
+                            });
                         });
-                    });
-                });
-                </script>
-            <?php endif; ?>
-        </form>
+                        </script>
+                    <?php endif; ?>
+                </form>
+            </div>
+        </div>
     </div>
     <?php
 }
