@@ -182,15 +182,22 @@ function dfn_render_fai_pending_bookings(): void
                                                 $titolare    = function_exists('dfn_sanitize_name') ? dfn_sanitize_name(($card['nome'] ?? '') . ' ' . ($card['cognome'] ?? '')) : str_replace('\\', '', trim(($card['nome'] ?? '') . ' ' . ($card['cognome'] ?? '')));
                                                 $card_status = $card['status'] ?? null; // 'approved' o 'rejected'
 
-                                                $is_verified_db = (int) $wpdb->get_var($wpdb->prepare(
-                                                    "SELECT verified FROM {$table_members} WHERE card_number = %s LIMIT 1",
+                                                $db_member = $wpdb->get_row($wpdb->prepare(
+                                                    "SELECT * FROM {$table_members} WHERE card_number = %s LIMIT 1",
                                                     $card['tessera']
                                                 ));
+                                                $is_verified_db = $db_member ? intval($db_member->verified) : 0;
+                                                $registry_id    = $db_member && ! empty($db_member->fai_registry_id) ? $db_member->fai_registry_id : '';
+                                                $card_exp       = $db_member && ! empty($db_member->card_expiry) && $db_member->card_expiry !== '0000-00-00' ? $db_member->card_expiry : date('Y-m-d', strtotime('+1 year'));
+                                                $card_typ       = $db_member && ! empty($db_member->card_type) ? $db_member->card_type : 'INDIVIDUALE';
 
                                                 if ($card_status === 'approved' || $is_verified_db === 1) : ?>
                                                     <div style="font-size: 11px; margin-bottom: 4px; padding: 3px 6px; background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
                                                         <span class="dashicons dashicons-yes" style="font-size: 14px; width: 14px; height: 14px;"></span>
                                                         <strong><?php echo $tessera_num; ?></strong><?php if ($titolare) : ?> (<?php echo esc_html($titolare); ?>)<?php endif; ?>
+                                                        <?php if (! empty($registry_id)) : ?>
+                                                            <span style="font-size: 10px; background: #bbf7d0; color: #14532d; padding: 1px 4px; border-radius: 3px; font-family: monospace;">ID: <?php echo esc_html($registry_id); ?></span>
+                                                        <?php endif; ?>
                                                         <span style="font-size: 10px; font-weight: bold; margin-left: 4px;">VERIFICATA</span>
                                                     </div><br>
                                                 <?php elseif ($card_status === 'rejected') : ?>
@@ -203,7 +210,16 @@ function dfn_render_fai_pending_bookings(): void
                                                     <div class="dfn-card-action-item" style="font-size: 11px; margin-bottom: 4px; padding: 4px 6px; background: #fff5f5; border: 1px solid #fca5a5; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;" data-card-number="<?php echo esc_attr($card['tessera']); ?>">
                                                         <span><strong><?php echo $tessera_num; ?></strong><?php if ($titolare) : ?> &mdash; <?php echo esc_html($titolare); ?><?php endif; ?></span>
                                                         <div style="display: inline-flex; gap: 4px; margin-left: 6px;">
-                                                            <button type="button" class="dfn-btn-card-action dfn-btn-validate-card" data-booking-id="<?php echo absint($booking->id); ?>" data-card-number="<?php echo esc_attr($card['tessera']); ?>" style="background: #16a34a; color: #fff; border: none; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="<?php esc_attr_e('Convalida tessera', 'dfn-theme'); ?>">
+                                                            <button type="button" 
+                                                                class="dfn-btn-card-action dfn-btn-validate-card" 
+                                                                data-booking-id="<?php echo absint($booking->id); ?>" 
+                                                                data-card-number="<?php echo esc_attr($card['tessera']); ?>" 
+                                                                data-holder-name="<?php echo esc_attr($titolare); ?>"
+                                                                data-registry-id="<?php echo esc_attr($registry_id); ?>"
+                                                                data-card-expiry="<?php echo esc_attr($card_exp); ?>"
+                                                                data-card-type="<?php echo esc_attr($card_typ); ?>"
+                                                                style="background: #16a34a; color: #fff; border: none; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" 
+                                                                title="<?php esc_attr_e('Convalida tessera con ID Anagrafica', 'dfn-theme'); ?>">
                                                                 <span class="dashicons dashicons-yes" style="font-size: 14px; width: 14px; height: 14px;"></span>
                                                             </button>
                                                             <button type="button" class="dfn-btn-card-action dfn-btn-reject-card" data-booking-id="<?php echo absint($booking->id); ?>" data-card-number="<?php echo esc_attr($card['tessera']); ?>" style="background: #dc2626; color: #fff; border: none; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="<?php esc_attr_e('Rifiuta tessera e converti a tariffa Intera (+5€)', 'dfn-theme'); ?>">
@@ -246,6 +262,65 @@ function dfn_render_fai_pending_bookings(): void
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
+    </div>
+
+    <!-- Modale di convalida singola tessera FAI con ID Anagrafica (SiVol) -->
+    <div id="dfn-validate-card-modal" class="dfn-modal-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center;">
+        <div class="dfn-modal-box" style="background: #fff; border-radius: 8px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 480px; max-width: 92%; overflow: hidden;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #f0fdf4; border-bottom: 1px solid #bbf7d0;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #166534; display: flex; align-items: center; gap: 8px;">
+                    <span>💳</span> <?php esc_html_e('Convalida Tessera FAI', 'dfn-theme'); ?>
+                </h3>
+                <button type="button" id="dfn-val-modal-close" style="background: none; border: none; cursor: pointer; font-size: 22px; color: #64748b; line-height: 1; padding: 0;">&times;</button>
+            </div>
+            <form id="dfn-val-card-form" style="padding: 20px;">
+                <input type="hidden" id="dfn-val-booking-id" value="">
+                <input type="hidden" id="dfn-val-card-number-hidden" value="">
+
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px;">
+                    <div style="font-size: 13.5px; font-weight: 700; color: #0f172a;" id="dfn-val-holder-display">Nome Cognome</div>
+                    <div style="font-size: 12.5px; color: #475569; margin-top: 2px;">
+                        Tessera N°: <strong id="dfn-val-card-display" style="color: #004b23; font-family: monospace; font-size: 13.5px;">123456</strong>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label for="dfn-val-fai-registry-id" style="display: block; font-weight: 700; font-size: 12.5px; margin-bottom: 4px; color: #334155;">
+                        🆔 <?php esc_html_e('ID Anagrafica FAI (SiVol / App)', 'dfn-theme'); ?>
+                    </label>
+                    <input type="text" id="dfn-val-fai-registry-id" placeholder="<?php esc_attr_e('Es. 4312492 (SiVol / App FAI)', 'dfn-theme'); ?>" style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 36px; padding: 0 10px; font-size: 13px; font-weight: 600;">
+                    <p style="font-size: 11px; color: #64748b; margin: 4px 0 0;">
+                        <?php esc_html_e('Inserendo l\'ID anagrafica SiVol, verrà salvato direttamente nell\'anagrafica soci e utilizzato per il QR Code FAI.', 'dfn-theme'); ?>
+                    </p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div>
+                        <label for="dfn-val-card-expiry" style="display: block; font-weight: 700; font-size: 12.5px; margin-bottom: 4px; color: #334155;">
+                            📅 <?php esc_html_e('Scadenza Tessera', 'dfn-theme'); ?>
+                        </label>
+                        <input type="date" id="dfn-val-card-expiry" style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 36px; padding: 0 8px; font-size: 12.5px;">
+                    </div>
+                    <div>
+                        <label for="dfn-val-card-type" style="display: block; font-weight: 700; font-size: 12.5px; margin-bottom: 4px; color: #334155;">
+                            <?php esc_html_e('Tipologia', 'dfn-theme'); ?>
+                        </label>
+                        <select id="dfn-val-card-type" style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 36px; padding: 0 8px; font-size: 12.5px;">
+                            <option value="INDIVIDUALE">INDIVIDUALE</option>
+                            <option value="COPPIA">COPPIA</option>
+                            <option value="FAMIGLIA">FAMIGLIA</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+                    <button type="button" id="dfn-val-modal-cancel" class="dfn-btn dfn-btn-secondary" style="padding: 6px 14px; font-weight: 600;"><?php esc_html_e('Annulla', 'dfn-theme'); ?></button>
+                    <button type="submit" id="dfn-val-modal-submit" class="dfn-btn dfn-btn-primary" style="background: #16a34a; border-color: #15803d; font-weight: 700; padding: 6px 16px;">
+                        <span class="dashicons dashicons-yes" style="vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Conferma e Convalida', 'dfn-theme'); ?>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Modale di rifiuto -->

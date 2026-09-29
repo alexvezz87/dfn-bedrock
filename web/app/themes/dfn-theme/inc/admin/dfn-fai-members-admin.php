@@ -134,7 +134,54 @@ function dfn_render_fai_members_page(): void
         }
     }
 
-    // AZIONE RAPIDA: Approva Tessera FAI da verificare
+    // AZIONE RAPIDA: Approva Tessera FAI da verificare (via POST con ID Anagrafica / Dati)
+    if (isset($_POST['dfn_approve_fai_submit'])) {
+        if (isset($_POST['dfn_approve_nonce']) && wp_verify_nonce($_POST['dfn_approve_nonce'], 'dfn_approve_fai_action')) {
+            $member_id       = intval($_POST['member_id']);
+            $fai_registry_id = sanitize_text_field(wp_unslash($_POST['fai_registry_id'] ?? ''));
+            $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field(wp_unslash($_POST['card_expiry'])) : null;
+            $card_type       = ! empty($_POST['card_type']) ? sanitize_text_field(wp_unslash($_POST['card_type'])) : 'INDIVIDUALE';
+
+            $update_data = [
+                'verified'    => 1,
+                'verified_by' => get_current_user_id(),
+                'verified_at' => current_time('mysql'),
+                'card_type'   => $card_type,
+            ];
+            $update_format = ['%d', '%d', '%s', '%s'];
+
+            if (! empty($fai_registry_id)) {
+                $update_data['fai_registry_id'] = $fai_registry_id;
+                $update_format[] = '%s';
+            }
+            if (! empty($card_expiry)) {
+                $update_data['card_expiry'] = $card_expiry;
+                $update_format[] = '%s';
+            }
+
+            $wpdb->update($table, $update_data, ['id' => $member_id], $update_format, ['%d']);
+
+            /** @var \stdClass|null $m */
+            $m = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $member_id));
+            if ($m && ! empty($m->email)) {
+                dfn_send_fai_card_approved_email($m->email, $m->first_name, $m->last_name, $m->card_number);
+            }
+            if ($m && function_exists('dfn_log_fai_card')) {
+                $log_notes = "Socio: {$m->first_name} {$m->last_name} ({$m->email})";
+                if (! empty($fai_registry_id)) {
+                    $log_notes .= " | ID SiVol: {$fai_registry_id}";
+                }
+                dfn_log_fai_card($m->card_number, 'Approvata dallo staff', '', $log_notes);
+            }
+
+            $message = esc_html__('Socio FAI approvato e notificato con successo.', 'dfn-theme');
+        } else {
+            $message = esc_html__('Errore di sicurezza: verifica fallita.', 'dfn-theme');
+            $message_type = 'error';
+        }
+    }
+
+    // AZIONE RAPIDA: Approva Tessera FAI da verificare (via GET fallback)
     if (isset($_GET['action']) && $_GET['action'] === 'approve' && isset($_GET['member_id'])) {
         $member_id = intval($_GET['member_id']);
         if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'dfn_approve_fai_' . $member_id)) {
@@ -648,9 +695,18 @@ function dfn_render_fai_members_page(): void
                                         </td>
                                         <td style="white-space: nowrap;">
                                             <div style="display: inline-flex; align-items: center; gap: 8px;">
-                                                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=approve&member_id=' . $m->id), 'dfn_approve_fai_' . $m->id)); ?>" style="color: #16a34a; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Applica sconto e approva', 'dfn-theme'); ?>">
+                                                <button type="button" 
+                                                    class="dfn-btn-open-approve-fai-modal"
+                                                    data-member-id="<?php echo absint($m->id); ?>"
+                                                    data-member-name="<?php echo esc_attr(function_exists('dfn_sanitize_name') ? dfn_sanitize_name($m->first_name . ' ' . $m->last_name) : trim($m->first_name . ' ' . $m->last_name)); ?>"
+                                                    data-card-number="<?php echo esc_attr($m->card_number); ?>"
+                                                    data-registry-id="<?php echo esc_attr($m->fai_registry_id ?? ''); ?>"
+                                                    data-card-expiry="<?php echo esc_attr($m->card_expiry && $m->card_expiry !== '0000-00-00' ? $m->card_expiry : date('Y-m-d', strtotime('+1 year'))); ?>"
+                                                    data-card-type="<?php echo esc_attr($m->card_type ?: 'INDIVIDUALE'); ?>"
+                                                    style="background: none; border: none; padding: 0; cursor: pointer; color: #16a34a; display: inline-flex; align-items: center;" 
+                                                    title="<?php esc_attr_e('Verifica, inserisci ID SiVol e approva', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-yes-alt" style="font-size: 20px; width: 20px; height: 20px;"></span>
-                                                </a>
+                                                </button>
                                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-fai-members&action=reject&member_id=' . $m->id)); ?>" style="color: #dc2626; text-decoration: none; display: inline-flex; align-items: center;" title="<?php esc_attr_e('Rifiuta e spiega motivo', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-dismiss" style="font-size: 20px; width: 20px; height: 20px;"></span>
                                                 </a>
@@ -882,8 +938,106 @@ function dfn_render_fai_members_page(): void
             </div>
         </div>
     </div>
+    <!-- Modale Approvazione Socio FAI con ID Anagrafica (SiVol) -->
+    <div id="dfn-approve-fai-modal" class="dfn-modal-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center;">
+        <div class="dfn-modal-box" style="background: #fff; border-radius: 8px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 480px; max-width: 92%; overflow: hidden;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #f0fdf4; border-bottom: 1px solid #bbf7d0;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #166534; display: flex; align-items: center; gap: 8px;">
+                    <span>💳</span> <?php esc_html_e('Approva Socio FAI', 'dfn-theme'); ?>
+                </h3>
+                <button type="button" id="dfn-app-modal-close" style="background: none; border: none; cursor: pointer; font-size: 22px; color: #64748b; line-height: 1; padding: 0;">&times;</button>
+            </div>
+            <form method="POST" action="" id="dfn-app-fai-form" style="padding: 20px;">
+                <?php wp_nonce_field('dfn_approve_fai_action', 'dfn_approve_nonce'); ?>
+                <input type="hidden" name="member_id" id="dfn-app-member-id" value="">
+
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px;">
+                    <div style="font-size: 13.5px; font-weight: 700; color: #0f172a;" id="dfn-app-member-name">Nome Cognome</div>
+                    <div style="font-size: 12.5px; color: #475569; margin-top: 2px;">
+                        Tessera N°: <strong id="dfn-app-card-display" style="color: #004b23; font-family: monospace; font-size: 13.5px;">123456</strong>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label for="dfn-app-fai-registry-id" style="display: block; font-weight: 700; font-size: 12.5px; margin-bottom: 4px; color: #334155;">
+                        🆔 <?php esc_html_e('ID Anagrafica FAI (SiVol / App)', 'dfn-theme'); ?>
+                    </label>
+                    <input type="text" name="fai_registry_id" id="dfn-app-fai-registry-id" placeholder="<?php esc_attr_e('Es. 4312492 (SiVol / App FAI)', 'dfn-theme'); ?>" style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 36px; padding: 0 10px; font-size: 13px; font-weight: 600;">
+                    <p style="font-size: 11px; color: #64748b; margin: 4px 0 0;">
+                        <?php esc_html_e('Identificativo numerico SiVol per la generazione del QR Code FAI e sincronizzazione.', 'dfn-theme'); ?>
+                    </p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div>
+                        <label for="dfn-app-card-expiry" style="display: block; font-weight: 700; font-size: 12.5px; margin-bottom: 4px; color: #334155;">
+                            📅 <?php esc_html_e('Scadenza Tessera', 'dfn-theme'); ?>
+                        </label>
+                        <input type="date" name="card_expiry" id="dfn-app-card-expiry" style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 36px; padding: 0 8px; font-size: 12.5px;">
+                    </div>
+                    <div>
+                        <label for="dfn-app-card-type" style="display: block; font-weight: 700; font-size: 12.5px; margin-bottom: 4px; color: #334155;">
+                            <?php esc_html_e('Tipologia', 'dfn-theme'); ?>
+                        </label>
+                        <select name="card_type" id="dfn-app-card-type" style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 36px; padding: 0 8px; font-size: 12.5px;">
+                            <?php
+                            $types_string = dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA');
+                            $valid_types = array_map('trim', explode(',', strtoupper($types_string)));
+                            foreach ($valid_types as $t) {
+                                if (! empty($t)) {
+                                    echo '<option value="' . esc_attr($t) . '">' . esc_html($t) . '</option>';
+                                }
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+                    <button type="button" id="dfn-app-modal-cancel" class="button" style="padding: 6px 14px; font-weight: 600;"><?php esc_html_e('Annulla', 'dfn-theme'); ?></button>
+                    <button type="submit" name="dfn_approve_fai_submit" class="button button-primary" style="background: #16a34a; border-color: #15803d; font-weight: 700; padding: 6px 16px;">
+                        <span class="dashicons dashicons-yes" style="vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Conferma & Approva Socio', 'dfn-theme'); ?>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
     jQuery(document).ready(function($) {
+        // Gestione apertura modale approvazione rapida socio FAI
+        $(document).on('click', '.dfn-btn-open-approve-fai-modal', function() {
+            var $btn = $(this);
+            var mId  = $btn.data('member-id') || '';
+            var mNam = $btn.data('member-name') || '';
+            var mCrd = $btn.data('card-number') || '';
+            var mReg = $btn.data('registry-id') || '';
+            var mExp = $btn.data('card-expiry') || '';
+            var mTyp = $btn.data('card-type') || 'INDIVIDUALE';
+
+            $('#dfn-app-member-id').val(mId);
+            $('#dfn-app-member-name').text(mNam);
+            $('#dfn-app-card-display').text(mCrd);
+            $('#dfn-app-fai-registry-id').val(mReg);
+            $('#dfn-app-card-expiry').val(mExp);
+            $('#dfn-app-card-type').val(mTyp);
+
+            $('#dfn-approve-fai-modal').css('display', 'flex');
+            setTimeout(function() {
+                $('#dfn-app-fai-registry-id').focus();
+            }, 100);
+        });
+
+        $('#dfn-app-modal-close, #dfn-app-modal-cancel').on('click', function() {
+            $('#dfn-approve-fai-modal').hide();
+        });
+
+        $(document).on('click', '#dfn-approve-fai-modal', function(e) {
+            if ($(e.target).is('#dfn-approve-fai-modal')) {
+                $('#dfn-approve-fai-modal').hide();
+            }
+        });
+
         $('#dfn-select-all-unverified').on('change', function() {
             var checked = $(this).prop('checked');
             $('#dfn-fai-unverified-bulk-form input[name="member_ids[]"]').prop('checked', checked);

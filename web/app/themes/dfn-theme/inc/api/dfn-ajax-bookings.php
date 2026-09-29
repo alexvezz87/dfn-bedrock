@@ -1746,14 +1746,18 @@ function dfn_ajax_validate_single_fai_card(): void
         wp_send_json_error(['message' => __('Permessi insufficienti.', 'dfn-theme')]);
     }
 
-    $booking_id  = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
-    $card_number = isset($_POST['card_number']) ? sanitize_text_field($_POST['card_number']) : '';
+    $booking_id      = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    $card_number     = isset($_POST['card_number']) ? sanitize_text_field($_POST['card_number']) : '';
+    $fai_registry_id = isset($_POST['fai_registry_id']) ? sanitize_text_field($_POST['fai_registry_id']) : '';
+    $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
+    $card_type       = ! empty($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
 
     if (! $booking_id || empty($card_number)) {
         wp_send_json_error(['message' => __('Dati non validi.', 'dfn-theme')]);
     }
 
     global $wpdb;
+    $table_members = $wpdb->prefix . 'dfn_fai_members';
     $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
     if (! $booking) {
         wp_send_json_error(['message' => __('Prenotazione non trovata.', 'dfn-theme')]);
@@ -1766,10 +1770,17 @@ function dfn_ajax_validate_single_fai_card(): void
 
     // Aggiorna lo stato della tessera nei meta dell'ordine
     $fai_cards = $order->get_meta('_dfn_fai_cards');
+    $holder_first = '';
+    $holder_last  = '';
     if (is_array($fai_cards)) {
         foreach ($fai_cards as &$c) {
             if (isset($c['tessera']) && $c['tessera'] === $card_number) {
                 $c['status'] = 'approved';
+                if (! empty($fai_registry_id)) {
+                    $c['fai_registry_id'] = $fai_registry_id;
+                }
+                $holder_first = $c['nome'] ?? '';
+                $holder_last  = $c['cognome'] ?? '';
                 break;
             }
         }
@@ -1778,25 +1789,68 @@ function dfn_ajax_validate_single_fai_card(): void
         $order->save();
     }
 
-    // Segna la tessera come verificata anche nell'anagrafica globale
-    $wpdb->update(
-        $wpdb->prefix . 'dfn_fai_members',
-        [
-            'verified'    => 1,
-            'verified_by' => get_current_user_id(),
-            'verified_at' => current_time('mysql'),
-        ],
-        ['card_number' => $card_number],
-        ['%d', '%d', '%s'],
-        ['%s']
-    );
+    // Aggiorna o inserisce il socio nell'anagrafica globale dei soci FAI
+    $existing_member = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table_members} WHERE card_number = %s LIMIT 1",
+        $card_number
+    ));
+
+    $update_data = [
+        'verified'    => 1,
+        'verified_by' => get_current_user_id(),
+        'verified_at' => current_time('mysql'),
+    ];
+    $update_format = ['%d', '%d', '%s'];
+
+    if (! empty($fai_registry_id)) {
+        $update_data['fai_registry_id'] = $fai_registry_id;
+        $update_format[] = '%s';
+    }
+    if (! empty($card_expiry)) {
+        $update_data['card_expiry'] = $card_expiry;
+        $update_format[] = '%s';
+    }
+    if (! empty($card_type)) {
+        $update_data['card_type'] = $card_type;
+        $update_format[] = '%s';
+    }
+
+    if ($existing_member) {
+        $wpdb->update(
+            $table_members,
+            $update_data,
+            ['card_number' => $card_number],
+            $update_format,
+            ['%s']
+        );
+    } else {
+        $first_name = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($holder_first) : $holder_first;
+        $last_name  = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($holder_last) : $holder_last;
+        $wpdb->insert(
+            $table_members,
+            array_merge($update_data, [
+                'card_number' => $card_number,
+                'first_name'  => $first_name,
+                'last_name'   => $last_name,
+                'email'       => $booking->customer_email,
+                'phone'       => $booking->customer_phone,
+                'created_at'  => current_time('mysql'),
+            ])
+        );
+    }
 
     if (function_exists('dfn_log_fai_card')) {
-        dfn_log_fai_card($card_number, 'Convalidata dallo staff', '', "Ordine #{$booking->order_id} (Prenotazione #{$booking_id} - {$booking->customer_name})");
+        $log_notes = "Ordine #{$booking->order_id} (Prenotazione #{$booking_id} - {$booking->customer_name})";
+        if (! empty($fai_registry_id)) {
+            $log_notes .= " | ID SiVol: {$fai_registry_id}";
+        }
+        dfn_log_fai_card($card_number, 'Convalidata dallo staff', '', $log_notes);
     }
 
     wp_send_json_success([
-        'message' => sprintf(__('Tessera FAI n° %s convalidata.', 'dfn-theme'), $card_number),
+        'message'         => sprintf(__('Tessera FAI n° %s convalidata con successo.', 'dfn-theme'), $card_number),
+        'card_number'     => $card_number,
+        'fai_registry_id' => $fai_registry_id,
     ]);
 }
 
