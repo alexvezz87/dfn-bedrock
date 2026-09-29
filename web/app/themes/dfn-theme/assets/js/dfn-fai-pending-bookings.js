@@ -13,43 +13,88 @@
 
     let currentBookingId = null;
 
-    // =========================================================================
-    // CONVALIDA / RIFIUTO SINGOLA TESSERA FAI
-    // =========================================================================
+    let $currentValidateBtn = null;
 
     $(document).on('click', '.dfn-btn-validate-card', function () {
-        const $btn       = $(this);
-        const bookingId  = $btn.data('booking-id');
-        const cardNumber = $btn.data('card-number');
+        $currentValidateBtn = $(this);
+        const bookingId  = $currentValidateBtn.data('booking-id');
+        const cardNumber = $currentValidateBtn.data('card-number');
+        const holderName = $currentValidateBtn.data('holder-name') || '';
+        const registryId = $currentValidateBtn.data('registry-id') || '';
+        const expiryDate = $currentValidateBtn.data('card-expiry') || '';
+        const cardType   = $currentValidateBtn.data('card-type') || 'INDIVIDUALE';
 
-        $btn.prop('disabled', true);
+        $('#dfn-val-booking-id').val(bookingId);
+        $('#dfn-val-card-number-hidden').val(cardNumber);
+        $('#dfn-val-holder-display').text(holderName || 'Titolare non specificato');
+        $('#dfn-val-card-display').text(cardNumber);
+        $('#dfn-val-fai-registry-id').val(registryId);
+        $('#dfn-val-card-expiry').val(expiryDate);
+        $('#dfn-val-card-type').val(cardType);
+
+        $('#dfn-validate-card-modal').css('display', 'flex');
+        setTimeout(function() {
+            $('#dfn-val-fai-registry-id').focus();
+        }, 100);
+    });
+
+    $(document).on('click', '#dfn-val-modal-close, #dfn-val-modal-cancel', function () {
+        $('#dfn-validate-card-modal').hide();
+    });
+
+    $(document).on('click', '#dfn-validate-card-modal', function (e) {
+        if ($(e.target).is('#dfn-validate-card-modal')) {
+            $('#dfn-validate-card-modal').hide();
+        }
+    });
+
+    $(document).on('submit', '#dfn-val-card-form', function (e) {
+        e.preventDefault();
+
+        const bookingId  = $('#dfn-val-booking-id').val();
+        const cardNumber = $('#dfn-val-card-number-hidden').val();
+        const registryId = $('#dfn-val-fai-registry-id').val().trim();
+        const expiryDate = $('#dfn-val-card-expiry').val();
+        const cardType   = $('#dfn-val-card-type').val();
+        const $submitBtn = $('#dfn-val-modal-submit');
+
+        $submitBtn.prop('disabled', true).text(dfnPendingVars.processing || 'Salvataggio...');
 
         $.ajax({
             url:    dfnPendingVars.ajaxurl,
             method: 'POST',
             data: {
-                action:      'dfn_validate_single_fai_card',
-                nonce:       dfnPendingVars.nonce,
-                booking_id:  bookingId,
-                card_number: cardNumber,
+                action:          'dfn_validate_single_fai_card',
+                nonce:           dfnPendingVars.nonce,
+                booking_id:      bookingId,
+                card_number:     cardNumber,
+                fai_registry_id: registryId,
+                card_expiry:     expiryDate,
+                card_type:       cardType,
             },
             success: function (response) {
+                $submitBtn.prop('disabled', false).html('<span class="dashicons dashicons-yes" style="vertical-align: text-bottom; margin-right: 2px;"></span> Conferma e Convalida');
+                $('#dfn-validate-card-modal').hide();
+
                 if (response.success) {
-                    const $item = $btn.closest('.dfn-card-action-item');
-                    $item.replaceWith(
-                        '<div style="font-size: 11px; margin-bottom: 4px; padding: 3px 6px; background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">' +
-                        '<span class="dashicons dashicons-yes" style="font-size: 14px; width: 14px; height: 14px;"></span> ' +
-                        '<strong>' + cardNumber + '</strong> <span style="font-size: 10px; font-weight: bold; margin-left: 4px;">VERIFICATA</span></div><br>'
-                    );
+                    if ($currentValidateBtn) {
+                        const $item = $currentValidateBtn.closest('.dfn-card-action-item');
+                        const holder = $currentValidateBtn.data('holder-name') || '';
+                        const regBadge = registryId ? ' <span style="font-size: 10px; background: #bbf7d0; color: #14532d; padding: 1px 4px; border-radius: 3px; font-family: monospace;">ID: ' + registryId + '</span>' : '';
+                        $item.replaceWith(
+                            '<div style="font-size: 11px; margin-bottom: 4px; padding: 3px 6px; background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">' +
+                            '<span class="dashicons dashicons-yes" style="font-size: 14px; width: 14px; height: 14px;"></span> ' +
+                            '<strong>' + cardNumber + '</strong>' + (holder ? ' (' + holder + ')' : '') + regBadge + ' <span style="font-size: 10px; font-weight: bold; margin-left: 4px;">VERIFICATA</span></div><br>'
+                        );
+                    }
                     dfnShowNotice('success', response.data.message);
                 } else {
                     dfnShowNotice('error', response.data.message || dfnPendingVars.generic_error);
-                    $btn.prop('disabled', false);
                 }
             },
             error: function () {
+                $submitBtn.prop('disabled', false).html('<span class="dashicons dashicons-yes" style="vertical-align: text-bottom; margin-right: 2px;"></span> Conferma e Convalida');
                 dfnShowNotice('error', dfnPendingVars.generic_error);
-                $btn.prop('disabled', false);
             },
         });
     });
