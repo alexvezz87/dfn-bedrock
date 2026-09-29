@@ -610,6 +610,7 @@ function dfn_render_volunteers_list_page(): void
                                                 data-vol-email="<?php echo esc_attr($p->email); ?>"
                                                 data-vol-phone="<?php echo esc_attr($p->phone ?: ''); ?>"
                                                 data-vol-card="<?php echo esc_attr($p->card_number ?: ''); ?>"
+                                                data-vol-registry="<?php echo esc_attr($p->fai_registry_id ?: ''); ?>"
                                                 data-vol-expiry="<?php echo esc_attr($p->card_expiry ?: ''); ?>"
                                                 data-vol-type="<?php echo esc_attr($p->card_type ?: 'INDIVIDUALE'); ?>"
                                                 data-vol-sivol="<?php echo esc_attr($p->is_sivol_registered ?? 0); ?>"
@@ -874,12 +875,20 @@ function dfn_render_volunteers_list_page(): void
                     <div style="font-size:12.5px; color:#475569;" id="dfn-modal-vol-contacts">email@example.com</div>
                 </div>
 
-                <!-- Dettagli Tessera FAI -->
-                <div style="margin-bottom:16px;">
-                    <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:4px;">
-                        💳 Numero Tessera FAI
-                    </label>
-                    <input type="text" name="card_number" id="dfn-modal-card-number" placeholder="Es. 3927784" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-size:13.5px; font-weight:600;">
+                <!-- Dettagli Tessera FAI & ID Anagrafica -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px;">
+                    <div>
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:4px;">
+                            💳 Numero Tessera FAI
+                        </label>
+                        <input type="text" name="card_number" id="dfn-modal-card-number" placeholder="Es. 3927784" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-size:13.5px; font-weight:600;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:4px;">
+                            🆔 ID Anagrafica FAI (SiVol)
+                        </label>
+                        <input type="text" name="fai_registry_id" id="dfn-modal-fai-registry-id" placeholder="Es. 4312492 (SiVol / App)" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-size:13.5px; font-weight:600;">
+                    </div>
                 </div>
 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px;">
@@ -983,22 +992,24 @@ function dfn_render_volunteers_list_page(): void
 
             document.querySelectorAll('.dfn-btn-open-approve-modal').forEach(function(btn) {
                 btn.addEventListener('click', function() {
-                    var id     = this.getAttribute('data-vol-id') || '';
-                    var name   = this.getAttribute('data-vol-name') || '';
-                    var email  = this.getAttribute('data-vol-email') || '';
-                    var phone  = this.getAttribute('data-vol-phone') || '';
-                    var card   = this.getAttribute('data-vol-card') || '';
-                    var expiry = this.getAttribute('data-vol-expiry') || '';
-                    var type   = this.getAttribute('data-vol-type') || 'INDIVIDUALE';
-                    var sivol  = this.getAttribute('data-vol-sivol') === '1';
-                    var guide  = this.getAttribute('data-vol-guide') === '1';
-                    var safety = this.getAttribute('data-vol-safety') === '1';
-                    var notes  = this.getAttribute('data-vol-notes') || '';
+                    var id       = this.getAttribute('data-vol-id') || '';
+                    var name     = this.getAttribute('data-vol-name') || '';
+                    var email    = this.getAttribute('data-vol-email') || '';
+                    var phone    = this.getAttribute('data-vol-phone') || '';
+                    var card     = this.getAttribute('data-vol-card') || '';
+                    var registry = this.getAttribute('data-vol-registry') || '';
+                    var expiry   = this.getAttribute('data-vol-expiry') || '';
+                    var type     = this.getAttribute('data-vol-type') || 'INDIVIDUALE';
+                    var sivol    = this.getAttribute('data-vol-sivol') === '1';
+                    var guide    = this.getAttribute('data-vol-guide') === '1';
+                    var safety   = this.getAttribute('data-vol-safety') === '1';
+                    var notes    = this.getAttribute('data-vol-notes') || '';
 
                     document.getElementById('dfn-modal-vol-id').value = id;
                     document.getElementById('dfn-modal-vol-name').textContent = name;
                     document.getElementById('dfn-modal-vol-contacts').textContent = email + (phone ? ' • Tel: ' + phone : '');
                     document.getElementById('dfn-modal-card-number').value = card;
+                    document.getElementById('dfn-modal-fai-registry-id').value = registry;
                     document.getElementById('dfn-modal-card-expiry').value = expiry;
                     document.getElementById('dfn-modal-card-type').value = type;
                     document.getElementById('dfn-modal-is-sivol').checked = sivol;
@@ -1422,14 +1433,15 @@ function dfn_render_volunteer_add_page(): void
                         <option value="0">-- Seleziona un utente per autocompilare o collegare --</option>
                         <?php foreach ($wp_users as $u) : 
                             $u_fai = $fai_by_uid[$u->ID] ?? ($fai_by_email[strtolower(trim($u->user_email))] ?? null);
-                            $u_phone = $u_fai ? ($u_fai->phone ?: '') : (get_user_meta($u->ID, 'billing_phone', true) ?: get_user_meta($u->ID, 'phone', true) ?: '');
-                            $u_card  = $u_fai ? ($u_fai->card_number ?: '') : '';
-                            $u_exp   = $u_fai ? ($u_fai->card_expiry ?: '') : '';
-                            $u_type  = $u_fai ? ($u_fai->card_type ?: 'INDIVIDUALE') : 'INDIVIDUALE';
-                            $u_sivol = $u_fai && ! empty($u_fai->is_sivol_registered) ? '1' : '0';
-                            $u_guide = $u_fai && ! empty($u_fai->is_guide) ? '1' : '0';
-                            $u_safe  = $u_fai && ! empty($u_fai->has_safety_course) ? '1' : '0';
-                            $u_notes = $u_fai ? ($u_fai->volunteer_notes ?: '') : '';
+                            $u_phone    = $u_fai ? ($u_fai->phone ?: '') : (get_user_meta($u->ID, 'billing_phone', true) ?: get_user_meta($u->ID, 'phone', true) ?: '');
+                            $u_card     = $u_fai ? ($u_fai->card_number ?: '') : '';
+                            $u_registry = $u_fai ? ($u_fai->fai_registry_id ?: '') : '';
+                            $u_exp      = $u_fai ? ($u_fai->card_expiry ?: '') : '';
+                            $u_type     = $u_fai ? ($u_fai->card_type ?: 'INDIVIDUALE') : 'INDIVIDUALE';
+                            $u_sivol    = $u_fai && ! empty($u_fai->is_sivol_registered) ? '1' : '0';
+                            $u_guide    = $u_fai && ! empty($u_fai->is_guide) ? '1' : '0';
+                            $u_safe     = $u_fai && ! empty($u_fai->has_safety_course) ? '1' : '0';
+                            $u_notes    = $u_fai ? ($u_fai->volunteer_notes ?: '') : '';
                             $is_user_vol = in_array('dfn_volunteer', (array) $u->roles, true);
                         ?>
                             <option value="<?php echo esc_attr($u->ID); ?>"
@@ -1438,6 +1450,7 @@ function dfn_render_volunteer_add_page(): void
                                 data-email="<?php echo esc_attr($u->user_email); ?>"
                                 data-phone="<?php echo esc_attr($u_phone); ?>"
                                 data-card="<?php echo esc_attr($u_card); ?>"
+                                data-registry="<?php echo esc_attr($u_registry); ?>"
                                 data-expiry="<?php echo esc_attr($u_exp); ?>"
                                 data-type="<?php echo esc_attr($u_type); ?>"
                                 data-sivol="<?php echo esc_attr($u_sivol); ?>"
@@ -1649,6 +1662,7 @@ function dfn_render_volunteer_add_page(): void
                 var emInput = document.getElementById('dfn-field-email');
                 var phInput = document.getElementById('dfn-field-phone');
                 var cdInput = document.getElementById('dfn-field-card-number');
+                var rgInput = document.getElementById('dfn-field-fai-registry-id');
                 var exInput = document.getElementById('dfn-field-card-expiry');
                 var tpInput = document.getElementById('dfn-field-card-type');
                 var svInput = document.getElementById('dfn-field-is-sivol');
@@ -1661,6 +1675,7 @@ function dfn_render_volunteer_add_page(): void
                 if (opt.getAttribute('data-email')) emInput.value = opt.getAttribute('data-email');
                 if (opt.getAttribute('data-phone')) phInput.value = opt.getAttribute('data-phone');
                 if (opt.getAttribute('data-card')) cdInput.value = opt.getAttribute('data-card');
+                if (rgInput) rgInput.value = opt.getAttribute('data-registry') || '';
                 if (opt.getAttribute('data-expiry')) exInput.value = opt.getAttribute('data-expiry');
                 if (opt.getAttribute('data-type') && tpInput) tpInput.value = opt.getAttribute('data-type');
                 if (svInput) svInput.checked = (opt.getAttribute('data-sivol') === '1');
