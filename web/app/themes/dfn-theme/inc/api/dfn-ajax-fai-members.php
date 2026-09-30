@@ -111,3 +111,52 @@ function dfn_delete_fai_member_ajax_handler(): void
         wp_send_json_error([ 'message' => esc_html__('Impossibile eliminare il socio. Record non trovato.', 'dfn-theme') ]);
     }
 }
+
+add_action('wp_ajax_dfn_verify_fai_member', 'dfn_verify_fai_member_ajax_handler');
+/**
+ * Convalida rapidamente un socio FAI marcandolo verified = 1 (usato anche da app mobile).
+ */
+function dfn_verify_fai_member_ajax_handler(): void
+{
+    $nonce = $_POST['nonce'] ?? $_POST['security'] ?? '';
+    if (! wp_verify_nonce($nonce, 'dfn_fai_admin_nonce') && 
+        ! wp_verify_nonce($nonce, 'dfn_admin_events_nonce') && 
+        ! wp_verify_nonce($nonce, 'dfn_booking_nonce')) {
+        wp_send_json_error([ 'message' => esc_html__('Sessione scaduta o richiesta non valida.', 'dfn-theme') ]);
+    }
+
+    $can_verify = current_user_can('dfn_manage_events') || 
+                  (function_exists('dfn_user_can') && dfn_user_can('dfn_act_fai_members')) || 
+                  current_user_can('manage_options');
+
+    if (! $can_verify) {
+        wp_send_json_error([ 'message' => esc_html__('Non hai le autorizzazioni necessarie per validare tessere FAI.', 'dfn-theme') ]);
+    }
+
+    $id = isset($_POST['member_id']) ? intval($_POST['member_id']) : 0;
+    if ($id <= 0) {
+        wp_send_json_error([ 'message' => esc_html__('ID socio non valido.', 'dfn-theme') ]);
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_fai_members';
+
+    $updated = $wpdb->update(
+        $table,
+        [
+            'verified'    => 1,
+            'verified_by' => get_current_user_id(),
+            'verified_at' => current_time('mysql'),
+        ],
+        [ 'id' => $id ],
+        [ '%d', '%d', '%s' ],
+        [ '%d' ]
+    );
+
+    if ($updated !== false) {
+        wp_send_json_success([ 'message' => esc_html__('Tessera FAI validata con successo.', 'dfn-theme') ]);
+    } else {
+        wp_send_json_error([ 'message' => esc_html__('Errore durante l\'aggiornamento del database.', 'dfn-theme') ]);
+    }
+}
+
