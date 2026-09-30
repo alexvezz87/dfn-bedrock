@@ -118,6 +118,11 @@ function dfn_get_activities_catalog(): array
                 'icon'        => '👥',
                 'description' => __('Consultazione elenco volontari, aggiunta, modifica anagrafica, tessere e competenze.', 'dfn-theme'),
             ],
+            'dfn_act_vol_teams'       => [
+                'label'       => __('Squadre & Team di Delegazione', 'dfn-theme'),
+                'icon'        => '🛡️',
+                'description' => __('Configurazione team di lavoro, delegati responsabili e assegnazione volontari alle squadre.', 'dfn-theme'),
+            ],
             'dfn_act_vol_logistics'   => [
                 'label'       => __('Pianificazione & Matrice Turni', 'dfn-theme'),
                 'icon'        => '🧩',
@@ -188,7 +193,37 @@ function dfn_get_default_roles(): array
             'label'       => __('Coordinatore Volontari FAI', 'dfn-theme'),
             'is_system'   => false,
             'module'      => 'volontari',
-            'description' => __('Gestione completa anagrafica volontari, logistica turni, sondaggi e riunioni di delegazione.', 'dfn-theme'),
+            'description' => __('Gestione completa anagrafica volontari, squadre, logistica turni, sondaggi e riunioni di delegazione.', 'dfn-theme'),
+        ],
+        'dfn_delegato_ambiente' => [
+            'label'       => __('Delegato Ambiente', 'dfn-theme'),
+            'is_system'   => false,
+            'module'      => 'volontari',
+            'description' => __('Coordinamento del Team Ambiente, iniziative paesaggistiche e percorsi natura.', 'dfn-theme'),
+        ],
+        'dfn_delegato_eventi'   => [
+            'label'       => __('Delegato Eventi', 'dfn-theme'),
+            'is_system'   => false,
+            'module'      => 'volontari',
+            'description' => __('Coordinamento del Team Eventi e del Gruppo Guide culturali di delegazione.', 'dfn-theme'),
+        ],
+        'dfn_delegato_scuola'   => [
+            'label'       => __('Delegato Scuola', 'dfn-theme'),
+            'is_system'   => false,
+            'module'      => 'volontari',
+            'description' => __('Coordinamento del Team Scuola, progetti formativi e Apprendisti Ciceroni.', 'dfn-theme'),
+        ],
+        'dfn_delegato_comunicazione' => [
+            'label'       => __('Delegato Comunicazione', 'dfn-theme'),
+            'is_system'   => false,
+            'module'      => 'volontari',
+            'description' => __('Coordinamento del Team Comunicazione, social media e promozione.', 'dfn-theme'),
+        ],
+        'dfn_delegato_giovani'  => [
+            'label'       => __('Delegato FAI Giovani', 'dfn-theme'),
+            'is_system'   => false,
+            'module'      => 'volontari',
+            'description' => __('Coordinamento del Gruppo FAI Giovani e iniziative under 35.', 'dfn-theme'),
         ],
         'dfn_volunteer'       => [
             'label'       => __('Volontario FAI', 'dfn-theme'),
@@ -223,11 +258,13 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_system_logs'     => true,
             'dfn_act_settings'        => true,
             'dfn_act_vol_roster'      => true,
+            'dfn_act_vol_teams'       => true,
             'dfn_act_vol_logistics'   => true,
             'dfn_act_vol_auto_assign' => true,
             'dfn_act_vol_surveys'     => true,
             'dfn_act_vol_meetings'    => true,
             'dfn_act_vol_roles'       => true,
+            'dfn_act_vol_logs'        => true,
         ],
         'dfn_segreteria'      => [
             'dfn_act_events_manage'   => false,
@@ -244,11 +281,13 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_system_logs'     => false,
             'dfn_act_settings'        => false,
             'dfn_act_vol_roster'      => false,
+            'dfn_act_vol_teams'       => false,
             'dfn_act_vol_logistics'   => false,
             'dfn_act_vol_auto_assign' => false,
             'dfn_act_vol_surveys'     => false,
             'dfn_act_vol_meetings'    => false,
             'dfn_act_vol_roles'       => false,
+            'dfn_act_vol_logs'        => false,
         ],
         'dfn_banchetto'       => [
             'dfn_act_events_manage'   => false,
@@ -265,11 +304,13 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_system_logs'     => false,
             'dfn_act_settings'        => false,
             'dfn_act_vol_roster'      => false,
+            'dfn_act_vol_teams'       => false,
             'dfn_act_vol_logistics'   => false,
             'dfn_act_vol_auto_assign' => false,
             'dfn_act_vol_surveys'     => false,
             'dfn_act_vol_meetings'    => false,
             'dfn_act_vol_roles'       => false,
+            'dfn_act_vol_logs'        => false,
         ],
         'dfn_validatore'      => [
             'dfn_act_events_manage'   => false,
@@ -286,11 +327,13 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_system_logs'     => false,
             'dfn_act_settings'        => false,
             'dfn_act_vol_roster'      => false,
+            'dfn_act_vol_teams'       => false,
             'dfn_act_vol_logistics'   => false,
             'dfn_act_vol_auto_assign' => false,
             'dfn_act_vol_surveys'     => false,
             'dfn_act_vol_meetings'    => false,
             'dfn_act_vol_roles'       => false,
+            'dfn_act_vol_logs'        => false,
         ],
         'dfn_coord_volontari' => [
             'dfn_act_events_manage'   => false,
@@ -307,11 +350,128 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_system_logs'     => false,
             'dfn_act_settings'        => false,
             'dfn_act_vol_roster'      => true,
+            'dfn_act_vol_teams'       => true,
             'dfn_act_vol_logistics'   => true,
             'dfn_act_vol_auto_assign' => true,
             'dfn_act_vol_surveys'     => true,
             'dfn_act_vol_meetings'    => true,
             'dfn_act_vol_roles'       => true,
+            'dfn_act_vol_logs'        => true,
+        ],
+        'dfn_delegato_ambiente' => [
+            'dfn_act_events_manage'   => false,
+            'dfn_act_scanner'         => false,
+            'dfn_act_checkin'         => false,
+            'dfn_act_quick_booking'   => false,
+            'dfn_act_verify_bookings' => false,
+            'dfn_act_boxoffice'       => false,
+            'dfn_act_waitlist'        => false,
+            'dfn_act_fai_members'     => false,
+            'dfn_act_reports'         => false,
+            'dfn_act_financials'      => false,
+            'dfn_act_reviews'         => false,
+            'dfn_act_system_logs'     => false,
+            'dfn_act_settings'        => false,
+            'dfn_act_vol_roster'      => true,
+            'dfn_act_vol_teams'       => true,
+            'dfn_act_vol_logistics'   => true,
+            'dfn_act_vol_auto_assign' => false,
+            'dfn_act_vol_surveys'     => true,
+            'dfn_act_vol_meetings'    => true,
+            'dfn_act_vol_roles'       => false,
+            'dfn_act_vol_logs'        => false,
+        ],
+        'dfn_delegato_eventi'   => [
+            'dfn_act_events_manage'   => false,
+            'dfn_act_scanner'         => false,
+            'dfn_act_checkin'         => false,
+            'dfn_act_quick_booking'   => false,
+            'dfn_act_verify_bookings' => false,
+            'dfn_act_boxoffice'       => false,
+            'dfn_act_waitlist'        => false,
+            'dfn_act_fai_members'     => false,
+            'dfn_act_reports'         => false,
+            'dfn_act_financials'      => false,
+            'dfn_act_reviews'         => false,
+            'dfn_act_system_logs'     => false,
+            'dfn_act_settings'        => false,
+            'dfn_act_vol_roster'      => true,
+            'dfn_act_vol_teams'       => true,
+            'dfn_act_vol_logistics'   => true,
+            'dfn_act_vol_auto_assign' => false,
+            'dfn_act_vol_surveys'     => true,
+            'dfn_act_vol_meetings'    => true,
+            'dfn_act_vol_roles'       => false,
+            'dfn_act_vol_logs'        => false,
+        ],
+        'dfn_delegato_scuola'   => [
+            'dfn_act_events_manage'   => false,
+            'dfn_act_scanner'         => false,
+            'dfn_act_checkin'         => false,
+            'dfn_act_quick_booking'   => false,
+            'dfn_act_verify_bookings' => false,
+            'dfn_act_boxoffice'       => false,
+            'dfn_act_waitlist'        => false,
+            'dfn_act_fai_members'     => false,
+            'dfn_act_reports'         => false,
+            'dfn_act_financials'      => false,
+            'dfn_act_reviews'         => false,
+            'dfn_act_system_logs'     => false,
+            'dfn_act_settings'        => false,
+            'dfn_act_vol_roster'      => true,
+            'dfn_act_vol_teams'       => true,
+            'dfn_act_vol_logistics'   => true,
+            'dfn_act_vol_auto_assign' => false,
+            'dfn_act_vol_surveys'     => true,
+            'dfn_act_vol_meetings'    => true,
+            'dfn_act_vol_roles'       => false,
+            'dfn_act_vol_logs'        => false,
+        ],
+        'dfn_delegato_comunicazione' => [
+            'dfn_act_events_manage'   => false,
+            'dfn_act_scanner'         => false,
+            'dfn_act_checkin'         => false,
+            'dfn_act_quick_booking'   => false,
+            'dfn_act_verify_bookings' => false,
+            'dfn_act_boxoffice'       => false,
+            'dfn_act_waitlist'        => false,
+            'dfn_act_fai_members'     => false,
+            'dfn_act_reports'         => false,
+            'dfn_act_financials'      => false,
+            'dfn_act_reviews'         => false,
+            'dfn_act_system_logs'     => false,
+            'dfn_act_settings'        => false,
+            'dfn_act_vol_roster'      => true,
+            'dfn_act_vol_teams'       => true,
+            'dfn_act_vol_logistics'   => true,
+            'dfn_act_vol_auto_assign' => false,
+            'dfn_act_vol_surveys'     => true,
+            'dfn_act_vol_meetings'    => true,
+            'dfn_act_vol_roles'       => false,
+            'dfn_act_vol_logs'        => false,
+        ],
+        'dfn_delegato_giovani'  => [
+            'dfn_act_events_manage'   => false,
+            'dfn_act_scanner'         => false,
+            'dfn_act_checkin'         => false,
+            'dfn_act_quick_booking'   => false,
+            'dfn_act_verify_bookings' => false,
+            'dfn_act_boxoffice'       => false,
+            'dfn_act_waitlist'        => false,
+            'dfn_act_fai_members'     => false,
+            'dfn_act_reports'         => false,
+            'dfn_act_financials'      => false,
+            'dfn_act_reviews'         => false,
+            'dfn_act_system_logs'     => false,
+            'dfn_act_settings'        => false,
+            'dfn_act_vol_roster'      => true,
+            'dfn_act_vol_teams'       => true,
+            'dfn_act_vol_logistics'   => true,
+            'dfn_act_vol_auto_assign' => false,
+            'dfn_act_vol_surveys'     => true,
+            'dfn_act_vol_meetings'    => true,
+            'dfn_act_vol_roles'       => false,
+            'dfn_act_vol_logs'        => false,
         ],
     ];
 }
@@ -349,16 +509,18 @@ function dfn_get_stored_roles(): array
                 $changed = true;
             }
         }
-        if (! isset($stored['dfn_coord_volontari'])) {
-            $stored['dfn_coord_volontari'] = $defaults['dfn_coord_volontari'];
-            $stored['dfn_coord_volontari']['modules'] = ['volontari'];
-            $changed = true;
+        
+        // Assicura che tutti i ruoli di default siano presenti
+        foreach ($defaults as $d_slug => $d_info) {
+            if (! isset($stored[$d_slug])) {
+                $stored[$d_slug] = $d_info;
+                $stored[$d_slug]['modules'] = isset($d_info['module']) && $d_info['module'] === 'all'
+                    ? ['prenotazioni', 'volontari']
+                    : (isset($d_info['module']) ? [(string) $d_info['module']] : ['volontari']);
+                $changed = true;
+            }
         }
-        if (! isset($stored['dfn_volunteer'])) {
-            $stored['dfn_volunteer'] = $defaults['dfn_volunteer'];
-            $stored['dfn_volunteer']['modules'] = ['volontari'];
-            $changed = true;
-        }
+
         if ($changed) {
             update_option('dfn_custom_roles', $stored);
         }

@@ -199,6 +199,16 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn_render_volunteer_add_page'
     );
 
+    // Sottomenu: Squadre & Team di Delegazione
+    add_submenu_page(
+        'dfn-volunteers',
+        __('Squadre & Team di Delegazione', 'dfn-theme'),
+        __('Squadre & Team', 'dfn-theme'),
+        $cap_main,
+        'dfn-teams',
+        'dfn_render_teams_admin_page'
+    );
+
     // Sottomenu: Riunioni di Delegazione
     add_submenu_page(
         'dfn-volunteers',
@@ -319,6 +329,12 @@ function dfn_render_volunteers_list_page(): void
                     }
                 }
 
+                // Assegnazione squadre di delegazione selezionate
+                $submitted_teams = isset($_POST['volunteer_teams']) && is_array($_POST['volunteer_teams']) ? array_map('intval', $_POST['volunteer_teams']) : [];
+                if (function_exists('dfn_set_volunteer_teams')) {
+                    dfn_set_volunteer_teams($vol_id, $submitted_teams, $vol->user_id ? (int) $vol->user_id : null);
+                }
+
                 // Invio email di notifica al volontario approvato
                 if (function_exists('dfn_send_volunteer_approved_email')) {
                     $updated_vol = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $vol_id));
@@ -431,6 +447,7 @@ function dfn_render_volunteers_list_page(): void
     $count_expiring = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status IN ('active', 'inactive') AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry >= CURDATE() AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)", $warning_days));
 
     $status_filter = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'all';
+    $team_filter   = isset($_GET['team_id']) ? (int) $_GET['team_id'] : 0;
     $search_query  = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
 
     $where = "is_volunteer = 1 AND volunteer_status IN ('active', 'inactive')";
@@ -444,6 +461,11 @@ function dfn_render_volunteers_list_page(): void
         $where .= " AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry < CURDATE()";
     } elseif ($status_filter === 'expiring') {
         $where .= $wpdb->prepare(" AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry >= CURDATE() AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)", $warning_days);
+    }
+
+    if ($team_filter > 0) {
+        $table_tm = $wpdb->prefix . 'dfn_team_members';
+        $where .= $wpdb->prepare(" AND id IN (SELECT member_id FROM {$table_tm} WHERE team_id = %d)", $team_filter);
     }
 
     if (! empty($search_query)) {
@@ -661,14 +683,26 @@ function dfn_render_volunteers_list_page(): void
                     <?php endif; ?>
                 </ul>
 
-                <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="display:flex; gap:8px; width:100%; max-width:360px;">
+                <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                     <input type="hidden" name="page" value="dfn-volunteers">
                     <?php if ($status_filter !== 'all') : ?>
                         <input type="hidden" name="status" value="<?php echo esc_attr($status_filter); ?>">
                     <?php endif; ?>
-                    <input type="text" name="s" value="<?php echo esc_attr($search_query); ?>" placeholder="Cerca nome, email o tessera…" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:32px; padding:0 10px; font-size:13px;">
+                    <?php 
+                    $all_teams = function_exists('dfn_get_all_teams') ? dfn_get_all_teams() : [];
+                    if (! empty($all_teams)) : ?>
+                        <select name="team_id" onchange="this.form.submit()" style="border-radius:6px; border:1px solid #cbd5e1; height:32px; font-size:12.5px; padding:0 8px;">
+                            <option value="0"><?php esc_html_e('Tutte le Squadre', 'dfn-theme'); ?></option>
+                            <?php foreach ($all_teams as $tm) : ?>
+                                <option value="<?php echo esc_attr($tm->id); ?>" <?php selected($team_filter, (int) $tm->id); ?>>
+                                    <?php echo esc_html(($tm->icon ? $tm->icon . ' ' : '') . $tm->name); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php endif; ?>
+                    <input type="text" name="s" value="<?php echo esc_attr($search_query); ?>" placeholder="Cerca nome, email o tessera…" style="width:190px; border-radius:6px; border:1px solid #cbd5e1; height:32px; padding:0 10px; font-size:13px;">
                     <button type="submit" class="button button-secondary" style="height:32px; line-height:30px;">Cerca</button>
-                    <?php if (! empty($search_query)) : ?>
+                    <?php if (! empty($search_query) || $team_filter > 0) : ?>
                         <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers' . ($status_filter !== 'all' ? '&status=' . $status_filter : ''))); ?>" class="button" style="height:32px; line-height:30px;">Reset</a>
                     <?php endif; ?>
                 </form>
@@ -680,14 +714,15 @@ function dfn_render_volunteers_list_page(): void
             <table class="wp-list-table widefat fixed striped table-view-list" style="border:none;">
                 <thead>
                     <tr>
-                        <th style="width:170px; font-weight:700;">Volontario</th>
-                        <th style="width:145px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
-                        <th style="width:115px; font-weight:700; text-align:center;">SiVol <?php dfn_tooltip_icon('dfn-tip-vol-sivol', 'Informazioni: Registrazione SiVol'); ?></th>
-                        <th style="width:175px; font-weight:700;">Contatti</th>
-                        <th style="font-weight:700;">Incarichi &amp; Ruoli FAI <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
-                        <th style="width:160px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
-                        <th style="width:90px; font-weight:700; text-align:center;">Stato</th>
-                        <th style="width:190px; font-weight:700; text-align:right;">Azioni</th>
+                        <th style="width:160px; font-weight:700;">Volontario</th>
+                        <th style="width:140px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
+                        <th style="width:90px; font-weight:700; text-align:center;">SiVol <?php dfn_tooltip_icon('dfn-tip-vol-sivol', 'Informazioni: Registrazione SiVol'); ?></th>
+                        <th style="width:160px; font-weight:700;">Contatti</th>
+                        <th style="font-weight:700;">Incarichi &amp; Ruoli <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
+                        <th style="width:150px; font-weight:700;">Squadre &amp; Team</th>
+                        <th style="width:130px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
+                        <th style="width:85px; font-weight:700; text-align:center;">Stato</th>
+                        <th style="width:180px; font-weight:700; text-align:right;">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -788,6 +823,22 @@ function dfn_render_volunteers_list_page(): void
                                     <?php endif; ?>
                                 </td>
                                 <td>
+                                    <?php 
+                                    $v_teams = function_exists('dfn_get_volunteer_teams') ? dfn_get_volunteer_teams($v->id) : [];
+                                    if (! empty($v_teams)) : ?>
+                                        <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                                            <?php foreach ($v_teams as $vt) : ?>
+                                                <span style="display:inline-flex; align-items:center; gap:3px; padding:2px 6px; border-radius:8px; font-size:11px; font-weight:600; background:<?php echo esc_attr($vt->color ? $vt->color . '18' : '#f1f5f9'); ?>; color:<?php echo esc_attr($vt->color ?: '#0f172a'); ?>; border:1px solid <?php echo esc_attr($vt->color ? $vt->color . '40' : '#cbd5e1'); ?>;">
+                                                    <?php if ($vt->icon) : ?><span><?php echo esc_html($vt->icon); ?></span><?php endif; ?>
+                                                    <span><?php echo esc_html($vt->name); ?></span>
+                                                </span>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php else : ?>
+                                        <span style="font-size:11.5px; color:#94a3b8;">—</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
                                     <div style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
                                         <?php if (! empty($v->is_guide)) : ?>
                                             <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:10px; font-size:10.5px; font-weight:700; padding:2px 7px; white-space:nowrap;">
@@ -837,7 +888,7 @@ function dfn_render_volunteers_list_page(): void
                         <?php endforeach; ?>
                     <?php else : ?>
                         <tr>
-                            <td colspan="8" style="padding:30px; text-align:center; color:#64748b;">
+                            <td colspan="9" style="padding:30px; text-align:center; color:#64748b;">
                                 Nessun volontario ufficiale trovato con i filtri selezionati. <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-add')); ?>">Aggiungi un volontario manualmente</a>.
                             </td>
                         </tr>
@@ -949,6 +1000,25 @@ function dfn_render_volunteers_list_page(): void
                                 <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#334155; cursor:pointer;">
                                     <input type="checkbox" name="fai_roles[]" value="<?php echo esc_attr($r_slug); ?>" style="accent-color:#004b23;">
                                     <span><?php echo esc_html($r_info['label']); ?></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Squadre & Team di Delegazione -->
+                <?php 
+                $all_teams_list = function_exists('dfn_get_all_teams') ? dfn_get_all_teams() : [];
+                if (! empty($all_teams_list)) : ?>
+                    <div style="margin-bottom:18px;">
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:6px;">
+                            👥 Assegna a Squadre &amp; Team di Lavoro (Opzionale)
+                        </label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px; max-height:130px; overflow-y:auto;">
+                            <?php foreach ($all_teams_list as $t_item) : ?>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#334155; cursor:pointer;">
+                                    <input type="checkbox" name="volunteer_teams[]" value="<?php echo esc_attr($t_item->id); ?>" style="accent-color:#004b23;">
+                                    <span><?php echo esc_html(($t_item->icon ? $t_item->icon . ' ' : '') . $t_item->name); ?></span>
                                 </label>
                             <?php endforeach; ?>
                         </div>
@@ -1359,6 +1429,12 @@ function dfn_render_volunteer_add_page(): void
                 }
             }
 
+            // Assegnazione Squadre & Team di Delegazione
+            $submitted_teams = isset($_POST['volunteer_teams']) && is_array($_POST['volunteer_teams']) ? array_map('intval', $_POST['volunteer_teams']) : [];
+            if (function_exists('dfn_set_volunteer_teams')) {
+                dfn_set_volunteer_teams($saved_id, $submitted_teams, $user_id);
+            }
+
             // Log dell'azione nel registro centrale Volontari FAI
             if (function_exists('dfn_log_volunteer_roster')) {
                 $roster_action = ($volunteer_data && ! empty($volunteer_data->id)) ? 'Modifica anagrafica volontario' : 'Nuovo volontario registrato in anagrafica';
@@ -1603,6 +1679,44 @@ function dfn_render_volunteer_add_page(): void
                             </div>
                         </label>
                     <?php endforeach; ?>
+                </div>
+
+                <!-- SEZIONE SQUADRE & TEAM DI DELEGAZIONE -->
+                <?php
+                $all_teams_form = function_exists('dfn_get_all_teams') ? dfn_get_all_teams() : [];
+                $assigned_teams_ids = [];
+                if ($volunteer_data && ! empty($volunteer_data->id)) {
+                    $assigned_teams_objs = function_exists('dfn_get_volunteer_teams') ? dfn_get_volunteer_teams($volunteer_data->id) : [];
+                    $assigned_teams_ids  = wp_list_pluck($assigned_teams_objs, 'id');
+                }
+                ?>
+                <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px; margin-top:20px;">
+                    👥 Squadre &amp; Team di Lavoro di Delegazione
+                </h3>
+                <p style="font-size:12px; color:#64748b; margin-top:4px; margin-bottom:12px;">
+                    Seleziona le squadre o gruppi tematici a cui associare questo volontario.
+                </p>
+
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+                    <?php if (! empty($all_teams_form)) : ?>
+                        <?php foreach ($all_teams_form as $tm_opt) : 
+                            $is_tm_checked = in_array((int) $tm_opt->id, array_map('intval', $assigned_teams_ids), true);
+                        ?>
+                            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:10px 12px; border-radius:8px; border:1px solid <?php echo $is_tm_checked ? '#86efac' : '#e2e8f0'; ?>; background:<?php echo $is_tm_checked ? '#f0fdf4' : '#fafafa'; ?>;">
+                                <input type="checkbox" name="volunteer_teams[]" value="<?php echo esc_attr($tm_opt->id); ?>" <?php checked($is_tm_checked, true); ?> style="width:18px; height:18px; margin-top:2px; accent-color:#004b23;">
+                                <div>
+                                    <strong style="font-size:13px; color:#0f172a; display:block;">
+                                        <?php echo esc_html(($tm_opt->icon ? $tm_opt->icon . ' ' : '') . $tm_opt->name); ?>
+                                    </strong>
+                                    <?php if (! empty($tm_opt->description)) : ?>
+                                        <span style="font-size:11.5px; color:#64748b; display:block; margin-top:2px;"><?php echo esc_html($tm_opt->description); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            </label>
+                        <?php endforeach; ?>
+                    <?php else : ?>
+                        <p style="font-size:12.5px; color:#94a3b8; margin:0;">Nessuna squadra configurata.</p>
+                    <?php endif; ?>
                 </div>
 
                 <?php if ($linked_user_id > 0) : 
