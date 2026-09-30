@@ -1427,7 +1427,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const formData = new FormData();
             formData.append('action', 'dfn_confirm_booking');
             formData.append('booking_id', bookingId);
-            formData.append('nonce', nonces.booking || '');
+            formData.append('nonce', nonces.booking || nonces.pending || nonces.admin || '');
 
             fetch(ajaxUrl, { method: 'POST', body: formData })
                 .then(r => r.json())
@@ -1442,13 +1442,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     } else {
                         showToast('⚠️ Errore: ' + (res.data || 'Impossibile confermare'), 'error');
                         btn.disabled = false;
-                        btn.textContent = '✅ Conferma subito';
+                        btn.textContent = '✅ Approva e Conferma';
                     }
                 })
                 .catch(() => {
                     showToast('⚠️ Errore di connessione', 'error');
                     btn.disabled = false;
-                    btn.textContent = '✅ Conferma subito';
+                    btn.textContent = '✅ Approva e Conferma';
                 });
         });
     });
@@ -1465,7 +1465,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const formData = new FormData();
             formData.append('action', 'dfn_verify_fai_member');
             formData.append('member_id', faiId);
-            formData.append('nonce', nonces.fai || nonces.admin || '');
+            formData.append('nonce', nonces.fai || nonces.admin || nonces.booking || '');
 
             fetch(ajaxUrl, { method: 'POST', body: formData })
                 .then(r => r.json())
