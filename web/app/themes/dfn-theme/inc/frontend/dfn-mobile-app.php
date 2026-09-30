@@ -1184,7 +1184,7 @@ function dfn_render_mobile_app(): void
         "SELECT b.*, e.location 
          FROM {$table_bookings} b 
          LEFT JOIN {$table_events} e ON b.event_id = e.id 
-         WHERE b.status IN ('pending', 'pending_fai_verification') 
+         WHERE b.status IN ('pending', 'pending_approval', 'pending_fai_verification') 
          ORDER BY b.created_at DESC LIMIT 10"
     );
 
@@ -1233,6 +1233,7 @@ function dfn_render_mobile_app(): void
         'admin'   => wp_create_nonce('dfn_admin_events_nonce'),
         'quick'   => wp_create_nonce('dfn_quick_booking_nonce'),
         'fai'     => wp_create_nonce('dfn_fai_admin_nonce'),
+        'pending' => wp_create_nonce('dfn_admin_pending_nonce'),
     ];
     ?>
 
@@ -1386,20 +1387,26 @@ function dfn_render_mobile_app(): void
 
                         <?php if (! empty($pending_bookings)) : ?>
                             <div class="dfn-mobile-cards-list">
-                                <?php foreach ($pending_bookings as $b) : ?>
+                                <?php foreach ($pending_bookings as $b) : 
+                                    $ev_obj = ! empty($b->event_id) ? dfn_db_get_event($b->event_id) : null;
+                                    $ev_title = ($ev_obj && ! empty($ev_obj->product_id)) ? get_the_title($ev_obj->product_id) : '';
+                                    ?>
                                     <div class="dfn-mobile-card dfn-booking-card-item" id="dfn-booking-card-<?php echo absint($b->id); ?>">
                                         <div class="dfn-booking-card-header">
                                             <strong class="dfn-customer-name"><?php echo esc_html($b->customer_name); ?></strong>
-                                            <span class="dfn-booking-status-tag pending">In Attesa</span>
+                                            <span class="dfn-booking-status-tag pending"><?php echo $b->status === 'pending_approval' ? 'Verifica FAI' : 'In Attesa'; ?></span>
                                         </div>
                                         <div class="dfn-booking-details">
+                                            <?php if ($ev_title) : ?>
+                                                <p style="color: #004b23; font-weight: 700; margin-bottom: 4px;">📅 <?php echo esc_html(html_entity_decode($ev_title, ENT_QUOTES, 'UTF-8')); ?></p>
+                                            <?php endif; ?>
                                             <p>📧 <?php echo esc_html($b->customer_email); ?></p>
                                             <?php if ($b->customer_phone) : ?><p>📞 <?php echo esc_html($b->customer_phone); ?></p><?php endif; ?>
                                             <p>👥 <strong><?php echo intval($b->total_persons); ?> Persone</strong> (Intero: <?php echo intval($b->persons_standard); ?>, FAI: <?php echo intval($b->persons_fai); ?>)</p>
                                         </div>
                                         <div class="dfn-booking-actions">
                                             <button type="button" class="dfn-mobile-btn success btn-confirm-booking" data-booking-id="<?php echo absint($b->id); ?>">
-                                                ✅ Conferma subito
+                                                ✅ Approva e Conferma
                                             </button>
                                         </div>
                                     </div>

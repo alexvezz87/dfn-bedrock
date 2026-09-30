@@ -1732,6 +1732,128 @@ function dfn_ajax_approve_pending_booking(): void
     ]);
 }
 
+add_action('wp_ajax_dfn_confirm_booking', 'dfn_ajax_confirm_booking_mobile_handler');
+/**
+ * AJAX Handler per la conferma rapida 1-tap di una prenotazione dall'App Mobile.
+ * Gestisce sia prenotazioni in pending_approval (convalidando le tessere FAI associate e inviando il link/conferma)
+ * sia prenotazioni in pending standard.
+ */
+function dfn_ajax_confirm_booking_mobile_handler(): void
+{
+    $nonce = $_POST['nonce'] ?? $_POST['security'] ?? '';
+    if (! wp_verify_nonce($nonce, 'dfn_booking_nonce') && 
+        ! wp_verify_nonce($nonce, 'dfn_admin_pending_nonce') && 
+        ! wp_verify_nonce($nonce, 'dfn_admin_events_nonce')) {
+        wp_send_json_error(['message' => __('Sessione scaduta o richiesta non valida.', 'dfn-theme')]);
+    }
+
+    $can_confirm = current_user_can('dfn_manage_events') || 
+                   (function_exists('dfn_user_can') && (dfn_user_can('dfn_act_verify_bookings') || dfn_user_can('dfn_act_events_manage'))) || 
+                   current_user_can('manage_options');
+
+    if (! $can_confirm) {
+        wp_send_json_error(['message' => __('Permessi insufficienti.', 'dfn-theme')]);
+    }
+
+    $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    if (! $booking_id) {
+        wp_send_json_error(['message' => __('ID prenotazione non valido.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_bookings';
+
+    $booking = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table} WHERE id = %d",
+        $booking_id
+    ));
+
+    if (! $booking) {
+        wp_send_json_error(['message' => __('Prenotazione non trovata.', 'dfn-theme')]);
+    }
+
+    $order = wc_get_order($booking->order_id);
+    if (! $order) {
+        wp_send_json_error(['message' => __('Ordine associato non trovato.', 'dfn-theme')]);
+    }
+
+    // Se ci sono tessere FAI associate, marchiamole come verificate
+    $fai_cards = $order->get_meta('_dfn_fai_cards');
+    if (! empty($fai_cards) && is_array($fai_cards)) {
+        $table_members = $wpdb->prefix . 'dfn_fai_members';
+        $updated_cards = [];
+        foreach ($fai_cards as $card) {
+            if (! empty($card['tessera'])) {
+                $card['status'] = 'approved';
+                $wpdb->update(
+                    $table_members,
+                    [
+                        'verified'    => 1,
+                        'verified_by' => get_current_user_id(),
+                        'verified_at' => current_time('mysql'),
+                    ],
+                    ['card_number' => $card['tessera']],
+                    ['%d', '%d', '%s'],
+                    ['%s']
+                );
+            }
+            $updated_cards[] = $card;
+        }
+        $order->update_meta_data('_dfn_fai_cards', $updated_cards);
+    }
+
+    $order->update_meta_data('_dfn_has_unverified_fai_cards', 'no');
+    $order->save();
+
+    // Se la prenotazione era in attesa di approvazione o pending
+    if ($booking->status === 'pending_approval' || $booking->status === 'pending') {
+        $order_total = (float) $order->get_total();
+        $payment_method = $order->get_payment_method();
+
+        if ($order_total <= 0 || $payment_method === 'dfn_in_loco') {
+            // Se gratuita o pagamento in loco, conferma direttamente
+            $wpdb->update(
+                $table,
+                ['status' => 'confirmed'],
+                ['id' => $booking_id],
+                ['%s'],
+                ['%d']
+            );
+            $order->update_status('processing', __('Prenotazione confermata dall\'App Mobile Gestione Eventi.', 'dfn-theme'));
+            if (function_exists('dfn_send_booking_confirmation_email')) {
+                dfn_send_booking_confirmation_email($booking_id);
+            }
+            $msg = __('Prenotazione confermata con successo!', 'dfn-theme');
+        } else {
+            // Pagamento online: aggiorna a pending_payment e invia invoice/link di pagamento
+            $wpdb->update(
+                $table,
+                ['status' => 'pending_payment'],
+                ['id' => $booking_id],
+                ['%s'],
+                ['%d']
+            );
+            $order->update_status('pending', __('Tessere FAI verificate da Mobile App. Invio link di pagamento al cliente.', 'dfn-theme'));
+            $email_invoice = WC()->mailer()->get_emails()['WC_Email_Customer_Invoice'] ?? null;
+            if ($email_invoice) {
+                $email_invoice->trigger($order->get_id());
+            }
+            $msg = __('Prenotazione approvata! Inviata email con link di pagamento al cliente.', 'dfn-theme');
+        }
+    } else {
+        $msg = __('Stato della prenotazione aggiornato.', 'dfn-theme');
+    }
+
+    if (function_exists('dfn_log_booking')) {
+        dfn_log_booking($booking_id, 'Conferma Rapida da Mobile App', 'Prenotazione approvata e confermata dall\'interfaccia mobile');
+    }
+
+    wp_send_json_success([
+        'message'    => $msg,
+        'booking_id' => $booking_id,
+    ]);
+}
+
 add_action('wp_ajax_dfn_validate_single_fai_card', 'dfn_ajax_validate_single_fai_card');
 /**
  * Convalida una singola tessera FAI per un ordine pendente.
