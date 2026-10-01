@@ -443,41 +443,41 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                     </a>
                 </div>
             <?php else : ?>
-                <!-- Box Invito al Login Rapido per chi è già registrato -->
-                <div class="dfn-survey-login-prompt" style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px 18px; margin-bottom: 24px;">
+                <!-- Box Invito al Login Rapido per chi è già registrato (Colori Ufficiali FAI) -->
+                <div class="dfn-survey-login-prompt" style="background: #f0fdf4; border: 1.5px solid #86efac; border-left: 5px solid #004b23; border-radius: 12px; padding: 14px 18px; margin-bottom: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 20px;">🔑</span>
+                            <span style="font-size: 22px;">🔑</span>
                             <div>
-                                <strong style="font-size: 14px; color: #1e40af; display: block;">Sei già registrato come volontario?</strong>
-                                <span style="font-size: 12px; color: #3b82f6;">Accedi per autocompilare istantaneamente i tuoi dati</span>
+                                <strong style="font-size: 14px; color: #004b23; display: block;">Sei già registrato come volontario?</strong>
+                                <span style="font-size: 12.5px; color: #166534;">Accedi per autocompilare istantaneamente i tuoi dati</span>
                             </div>
                         </div>
-                        <button type="button" id="dfn-survey-toggle-login-btn" class="button" style="background: #1d4ed8; color: #ffffff; border: none; font-weight: 700; font-size: 12.5px; border-radius: 6px; padding: 6px 14px; cursor: pointer;">
-                            Accedi subito
+                        <button type="button" id="dfn-survey-toggle-login-btn" class="button" style="background: #004b23; color: #ffffff !important; border: none; font-weight: 700; font-size: 12.5px; border-radius: 6px; padding: 7px 16px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,75,35,0.2); transition: all 0.2s;">
+                            Accedi subito &darr;
                         </button>
                     </div>
 
                     <!-- Form Login Inline -->
-                    <div id="dfn-survey-login-box" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #dbeafe;">
+                    <div id="dfn-survey-login-box" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed #86efac;">
                         <form method="post" action="" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: flex-end;">
                             <?php wp_nonce_field('dfn_survey_login_action', 'dfn_survey_login_nonce'); ?>
                             <div>
-                                <label style="display: block; font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 4px;">Email o Username</label>
-                                <input type="text" name="log" required placeholder="mario.rossi@email.it" style="width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; height: 36px; padding: 0 10px; font-size: 13px;">
+                                <label style="display: block; font-size: 12px; font-weight: 700; color: #004b23; margin-bottom: 4px;">Email o Username</label>
+                                <input type="text" name="log" required placeholder="mario.rossi@email.it" style="width: 100%; border-radius: 6px; border: 1.5px solid #86efac; height: 36px; padding: 0 10px; font-size: 13px; background: #ffffff; color: #0f172a; outline: none;">
                             </div>
                             <div>
-                                <label style="display: block; font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 4px;">Password</label>
-                                <input type="password" name="pwd" required placeholder="••••••••" style="width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; height: 36px; padding: 0 10px; font-size: 13px;">
+                                <label style="display: block; font-size: 12px; font-weight: 700; color: #004b23; margin-bottom: 4px;">Password</label>
+                                <input type="password" name="pwd" required placeholder="••••••••" style="width: 100%; border-radius: 6px; border: 1.5px solid #86efac; height: 36px; padding: 0 10px; font-size: 13px; background: #ffffff; color: #0f172a; outline: none;">
                             </div>
                             <div>
-                                <button type="submit" name="dfn_survey_login" class="button button-primary" style="background: #1d4ed8; border-color: #1e40af; height: 36px; font-weight: 700; padding: 0 16px; border-radius: 6px;">
+                                <button type="submit" name="dfn_survey_login" class="button button-primary" style="background: #004b23 !important; color: #ffffff !important; border: 1px solid #002e15 !important; height: 36px; font-weight: 700; padding: 0 18px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,75,35,0.2);">
                                     Entra
                                 </button>
                             </div>
                         </form>
                         <div style="margin-top: 8px; font-size: 11.5px; text-align: right;">
-                            <a href="<?php echo esc_url(wp_lostpassword_url()); ?>" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 600;">Hai dimenticato la password?</a>
+                            <a href="<?php echo esc_url(wp_lostpassword_url()); ?>" target="_blank" style="color: #004b23; text-decoration: underline; font-weight: 600;">Hai dimenticato la password?</a>
                         </div>
                     </div>
                 </div>
@@ -525,7 +525,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
 
                     <?php if (! $is_user_logged && ! $is_expired) : ?>
                         <!-- Campi Creazione Password per Utenti non registrati -->
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-top: 10px;">
+                        <div style="background: #fdfefe; border: 1.5px solid #cbd5e1; border-left: 4px solid #004b23; border-radius: 10px; padding: 14px 16px; margin-top: 12px;">
                             <div style="font-size: 13px; font-weight: 700; color: #004b23; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
                                 <span>🔒</span> Imposta la Password di Accesso
                             </div>
@@ -594,7 +594,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                                         $time_range = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
                                     ?>
                                         <label style="display: flex; align-items: center; gap: 10px; background: <?php echo ($is_expired && $is_checked) ? '#e8f5e9' : '#ffffff'; ?>; border: 1.5px solid <?php echo $is_checked ? '#004b23' : '#cbd5e1'; ?>; padding: 12px 14px; border-radius: 10px; cursor: <?php echo $is_expired ? 'default' : 'pointer'; ?>; transition: all 0.2s;">
-                                            <input type="checkbox" name="slots[<?php echo esc_attr($compound_key); ?>]" value="1" <?php checked($is_checked, true); ?> <?php echo $is_expired ? 'disabled' : ''; ?> style="width: 18px; height: 18px; <?php echo $is_expired ? 'cursor:default;' : ''; ?>">
+                                            <input type="checkbox" name="slots[<?php echo esc_attr($compound_key); ?>]" value="1" <?php checked($is_checked, true); ?> <?php echo $is_expired ? 'disabled' : ''; ?> style="width: 18px; height: 18px; accent-color: #004b23; <?php echo $is_expired ? 'cursor:default;' : ''; ?>">
                                             <div>
                                                 <strong style="font-size: 13.5px; color: <?php echo ($is_expired && $is_checked) ? '#004b23' : '#0f172a'; ?>; display: block;">
                                                     <?php echo esc_html($sh->shift_label); ?>
@@ -642,10 +642,10 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
             toggleBtn.addEventListener('click', function() {
                 if (loginBox.style.display === 'none' || !loginBox.style.display) {
                     loginBox.style.display = 'block';
-                    toggleBtn.textContent = 'Chiudi Login';
+                    toggleBtn.innerHTML = 'Chiudi Login &uarr;';
                 } else {
                     loginBox.style.display = 'none';
-                    toggleBtn.textContent = 'Accedi subito';
+                    toggleBtn.innerHTML = 'Accedi subito &darr;';
                 }
             });
         }
