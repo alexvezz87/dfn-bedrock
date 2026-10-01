@@ -383,6 +383,37 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
     $deadline_formatted = date_i18n('l d F Y \a\l\l\e H:i', strtotime($survey->deadline_at));
     $is_user_logged = ! empty($current_user_id);
 
+    // Calcolo conteggio aggregato adesioni per ciascuno slot e per ciascun giorno (in tempo reale)
+    $table_resp = $wpdb->prefix . 'dfn_volunteer_survey_responses';
+    $slot_counts = [];
+    $day_counts  = [];
+
+    $slot_count_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT day_id, time_slot_key, COUNT(DISTINCT volunteer_id) as total_volunteers
+         FROM {$table_resp}
+         WHERE survey_id = %d AND is_available = 1
+         GROUP BY day_id, time_slot_key",
+        $survey->id
+    ));
+    if (! empty($slot_count_rows)) {
+        foreach ($slot_count_rows as $scr) {
+            $slot_counts[ $scr->day_id . '_' . $scr->time_slot_key ] = (int) $scr->total_volunteers;
+        }
+    }
+
+    $day_count_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT day_id, COUNT(DISTINCT volunteer_id) as total_volunteers
+         FROM {$table_resp}
+         WHERE survey_id = %d AND is_available = 1
+         GROUP BY day_id",
+        $survey->id
+    ));
+    if (! empty($day_count_rows)) {
+        foreach ($day_count_rows as $dcr) {
+            $day_counts[ $dcr->day_id ] = (int) $dcr->total_volunteers;
+        }
+    }
+
     ob_start();
     ?>
     <div class="dfn-survey-container dfn-survey-form-container" style="max-width: 680px; margin: 30px auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;">
@@ -558,9 +589,19 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                     <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">
                         📅 <?php echo $is_expired ? 'Le tue disponibilità inviate' : 'Seleziona le tue disponibilità'; ?>
                     </h3>
-                    <p style="font-size: 13px; color: #64748b; margin: 0 0 16px 0;">
+                    <p style="font-size: 13px; color: #64748b; margin: 0 0 14px 0;">
                         <?php echo $is_expired ? 'Riepilogo delle fasce orarie in cui hai indicato la tua disponibilità:' : 'Indica i turni orari in cui sei disponibile. Il luogo e l\'incarico a cui verrai assegnato saranno stabiliti dalla Delegazione.'; ?>
                     </p>
+
+                    <?php if (! $is_expired) : ?>
+                        <!-- Box di suggerimento per la copertura omogenea -->
+                        <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-left: 5px solid #004b23; border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 20px; flex-shrink: 0;">💡</span>
+                            <div style="font-size: 13px; color: #166534; line-height: 1.45;">
+                                <strong>Copertura in tempo reale:</strong> Sotto a ciascun turno vedi quante persone si sono già rese disponibili. Se ti è possibile, segnalati nelle fasce orarie con meno adesioni per aiutarci a garantire una presenza uniforme!
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
                     <div style="display: flex; flex-direction: column; gap: 14px;">
                         <?php 
@@ -580,29 +621,53 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                                 continue;
                             }
                             $rendered_days_count++;
+
+                            $day_vol_count = $day_counts[$day->id] ?? 0;
+                            $day_count_label = ($day_vol_count === 1)
+                                ? sprintf(__('%d volontario registrato', 'dfn-theme'), $day_vol_count)
+                                : sprintf(__('%d volontari registrati', 'dfn-theme'), $day_vol_count);
                         ?>
                             <div class="dfn-survey-day-block" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
-                                <div style="font-size: 14px; font-weight: 800; color: #004b23; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-                                    <span>🗓️</span> <?php echo esc_html(ucfirst($d_title)); ?>
+                                <div style="font-size: 14px; font-weight: 800; color: #004b23; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span>🗓️</span> <?php echo esc_html(ucfirst($d_title)); ?>
+                                    </div>
+                                    <span style="font-size: 11.5px; font-weight: 700; color: #475569; background: #ffffff; border: 1px solid #cbd5e1; padding: 3px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 4px;">
+                                        👥 <?php echo esc_html($day_count_label); ?>
+                                    </span>
                                 </div>
 
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
                                     <?php foreach ($day_shifts as $sh) : 
                                         $slot_k = sanitize_key($sh->shift_label . '_' . substr($sh->time_start, 0, 5));
                                         $compound_key = $day->id . '_' . $slot_k;
                                         $is_checked = ! empty($saved_responses[$compound_key]);
                                         $time_range = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
+                                        $slot_vol_count = $slot_counts[$compound_key] ?? 0;
+
+                                        if ($slot_vol_count === 0) {
+                                            $coverage_badge = '<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#b45309; background:#fef3c7; border:1px solid #fde68a; padding:2px 8px; border-radius:12px; margin-top:5px;">⚠️ 0 volontari (Servono aiuti!)</span>';
+                                        } elseif ($slot_vol_count === 1) {
+                                            $coverage_badge = '<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#1e40af; background:#dbeafe; border:1px solid #bfdbfe; padding:2px 8px; border-radius:12px; margin-top:5px;">👥 1 volontario segnato</span>';
+                                        } else {
+                                            $coverage_badge = '<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#065f46; background:#d1fae5; border:1px solid #a7f3d0; padding:2px 8px; border-radius:12px; margin-top:5px;">👥 ' . sprintf(esc_html__('%d volontari segnati', 'dfn-theme'), $slot_vol_count) . '</span>';
+                                        }
                                     ?>
-                                        <label style="display: flex; align-items: center; gap: 10px; background: <?php echo ($is_expired && $is_checked) ? '#e8f5e9' : '#ffffff'; ?>; border: 1.5px solid <?php echo $is_checked ? '#004b23' : '#cbd5e1'; ?>; padding: 12px 14px; border-radius: 10px; cursor: <?php echo $is_expired ? 'default' : 'pointer'; ?>; transition: all 0.2s;">
-                                            <input type="checkbox" name="slots[<?php echo esc_attr($compound_key); ?>]" value="1" <?php checked($is_checked, true); ?> <?php echo $is_expired ? 'disabled' : ''; ?> style="width: 18px; height: 18px; accent-color: #004b23; <?php echo $is_expired ? 'cursor:default;' : ''; ?>">
-                                            <div>
-                                                <strong style="font-size: 13.5px; color: <?php echo ($is_expired && $is_checked) ? '#004b23' : '#0f172a'; ?>; display: block;">
-                                                    <?php echo esc_html($sh->shift_label); ?>
-                                                    <?php if ($is_expired && $is_checked) : ?>
-                                                        <span style="font-size: 11px; color: #166534; font-weight: 800;">(Disponibile ✅)</span>
-                                                    <?php endif; ?>
-                                                </strong>
-                                                <span style="font-size: 12px; color: #64748b;">(<?php echo esc_html($time_range); ?>)</span>
+                                        <label style="display: flex; align-items: flex-start; gap: 12px; background: <?php echo ($is_expired && $is_checked) ? '#e8f5e9' : '#ffffff'; ?>; border: 1.5px solid <?php echo $is_checked ? '#004b23' : '#cbd5e1'; ?>; padding: 12px 14px; border-radius: 10px; cursor: <?php echo $is_expired ? 'default' : 'pointer'; ?>; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                            <input type="checkbox" name="slots[<?php echo esc_attr($compound_key); ?>]" value="1" <?php checked($is_checked, true); ?> <?php echo $is_expired ? 'disabled' : ''; ?> style="width: 18px; height: 18px; accent-color: #004b23; margin-top: 2px; <?php echo $is_expired ? 'cursor:default;' : ''; ?>">
+                                            <div style="flex-grow: 1;">
+                                                <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px;">
+                                                    <strong style="font-size: 13.5px; color: <?php echo ($is_expired && $is_checked) ? '#004b23' : '#0f172a'; ?>;">
+                                                        <?php echo esc_html($sh->shift_label); ?>
+                                                        <?php if ($is_expired && $is_checked) : ?>
+                                                            <span style="font-size: 11px; color: #166534; font-weight: 800;">(Disponibile ✅)</span>
+                                                        <?php endif; ?>
+                                                    </strong>
+                                                    <span style="font-size: 12px; color: #64748b; font-weight: 600;">(<?php echo esc_html($time_range); ?>)</span>
+                                                </div>
+                                                <div>
+                                                    <?php echo $coverage_badge; ?>
+                                                </div>
                                             </div>
                                         </label>
                                     <?php endforeach; ?>
