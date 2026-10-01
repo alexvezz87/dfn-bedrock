@@ -187,9 +187,6 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
             } elseif (empty($f_email) || ! is_email($f_email)) {
                 $feedback_msg = '<div class="notice notice-error" style="background:#fee2e2; color:#991b1b; padding:12px; border-radius:8px; margin-bottom:18px;">❌ Inserisci un indirizzo email valido.</div>';
                 $has_error = true;
-            } elseif (empty($f_phone)) {
-                $feedback_msg = '<div class="notice notice-error" style="background:#fee2e2; color:#991b1b; padding:12px; border-radius:8px; margin-bottom:18px;">❌ Inserisci il tuo recapito telefonico per le comunicazioni di turno.</div>';
-                $has_error = true;
             }
 
             // Se l'utente NON è loggato, gestiamo la registrazione o autenticazione
@@ -549,8 +546,8 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                             <input type="email" name="email" <?php echo ($is_expired || $is_user_logged) ? 'readonly' : 'required'; ?> value="<?php echo esc_attr($user_email); ?>" placeholder="mario.rossi@email.it" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px; <?php echo ($is_expired || $is_user_logged) ? 'background:#f1f5f9; color:#475569;' : ''; ?>">
                         </div>
                         <div>
-                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Telefono / Cellulare <?php echo ! $is_expired ? '<span style="color:#ef4444;">*</span>' : ''; ?></label>
-                            <input type="tel" name="phone" <?php echo $is_expired ? 'disabled readonly' : 'required'; ?> value="<?php echo esc_attr($user_phone); ?>" placeholder="333 1234567" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px; <?php echo $is_expired ? 'background:#f1f5f9; color:#475569; cursor:not-allowed;' : ''; ?>">
+                            <label style="display:block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">Telefono / Cellulare <span style="font-size: 11px; font-weight: normal; color: #64748b;">(facoltativo)</span></label>
+                            <input type="tel" name="phone" <?php echo $is_expired ? 'disabled readonly' : ''; ?> value="<?php echo esc_attr($user_phone); ?>" placeholder="Es. 333 1234567" style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 40px; padding: 0 12px; font-size: 14px; <?php echo $is_expired ? 'background:#f1f5f9; color:#475569; cursor:not-allowed;' : ''; ?>">
                         </div>
                     </div>
 
