@@ -973,9 +973,10 @@ function dfn_cancel_booking_by_id(int $booking_id, string $note = ''): bool
 
     $wpdb->query('COMMIT');
 
-    // Nota: il ripristino del magazzino WooCommerce avviene nativamente ed in modo
-    // corretto quando lo stato dell'ordine transita a 'cancelled' (wc_maybe_increase_stock_levels).
-    // Evitiamo chiamate manuali a wc_update_product_stock() che causerebbero un raddoppio dello stock (+2 invece di +1).
+    // Ripristina il magazzino WooCommerce tramite wc_increase_stock_levels
+    if (function_exists('wc_increase_stock_levels')) {
+        wc_increase_stock_levels($order);
+    }
     $order->update_meta_data('_dfn_cancelled_manually', 'yes');
     $order->save();
 
