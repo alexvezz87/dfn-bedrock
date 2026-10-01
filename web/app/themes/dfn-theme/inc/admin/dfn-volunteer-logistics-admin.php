@@ -1153,6 +1153,91 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 cursor: pointer !important;
                 outline: none !important;
             }
+
+            /* Accordion Luoghi / Beni Aperti */
+            .dfn-place-card {
+                background: #ffffff;
+                border: 1.5px solid #cbd5e1;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                transition: box-shadow 0.2s ease, border-color 0.2s ease;
+            }
+            .dfn-place-card.is-open {
+                border-color: #94a3b8;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+            }
+            .dfn-place-header {
+                background: #f8fafc;
+                border-bottom: 1.5px solid transparent;
+                padding: 12px 18px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 12px;
+                cursor: pointer;
+                user-select: none;
+                transition: background 0.15s ease, border-color 0.15s ease;
+            }
+            .dfn-place-header:hover {
+                background: #f1f5f9;
+            }
+            .dfn-place-card.is-open .dfn-place-header {
+                border-bottom: 1.5px solid #e2e8f0;
+            }
+            .dfn-place-header-left {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .dfn-place-acc-arrow {
+                transition: transform 0.2s ease;
+                font-size: 11px;
+                color: #64748b;
+                display: inline-block;
+                margin-left: 4px;
+            }
+            .dfn-place-card.is-open .dfn-place-acc-arrow {
+                transform: rotate(180deg);
+                color: #0f172a;
+            }
+            .dfn-place-body {
+                padding: 16px;
+                background: #fafafa;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            .dfn-place-card:not(.is-open) .dfn-place-body {
+                display: none !important;
+            }
+            .dfn-places-toggle-all-wrap {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .dfn-places-toggle-btn {
+                background: #f1f5f9;
+                color: #475569;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                font-size: 11.5px;
+                font-weight: 600;
+                padding: 3px 8px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                line-height: 1.4;
+            }
+            .dfn-places-toggle-btn:hover {
+                background: #e2e8f0;
+                color: #0f172a;
+                border-color: #94a3b8;
+            }
         </style>
 
         <div id="dfn-days-accordion-container">
@@ -1200,9 +1285,21 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                         ?>
                             <!-- Form Aggiunta Nuovo Luogo / Bene per questo Giorno -->
                             <div style="background:#fff; border-radius:8px; border:1px solid #cbd5e1; padding:16px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
-                                <h3 style="margin:0; font-size:15px; font-weight:800; color:#004b23; display:flex; align-items:center; gap:6px;">
-                                    <span>🏛️</span> Luoghi / Beni Aperti per <?php echo esc_html(date_i18n('d/m/Y', strtotime($d->event_date))); ?>
-                                </h3>
+                                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                                    <h3 style="margin:0; font-size:15px; font-weight:800; color:#004b23; display:flex; align-items:center; gap:6px;">
+                                        <span>🏛️</span> Luoghi / Beni Aperti per <?php echo esc_html(date_i18n('d/m/Y', strtotime($d->event_date))); ?>
+                                    </h3>
+                                    <?php if (! empty($d_places)) : ?>
+                                        <div class="dfn-places-toggle-all-wrap">
+                                            <button type="button" class="dfn-places-toggle-btn dfn-expand-all-places-btn" data-day-id="<?php echo esc_attr($d->id); ?>" title="Espandi tutti i luoghi di questa giornata">
+                                                🔽 Espandi tutti
+                                            </button>
+                                            <button type="button" class="dfn-places-toggle-btn dfn-collapse-all-places-btn" data-day-id="<?php echo esc_attr($d->id); ?>" title="Comprimi tutti i luoghi di questa giornata">
+                                                🔼 Comprimi tutti
+                                            </button>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
                                 <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $d->id)); ?>" style="display:flex; gap:8px; align-items:center;">
                                     <?php wp_nonce_field('dfn_place_action', 'dfn_place_nonce'); ?>
                                     <input type="hidden" name="day_id" value="<?php echo esc_attr($d->id); ?>">
@@ -1215,27 +1312,37 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
                             <!-- RENDERING RAGGRUPPATO PER LUOGO -->
                             <?php if (! empty($d_places)) : ?>
-                                <div style="display:flex; flex-direction:column; gap:24px;">
+                                <div style="display:flex; flex-direction:column; gap:20px;">
                                     <?php foreach ($d_places as $plc) : 
                                         $plc_shifts = $wpdb->get_results($wpdb->prepare(
                                             "SELECT * FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE place_id = %d ORDER BY time_start ASC, id ASC",
                                             $plc->id
                                         ));
+                                        $plc_shift_ids = ! empty($plc_shifts) ? array_map('intval', wp_list_pluck($plc_shifts, 'id')) : [];
+                                        $plc_vols_count = 0;
+                                        if (! empty($plc_shift_ids)) {
+                                            $in_plc_sh_sql = implode(',', $plc_shift_ids);
+                                            $plc_vols_count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE shift_id IN ($in_plc_sh_sql)");
+                                        }
                                         $del_place_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $d->id . '&delete_place=' . $plc->id), 'dfn_del_place_' . $plc->id);
                                     ?>
-                                        <div style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                                        <div class="dfn-place-card is-open" id="dfn-place-card-<?php echo esc_attr($plc->id); ?>" data-place-id="<?php echo esc_attr($plc->id); ?>" data-day-id="<?php echo esc_attr($d->id); ?>">
                                             
-                                            <!-- Intestazione Box Luogo + Aggiunta Turno Dedicata -->
-                                            <div style="background:#f8fafc; border-bottom:1.5px solid #e2e8f0; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                                                <div style="display:flex; align-items:center; gap:8px;">
+                                            <!-- Intestazione Box Luogo + Accordion Toggle + Aggiunta Turno Dedicata -->
+                                            <div class="dfn-place-header" title="Clicca per espandere/comprimere questo luogo">
+                                                <div class="dfn-place-header-left">
                                                     <span style="font-size:16px;">📍</span>
                                                     <strong style="font-size:15px; color:#0f172a;"><?php echo esc_html($plc->place_name); ?></strong>
-                                                    <span style="font-size:11.5px; color:#64748b; font-weight:600; background:#f1f5f9; padding:2px 8px; border-radius:10px; border:1px solid #e2e8f0;">
-                                                        <?php echo count($plc_shifts); ?> <?php echo count($plc_shifts) === 1 ? 'Turno' : 'Turni'; ?>
+                                                    <span class="dfn-badge-counter dfn-badge-counter-shifts" style="font-size:11.5px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">
+                                                        ⏰ <?php echo count($plc_shifts); ?> <?php echo count($plc_shifts) === 1 ? 'Turno' : 'Turni'; ?>
                                                     </span>
+                                                    <span class="dfn-badge-counter dfn-badge-counter-vols" style="font-size:11.5px; background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0;">
+                                                        👥 <?php echo $plc_vols_count; ?> Assegnati
+                                                    </span>
+                                                    <span class="dfn-place-acc-arrow">▼</span>
                                                 </div>
 
-                                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                                <div class="dfn-place-actions" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                                                     <!-- Form Aggiungi Turno per questo Luogo -->
                                                     <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $d->id)); ?>" style="display:inline-flex; align-items:center; gap:6px; background:#fff; padding:4px 8px; border-radius:6px; border:1px solid #cbd5e1;">
                                                         <?php wp_nonce_field('dfn_add_shift_action', 'dfn_shift_nonce'); ?>
@@ -1257,7 +1364,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                             </div>
 
                                             <!-- Turni Orari del Luogo -->
-                                            <div style="padding:16px; background:#fafafa; display:flex; flex-direction:column; gap:16px;">
+                                            <div class="dfn-place-body">
                                                 <?php if (! empty($plc_shifts)) : ?>
                                                     <?php foreach ($plc_shifts as $shift) : 
                                                         $assignments   = dfn_get_volunteer_shift_assignments((int) $shift->id);
@@ -1697,8 +1804,50 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             var draggedCard = null;
             var dragHoverTimer = null;
 
-            // Accordion Multipli Indipendenti (puoi aprire più giorni contemporaneamente)
+            // Accordion Multipli Indipendenti per Giornata
             var accordions = document.querySelectorAll('.dfn-day-accordion');
+
+            // Accordion Luoghi / Beni Aperti
+            document.querySelectorAll('.dfn-place-header').forEach(function(header) {
+                header.addEventListener('click', function(e) {
+                    if (e.target.closest('form, input, select, button, a, .dfn-place-actions')) {
+                        return;
+                    }
+                    var card = this.closest('.dfn-place-card');
+                    if (card) {
+                        card.classList.toggle('is-open');
+                    }
+                });
+            });
+
+            // Espandi tutti / Comprimi tutti i luoghi di una giornata
+            document.querySelectorAll('.dfn-expand-all-places-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var dayId = this.getAttribute('data-day-id');
+                    var dayContainer = document.querySelector('#day-accordion-' + dayId);
+                    if (dayContainer) {
+                        dayContainer.querySelectorAll('.dfn-place-card').forEach(function(card) {
+                            card.classList.add('is-open');
+                        });
+                    }
+                });
+            });
+
+            document.querySelectorAll('.dfn-collapse-all-places-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var dayId = this.getAttribute('data-day-id');
+                    var dayContainer = document.querySelector('#day-accordion-' + dayId);
+                    if (dayContainer) {
+                        dayContainer.querySelectorAll('.dfn-place-card').forEach(function(card) {
+                            card.classList.remove('is-open');
+                        });
+                    }
+                });
+            });
 
             // DRAG & DROP DEI VOLONTARI SUI TURNI
             function attachDragListeners() {
