@@ -1057,6 +1057,9 @@ function dfn_ajax_create_direct_booking(): void
             $order->update_status('pending', __('Prenotazione diretta via widget.', 'dfn-theme'));
         }
         wc_reduce_stock_levels($order->get_id());
+        if (method_exists($order, 'get_data_store')) {
+            $order->get_data_store()->set_stock_reduced($order->get_id(), true);
+        }
 
         // 3. Esegui allocazione
         dfn_allocate_slots_on_checkout($order->get_id(), [], $order);
@@ -1391,6 +1394,11 @@ function dfn_cancel_booking_on_failed_order(int $order_id): void
 {
     if (! $order_id) {
         return;
+    }
+
+    $order = wc_get_order($order_id);
+    if ($order && function_exists('wc_increase_stock_levels')) {
+        wc_increase_stock_levels($order);
     }
 
     global $wpdb;
