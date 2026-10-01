@@ -112,6 +112,9 @@ if (class_exists('WC_Payment_Gateway')) {
 
             // Riduci le scorte del prodotto WooCommerce
             wc_reduce_stock_levels($order_id);
+            if (method_exists($order, 'get_data_store')) {
+                $order->get_data_store()->set_stock_reduced($order_id, true);
+            }
 
             // Svuota il carrello
             if (WC()->cart instanceof \WC_Cart) {

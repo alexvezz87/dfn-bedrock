@@ -902,6 +902,9 @@ function dfn_ajax_admin_delete_booking(): void
     if ($booking->order_id) {
         $order = wc_get_order($booking->order_id);
         if ($order) {
+            if (function_exists('wc_increase_stock_levels')) {
+                wc_increase_stock_levels($order);
+            }
             // Segna l'ordine come cancellato dall'amministratore PRIMA di cambiarne lo stato.
             // Questo flag viene letto dall'hook woocommerce_order_status_cancelled
             // per inviare l'email corretta ("cancellato dallo staff") invece di quella di scadenza.
@@ -1322,6 +1325,9 @@ function dfn_ajax_botteghino_create_booking(): void
             );
             $order->update_status('completed', __('Operazione registrata dal Botteghino Live.', 'dfn-theme'));
             wc_reduce_stock_levels($order->get_id());
+            if (method_exists($order, 'get_data_store')) {
+                $order->get_data_store()->set_stock_reduced($order->get_id(), true);
+            }
 
             // Auto-checkin
             $now = current_time('mysql');
@@ -1366,6 +1372,9 @@ function dfn_ajax_botteghino_create_booking(): void
         } elseif ($payment_method === 'link') {
             $order->update_status('pending', __('Ordine dal Botteghino. In attesa di pagamento tramite link.', 'dfn-theme'));
             wc_reduce_stock_levels($order->get_id());
+            if (method_exists($order, 'get_data_store')) {
+                $order->get_data_store()->set_stock_reduced($order->get_id(), true);
+            }
 
             if ($has_real_email) {
                 /** @var \WC_Email_Customer_Invoice|null $email_invoice */
@@ -1914,6 +1923,9 @@ function dfn_admin_update_payment_status(): void
             } elseif ($new_status === 'pending_payment') {
                 $order->update_status('pending', sprintf(__('Stato pagamento impostato su IN ATTESA DI PAGAMENTO dall\'admin %s.', 'dfn-theme'), $user_name));
             } elseif ($new_status === 'cancelled') {
+                if (function_exists('wc_increase_stock_levels')) {
+                    wc_increase_stock_levels($order);
+                }
                 $order->update_status('cancelled', sprintf(__('Stato prenotazione/pagamento ANNULLATO dall\'admin %s.', 'dfn-theme'), $user_name));
             }
         }
