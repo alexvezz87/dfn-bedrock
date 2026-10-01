@@ -388,6 +388,21 @@ function dfn_render_evento_shortcode($atts): string
                             </div>
                             <div class="dfn-widget-feedback"></div>
 
+                            <?php
+                            $auto_cancel_hours_l2 = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+                            $pay_mode_l2 = isset($event->payment_mode) ? $event->payment_mode : 'online';
+                            if ($pay_mode_l2 !== 'in_loco' && ! $is_free_event && $auto_cancel_hours_l2 > 0) :
+                            ?>
+                                <div class="dfn-booking-deadline-hint" style="background:#fffbeb; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:12.5px; color:#92400e; line-height:1.45;">
+                                    <strong style="color:#b45309; font-size:13px; display:block; margin-bottom:2px;">⏱️ <?php esc_html_e('Termine versamento contributo:', 'dfn-theme'); ?></strong>
+                                    <?php if (! empty($event->requires_approval)) : ?>
+                                        <?php printf(esc_html__('I tuoi posti saranno temporaneamente riservati. Una volta approvata la richiesta dallo staff, avrai a disposizione un massimo di %d ore per versare il contributo online prima che la prenotazione scada.', 'dfn-theme'), $auto_cancel_hours_l2); ?>
+                                    <?php else : ?>
+                                        <?php printf(esc_html__('I tuoi posti saranno temporaneamente riservati per un massimo di %d ore per permetterti di completare il pagamento online.', 'dfn-theme'), $auto_cancel_hours_l2); ?>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+
                             <?php echo dfn_get_privacy_checkbox_html('booking_widget_1', 'prenotazione'); ?>
 
                             <div style="display:grid; grid-template-columns: 1fr 2fr; gap:12px; margin-top:16px;">
@@ -707,6 +722,21 @@ function dfn_render_evento_shortcode($atts): string
                             </div>
 
                             <div class="dfn-widget-feedback"></div>
+
+                            <?php
+                            $auto_cancel_hours_l1 = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+                            $pay_mode_l1 = isset($event->payment_mode) ? $event->payment_mode : 'online';
+                            if ($pay_mode_l1 !== 'in_loco' && ! $is_free_event && $auto_cancel_hours_l1 > 0) :
+                            ?>
+                                <div class="dfn-booking-deadline-hint" style="background:#fffbeb; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:12.5px; color:#92400e; line-height:1.45;">
+                                    <strong style="color:#b45309; font-size:13px; display:block; margin-bottom:2px;">⏱️ <?php esc_html_e('Termine versamento contributo:', 'dfn-theme'); ?></strong>
+                                    <?php if (! empty($event->requires_approval)) : ?>
+                                        <?php printf(esc_html__('I tuoi posti saranno temporaneamente riservati. Una volta approvata la richiesta dallo staff, avrai a disposizione un massimo di %d ore per versare il contributo online prima che la prenotazione scada.', 'dfn-theme'), $auto_cancel_hours_l1); ?>
+                                    <?php else : ?>
+                                        <?php printf(esc_html__('I tuoi posti saranno temporaneamente riservati per un massimo di %d ore per permetterti di completare il pagamento online.', 'dfn-theme'), $auto_cancel_hours_l1); ?>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
 
                             <?php echo dfn_get_privacy_checkbox_html('booking_widget_2', 'prenotazione'); ?>
 
