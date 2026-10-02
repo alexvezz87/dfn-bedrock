@@ -308,32 +308,8 @@ header('Retry-After: 300');
             font-size: 13px;
             color: var(--dfn-text-muted);
         }
-        .dfn-footer-top {
-            border-bottom: 1px solid #f1f5f9;
-            padding: 14px 20px;
-            background: #fafafa;
-        }
-        .dfn-footer-nav {
-            max-width: 1140px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: center;
-            gap: 24px;
-            flex-wrap: wrap;
-        }
-        .dfn-footer-nav a {
-            color: var(--dfn-text-muted);
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .dfn-footer-nav a:hover {
-            color: var(--dfn-primary);
-        }
         .dfn-footer-main {
-            padding: 24px 20px;
+            padding: 22px 20px;
             max-width: 1140px;
             margin: 0 auto;
             display: flex;
@@ -481,15 +457,8 @@ header('Retry-After: 300');
         </div>
     </main>
 
-    <!-- FOOTER IDENTICO AL PORTALE -->
+    <!-- FOOTER ISTITUZIONALE -->
     <footer class="dfn-footer">
-        <div class="dfn-footer-top">
-            <div class="dfn-footer-nav">
-                <a href="/mio-account/">Il mio account</a>
-                <a href="/privacy-policy/">Privacy Policy</a>
-                <a href="mailto:novara@delegazionefai.fondoambiente.it">Contattaci</a>
-            </div>
-        </div>
         <div class="dfn-footer-main">
             <div class="dfn-footer-brand">
                 <strong>DFN Prenotazioni</strong> — Portale per la prenotazione di eventi e iniziative culturali
