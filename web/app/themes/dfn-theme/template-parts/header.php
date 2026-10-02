@@ -23,13 +23,23 @@ $site_name = get_bloginfo('name');
         
         <!-- 1. LOGO SITO -->
         <div class="dfn-header-logo">
-            <?php if (has_custom_logo()) : ?>
-                <?php the_custom_logo(); ?>
-            <?php else : ?>
-                <a href="<?php echo esc_url(home_url('/')); ?>" class="dfn-logo-link" title="<?php echo esc_attr($site_name); ?>">
-                    <span class="dfn-logo-text"><?php echo esc_html($site_name ? $site_name : 'DFN'); ?></span>
-                </a>
-            <?php endif; ?>
+            <a href="<?php echo esc_url(home_url('/')); ?>" class="dfn-header-brand-link" rel="home" title="<?php echo esc_attr($site_name ? $site_name : 'DFN Prenotazioni'); ?>">
+                <?php 
+                $logo_src = '';
+                if (has_custom_logo()) {
+                    $custom_logo_id = get_theme_mod('custom_logo');
+                    $logo_src = wp_get_attachment_image_url($custom_logo_id, 'full');
+                }
+                if (empty($logo_src)) {
+                    $logo_src = get_stylesheet_directory_uri() . '/assets/images/logo-cupola-2.png';
+                }
+                ?>
+                <img src="<?php echo esc_url($logo_src); ?>" class="custom-logo" alt="<?php echo esc_attr($site_name ? $site_name : 'DFN Prenotazioni'); ?>" />
+                <div class="dfn-brand-text-group">
+                    <span class="dfn-brand-name">DFN Prenotazioni</span>
+                    <span class="dfn-brand-claim">Portale Eventi & Prenotazioni</span>
+                </div>
+            </a>
         </div>
 
         <!-- 2. MENU PRINCIPALE -->
