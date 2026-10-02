@@ -432,10 +432,15 @@ function dfn_send_booking_pending_approval(int $booking_id)
     $details_table .= '</table>';
     $details_table .= '</div>';
 
+    $auto_cancel_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+    $pay_mode = isset($event->payment_mode) ? $event->payment_mode : 'online';
+    $is_online = ($pay_mode !== 'in_loco' && $pay_mode !== 'gratuito');
+
     $replacements = [
         'nome_cliente' => esc_html($booking->customer_name),
         'nome_evento'  => esc_html($product_name),
         'dettagli_prenotazione' => $details_table,
+        'ore_scadenza' => (string) $auto_cancel_hours,
     ];
 
     $body_template = dfn_get_setting('email_pending_body');
@@ -445,13 +450,71 @@ function dfn_send_booking_pending_approval(int $booking_id)
         $content .= $details_table;
     }
 
-    $content .= '<p>Non è ancora necessario versare alcun contributo o mostrare QR code. Riceverai un secondo messaggio con l\'esito della richiesta.</p>';
+    if ($is_online && $auto_cancel_hours > 0) {
+        $content .= '<div class="info-box" style="background:#fffbeb; border: 1.5px solid #fde68a; border-left: 4px solid #d97706; padding: 14px 18px; margin: 20px 0; border-radius: 8px;">';
+        $content .= '<strong style="color: #b45309; font-size: 14px; display: block; margin-bottom: 4px;">⏱️ Termine per il versamento del contributo:</strong>';
+        $content .= '<p style="margin: 0; font-size: 13.5px; color: #92400e; line-height: 1.5;">' . sprintf(
+            esc_html__('I tuoi posti sono temporaneamente riservati. Non appena la richiesta sarà approvata dallo staff, riceverai un\'email con il link per effettuare il pagamento online: avrai a disposizione un massimo di %d ore dall\'invio del link per completare il contributo prima che la prenotazione scada e i posti vengano automaticamente liberati.', 'dfn-theme'),
+            $auto_cancel_hours
+        ) . '</p>';
+        $content .= '</div>';
+    } else {
+        $content .= '<p>Non è ancora necessario versare alcun contributo o mostrare QR code. Riceverai un secondo messaggio con l\'esito della richiesta.</p>';
+    }
 
     $subject = dfn_replace_email_placeholders(dfn_get_setting('email_pending_subject'), $replacements);
     $title   = dfn_replace_email_placeholders(dfn_get_setting('email_pending_title'), $replacements);
 
     $context_tag = "[Ordine #" . ($booking->order_id ?: 'N/D') . "] [Booking #{$booking_id}]";
     return dfn_send_notification_email($booking->customer_email, $subject, $title, $content, [], $context_tag);
+}
+
+/**
+ * Inserisce un avviso sul termine di pagamento (in ore) nelle email WooCommerce di pagamento in sospeso (es. Customer Invoice).
+ */
+add_action('woocommerce_email_before_order_table', 'dfn_email_payment_deadline_notice', 10, 4);
+function dfn_email_payment_deadline_notice($order, $sent_to_admin, $plain_text, $email)
+{
+    if ($sent_to_admin || ! $order) {
+        return;
+    }
+
+    if (! $order->has_status(['pending', 'on-hold', 'pending_approval'])) {
+        return;
+    }
+
+    $email_id = $email ? $email->id : '';
+    if (! in_array($email_id, ['customer_invoice', 'customer_pending_order'], true)) {
+        return;
+    }
+
+    $booking = function_exists('dfn_db_get_booking_by_order') ? dfn_db_get_booking_by_order($order->get_id()) : null;
+    $auto_cancel_hours = 24;
+
+    if ($booking && function_exists('dfn_db_get_event')) {
+        $event = dfn_db_get_event((int) $booking->event_id);
+        if ($event && isset($event->auto_cancel_hours)) {
+            $auto_cancel_hours = (int) $event->auto_cancel_hours;
+        }
+    } else {
+        $auto_cancel_hours = (int) dfn_get_setting('cron_timeout_no_booking', 24);
+    }
+
+    if ($auto_cancel_hours <= 0) {
+        return;
+    }
+
+    if ($plain_text) {
+        echo "\n" . sprintf(__('⏱️ NOTA BENE: I posti rimarranno riservati per un massimo di %d ore dall\'invio di questa email. Ti invitiamo a completare il pagamento tramite il link sottostante entro tale termine per confermare definitivamente la tua prenotazione.', 'dfn-theme'), $auto_cancel_hours) . "\n\n";
+    } else {
+        echo '<div style="background-color: #fffbeb; border: 1.5px solid #fde68a; border-left: 5px solid #d97706; padding: 14px 18px; margin: 20px 0; border-radius: 8px;">';
+        echo '<strong style="color: #b45309; font-size: 14px; display: block; margin-bottom: 4px;">⏱️ Termine per il versamento del contributo</strong>';
+        echo '<p style="margin: 0; font-size: 13.5px; color: #92400e; line-height: 1.5;">' . sprintf(
+            esc_html__('I posti rimarranno riservati per un periodo massimo di %d ore. Ti invitiamo a completare il pagamento tramite il pulsante verde di pagamento entro tale termine per garantire e confermare definitivamente la tua partecipazione prima dell\'annullamento automatico.', 'dfn-theme'),
+            $auto_cancel_hours
+        ) . '</p>';
+        echo '</div>';
+    }
 }
 
 /**

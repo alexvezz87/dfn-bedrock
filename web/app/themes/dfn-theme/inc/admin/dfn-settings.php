@@ -815,7 +815,7 @@ function dfn_render_settings_page(): void
                                 'label'     => 'Richiesta in Fase di Verifica (Approvazione Manuale)',
                                 'type'      => 'pending',
                                 'name'      => 'Richiesta in Verifica',
-                                'tags'      => ['{nome_cliente}', '{nome_evento}'],
+                                'tags'      => ['{nome_cliente}', '{nome_evento}', '{ore_scadenza}'],
                                 'fields'    => [
                                     ['id' => 'email_pending_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',                   'type' => 'text',     'desc' => 'Oggetto per eventi che richiedono approvazione.'],
                                     ['id' => 'email_pending_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)',      'type' => 'text',     'desc' => 'Titolo principale visualizzato in alto.'],
@@ -1546,6 +1546,7 @@ function dfn_ajax_send_test_email(): void
             $replacements = [
                 'nome_cliente' => esc_html($customer_name),
                 'nome_evento'  => esc_html($product_name),
+                'ore_scadenza' => '24',
                 'dettagli_prenotazione' => $details_table_pending,
             ];
             $body_template = dfn_get_setting('email_pending_body');
@@ -1553,7 +1554,10 @@ function dfn_ajax_send_test_email(): void
             if (strpos($body_template, '{dettagli_prenotazione}') === false) {
                 $content .= $details_table_pending;
             }
-            $content .= '<p>Non è ancora necessario versare alcun contributo o mostrare QR code. Riceverai un secondo messaggio con l\'esito della richiesta.</p>';
+            $content .= '<div class="info-box" style="background:#fffbeb; border: 1.5px solid #fde68a; border-left: 4px solid #d97706; padding: 14px 18px; margin: 20px 0; border-radius: 8px;">';
+            $content .= '<strong style="color: #b45309; font-size: 14px; display: block; margin-bottom: 4px;">⏱️ Termine per il versamento del contributo:</strong>';
+            $content .= '<p style="margin: 0; font-size: 13.5px; color: #92400e; line-height: 1.5;">I tuoi posti sono temporaneamente riservati. Non appena la richiesta sarà approvata dallo staff, riceverai un\'email con il link per effettuare il pagamento online: avrai a disposizione un massimo di 24 ore dall\'invio del link per completare il contributo prima che la prenotazione scada e i posti vengano automaticamente liberati.</p>';
+            $content .= '</div>';
 
             $subject = dfn_replace_email_placeholders(dfn_get_setting('email_pending_subject'), $replacements);
             $title   = dfn_replace_email_placeholders(dfn_get_setting('email_pending_title'), $replacements);

@@ -249,3 +249,104 @@ function dfn_sync_customer_notes_to_order($order)
 }
 add_action('woocommerce_checkout_create_order', 'dfn_sync_customer_notes_to_order', 10, 1);
 
+/**
+ * Visualizza un box di avviso in evidenza al checkout per ricordare la scadenza oraria dei posti riservati.
+ */
+function dfn_render_checkout_payment_deadline_box(): void
+{
+    // 1. Caso pagina di pagamento per ordine esistente (order-pay)
+    if (function_exists('is_wc_endpoint_url') && is_wc_endpoint_url('order-pay')) {
+        global $wp;
+        $order_id = isset($wp->query_vars['order-pay']) ? absint($wp->query_vars['order-pay']) : 0;
+        if ($order_id) {
+            $order = wc_get_order($order_id);
+            if ($order && $order->needs_payment()) {
+                $booking = function_exists('dfn_db_get_booking_by_order') ? dfn_db_get_booking_by_order($order_id) : null;
+                $auto_cancel_hours = 24;
+                if ($booking && function_exists('dfn_db_get_event')) {
+                    $event = dfn_db_get_event((int) $booking->event_id);
+                    if ($event && isset($event->auto_cancel_hours)) {
+                        $auto_cancel_hours = (int) $event->auto_cancel_hours;
+                    }
+                } else {
+                    $auto_cancel_hours = (int) dfn_get_setting('cron_timeout_no_booking', 24);
+                }
+
+                if ($auto_cancel_hours > 0) {
+                    dfn_output_checkout_deadline_html($auto_cancel_hours, true);
+                }
+            }
+        }
+        return;
+    }
+
+    // 2. Caso carrello / checkout standard WooCommerce
+    $cart = WC()->cart;
+    if (! $cart || $cart->is_empty()) {
+        return;
+    }
+
+    // Se l'importo totale è zero (gratuito) o è un checkout express 'in loco' puro, non serve l'avviso di pagamento online
+    if (floatval($cart->get_total('edit')) === 0.00) {
+        return;
+    }
+
+    $auto_cancel_hours = 0;
+    $has_online_event  = false;
+
+    foreach ($cart->get_cart() as $cart_item) {
+        $product_id = $cart_item['product_id'] ?? 0;
+        $event      = function_exists('dfn_db_get_event_by_product') ? dfn_db_get_event_by_product($product_id) : null;
+
+        if ($event) {
+            $pay_mode = $event->payment_mode ?? 'online';
+            if ($pay_mode === 'online' || $pay_mode === 'misto') {
+                $has_online_event = true;
+                $event_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+                if ($event_hours > 0 && ($auto_cancel_hours === 0 || $event_hours < $auto_cancel_hours)) {
+                    $auto_cancel_hours = $event_hours;
+                }
+            }
+        }
+    }
+
+    if ($has_online_event && $auto_cancel_hours > 0) {
+        dfn_output_checkout_deadline_html($auto_cancel_hours, false);
+    }
+}
+add_action('woocommerce_before_checkout_form', 'dfn_render_checkout_payment_deadline_box', 5);
+add_action('before_woocommerce_pay', 'dfn_render_checkout_payment_deadline_box', 5);
+
+/**
+ * Renderizza l'HTML del box di avviso termine pagamento al checkout.
+ */
+function dfn_output_checkout_deadline_html(int $auto_cancel_hours, bool $is_order_pay = false): void
+{
+    ?>
+    <div class="dfn-checkout-deadline-notice" style="max-width: 600px; margin: 0 auto 24px auto; background: #fffbeb; border: 1.5px solid #fde68a; border-left: 5px solid #d97706; border-radius: 10px; padding: 16px 20px; box-shadow: 0 2px 6px rgba(217, 119, 6, 0.08); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing: border-box;">
+        <div style="display: flex; align-items: flex-start; gap: 14px;">
+            <span style="font-size: 24px; line-height: 1.2; flex-shrink: 0;">⏱️</span>
+            <div>
+                <strong style="color: #b45309; font-size: 14.5px; font-weight: 700; display: block; margin-bottom: 4px;">
+                    <?php esc_html_e('Termine per il completamento del contributo', 'dfn-theme'); ?>
+                </strong>
+                <p style="margin: 0; font-size: 13.5px; color: #92400e; line-height: 1.5;">
+                    <?php if ($is_order_pay) : ?>
+                        <?php printf(
+                            esc_html__('I tuoi posti sono temporaneamente riservati. Ti ricordiamo che hai a disposizione un massimo di %d ore dall\'invio della richiesta di pagamento per completare la transazione prima che i posti vengano automaticamente liberati.', 'dfn-theme'),
+                            $auto_cancel_hours
+                        ); ?>
+                    <?php else : ?>
+                        <?php printf(
+                            esc_html__('I posti selezionati rimarranno riservati per un massimo di %d ore. Ti invitiamo a completare il pagamento online per garantire e confermare definitivamente la tua prenotazione prima della scadenza.', 'dfn-theme'),
+                            $auto_cancel_hours
+                        ); ?>
+                    <?php endif; ?>
+                </p>
+            </div>
+        </div>
+    </div>
+    <?php
+}
+
+
