@@ -480,7 +480,7 @@ function dfn_email_payment_deadline_notice($order, $sent_to_admin, $plain_text, 
         echo '<div style="background-color: #fffbeb; border: 1.5px solid #fde68a; border-left: 5px solid #d97706; padding: 14px 18px; margin: 20px 0; border-radius: 8px;">';
         echo '<strong style="color: #b45309; font-size: 14px; display: block; margin-bottom: 4px;">⏱️ Termine per il versamento del contributo</strong>';
         echo '<p style="margin: 0; font-size: 13.5px; color: #92400e; line-height: 1.5;">' . sprintf(
-            esc_html__('I posti rimarranno riservati per un periodo massimo di %d ore. Ti invitiamo a completare il pagamento tramite il pulsante sottostante entro tale termine per garantire e confermare definitivamente la tua partecipazione prima dell\'annullamento automatico.', 'dfn-theme'),
+            esc_html__('I posti rimarranno riservati per un periodo massimo di %d ore. Ti invitiamo a completare il pagamento tramite il pulsante verde di pagamento entro tale termine per garantire e confermare definitivamente la tua partecipazione prima dell\'annullamento automatico.', 'dfn-theme'),
             $auto_cancel_hours
         ) . '</p>';
         echo '</div>';
