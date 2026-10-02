@@ -245,13 +245,34 @@
 
 /* Mobile Layout (< 992px) */
 @media (max-width: 991px) {
-    .dfn-brand-text-group {
-        display: none !important;
-    }
-
     .dfn-header-container {
         height: 66px;
         padding: 0 16px;
+        gap: 12px;
+    }
+
+    .dfn-header-brand-link {
+        gap: 8px;
+    }
+
+    .dfn-header-logo img,
+    .dfn-header-logo .custom-logo {
+        max-height: 38px;
+    }
+
+    .dfn-brand-text-group {
+        display: flex !important;
+    }
+
+    .dfn-brand-name {
+        font-size: 16px;
+        line-height: 1.1;
+    }
+
+    .dfn-brand-claim {
+        font-size: 9.5px;
+        letter-spacing: 0.4px;
+        margin-top: 1px;
     }
 
     .dfn-mobile-toggle {
@@ -321,6 +342,12 @@
     }
 
     @media (max-width: 576px) {
+        .dfn-brand-name {
+            font-size: 15px;
+        }
+        .dfn-brand-claim {
+            font-size: 8.5px;
+        }
         .dfn-header-user-action .cv-dynamic-login-btn .cv-btn-text {
             display: none !important;
         }
@@ -332,6 +359,23 @@
         }
         .dfn-header-user-action .cv-dynamic-login-btn .cv-main-icon {
             margin: auto !important;
+        }
+    }
+
+    @media (max-width: 380px) {
+        .dfn-header-container {
+            padding: 0 10px;
+            gap: 8px;
+        }
+        .dfn-header-logo img,
+        .dfn-header-logo .custom-logo {
+            max-height: 34px;
+        }
+        .dfn-brand-claim {
+            display: none !important;
+        }
+        .dfn-brand-name {
+            font-size: 14px;
         }
     }
 }
