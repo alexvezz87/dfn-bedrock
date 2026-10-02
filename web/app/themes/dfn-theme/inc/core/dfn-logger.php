@@ -519,6 +519,7 @@ function dfn_get_log_types_catalog(string $module = ''): array
 {
     $prenotazioni_types = [
         'prenotazione' => '🎟️ Prenotazioni',
+        'pagamento'    => '💳 Pagamenti & Gateway',
         'recensione'   => '⭐ Recensioni',
         'annullamento' => '🚫 Annullamenti',
         'tessera_fai'  => '🪪 Tessere FAI',
@@ -904,6 +905,82 @@ add_action('dfn_cron_log_purge', function () {
     $retention = (int) dfn_get_setting('log_retention_days', 90);
     dfn_log_purge_old($retention ?: 90);
 });
+
+/**
+ * Registra il completamento con successo di un pagamento WooCommerce.
+ *
+ * @param int|WC_Order $order_id ID o istanza dell'ordine.
+ */
+function dfn_log_payment_complete($order_id): void
+{
+    $order = is_a($order_id, 'WC_Order') ? $order_id : (function_exists('wc_get_order') ? wc_get_order($order_id) : null);
+    if (! $order) {
+        return;
+    }
+
+    // Evita duplicati di log per lo stesso ordine
+    $already_logged = $order->get_meta('_dfn_payment_logged_success');
+    if ($already_logged) {
+        return;
+    }
+    $order->update_meta_data('_dfn_payment_logged_success', '1');
+    $order->save_meta_data();
+
+    $gateway_title = $order->get_payment_method_title() ?: $order->get_payment_method();
+    $total         = $order->get_formatted_order_total();
+    $customer_name = trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()) ?: 'Cliente';
+    $customer_email= $order->get_billing_email();
+    $txn_id        = $order->get_transaction_id();
+    $txn_info      = ! empty($txn_id) ? " | ID Transazione: {$txn_id}" : '';
+
+    $description = sprintf(
+        "Pagamento Riuscito per Ordine #%d | Importo: %s | Metodo: %s | Cliente: %s (%s)%s",
+        $order->get_id(),
+        wp_strip_all_tags($total),
+        $gateway_title ?: 'N/D',
+        $customer_name,
+        $customer_email,
+        $txn_info
+    );
+
+    dfn_log_write('pagamento', 'WooCommerce', $description, 'success');
+}
+add_action('woocommerce_payment_complete', 'dfn_log_payment_complete', 5, 1);
+add_action('woocommerce_order_status_processing', 'dfn_log_payment_complete', 5, 1);
+
+/**
+ * Registra il fallimento di una transazione / pagamento.
+ *
+ * @param int      $order_id ID dell'ordine.
+ * @param WC_Order $order    Istanza dell'ordine.
+ */
+function dfn_log_payment_failed($order_id, $order = null): void
+{
+    if (! $order && $order_id && function_exists('wc_get_order')) {
+        $order = wc_get_order($order_id);
+    }
+    if (! $order) {
+        return;
+    }
+
+    $gateway_title = $order->get_payment_method_title() ?: $order->get_payment_method();
+    $total         = $order->get_formatted_order_total();
+    $customer_name = trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()) ?: 'Cliente';
+    $customer_email= $order->get_billing_email();
+
+    $description = sprintf(
+        "PAGAMENTO FALLITO per Ordine #%d | Importo: %s | Metodo: %s | Cliente: %s (%s)",
+        $order->get_id(),
+        wp_strip_all_tags($total),
+        $gateway_title ?: 'N/D',
+        $customer_name,
+        $customer_email
+    );
+
+    dfn_log_write('pagamento', 'WooCommerce', $description, 'failure');
+}
+add_action('woocommerce_order_status_failed', 'dfn_log_payment_failed', 5, 2);
+
 
 
 

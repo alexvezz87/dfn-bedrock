@@ -1027,6 +1027,9 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
     $upcoming_meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 1) : [];
     $next_meeting = ! empty($upcoming_meetings) ? $upcoming_meetings[0] : null;
 
+    // Recupera squadre di appartenenza
+    $my_teams = function_exists('dfn_get_user_teams') ? dfn_get_user_teams($current_user_id) : ($member ? (function_exists('dfn_get_volunteer_teams') ? dfn_get_volunteer_teams($member->id) : []) : []);
+
     // Verifica se l'utente ha accesso al modulo di gestione eventi/prenotazioni
     $has_events_mgr_access = function_exists('dfn_user_has_module_access') ? dfn_user_has_module_access('prenotazioni', $current_user_id) : current_user_can('manage_options');
     ?>
@@ -1101,6 +1104,24 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                     <?php if ($member && ! empty($member->is_guide)) : ?><span class="dfn-vol-role-badge badge-guide">🏛️ Guida / Cicerone</span><?php endif; ?>
                     <?php if ($member && ! empty($member->has_safety_course)) : ?><span class="dfn-vol-role-badge badge-safety">🦺 Sicurezza FAI</span><?php endif; ?>
                 </div>
+
+                <!-- Squadre & Team di Delegazione -->
+                <?php if (! empty($my_teams)) : ?>
+                    <div class="dfn-vol-teams-list" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span class="dfn-vol-roles-label" style="font-size: 12px; font-weight: 700; color: #475569;">Squadre:</span>
+                        <?php foreach ($my_teams as $mt) : 
+                            $is_sup = function_exists('dfn_is_user_team_supervisor') && dfn_is_user_team_supervisor($current_user_id, (int) $mt->id);
+                        ?>
+                            <span class="dfn-vol-role-badge" style="background: <?php echo esc_attr($mt->badge_bg ?: '#f0fdf4'); ?>; color: <?php echo esc_attr($mt->color ?: '#004b23'); ?>; border: 1px solid <?php echo esc_attr($mt->color ? $mt->color . '40' : '#86efac'); ?>; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                                <?php if ($mt->icon) : ?><span><?php echo esc_html($mt->icon); ?></span><?php endif; ?>
+                                <?php echo esc_html($mt->name); ?>
+                                <?php if ($is_sup) : ?>
+                                    <span style="font-size: 10px; background: #fef3c7; color: #92400e; padding: 1px 5px; border-radius: 6px; font-weight: 800; margin-left: 2px;">⭐️ Delegato</span>
+                                <?php endif; ?>
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Bottone App Gestione Eventi (Visibile solo da Mobile per Utenti Abilitati) -->
                 <?php if ($has_events_mgr_access) : ?>
@@ -1215,6 +1236,51 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                 </div>
             <?php endif; ?>
         </div>
+
+        <!-- Sezione Quick Info: 4. Le Tue Squadre & Team di Delegazione -->
+        <?php if (! empty($my_teams)) : ?>
+            <div class="dfn-vol-hub-card">
+                <div class="dfn-vol-hub-card-header">
+                    <h3 class="dfn-vol-hub-card-title">
+                        <span>🛡️</span> <?php esc_html_e('Le Tue Squadre di Lavoro', 'dfn-theme'); ?>
+                    </h3>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; padding: 14px 18px;">
+                    <?php foreach ($my_teams as $mt) : 
+                        $is_sup = function_exists('dfn_is_user_team_supervisor') && dfn_is_user_team_supervisor($current_user_id, (int) $mt->id);
+                        $supervisors = function_exists('dfn_get_team_supervisors') ? dfn_get_team_supervisors((int) $mt->id) : [];
+                    ?>
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid <?php echo esc_attr($mt->color ?: '#004b23'); ?>; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                            <div>
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                                    <strong style="font-size: 14px; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                                        <span><?php echo esc_html($mt->icon ?: '👥'); ?></span>
+                                        <?php echo esc_html($mt->name); ?>
+                                    </strong>
+                                    <?php if ($is_sup) : ?>
+                                        <span style="font-size: 10.5px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 6px; padding: 1px 6px; font-weight: 700;">⭐️ Responsabile</span>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if (! empty($mt->description)) : ?>
+                                    <p style="font-size: 12px; color: #64748b; margin: 0 0 6px 0; line-height: 1.4;"><?php echo esc_html($mt->description); ?></p>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (! empty($supervisors)) : ?>
+                                <div style="font-size: 11.5px; color: #475569; border-top: 1px dashed #f1f5f9; padding-top: 6px;">
+                                    <strong style="color: #334155;">Delegati:</strong>
+                                    <?php 
+                                    $sup_names = array_map(function($s) {
+                                        return $s->first_name ? ($s->first_name . ' ' . $s->last_name) : $s->display_name;
+                                    }, $supervisors);
+                                    echo esc_html(implode(', ', $sup_names));
+                                    ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
 
     </div>
     <?php
