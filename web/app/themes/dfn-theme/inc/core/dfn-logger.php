@@ -391,6 +391,160 @@ function dfn_log_stock(int $event_id, int $product_id, int $qty_diff, string $re
 }
 
 /**
+ * Registra un'azione sull'anagrafica o le competenze di un volontario.
+ *
+ * @param int    $volunteer_id ID del record volontario in wp_dfn_fai_members.
+ * @param string $action       Azione eseguita (es. 'Nuovo volontario inserito', 'Modifica anagrafica', 'Stato modificato', 'Volontario rimosso').
+ * @param string $details      Eventuali dettagli aggiuntivi (mansioni, contatti, tessera).
+ * @param string $actor        Chi ha eseguito l'azione.
+ * @param string $outcome      Esito ('success' o 'failure').
+ */
+function dfn_log_volunteer_roster(int $volunteer_id, string $action, string $details = '', string $actor = '', string $outcome = 'success'): void
+{
+    global $wpdb;
+    $table_fai = $wpdb->prefix . 'dfn_fai_members';
+    $member = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $volunteer_id));
+
+    $name = $member ? trim($member->first_name . ' ' . $member->last_name) : 'Volontario #' . $volunteer_id;
+    $card = ($member && ! empty($member->card_number)) ? " (Tessera FAI: {$member->card_number})" : '';
+    $email = ($member && ! empty($member->email)) ? " [{$member->email}]" : '';
+
+    if (empty($actor)) {
+        $user = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff Volontari';
+    }
+
+    $desc = sprintf(
+        "Anagrafica Volontari | Volontario: %s%s%s | Azione: %s",
+        $name,
+        $card,
+        $email,
+        $action
+    );
+
+    if (! empty($details)) {
+        $desc .= " | Dettagli: " . $details;
+    }
+
+    dfn_log_write('volontario_anagrafica', $actor, $desc, $outcome);
+}
+
+/**
+ * Registra un'azione sui turni e la logistica dei volontari.
+ *
+ * @param int    $assignment_id ID dell'assegnazione o ID del turno.
+ * @param string $action        Azione (es. 'Assegnazione turno', 'Rimozione turno', 'Conferma presenza', 'Segnalazione indisponibilità', 'Check-in presenza').
+ * @param string $details       Dettagli (evento, luogo, orario, mansione, motivazione).
+ * @param string $actor         Chi ha eseguito l'azione.
+ * @param string $outcome       Esito ('success' o 'failure').
+ */
+function dfn_log_volunteer_shift(int $assignment_id, string $action, string $details = '', string $actor = '', string $outcome = 'success'): void
+{
+    if (empty($actor)) {
+        $user = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff Logistica';
+    }
+
+    $desc = sprintf("Turni & Logistica | Rif #%d | Azione: %s", $assignment_id, $action);
+    if (! empty($details)) {
+        $desc .= " | " . $details;
+    }
+
+    dfn_log_write('volontario_turni', $actor, $desc, $outcome);
+}
+
+/**
+ * Registra un'azione relativa ai sondaggi di disponibilità dei volontari.
+ *
+ * @param int    $survey_id ID del sondaggio in wp_dfn_volunteer_surveys.
+ * @param string $action    Azione (es. 'Creato sondaggio', 'Compilato sondaggio da volontario', 'Chiuso sondaggio').
+ * @param string $details   Dettagli (titolo evento, risposte fornite, date).
+ * @param string $actor     Chi ha eseguito l'azione.
+ */
+function dfn_log_volunteer_survey(int $survey_id, string $action, string $details = '', string $actor = ''): void
+{
+    if (empty($actor)) {
+        $user = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff Volontari';
+    }
+
+    $desc = sprintf("Sondaggio Disponibilità #%d | Azione: %s", $survey_id, $action);
+    if (! empty($details)) {
+        $desc .= " | " . $details;
+    }
+
+    dfn_log_write('volontario_sondaggi', $actor, $desc, 'success');
+}
+
+/**
+ * Registra un'azione relativa alle riunioni di delegazione dei volontari.
+ *
+ * @param int    $meeting_id ID della riunione in wp_dfn_volunteer_meetings.
+ * @param string $action     Azione (es. 'Creata riunione', 'Inviate convocazioni', 'Risposta volontario', 'Registrate presenze').
+ * @param string $details    Dettagli (titolo, data, orario, presenza/assenza).
+ * @param string $actor      Chi ha eseguito l'azione.
+ */
+function dfn_log_volunteer_meeting(int $meeting_id, string $action, string $details = '', string $actor = ''): void
+{
+    if (empty($actor)) {
+        $user = wp_get_current_user();
+        $actor = ($user && $user->exists()) ? $user->display_name : 'Staff Delegazione';
+    }
+
+    $desc = sprintf("Riunione Delegazione #%d | Azione: %s", $meeting_id, $action);
+    if (! empty($details)) {
+        $desc .= " | " . $details;
+    }
+
+    dfn_log_write('volontario_riunioni', $actor, $desc, 'success');
+}
+
+/**
+ * Restituisce il catalogo delle tipologie di log raggruppate per modulo.
+ *
+ * @param string $module Filtro per modulo ('prenotazioni', 'volontari' o vuoto per tutti).
+ * @return array<string, string> Mappa type_slug => Etichetta formattata con icona.
+ */
+function dfn_get_log_types_catalog(string $module = ''): array
+{
+    $prenotazioni_types = [
+        'prenotazione' => '🎟️ Prenotazioni',
+        'pagamento'    => '💳 Pagamenti & Gateway',
+        'recensione'   => '⭐ Recensioni',
+        'annullamento' => '🚫 Annullamenti',
+        'tessera_fai'  => '🪪 Tessere FAI',
+        'checkin'      => '📱 Check-in / Scanner',
+        'spostamento'  => '⏱️ Spostamenti Turno',
+        'stock'        => '📦 Magazzino / Posti',
+    ];
+
+    $volontari_types = [
+        'volontario_anagrafica' => '👥 Anagrafica & Competenze',
+        'volontario_turni'      => '🏛️ Turni & Logistica',
+        'volontario_sondaggi'   => '📊 Sondaggi Disponibilità',
+        'volontario_riunioni'   => '📅 Riunioni & Convocazioni',
+    ];
+
+    $sistema_types = [
+        'email'     => '📧 Email & Notifiche',
+        'login'     => '🔐 Login',
+        'logout'    => '🚪 Logout',
+        'sicurezza' => '🛡️ Sicurezza & Password',
+        'profilo'   => '👤 Profilo Utente',
+        'sistema'   => '⚙️ Sistema',
+    ];
+
+    if ($module === 'prenotazioni') {
+        return array_merge($prenotazioni_types, $sistema_types);
+    }
+    if ($module === 'volontari') {
+        return array_merge($volontari_types, $sistema_types);
+    }
+
+    return array_merge($prenotazioni_types, $volontari_types, $sistema_types);
+}
+
+/**
  * Hook automatico su wp_mail_failed — cattura i fallimenti di wp_mail()
  * per tutte le email inviate (WooCommerce, WordPress, ecc.).
  *
@@ -741,6 +895,82 @@ add_action('dfn_cron_log_purge', function () {
     $retention = (int) dfn_get_setting('log_retention_days', 90);
     dfn_log_purge_old($retention ?: 90);
 });
+
+/**
+ * Registra il completamento con successo di un pagamento WooCommerce.
+ *
+ * @param int|WC_Order $order_id ID o istanza dell'ordine.
+ */
+function dfn_log_payment_complete($order_id): void
+{
+    $order = is_a($order_id, 'WC_Order') ? $order_id : (function_exists('wc_get_order') ? wc_get_order($order_id) : null);
+    if (! $order) {
+        return;
+    }
+
+    // Evita duplicati di log per lo stesso ordine
+    $already_logged = $order->get_meta('_dfn_payment_logged_success');
+    if ($already_logged) {
+        return;
+    }
+    $order->update_meta_data('_dfn_payment_logged_success', '1');
+    $order->save_meta_data();
+
+    $gateway_title = $order->get_payment_method_title() ?: $order->get_payment_method();
+    $total         = $order->get_formatted_order_total();
+    $customer_name = trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()) ?: 'Cliente';
+    $customer_email= $order->get_billing_email();
+    $txn_id        = $order->get_transaction_id();
+    $txn_info      = ! empty($txn_id) ? " | ID Transazione: {$txn_id}" : '';
+
+    $description = sprintf(
+        "Pagamento Riuscito per Ordine #%d | Importo: %s | Metodo: %s | Cliente: %s (%s)%s",
+        $order->get_id(),
+        wp_strip_all_tags($total),
+        $gateway_title ?: 'N/D',
+        $customer_name,
+        $customer_email,
+        $txn_info
+    );
+
+    dfn_log_write('pagamento', 'WooCommerce', $description, 'success');
+}
+add_action('woocommerce_payment_complete', 'dfn_log_payment_complete', 5, 1);
+add_action('woocommerce_order_status_processing', 'dfn_log_payment_complete', 5, 1);
+
+/**
+ * Registra il fallimento di una transazione / pagamento.
+ *
+ * @param int      $order_id ID dell'ordine.
+ * @param WC_Order $order    Istanza dell'ordine.
+ */
+function dfn_log_payment_failed($order_id, $order = null): void
+{
+    if (! $order && $order_id && function_exists('wc_get_order')) {
+        $order = wc_get_order($order_id);
+    }
+    if (! $order) {
+        return;
+    }
+
+    $gateway_title = $order->get_payment_method_title() ?: $order->get_payment_method();
+    $total         = $order->get_formatted_order_total();
+    $customer_name = trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()) ?: 'Cliente';
+    $customer_email= $order->get_billing_email();
+
+    $description = sprintf(
+        "PAGAMENTO FALLITO per Ordine #%d | Importo: %s | Metodo: %s | Cliente: %s (%s)",
+        $order->get_id(),
+        wp_strip_all_tags($total),
+        $gateway_title ?: 'N/D',
+        $customer_name,
+        $customer_email
+    );
+
+    dfn_log_write('pagamento', 'WooCommerce', $description, 'failure');
+}
+add_action('woocommerce_order_status_failed', 'dfn_log_payment_failed', 5, 2);
+
 
 
 

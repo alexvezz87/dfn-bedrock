@@ -2189,6 +2189,33 @@ function dfn_block_payment_for_pending_approval(array $statuses, $order): array
     return $statuses;
 }
 
+/**
+ * Intercetta l'azione di pagamento per bloccare la transazione se l'ordine è in pending_approval.
+ *
+ * @param WC_Order|null $order Ordine in fase di pagamento.
+ */
+function dfn_intercept_payment_for_pending_approval($order = null): void
+{
+    if (! $order instanceof \WC_Order) {
+        return;
+    }
+
+    global $wpdb;
+    $booking_status = $wpdb->get_var($wpdb->prepare(
+        "SELECT status FROM {$wpdb->prefix}dfn_bookings WHERE order_id = %d LIMIT 1",
+        $order->get_id(),
+    ));
+
+    if ($booking_status === 'pending_approval') {
+        wc_add_notice(
+            __('La tua prenotazione è in attesa di verifica delle tessere FAI da parte dello staff. Non è possibile procedere al pagamento finché la verifica non è completata. Riceverai un\'email non appena le tessere saranno approvate e il pagamento sarà abilitato.', 'dfn-theme'),
+            'error'
+        );
+
+        wp_safe_redirect(wc_get_account_endpoint_url('orders'));
+        exit;
+    }
+}
 add_action('woocommerce_before_pay_action', 'dfn_intercept_payment_for_pending_approval');
 add_action('template_redirect', 'dfn_redirect_pending_approval_pay_page', 5);
 /**
