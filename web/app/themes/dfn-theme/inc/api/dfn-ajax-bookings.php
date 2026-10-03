@@ -1510,6 +1510,8 @@ function dfn_check_and_process_pending_bookings_for_fai_card(string $card_number
                     
                     // Rimuove il flag di non verificate dall'ordine
                     $order->update_meta_data('_dfn_has_unverified_fai_cards', 'no');
+                    $order->update_meta_data('_dfn_approved_at', current_time('mysql'));
+                    $order->update_meta_data('_dfn_payment_link_sent_at', current_time('mysql'));
                     $order->save();
                     
                     // Imposta lo stato dell'ordine a pending e invia la mail con il link di pagamento
@@ -1688,6 +1690,8 @@ function dfn_ajax_approve_pending_booking(): void
 
     // Aggiorna il meta dell'ordine e porta il booking a pending_payment
     $order->update_meta_data('_dfn_has_unverified_fai_cards', 'no');
+    $order->update_meta_data('_dfn_approved_at', current_time('mysql'));
+    $order->update_meta_data('_dfn_payment_link_sent_at', current_time('mysql'));
     $order->save();
 
     $wpdb->update(
@@ -1836,6 +1840,10 @@ function dfn_ajax_confirm_booking_mobile_handler(): void
             $msg = __('Prenotazione confermata con successo!', 'dfn-theme');
         } else {
             // Pagamento online: aggiorna a pending_payment e invia invoice/link di pagamento
+            $order->update_meta_data('_dfn_approved_at', current_time('mysql'));
+            $order->update_meta_data('_dfn_payment_link_sent_at', current_time('mysql'));
+            $order->save();
+
             $wpdb->update(
                 $table,
                 ['status' => 'pending_payment'],

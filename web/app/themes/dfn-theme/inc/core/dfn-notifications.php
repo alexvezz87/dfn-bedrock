@@ -1858,6 +1858,227 @@ function dfn_custom_retrieve_password_title($title, $user_login, $user_data)
     return sprintf('Richiesta di reimpostazione password — %s', $sender_name);
 }
 
+/**
+ * --------------------------------------------------------------------------
+ * PROMEMORIA PAGAMENTO ONLINE & ALERT STAFF VERIFICHE IN SOSPESO
+ * --------------------------------------------------------------------------
+ */
 
+/**
+ * Invia email di promemoria al cliente per il versamento del contributo online prima della scadenza.
+ *
+ * @param int $booking_id ID del booking.
+ * @return bool
+ */
+function dfn_send_booking_payment_reminder(int $booking_id): bool
+{
+    global $wpdb;
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    if (! $booking) {
+        return false;
+    }
 
+    $event = dfn_db_get_event($booking->event_id);
+    if (! $event) {
+        return false;
+    }
 
+    $order = wc_get_order($booking->order_id);
+    if (! $order) {
+        return false;
+    }
+
+    $auto_cancel_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+    $sent_at = $order->get_meta('_dfn_payment_link_sent_at');
+    $baseline_ts = $sent_at ? strtotime($sent_at) : ($order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0);
+    $expire_ts = $baseline_ts + ($auto_cancel_hours * HOUR_IN_SECONDS);
+    $remaining_seconds = max(0, $expire_ts - time());
+    $remaining_hours = (int) ceil($remaining_seconds / HOUR_IN_SECONDS);
+    $data_ora_scadenza = date_i18n('H:i \d\e\l d/m/Y', $expire_ts);
+
+    // Recupera informazioni sullo slot
+    $slot_info = '';
+    $slots = $wpdb->get_results($wpdb->prepare(
+        "SELECT s.*, bs.persons FROM {$wpdb->prefix}dfn_event_slots s 
+         JOIN {$wpdb->prefix}dfn_booking_slots bs ON s.id = bs.slot_id 
+         WHERE bs.booking_id = %d",
+        $booking_id
+    ));
+
+    if (! empty($slots)) {
+        if (count($slots) === 1) {
+            $slot = $slots[0];
+            $slot_info = date_i18n('d F Y', strtotime($slot->slot_date)) . ' - ore ' . date('H:i', strtotime($slot->slot_time_start));
+        } else {
+            $slot_info_parts = [];
+            foreach ($slots as $s) {
+                $slot_info_parts[] = 'ore ' . date('H:i', strtotime($s->slot_time_start)) . ' (' . absint($s->persons) . ' ' . ($s->persons == 1 ? 'persona' : 'persone') . ')';
+            }
+            $slot_info = date_i18n('d F Y', strtotime($slots[0]->slot_date)) . ' — ' . implode(', ', $slot_info_parts);
+        }
+    } else {
+        $slot_info = date_i18n('d F Y', strtotime($event->event_date_start)) . ' (Ingresso Libero)';
+    }
+
+    $product_name = get_the_title($event->product_id);
+    $pay_url = $order->get_checkout_payment_url();
+    $btn_primary = dfn_get_setting('email_primary_color', '#004b23');
+
+    $details_table = '<div class="info-box" style="border-left: 4px solid ' . esc_attr($btn_primary) . '; background-color: #f7fafc; padding: 18px 20px; margin: 20px 0; border-radius: 0 6px 6px 0;">';
+    $details_table .= '<div class="info-box-title" style="font-weight: bold; font-size: 15px; color: ' . esc_attr($btn_primary) . '; margin-bottom: 8px;">Dettagli della Prenotazione Riservata</div>';
+    $details_table .= '<table style="width: 100%; border-collapse: collapse;">';
+    $details_table .= '<tr><td style="padding: 6px 0; color: #718096; width: 140px;">Evento:</td><td style="padding: 6px 0; font-weight: bold;">' . esc_html($product_name) . '</td></tr>';
+    $details_table .= '<tr><td style="padding: 6px 0; color: #718096;">Turno:</td><td style="padding: 6px 0; font-weight: bold;">' . esc_html($slot_info) . '</td></tr>';
+    $details_table .= '<tr><td style="padding: 6px 0; color: #718096;">Partecipanti:</td><td style="padding: 6px 0;">' . absint($booking->total_persons) . ' totali (' . absint($booking->persons_standard) . ' Standard, ' . absint($booking->persons_fai) . ' Soci FAI)</td></tr>';
+    $details_table .= '<tr><td style="padding: 6px 0; color: #718096;">Totale Contributo:</td><td style="padding: 6px 0; font-weight: bold; color: #2d3748;">' . wc_price($order->get_total()) . '</td></tr>';
+    $details_table .= '<tr><td style="padding: 6px 0; color: #718096;">Scadenza Riserva:</td><td style="padding: 6px 0; font-weight: bold; color: #d97706;">⏱️ ' . esc_html($data_ora_scadenza) . ' (mancano ca. ' . esc_html((string) $remaining_hours) . ' ore)</td></tr>';
+    $details_table .= '</table>';
+    $details_table .= '</div>';
+
+    $cta_btn = '<div style="text-align: center; margin: 30px 0 25px 0;">';
+    $cta_btn .= '<a href="' . esc_url($pay_url) . '" style="background-color: ' . esc_attr($btn_primary) . '; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">';
+    $cta_btn .= esc_html__('👉 Paga e Conferma i tuoi Posti Adesso', 'dfn-theme');
+    $cta_btn .= '</a>';
+    $cta_btn .= '<p style="margin: 10px 0 0 0; font-size: 12.5px; color: #718096;">Oppure copia questo link nel browser: <a href="' . esc_url($pay_url) . '" style="color: ' . esc_attr($btn_primary) . '; word-break: break-all;">' . esc_html($pay_url) . '</a></p>';
+    $cta_btn .= '</div>';
+
+    $replacements = [
+        'nome_cliente'          => esc_html($booking->customer_name),
+        'nome_evento'           => esc_html($product_name),
+        'dettagli_prenotazione' => $details_table,
+        'link_pagamento'        => $cta_btn,
+        'ore_rimaste'           => (string) $remaining_hours,
+        'data_ora_scadenza'     => $data_ora_scadenza,
+        'totale_ordine'         => wc_price($order->get_total()),
+    ];
+
+    $intro_template = dfn_get_setting('email_payment_reminder_intro');
+    $content = dfn_replace_email_placeholders($intro_template, $replacements);
+
+    if (strpos($intro_template, '{dettagli_prenotazione}') === false) {
+        $content .= $details_table;
+    }
+
+    if (strpos($intro_template, '{link_pagamento}') === false) {
+        $content .= $cta_btn;
+    }
+
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_payment_reminder_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_payment_reminder_title'), $replacements);
+
+    $context_tag = "[Ordine #" . ($booking->order_id ?: 'N/D') . "] [Booking #{$booking_id}] [Reminder Pagamento]";
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content, [], $context_tag);
+}
+
+/**
+ * Invia email di sollecito allo staff per una prenotazione rimasta in pending_approval a metà del tempo di riserva.
+ *
+ * @param int $booking_id ID del booking.
+ * @return bool
+ */
+function dfn_send_admin_pending_approval_reminder(int $booking_id): bool
+{
+    global $wpdb;
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    if (! $booking) {
+        return false;
+    }
+
+    $event = dfn_db_get_event($booking->event_id);
+    if (! $event) {
+        return false;
+    }
+
+    $auto_cancel_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+    $created_ts = strtotime($booking->created_at);
+    $elapsed_hours = (int) round(max(0, time() - $created_ts) / HOUR_IN_SECONDS);
+
+    $product_name = get_the_title($event->product_id);
+    $admin_url = admin_url('admin.php?page=dfn-fai-pending-bookings');
+    $btn_primary = dfn_get_setting('email_primary_color', '#004b23');
+
+    $details_table = '<div class="info-box" style="border-left: 4px solid #d97706; background-color: #fffbeb; padding: 18px 20px; margin: 20px 0; border-radius: 0 6px 6px 0;">';
+    $details_table .= '<div class="info-box-title" style="font-weight: bold; font-size: 15px; color: #b45309; margin-bottom: 8px;">Dettagli Richiesta in Attesa</div>';
+    $details_table .= '<table style="width: 100%; border-collapse: collapse;">';
+    $details_table .= '<tr><td style="padding: 6px 0; color: #718096; width: 140px;">Evento:</td><td style="padding: 6px 0; font-weight: bold;">' . esc_html($product_name) . '</td></tr>';
+    $details_table .= '<tr><td style="padding: 6px 0; color: #718096;">Cliente:</td><td style="padding: 6px 0; font-weight: bold;">' . esc_html($booking->customer_name) . ' (' . esc_html($booking->customer_email) . ')</td></tr>';
+    $details_table .= '<tr><td style="padding: 6px 0; color: #718096;">Partecipanti:</td><td style="padding: 6px 0;">' . absint($booking->total_persons) . ' totali (' . absint($booking->persons_fai) . ' Soci FAI)</td></tr>';
+    $details_table .= '<tr><td style="padding: 6px 0; color: #718096;">In attesa da:</td><td style="padding: 6px 0; font-weight: bold; color: #b45309;">' . esc_html((string) $elapsed_hours) . ' ore (Scadenza riserva tra ' . max(0, $auto_cancel_hours - $elapsed_hours) . 'h)</td></tr>';
+    $details_table .= '</table>';
+    $details_table .= '</div>';
+
+    $cta_btn = '<div style="text-align: center; margin: 25px 0;">';
+    $cta_btn .= '<a href="' . esc_url($admin_url) . '" style="background-color: ' . esc_attr($btn_primary) . '; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 15px; display: inline-block;">';
+    $cta_btn .= esc_html__('🔍 Apri Pannello Verifiche FAI', 'dfn-theme');
+    $cta_btn .= '</a>';
+    $cta_btn .= '</div>';
+
+    $replacements = [
+        'booking_id'            => (string) $booking->id,
+        'order_id'              => (string) ($booking->order_id ?: 'N/D'),
+        'nome_evento'           => esc_html($product_name),
+        'ore_trascorse'         => (string) $elapsed_hours,
+        'ore_totali'            => (string) $auto_cancel_hours,
+        'dettagli_prenotazione' => $details_table,
+        'link_approvazione'     => $cta_btn,
+    ];
+
+    $body_template = dfn_get_setting('email_admin_pending_approval_body');
+    $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+    if (strpos($body_template, '{dettagli_prenotazione}') === false) {
+        $content .= $details_table;
+    }
+    if (strpos($body_template, '{link_approvazione}') === false) {
+        $content .= $cta_btn;
+    }
+
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_admin_pending_approval_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_admin_pending_approval_title'), $replacements);
+
+    $admin_email = dfn_get_setting('email_verify_fai');
+    if (empty($admin_email)) {
+        $admin_email = dfn_get_setting('delegation_email', get_option('admin_email'));
+    }
+
+    $context_tag = "[Booking #{$booking_id}] [Sollecito Staff]";
+    return dfn_send_notification_email($admin_email, $subject, $title, $content, [], $context_tag);
+}
+
+/**
+ * Invia email al cliente quando una richiesta in pending_approval scade per decorrenza del termine massimo.
+ *
+ * @param int $booking_id ID del booking.
+ * @return bool
+ */
+function dfn_send_booking_expired_unapproved(int $booking_id): bool
+{
+    global $wpdb;
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_bookings WHERE id = %d", $booking_id));
+    if (! $booking) {
+        return false;
+    }
+
+    $event = dfn_db_get_event($booking->event_id);
+    if (! $event) {
+        return false;
+    }
+
+    $auto_cancel_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+    $product_name = get_the_title($event->product_id);
+
+    $replacements = [
+        'nome_cliente' => esc_html($booking->customer_name),
+        'nome_evento'  => esc_html($product_name),
+        'ore_totali'   => (string) $auto_cancel_hours,
+    ];
+
+    $body_template = dfn_get_setting('email_fai_booking_expired_body');
+    $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+    $subject = dfn_replace_email_placeholders(dfn_get_setting('email_fai_booking_expired_subject'), $replacements);
+    $title   = dfn_replace_email_placeholders(dfn_get_setting('email_fai_booking_expired_title'), $replacements);
+
+    $context_tag = "[Ordine #" . ($booking->order_id ?: 'N/D') . "] [Booking #{$booking_id}] [Scadenza Verifica]";
+    return dfn_send_notification_email($booking->customer_email, $subject, $title, $content, [], $context_tag);
+}
