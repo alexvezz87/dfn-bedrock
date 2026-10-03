@@ -202,6 +202,7 @@ function dfn_checkout_save_fai_fields($order, $data): void
     global $wpdb;
     $table_members = $wpdb->prefix . 'dfn_fai_members';
     $has_unverified = false;
+    $fai_cards_saved = [];
 
     for ($i = 1; $i <= $total_fai_qty; $i++) {
         $nome    = isset($_POST['dfn_fai_card_nome_' . $i]) ? (function_exists('dfn_sanitize_name') ? dfn_sanitize_name($_POST['dfn_fai_card_nome_' . $i]) : sanitize_text_field(wp_unslash($_POST['dfn_fai_card_nome_' . $i]))) : '';
