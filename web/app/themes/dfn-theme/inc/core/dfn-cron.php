@@ -82,16 +82,18 @@ function dfn_blocca_cancellazione_wc_nativa(bool $should_cancel, WC_Order $order
 function dfn_run_hourly_maintenance(): void
 {
     dfn_cron_annulla_ordini_scaduti();
+    dfn_cron_invia_promemoria_pagamento();
+    dfn_cron_invia_alert_approvazione_staff();
     dfn_cron_invia_promemoria_24h();
     dfn_cron_gestisci_scadenza_waitlist();
 }
 
 /**
- * 1. ANNULLAMENTO ORDINI PENDING SCADUTI (timeout configurabile per evento)
+ * 1. ANNULLAMENTO ORDINI PENDING E RICHIESTE IN SOSPESO SCADUTE
  *
- * Consulta il campo auto_cancel_hours dell'evento associato a ciascun ordine:
+ * Consulta il campo auto_cancel_hours dell'evento associato a ciascun ordine/prenotazione:
  * - 0 = nessun annullamento automatico (ideale per pagamento in loco)
- * - N = annulla dopo N ore dalla creazione dell'ordine
+ * - N = annulla dopo N ore dall'invio del link di pagamento (per ordini) o dalla richiesta (per verifiche staff)
  * Ordini senza booking DFN associato vengono annullati con il fallback di 24 ore.
  */
 function dfn_cron_annulla_ordini_scaduti(): void
@@ -101,10 +103,178 @@ function dfn_cron_annulla_ordini_scaduti(): void
     }
     set_transient('dfn_spazzino_ordini_lock', 1, 10 * MINUTE_IN_SECONDS);
 
-    // Recupera ordini in stato pending (senza filtro tempo fisso)
+    // --- PARTE A: Ordini WooCommerce in stato pending (in attesa di pagamento online) ---
     $args = [
         'status' => 'pending',
         'limit'  => intval(dfn_get_setting('cron_batch_expired', 30)),
+    ];
+    $orders = wc_get_orders($args);
+
+    if (! empty($orders)) {
+        foreach ($orders as $order) {
+            $order_id = $order->get_id();
+
+            // Trova il booking e l'evento associato all'ordine
+            $booking = dfn_db_get_booking_by_order($order_id);
+            if (! $booking) {
+                // Ordine senza booking DFN: applica il vecchio comportamento configurabile
+                $created_ts = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
+                $timeout_no_booking = intval(dfn_get_setting('cron_timeout_no_booking', 24));
+                if ($created_ts > 0 && time() > ($created_ts + $timeout_no_booking * HOUR_IN_SECONDS)) {
+                    $order->update_status('cancelled', sprintf(__('⏰ Ordine annullato automaticamente: scaduto il termine di %d ore per il contributo online.', 'dfn-theme'), $timeout_no_booking));
+                }
+                continue;
+            }
+
+            // Se la prenotazione è ancora in pending_approval, non cancellarla qui come mancato pagamento:
+            // la cancellazione per mancata verifica dello staff è gestita nella PARTE B.
+            if ($booking->status === 'pending_approval') {
+                continue;
+            }
+
+            $event = dfn_db_get_event($booking->event_id);
+            if (! $event) {
+                continue;
+            }
+
+            // Leggi il timeout configurato sull'evento (default 24 per retrocompatibilità)
+            $auto_cancel_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+
+            // Se 0 → nessun annullamento automatico (pagamento in loco / nessun timeout), skip
+            if ($auto_cancel_hours === 0) {
+                continue;
+            }
+
+            // Calcola il momento di inizio del timer di pagamento:
+            // Se la prenotazione è stata approvata dallo staff, usa il momento di invio del link di pagamento.
+            // Altrimenti, fallback alla data di creazione dell'ordine.
+            $sent_at = $order->get_meta('_dfn_payment_link_sent_at');
+            $baseline_ts = $sent_at ? strtotime($sent_at) : ($order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0);
+
+            if ($baseline_ts <= 0) {
+                continue;
+            }
+
+            $limite = $baseline_ts + ($auto_cancel_hours * HOUR_IN_SECONDS);
+
+            if (time() < $limite) {
+                continue; // Non ancora scaduto
+            }
+
+            // Annulla l'ordine con messaggio che include le ore configurate
+            $order->update_status('cancelled', sprintf(
+                /* translators: %d: number of hours */
+                __('⏰ Ordine annullato automaticamente: superato il termine di %d ore per la ricezione del contributo online.', 'dfn-theme'),
+                $auto_cancel_hours,
+            ));
+        }
+    }
+
+    // --- PARTE B: Richieste in pending_approval non gestite dallo staff entro auto_cancel_hours ---
+    if (dfn_get_setting('enable_auto_cancel_unverified_fai', 'yes') === 'yes') {
+        global $wpdb;
+        $table_bookings = $wpdb->prefix . 'dfn_bookings';
+        $table_slots    = $wpdb->prefix . 'dfn_event_slots';
+        $table_bs       = $wpdb->prefix . 'dfn_booking_slots';
+
+        $pending_approvals = $wpdb->get_results(
+            "SELECT * FROM {$table_bookings} WHERE status = 'pending_approval' ORDER BY id ASC LIMIT 20"
+        );
+
+        if (! empty($pending_approvals)) {
+            foreach ($pending_approvals as $pa_booking) {
+                $event = dfn_db_get_event($pa_booking->event_id);
+                if (! $event) {
+                    continue;
+                }
+
+                $auto_cancel_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+                if ($auto_cancel_hours === 0) {
+                    continue;
+                }
+
+                $created_ts = strtotime($pa_booking->created_at);
+                if ($created_ts <= 0) {
+                    continue;
+                }
+
+                $limite = $created_ts + ($auto_cancel_hours * HOUR_IN_SECONDS);
+                if (time() < $limite) {
+                    continue; // Non ancora scaduta
+                }
+
+                // Scaduta senza risposta dello staff: annulla e rilascia posti
+                $wpdb->query('START TRANSACTION');
+
+                // 1. Rilascia la capienza negli slot
+                $assocs = $wpdb->get_results($wpdb->prepare(
+                    "SELECT slot_id, persons FROM {$table_bs} WHERE booking_id = %d",
+                    $pa_booking->id
+                ));
+                foreach ($assocs as $assoc) {
+                    $wpdb->query($wpdb->prepare(
+                        "UPDATE {$table_slots} SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
+                        intval($assoc->persons),
+                        intval($assoc->slot_id)
+                    ));
+                }
+
+                // 2. Aggiorna stato booking a 'cancelled'
+                $wpdb->update(
+                    $table_bookings,
+                    ['status' => 'cancelled'],
+                    ['id' => $pa_booking->id],
+                    ['%s'],
+                    ['%d']
+                );
+
+                $wpdb->query('COMMIT');
+
+                // 3. Se c'è un ordine WooCommerce collegato, annullalo
+                if ($pa_booking->order_id) {
+                    $pa_order = wc_get_order($pa_booking->order_id);
+                    if ($pa_order && ! $pa_order->has_status(['cancelled', 'failed', 'refunded'])) {
+                        $pa_order->update_meta_data('_dfn_cancelled_manually', 'yes'); // Evita doppia mail di default
+                        $pa_order->update_status('cancelled', sprintf(
+                            __('⏰ Richiesta annullata automaticamente: superato il tempo massimo di riserva di %d ore senza risposta dello staff.', 'dfn-theme'),
+                            $auto_cancel_hours
+                        ));
+                    }
+                }
+
+                // 4. Invia email specifica di scadenza verifica al cliente
+                if (function_exists('dfn_send_booking_expired_unapproved')) {
+                    dfn_send_booking_expired_unapproved($pa_booking->id);
+                }
+
+                if (function_exists('dfn_log_booking')) {
+                    dfn_log_booking($pa_booking->id, 'Scaduta', "Richiesta annullata automaticamente per decorrenza del termine massimo di {$auto_cancel_hours}h senza verifica staff.");
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 1b. PROMEMORIA PAGAMENTO ONLINE AL CLIENTE (a metà del tempo di riserva)
+ *
+ * Invia un'email di promemoria con il link di pagamento al cliente se l'ordine è in attesa di pagamento
+ * e sono trascorse il 50% delle ore di riserva (auto_cancel_hours / 2) dall'approvazione/invio link.
+ */
+function dfn_cron_invia_promemoria_pagamento(): void
+{
+    if (dfn_get_setting('enable_payment_reminder', 'yes') !== 'yes') {
+        return;
+    }
+
+    if (get_transient('dfn_promemoria_pagamento_lock')) {
+        return;
+    }
+    set_transient('dfn_promemoria_pagamento_lock', 1, 10 * MINUTE_IN_SECONDS);
+
+    $args = [
+        'status' => 'pending',
+        'limit'  => intval(dfn_get_setting('cron_batch_reminder', 20)),
     ];
     $orders = wc_get_orders($args);
 
@@ -115,15 +285,18 @@ function dfn_cron_annulla_ordini_scaduti(): void
     foreach ($orders as $order) {
         $order_id = $order->get_id();
 
-        // Trova il booking e l'evento associato all'ordine
+        // Evita duplicati: se già inviato, salta
+        if ('yes' === $order->get_meta('_dfn_payment_reminder_sent')) {
+            continue;
+        }
+
+        // Escludi ordini in loco o con totale zero
+        if ('yes' === $order->get_meta('_dfn_payment_in_loco') || $order->get_payment_method() === 'dfn_in_loco' || (float) $order->get_total() <= 0) {
+            continue;
+        }
+
         $booking = dfn_db_get_booking_by_order($order_id);
-        if (! $booking) {
-            // Ordine senza booking DFN: applica il vecchio comportamento configurabile
-            $created_ts = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
-            $timeout_no_booking = intval(dfn_get_setting('cron_timeout_no_booking', 24));
-            if ($created_ts > 0 && time() > ($created_ts + $timeout_no_booking * HOUR_IN_SECONDS)) {
-                $order->update_status('cancelled', sprintf(__('⏰ Ordine annullato automaticamente: scaduto il termine di %d ore per il contributo online.', 'dfn-theme'), $timeout_no_booking));
-            }
+        if (! $booking || $booking->status !== 'pending_payment') {
             continue;
         }
 
@@ -132,32 +305,120 @@ function dfn_cron_annulla_ordini_scaduti(): void
             continue;
         }
 
-        // Leggi il timeout configurato sull'evento (default 24 per retrocompatibilità)
         $auto_cancel_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
-
-        // Se 0 → nessun annullamento automatico, skip
-        if ($auto_cancel_hours === 0) {
+        if ($auto_cancel_hours <= 0) {
             continue;
         }
 
-        // Controlla se l'ordine ha superato il timeout configurato
-        $created_ts = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
+        // Calcola il momento base (invio link di pagamento o creazione ordine)
+        $sent_at = $order->get_meta('_dfn_payment_link_sent_at');
+        $baseline_ts = $sent_at ? strtotime($sent_at) : ($order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0);
+
+        if ($baseline_ts <= 0) {
+            continue;
+        }
+
+        // Trigger a metà tempo (es. 12h su 24h, 24h su 48h)
+        $trigger_hours = max(1, (int) round($auto_cancel_hours / 2));
+        $trigger_ts = $baseline_ts + ($trigger_hours * HOUR_IN_SECONDS);
+        $expire_ts  = $baseline_ts + ($auto_cancel_hours * HOUR_IN_SECONDS);
+
+        // Se sono trascorse le ore di metà tempo ma non è ancora scaduto
+        if (time() >= $trigger_ts && time() < $expire_ts) {
+            if (function_exists('dfn_send_booking_payment_reminder')) {
+                $sent = dfn_send_booking_payment_reminder($booking->id);
+                if ($sent) {
+                    $order->update_meta_data('_dfn_payment_reminder_sent', 'yes');
+                    $order->update_meta_data('_dfn_payment_reminder_sent_at', current_time('mysql'));
+                    $order->save();
+
+                    $order->add_order_note(sprintf(
+                        __('⏳ Inviata email di promemoria pagamento al cliente (%d ore trascorse, scadenza tra %d ore).', 'dfn-theme'),
+                        $trigger_hours,
+                        max(0, $auto_cancel_hours - $trigger_hours)
+                    ));
+
+                    if (function_exists('dfn_log_booking')) {
+                        dfn_log_booking($booking->id, 'Promemoria Pagamento', "Inviata email di reminder pagamento ({$trigger_hours}h trascorse dall'approvazione).");
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 1c. ALERT STAFF PER VERIFICHE IN SOSPESO (a metà del tempo di riserva)
+ *
+ * Invia un'email di sollecito allo staff se una prenotazione in pending_approval
+ * non è ancora stata verificata e sono trascorse il 50% delle ore di riserva (auto_cancel_hours / 2).
+ */
+function dfn_cron_invia_alert_approvazione_staff(): void
+{
+    if (dfn_get_setting('enable_admin_pending_approval_reminder', 'yes') !== 'yes') {
+        return;
+    }
+
+    if (get_transient('dfn_alert_approvazione_staff_lock')) {
+        return;
+    }
+    set_transient('dfn_alert_approvazione_staff_lock', 1, 10 * MINUTE_IN_SECONDS);
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+
+    $bookings = $wpdb->get_results(
+        "SELECT * FROM {$table_bookings} WHERE status = 'pending_approval' ORDER BY id ASC LIMIT 20"
+    );
+
+    if (empty($bookings)) {
+        return;
+    }
+
+    foreach ($bookings as $booking) {
+        $order = wc_get_order($booking->order_id);
+        if ($order && 'yes' === $order->get_meta('_dfn_admin_approval_alert_sent')) {
+            continue;
+        }
+
+        $event = dfn_db_get_event($booking->event_id);
+        if (! $event) {
+            continue;
+        }
+
+        $auto_cancel_hours = isset($event->auto_cancel_hours) ? (int) $event->auto_cancel_hours : 24;
+        if ($auto_cancel_hours <= 0) {
+            continue;
+        }
+
+        $created_ts = strtotime($booking->created_at);
         if ($created_ts <= 0) {
             continue;
         }
 
-        $limite = $created_ts + ($auto_cancel_hours * HOUR_IN_SECONDS);
+        $trigger_hours = max(1, (int) round($auto_cancel_hours / 2));
+        $trigger_ts = $created_ts + ($trigger_hours * HOUR_IN_SECONDS);
+        $expire_ts  = $created_ts + ($auto_cancel_hours * HOUR_IN_SECONDS);
 
-        if (time() < $limite) {
-            continue; // Non ancora scaduto
+        if (time() >= $trigger_ts && time() < $expire_ts) {
+            if (function_exists('dfn_send_admin_pending_approval_reminder')) {
+                $sent = dfn_send_admin_pending_approval_reminder($booking->id);
+                if ($sent && $order) {
+                    $order->update_meta_data('_dfn_admin_approval_alert_sent', 'yes');
+                    $order->update_meta_data('_dfn_admin_approval_alert_sent_at', current_time('mysql'));
+                    $order->save();
+
+                    $order->add_order_note(sprintf(
+                        __('🔔 Inviata email di sollecito approvazione allo staff (%d ore trascorse dalla richiesta).', 'dfn-theme'),
+                        $trigger_hours
+                    ));
+
+                    if (function_exists('dfn_log_booking')) {
+                        dfn_log_booking($booking->id, 'Sollecito Staff', "Inviata email di sollecito allo staff ({$trigger_hours}h in attesa di verifica).");
+                    }
+                }
+            }
         }
-
-        // Annulla l'ordine con messaggio che include le ore configurate
-        $order->update_status('cancelled', sprintf(
-            /* translators: %d: number of hours */
-            __('⏰ Ordine annullato automaticamente: superato il termine di %d ore per la ricezione del contributo.', 'dfn-theme'),
-            $auto_cancel_hours,
-        ));
     }
 }
 

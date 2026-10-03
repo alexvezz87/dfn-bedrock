@@ -138,12 +138,27 @@ function dfn_settings_save_fields(): void
         'email_fai_booking_rejected_title'    => 'sanitize_text_field',
         'email_fai_booking_rejected_body'     => 'sanitize_textarea_field',
 
+        'email_payment_reminder_subject'      => 'sanitize_text_field',
+        'email_payment_reminder_title'        => 'sanitize_text_field',
+        'email_payment_reminder_intro'        => 'sanitize_textarea_field',
+
+        'email_admin_pending_approval_subject'=> 'sanitize_text_field',
+        'email_admin_pending_approval_title'  => 'sanitize_text_field',
+        'email_admin_pending_approval_body'   => 'sanitize_textarea_field',
+
+        'email_fai_booking_expired_subject'   => 'sanitize_text_field',
+        'email_fai_booking_expired_title'     => 'sanitize_text_field',
+        'email_fai_booking_expired_body'      => 'sanitize_textarea_field',
+
         // Tab Avanzate & Toggle
-        'enable_admin_notification'   => 'sanitize_text_field', // 'yes' o 'no'
-        'enable_reminder_24h'         => 'sanitize_text_field', // 'yes' o 'no'
-        'enable_auto_waitlist'        => 'sanitize_text_field', // 'yes' o 'no'
-        'enable_auto_complete_paid'   => 'sanitize_text_field', // 'yes' o 'no'
-        'enable_auto_verify_fai'      => 'sanitize_text_field', // 'yes' o 'no' — default 'no'
+        'enable_admin_notification'           => 'sanitize_text_field', // 'yes' o 'no'
+        'enable_reminder_24h'                 => 'sanitize_text_field', // 'yes' o 'no'
+        'enable_payment_reminder'             => 'sanitize_text_field', // 'yes' o 'no'
+        'enable_admin_pending_approval_reminder' => 'sanitize_text_field', // 'yes' o 'no'
+        'enable_auto_cancel_unverified_fai'   => 'sanitize_text_field', // 'yes' o 'no'
+        'enable_auto_waitlist'                => 'sanitize_text_field', // 'yes' o 'no'
+        'enable_auto_complete_paid'           => 'sanitize_text_field', // 'yes' o 'no'
+        'enable_auto_verify_fai'              => 'sanitize_text_field', // 'yes' o 'no' — default 'no'
     ];
 
     $merged_settings = $existing_settings;
@@ -178,6 +193,9 @@ function dfn_settings_save_fields(): void
         $toggle_keys = [
             'enable_admin_notification',
             'enable_reminder_24h',
+            'enable_payment_reminder',
+            'enable_admin_pending_approval_reminder',
+            'enable_auto_cancel_unverified_fai',
             'enable_auto_waitlist',
             'enable_auto_complete_paid',
             'enable_auto_verify_fai',
@@ -920,6 +938,45 @@ function dfn_render_settings_page(): void
                                     ['id' => 'email_fai_rejected_body',    'key' => 'body',    'label' => 'Corpo Messaggio',             'type' => 'textarea', 'rows' => 4, 'desc' => 'Spiegazione e richiesta di regolarizzazione.'],
                                 ],
                             ],
+                            [
+                                'num'       => '10',
+                                'label'     => 'Promemoria Pagamento Online (Reminder Cliente a Metà Tempo)',
+                                'type'      => 'payment_reminder',
+                                'name'      => 'Promemoria Pagamento',
+                                'new'       => true,
+                                'tags'      => ['{nome_cliente}', '{nome_evento}', '{ore_rimaste}', '{data_ora_scadenza}', '{dettagli_prenotazione}', '{link_pagamento}'],
+                                'fields'    => [
+                                    ['id' => 'email_payment_reminder_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',              'type' => 'text',     'desc' => 'Oggetto del promemoria automatico di pagamento inviato a metà del tempo di riserva.'],
+                                    ['id' => 'email_payment_reminder_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)', 'type' => 'text',     'desc' => 'Titolo principale in testata del promemoria.'],
+                                    ['id' => 'email_payment_reminder_intro',   'key' => 'intro',   'label' => 'Corpo Introduttivo',          'type' => 'textarea', 'rows' => 4, 'desc' => 'Messaggio che invita a completare il contributo prima che i posti vengano liberati.'],
+                                ],
+                            ],
+                            [
+                                'num'       => '11',
+                                'label'     => 'Sollecito Staff: Prenotazione in Attesa di Verifica (Alert Admin)',
+                                'type'      => 'admin_pending_approval',
+                                'name'      => 'Sollecito Staff Verifiche',
+                                'new'       => true,
+                                'tags'      => ['{booking_id}', '{order_id}', '{nome_evento}', '{ore_trascorse}', '{ore_totali}', '{dettagli_prenotazione}', '{link_approvazione}'],
+                                'fields'    => [
+                                    ['id' => 'email_admin_pending_approval_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',              'type' => 'text',     'desc' => 'Oggetto dell\'avviso inviato all\'amministratore quando una prenotazione attende verifica da metà del tempo.'],
+                                    ['id' => 'email_admin_pending_approval_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)', 'type' => 'text',     'desc' => 'Titolo in testata dell\'alert allo staff.'],
+                                    ['id' => 'email_admin_pending_approval_body',    'key' => 'body',    'label' => 'Corpo Messaggio',             'type' => 'textarea', 'rows' => 4, 'desc' => 'Testo che segnala allo staff la necessità di verificare la prenotazione.'],
+                                ],
+                            ],
+                            [
+                                'num'       => '12',
+                                'label'     => 'Scadenza Richiesta di Prenotazione (Non Verificata dallo Staff)',
+                                'type'      => 'fai_booking_expired',
+                                'name'      => 'Scadenza Richiesta Staff',
+                                'new'       => true,
+                                'tags'      => ['{nome_cliente}', '{nome_evento}', '{ore_totali}'],
+                                'fields'    => [
+                                    ['id' => 'email_fai_booking_expired_subject', 'key' => 'subject', 'label' => 'Oggetto E-mail',              'type' => 'text',     'desc' => 'Oggetto notifica scadenza richiesta per decorrenza del termine massimo senza verifica staff.'],
+                                    ['id' => 'email_fai_booking_expired_title',   'key' => 'title',   'label' => 'Titolo Banner Verde (Header)', 'type' => 'text',     'desc' => 'Titolo in testata.'],
+                                    ['id' => 'email_fai_booking_expired_body',    'key' => 'body',    'label' => 'Corpo Messaggio',             'type' => 'textarea', 'rows' => 4, 'desc' => 'Comunicazione che i posti sono stati liberati per decorrenza termini.'],
+                                ],
+                            ],
                         ];
                         ?>
 
@@ -1276,6 +1333,36 @@ function dfn_render_settings_page(): void
                                         Sì, invia automaticamente l'email di promemoria pre-evento agli utenti.
                                     </label>
                                     <p class="description"><strong>Comportamento:</strong> Controlla se il cron job è autorizzato a spedire l'e-mail di promemoria automatica prima del turno prenotato.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Abilitare promemoria di pagamento ordine pendente (Reminder Cliente)</th>
+                                <td>
+                                    <label for="enable_payment_reminder">
+                                        <input name="dfn_settings[enable_payment_reminder]" type="checkbox" id="enable_payment_reminder" value="yes" <?php checked(dfn_get_setting('enable_payment_reminder', 'yes'), 'yes'); ?> />
+                                        Sì, invia automaticamente un'email di reminder al cliente a metà del tempo di riserva (es. dopo 12h se 24h) con il link diretto di pagamento.
+                                    </label>
+                                    <p class="description"><strong>Comportamento:</strong> Si applica solo agli ordini online con tempo di riserva &gt; 0 ore. Il timer parte dall'invio del link di pagamento (dopo l'approvazione staff) e sollecita l'utente prima dell'annullamento automatico.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Abilitare sollecito allo staff per verifiche in sospeso (Alert Admin)</th>
+                                <td>
+                                    <label for="enable_admin_pending_approval_reminder">
+                                        <input name="dfn_settings[enable_admin_pending_approval_reminder]" type="checkbox" id="enable_admin_pending_approval_reminder" value="yes" <?php checked(dfn_get_setting('enable_admin_pending_approval_reminder', 'yes'), 'yes'); ?> />
+                                        Sì, invia un alert email allo staff se una prenotazione in attesa di verifica non viene gestita a metà del tempo di riserva.
+                                    </label>
+                                    <p class="description"><strong>Comportamento:</strong> Ricorda agli amministratori/volontari di convalidare o rifiutare le tessere FAI prima che scada il tempo massimo di riserva.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Abilitare auto-annullamento richieste non verificate dallo staff</th>
+                                <td>
+                                    <label for="enable_auto_cancel_unverified_fai">
+                                        <input name="dfn_settings[enable_auto_cancel_unverified_fai]" type="checkbox" id="enable_auto_cancel_unverified_fai" value="yes" <?php checked(dfn_get_setting('enable_auto_cancel_unverified_fai', 'yes'), 'yes'); ?> />
+                                        Sì, annulla automaticamente le richieste in attesa di verifica se lo staff non risponde entro il tempo massimo di riserva dell'evento.
+                                    </label>
+                                    <p class="description"><strong>Comportamento:</strong> Evita che i posti rimangano congelati all'infinito nel turno. Al termine del tempo (es. 24h), rilascia la capienza nel turno e notifica il cliente.</p>
                                 </td>
                             </tr>
                             <tr>
@@ -1758,6 +1845,99 @@ function dfn_ajax_send_test_email(): void
 
             $subject = dfn_replace_email_placeholders(dfn_get_setting('email_fai_booking_rejected_subject'), $replacements);
             $title   = dfn_replace_email_placeholders(dfn_get_setting('email_fai_booking_rejected_title'), $replacements);
+            break;
+
+        case 'payment_reminder':
+            $details_table_pr = '<div class="info-box" style="border-left: 4px solid ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; background-color: #f7fafc; padding: 18px 20px; margin: 20px 0; border-radius: 0 6px 6px 0;">';
+            $details_table_pr .= '<div class="info-box-title" style="font-weight: bold; font-size: 15px; color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; margin-bottom: 8px;">Dettagli della Prenotazione Riservata</div>';
+            $details_table_pr .= '<table style="width: 100%; border-collapse: collapse;">';
+            $details_table_pr .= '<tr><td style="padding: 6px 0; color: #718096; width: 140px;">Evento:</td><td style="padding: 6px 0; font-weight: bold;">' . esc_html($product_name) . '</td></tr>';
+            $details_table_pr .= '<tr><td style="padding: 6px 0; color: #718096;">Turno:</td><td style="padding: 6px 0; font-weight: bold;">' . esc_html($slot_info) . '</td></tr>';
+            $details_table_pr .= '<tr><td style="padding: 6px 0; color: #718096;">Partecipanti:</td><td style="padding: 6px 0;">2 totali (1 Standard, 1 Socio FAI)</td></tr>';
+            $details_table_pr .= '<tr><td style="padding: 6px 0; color: #718096;">Totale Contributo:</td><td style="padding: 6px 0; font-weight: bold; color: #2d3748;">15,00 €</td></tr>';
+            $details_table_pr .= '<tr><td style="padding: 6px 0; color: #718096;">Scadenza Riserva:</td><td style="padding: 6px 0; font-weight: bold; color: #d97706;">⏱️ ' . date('H:i \d\e\l d/m/Y', strtotime('+12 hours')) . ' (mancano ca. 12 ore)</td></tr>';
+            $details_table_pr .= '</table>';
+            $details_table_pr .= '</div>';
+
+            $cta_btn_pr = '<div style="text-align: center; margin: 30px 0 25px 0;">';
+            $cta_btn_pr .= '<a href="' . esc_url(home_url('/')) . '" style="background-color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">';
+            $cta_btn_pr .= esc_html__('👉 Paga e Conferma i tuoi Posti Adesso', 'dfn-theme');
+            $cta_btn_pr .= '</a>';
+            $cta_btn_pr .= '</div>';
+
+            $replacements = [
+                'nome_cliente'          => esc_html($customer_name),
+                'nome_evento'           => esc_html($product_name),
+                'dettagli_prenotazione' => $details_table_pr,
+                'link_pagamento'        => $cta_btn_pr,
+                'ore_rimaste'           => '12',
+                'data_ora_scadenza'     => date('H:i \d\e\l d/m/Y', strtotime('+12 hours')),
+                'totale_ordine'         => '15,00 €',
+            ];
+            $intro_template = dfn_get_setting('email_payment_reminder_intro');
+            $content = dfn_replace_email_placeholders($intro_template, $replacements);
+
+            if (strpos($intro_template, '{dettagli_prenotazione}') === false) {
+                $content .= $details_table_pr;
+            }
+            if (strpos($intro_template, '{link_pagamento}') === false) {
+                $content .= $cta_btn_pr;
+            }
+
+            $subject = dfn_replace_email_placeholders(dfn_get_setting('email_payment_reminder_subject'), $replacements);
+            $title   = dfn_replace_email_placeholders(dfn_get_setting('email_payment_reminder_title'), $replacements);
+            break;
+
+        case 'admin_pending_approval':
+            $details_table_apa = '<div class="info-box" style="border-left: 4px solid #d97706; background-color: #fffbeb; padding: 18px 20px; margin: 20px 0; border-radius: 0 6px 6px 0;">';
+            $details_table_apa .= '<div class="info-box-title" style="font-weight: bold; font-size: 15px; color: #b45309; margin-bottom: 8px;">Dettagli Richiesta in Attesa</div>';
+            $details_table_apa .= '<table style="width: 100%; border-collapse: collapse;">';
+            $details_table_apa .= '<tr><td style="padding: 6px 0; color: #718096; width: 140px;">Evento:</td><td style="padding: 6px 0; font-weight: bold;">' . esc_html($product_name) . '</td></tr>';
+            $details_table_apa .= '<tr><td style="padding: 6px 0; color: #718096;">Cliente:</td><td style="padding: 6px 0; font-weight: bold;">' . esc_html($customer_name) . ' (' . esc_html($destination) . ')</td></tr>';
+            $details_table_apa .= '<tr><td style="padding: 6px 0; color: #718096;">Partecipanti:</td><td style="padding: 6px 0;">2 totali (1 Socio FAI)</td></tr>';
+            $details_table_apa .= '<tr><td style="padding: 6px 0; color: #718096;">In attesa da:</td><td style="padding: 6px 0; font-weight: bold; color: #b45309;">12 ore (Scadenza riserva tra 12h)</td></tr>';
+            $details_table_apa .= '</table>';
+            $details_table_apa .= '</div>';
+
+            $cta_btn_apa = '<div style="text-align: center; margin: 25px 0;">';
+            $cta_btn_apa .= '<a href="' . esc_url(admin_url('admin.php?page=dfn-fai-pending-bookings')) . '" style="background-color: ' . esc_attr(dfn_get_setting('email_primary_color', '#004b23')) . '; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 15px; display: inline-block;">';
+            $cta_btn_apa .= esc_html__('🔍 Apri Pannello Verifiche FAI', 'dfn-theme');
+            $cta_btn_apa .= '</a>';
+            $cta_btn_apa .= '</div>';
+
+            $replacements = [
+                'booking_id'            => '123',
+                'order_id'              => '4567',
+                'nome_evento'           => esc_html($product_name),
+                'ore_trascorse'         => '12',
+                'ore_totali'            => '24',
+                'dettagli_prenotazione' => $details_table_apa,
+                'link_approvazione'     => $cta_btn_apa,
+            ];
+
+            $body_template = dfn_get_setting('email_admin_pending_approval_body');
+            $content = dfn_replace_email_placeholders($body_template, $replacements);
+
+            if (strpos($body_template, '{dettagli_prenotazione}') === false) {
+                $content .= $details_table_apa;
+            }
+            if (strpos($body_template, '{link_approvazione}') === false) {
+                $content .= $cta_btn_apa;
+            }
+
+            $subject = dfn_replace_email_placeholders(dfn_get_setting('email_admin_pending_approval_subject'), $replacements);
+            $title   = dfn_replace_email_placeholders(dfn_get_setting('email_admin_pending_approval_title'), $replacements);
+            break;
+
+        case 'fai_booking_expired':
+            $replacements = [
+                'nome_cliente' => esc_html($customer_name),
+                'nome_evento'  => esc_html($product_name),
+                'ore_totali'   => '24',
+            ];
+            $content = dfn_replace_email_placeholders(dfn_get_setting('email_fai_booking_expired_body'), $replacements);
+            $subject = dfn_replace_email_placeholders(dfn_get_setting('email_fai_booking_expired_subject'), $replacements);
+            $title   = dfn_replace_email_placeholders(dfn_get_setting('email_fai_booking_expired_title'), $replacements);
             break;
 
         default:

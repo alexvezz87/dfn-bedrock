@@ -54,6 +54,9 @@ function dfn_get_setting($key, $default = null)
         'text_checkout_btn'           => 'Effettua Prenotazione',
         'enable_admin_notification'   => 'yes',
         'enable_reminder_24h'         => 'yes',
+        'enable_payment_reminder'     => 'yes',
+        'enable_admin_pending_approval_reminder' => 'yes',
+        'enable_auto_cancel_unverified_fai'      => 'yes',
         'enable_auto_waitlist'        => 'yes',
         'enable_auto_complete_paid'   => 'yes',
         'setup_roles_version'         => '2.0',
@@ -105,6 +108,18 @@ function dfn_get_setting($key, $default = null)
         'email_fai_booking_rejected_subject'  => 'Richiesta di Prenotazione Rifiutata: {nome_evento}',
         'email_fai_booking_rejected_title'    => 'Richiesta non Approvata',
         'email_fai_booking_rejected_body'     => "Gentile <strong>{nome_cliente}</strong>,<br><br>Siamo spiacenti di informarti che la tua richiesta di prenotazione per l'evento <strong>{nome_evento}</strong> non è stata approvata dallo staff.<br><br>Ciò può essere dovuto al superamento della capacità massima dei turni disponibili o ad altre esigenze logistiche organizzative.",
+
+        'email_payment_reminder_subject'      => '⏳ Promemoria: mancano {ore_rimaste} ore per confermare la tua prenotazione per {nome_evento}',
+        'email_payment_reminder_title'        => 'I tuoi posti sono ancora riservati!',
+        'email_payment_reminder_intro'        => "Gentile <strong>{nome_cliente}</strong>,<br><br>Ti ricordiamo che la tua richiesta di prenotazione per l'evento <strong>{nome_evento}</strong> è stata approvata ed è in attesa del contributo online per essere confermata definitivamente.<br><br>I tuoi posti rimarranno riservati ancora per <strong>{ore_rimaste} ore</strong> (fino alle ore <strong>{data_ora_scadenza}</strong>). Ti invitiamo a completare il pagamento tramite il pulsante sottostante per confermare la tua partecipazione ed accedere al biglietto digitale con QR Code.",
+
+        'email_admin_pending_approval_subject'=> '⚠️ Sollecito Staff: Prenotazione in attesa di verifica ({nome_evento})',
+        'email_admin_pending_approval_title'  => 'Sollecito Verifica Prenotazione',
+        'email_admin_pending_approval_body'   => "Gentile Staff,<br><br>Ti segnaliamo che la prenotazione <strong>#{booking_id}</strong> (Ordine #{order_id}) per l'evento <strong>{nome_evento}</strong> è in attesa di verifica da <strong>{ore_trascorse} ore</strong>.<br><br>Ti ricordiamo che, se non confermata o gestita entro il tempo massimo di riserva ({ore_totali} ore), la prenotazione scadrà automaticamente liberando i posti nel turno.",
+
+        'email_fai_booking_expired_subject'   => 'Scadenza Richiesta di Prenotazione: {nome_evento}',
+        'email_fai_booking_expired_title'     => 'Richiesta di Prenotazione Scaduta',
+        'email_fai_booking_expired_body'      => "Gentile <strong>{nome_cliente}</strong>,<br><br>Ti informiamo che la tua richiesta di prenotazione per l'evento <strong>{nome_evento}</strong> è scaduta per decorrenza del tempo massimo di riserva ({ore_totali} ore) senza convalida da parte dello staff.<br><br>I posti sono stati liberati. Se desideri ancora partecipare, ti invitiamo a consultare le disponibilità ed effettuare una nuova prenotazione.",
     ];
 
     if (isset($settings[ $key ])) {
