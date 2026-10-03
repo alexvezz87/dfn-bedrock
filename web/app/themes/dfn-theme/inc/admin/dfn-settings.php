@@ -1058,7 +1058,13 @@ function dfn_render_settings_page(): void
                                 '{url_annullamento}': '#annulla-prenotazione',
                                 '{numero_tessera}': '12345678',
                                 '{motivo_rifiuto}': 'Raggiunta la capienza massima del turno o tessera non rinnovata per l\'anno in corso.',
-                                '{ore_waitlist}': '2'
+                                '{ore_waitlist}': '2',
+                                '{ore_rimaste}': '12',
+                                '{data_ora_scadenza}': '18:30 di oggi',
+                                '{ore_trascorse}': '12',
+                                '{ore_totali}': '24',
+                                '{booking_id}': '123',
+                                '{order_id}': '4567'
                             };
 
                             function escapeHtml(str) {
@@ -1218,13 +1224,55 @@ function dfn_render_settings_page(): void
                                     html += '<div class="info-box-title" style="color:#dc2626;">Motivazione dello Staff</div>';
                                     html += '<p style="margin:0; font-size:13.5px; color:#334155;">' + sampleBookingData['{motivo_rifiuto}'] + '</p>';
                                     html += '</div>';
+                                } else if (emailType === 'payment_reminder') {
+                                    var introText = introEl ? introEl.value : '';
+                                    html += formatTextParagraphs(introText);
+
+                                    html += '<div class="info-box">';
+                                    html += '<div class="info-box-title">Dettagli della Prenotazione Riservata</div>';
+                                    html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b; width:120px;">Evento:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">' + sampleBookingData['{nome_evento}'] + '</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Turno:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">Sabato 12 Ottobre 2026 - ore 15:30</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Partecipanti:</td><td style="padding:4px 0; color:#0f172a;">2 totali (1 Standard + 1 Socio FAI)</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Totale Contributo:</td><td style="padding:4px 0; font-weight:700; color:#004b23;">15,00 €</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Scadenza Riserva:</td><td style="padding:4px 0; font-weight:700; color:#d97706;">⏱️ ' + sampleBookingData['{data_ora_scadenza}'] + ' (mancano ca. ' + sampleBookingData['{ore_rimaste}'] + ' ore)</td></tr>';
+                                    html += '</table></div>';
+
+                                    html += '<div style="text-align:center; margin:22px 0 15px;"><a href="#" class="button" onclick="return false;">👉 Paga e Conferma i tuoi Posti Adesso</a></div>';
+                                    html += '<p style="text-align:center; font-size:11.5px; color:#64748b;">Oppure copia questo link nel browser: <span style="color:#004b23; word-break:break-all;">https://fai.example.com/checkout/order-pay/...</span></p>';
+                                } else if (emailType === 'admin_pending_approval') {
+                                    var bodyText = bodyEl ? bodyEl.value : '';
+                                    html += formatTextParagraphs(bodyText);
+
+                                    html += '<div class="info-box" style="border-left-color:#d97706; background-color:#fffbeb;">';
+                                    html += '<div class="info-box-title" style="color:#b45309;">Dettagli Richiesta in Attesa</div>';
+                                    html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b; width:120px;">Evento:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">' + sampleBookingData['{nome_evento}'] + '</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Cliente:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">Mario Rossi (mario.rossi@example.com)</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Partecipanti:</td><td style="padding:4px 0; color:#0f172a;">2 totali (2 Soci FAI)</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">In attesa da:</td><td style="padding:4px 0; font-weight:700; color:#b45309;">' + sampleBookingData['{ore_trascorse}'] + ' ore (Scadenza riserva tra 12h)</td></tr>';
+                                    html += '</table></div>';
+
+                                    html += '<div style="text-align:center; margin:20px 0;"><a href="#" class="button" onclick="return false;">🔍 Apri Pannello Verifiche FAI</a></div>';
+                                } else if (emailType === 'fai_booking_expired') {
+                                    var bodyText = bodyEl ? bodyEl.value : '';
+                                    html += formatTextParagraphs(bodyText);
+
+                                    html += '<div class="info-box" style="border-left-color:#dc2626;">';
+                                    html += '<div class="info-box-title" style="color:#dc2626;">Riepilogo Scadenza Richiesta</div>';
+                                    html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b; width:120px;">Evento:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;">' + sampleBookingData['{nome_evento}'] + '</td></tr>';
+                                    html += '<tr><td style="padding:4px 0; color:#64748b;">Stato:</td><td style="padding:4px 0; font-weight:700; color:#dc2626;">SCADUTA PER DECORRENZA TERMINI (' + sampleBookingData['{ore_totali}'] + 'h)</td></tr>';
+                                    html += '</table></div>';
+
+                                    html += '<p style="font-size:13.5px; color:#64748b;">I posti precedentemente riservati sono stati liberati e resi nuovamente disponibili a tutti i visitatori.</p>';
                                 }
 
                                 bodyTarget.innerHTML = html;
                             }
 
                             // Inizializza tutte le anteprime
-                            var allTypes = ['confirm', 'modify', 'pending', 'declined', 'fai_booking_rejected', 'cancelled', 'admin_cancelled', 'reminder', 'waitlist', 'fai_approved', 'fai_rejected'];
+                            var allTypes = ['confirm', 'modify', 'pending', 'declined', 'fai_booking_rejected', 'cancelled', 'admin_cancelled', 'reminder', 'waitlist', 'fai_approved', 'fai_rejected', 'payment_reminder', 'admin_pending_approval', 'fai_booking_expired'];
                             allTypes.forEach(function(t) {
                                 renderBookingPreview(t);
                             });
