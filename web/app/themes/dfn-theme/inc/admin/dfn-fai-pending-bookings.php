@@ -279,9 +279,16 @@ function dfn_render_fai_pending_bookings(): void
 
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px;">
                     <div style="font-size: 13.5px; font-weight: 700; color: #0f172a;" id="dfn-val-holder-display">Nome Cognome</div>
-                    <div style="font-size: 12.5px; color: #475569; margin-top: 2px;">
-                        Tessera N°: <strong id="dfn-val-card-display" style="color: #004b23; font-family: monospace; font-size: 13.5px;">123456</strong>
-                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label for="dfn-val-card-number" style="display: block; font-weight: 700; font-size: 12.5px; margin-bottom: 4px; color: #334155;">
+                        💳 <?php esc_html_e('Numero Tessera FAI', 'dfn-theme'); ?> <span style="color: #dc2626;">*</span>
+                    </label>
+                    <input type="text" id="dfn-val-card-number" required placeholder="<?php esc_attr_e('Es. 123456', 'dfn-theme'); ?>" style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 36px; padding: 0 10px; font-size: 13px; font-weight: 600; font-family: monospace; color: #004b23;">
+                    <p style="font-size: 11px; color: #64748b; margin: 4px 0 0;">
+                        <?php esc_html_e('Numero di tessera comunicato durante la prenotazione. Modificalo se è presente un refuso.', 'dfn-theme'); ?>
+                    </p>
                 </div>
 
                 <div style="margin-bottom: 14px;">

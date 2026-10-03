@@ -1878,6 +1878,7 @@ function dfn_ajax_validate_single_fai_card(): void
 
     $booking_id      = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
     $card_number     = isset($_POST['card_number']) ? sanitize_text_field($_POST['card_number']) : '';
+    $old_card_number = isset($_POST['old_card_number']) ? sanitize_text_field($_POST['old_card_number']) : $card_number;
     $fai_registry_id = isset($_POST['fai_registry_id']) ? sanitize_text_field($_POST['fai_registry_id']) : '';
     $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
     $card_type       = ! empty($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
@@ -1904,8 +1905,9 @@ function dfn_ajax_validate_single_fai_card(): void
     $holder_last  = '';
     if (is_array($fai_cards)) {
         foreach ($fai_cards as &$c) {
-            if (isset($c['tessera']) && $c['tessera'] === $card_number) {
-                $c['status'] = 'approved';
+            if (isset($c['tessera']) && ($c['tessera'] === $card_number || $c['tessera'] === $old_card_number)) {
+                $c['tessera'] = $card_number;
+                $c['status']  = 'approved';
                 if (! empty($fai_registry_id)) {
                     $c['fai_registry_id'] = $fai_registry_id;
                 }
@@ -1921,16 +1923,18 @@ function dfn_ajax_validate_single_fai_card(): void
 
     // Aggiorna o inserisce il socio nell'anagrafica globale dei soci FAI
     $existing_member = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$table_members} WHERE card_number = %s LIMIT 1",
-        $card_number
+        "SELECT * FROM {$table_members} WHERE card_number = %s OR card_number = %s LIMIT 1",
+        $card_number,
+        $old_card_number
     ));
 
     $update_data = [
+        'card_number' => $card_number,
         'verified'    => 1,
         'verified_by' => get_current_user_id(),
         'verified_at' => current_time('mysql'),
     ];
-    $update_format = ['%d', '%d', '%s'];
+    $update_format = ['%s', '%d', '%d', '%s'];
 
     if (! empty($fai_registry_id)) {
         $update_data['fai_registry_id'] = $fai_registry_id;
@@ -1949,9 +1953,9 @@ function dfn_ajax_validate_single_fai_card(): void
         $wpdb->update(
             $table_members,
             $update_data,
-            ['card_number' => $card_number],
+            ['id' => $existing_member->id],
             $update_format,
-            ['%s']
+            ['%d']
         );
     } else {
         $first_name = function_exists('dfn_sanitize_name') ? dfn_sanitize_name($holder_first) : $holder_first;
@@ -1959,7 +1963,6 @@ function dfn_ajax_validate_single_fai_card(): void
         $wpdb->insert(
             $table_members,
             array_merge($update_data, [
-                'card_number' => $card_number,
                 'first_name'  => $first_name,
                 'last_name'   => $last_name,
                 'email'       => $booking->customer_email,
@@ -1971,6 +1974,9 @@ function dfn_ajax_validate_single_fai_card(): void
 
     if (function_exists('dfn_log_fai_card')) {
         $log_notes = "Ordine #{$booking->order_id} (Prenotazione #{$booking_id} - {$booking->customer_name})";
+        if ($old_card_number !== $card_number) {
+            $log_notes .= " | N° Tessera corretto da {$old_card_number} a {$card_number}";
+        }
         if (! empty($fai_registry_id)) {
             $log_notes .= " | ID SiVol: {$fai_registry_id}";
         }
