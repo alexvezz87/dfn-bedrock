@@ -27,7 +27,7 @@
         $('#dfn-val-booking-id').val(bookingId);
         $('#dfn-val-card-number-hidden').val(cardNumber);
         $('#dfn-val-holder-display').text(holderName || 'Titolare non specificato');
-        $('#dfn-val-card-display').text(cardNumber);
+        $('#dfn-val-card-number').val(cardNumber);
         $('#dfn-val-fai-registry-id').val(registryId);
         $('#dfn-val-card-expiry').val(expiryDate);
         $('#dfn-val-card-type').val(cardType);
@@ -51,12 +51,13 @@
     $(document).on('submit', '#dfn-val-card-form', function (e) {
         e.preventDefault();
 
-        const bookingId  = $('#dfn-val-booking-id').val();
-        const cardNumber = $('#dfn-val-card-number-hidden').val();
-        const registryId = $('#dfn-val-fai-registry-id').val().trim();
-        const expiryDate = $('#dfn-val-card-expiry').val();
-        const cardType   = $('#dfn-val-card-type').val();
-        const $submitBtn = $('#dfn-val-modal-submit');
+        const bookingId     = $('#dfn-val-booking-id').val();
+        const oldCardNumber = $('#dfn-val-card-number-hidden').val();
+        const cardNumber    = $('#dfn-val-card-number').val().trim() || oldCardNumber;
+        const registryId    = $('#dfn-val-fai-registry-id').val().trim();
+        const expiryDate    = $('#dfn-val-card-expiry').val();
+        const cardType      = $('#dfn-val-card-type').val();
+        const $submitBtn    = $('#dfn-val-modal-submit');
 
         $submitBtn.prop('disabled', true).text(dfnPendingVars.processing || 'Salvataggio...');
 
@@ -67,6 +68,7 @@
                 action:          'dfn_validate_single_fai_card',
                 nonce:           dfnPendingVars.nonce,
                 booking_id:      bookingId,
+                old_card_number: oldCardNumber,
                 card_number:     cardNumber,
                 fai_registry_id: registryId,
                 card_expiry:     expiryDate,
