@@ -184,10 +184,13 @@ if ($booking && ! empty($booking->qr_token)) {
 
             </div>
 
-        <?php endif; ?>
+            <!-- Dettaglio Completo Ordine & Dati di Fatturazione tramite hook standard WooCommerce -->
+            <div class="dfn-thankyou-bottom-sections">
+                <?php do_action('woocommerce_thankyou_' . $order->get_payment_method(), $order->get_id()); ?>
+                <?php do_action('woocommerce_thankyou', $order->get_id()); ?>
+            </div>
 
-        <?php do_action('woocommerce_thankyou_' . $order->get_payment_method(), $order->get_id()); ?>
-        <?php do_action('woocommerce_thankyou', $order->get_id()); ?>
+        <?php endif; ?>
 
     <?php else : ?>
 

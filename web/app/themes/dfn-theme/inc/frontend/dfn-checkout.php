@@ -81,6 +81,51 @@ function dfn_deduplicate_checkout_fields($fields)
 add_filter('woocommerce_checkout_fields', 'dfn_deduplicate_checkout_fields', 9999);
 
 /**
+ * Pulisce le righe dei totali ordine per evitare che checkbox legali o campi booleani
+ * vengano stampati come voci di costo nella tabella dei totali della Thank You page.
+ *
+ * @param array $total_rows
+ * @param WC_Order $order
+ * @param string $tax_display
+ * @return array
+ */
+function dfn_clean_order_item_totals($total_rows, $order, $tax_display)
+{
+    if (! is_array($total_rows)) {
+        return $total_rows;
+    }
+
+    foreach ($total_rows as $key => $row) {
+        if (
+            strpos(strtolower($key), 'accettazione') !== false
+            || strpos(strtolower($key), 'thwcfd') !== false
+            || (isset($row['label']) && (
+                stripos($row['label'], 'accettazione') !== false
+                || stripos($row['label'], 'rimborsabile') !== false
+                || stripos($row['label'], 'questo contributo') !== false
+                || stripos($row['label'], 'fondazione') !== false
+            ))
+            || (isset($row['value']) && ($row['value'] === '1' || $row['value'] === 1))
+        ) {
+            unset($total_rows[$key]);
+        }
+    }
+    return $total_rows;
+}
+add_filter('woocommerce_get_order_item_totals', 'dfn_clean_order_item_totals', 99, 3);
+
+/**
+ * Rimuove il campo di consenso / accettazione dai dettagli ordine di THWCFD.
+ */
+add_filter('thwcfd_order_details_display_fields', function ($fields) {
+    if (is_array($fields) && isset($fields['accettazione'])) {
+        unset($fields['accettazione']);
+    }
+    return $fields;
+}, 999);
+add_filter('thwcfd_display_custom_fields_in_order_details', '__return_false', 999);
+
+/**
  * Rende facoltativo o nasconde lo stato di necessità del pagamento se il totale è zero.
  * Garantisce che l'ordine possa essere completato senza gateway di pagamento attivi se gratuito.
  *

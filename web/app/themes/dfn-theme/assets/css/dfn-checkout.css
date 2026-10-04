@@ -1507,6 +1507,166 @@ label.dfn-privacy-consent-label {
     margin-right: 4px;
 }
 
+/* Sezioni Inferiori Thank You Page (Dettagli Ordine & Dati di Fatturazione) */
+.dfn-thankyou-bottom-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-top: 24px;
+}
+
+body.woocommerce-order-received h2.woocommerce-order-details__title,
+body.woocommerce-order-received h2.woocommerce-column__title,
+body.woocommerce-order-received .woocommerce-order-details > h2,
+body.woocommerce-order-received .woocommerce-customer-details > h2 {
+    display: none !important;
+}
+
+body.woocommerce-order-received section.woocommerce-order-details,
+body.woocommerce-order-received section.woocommerce-customer-details {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Nasconde tabelle grezze di campi custom / disclaimer THWCFD */
+.thwcfd-order-details,
+.thwcfd-order-details-table,
+.thwcfd-custom-fields-table,
+table.thwcfd-order-details-table,
+.dfn-thankyou-table-wrapper + table,
+.dfn-thankyou-order-details-card table:not(.dfn-review-table) {
+    display: none !important;
+}
+
+.dfn-order-item-link {
+    color: #1e293b !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+    transition: color 0.15s ease;
+}
+
+.dfn-order-item-link:hover {
+    color: #004b23 !important;
+    text-decoration: underline !important;
+}
+
+.dfn-item-meta-list {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.dfn-order-note-row th {
+    color: #64748b !important;
+    font-weight: 500 !important;
+}
+
+.dfn-order-note-row td {
+    color: #334155 !important;
+    font-style: italic;
+    text-align: right !important;
+}
+
+/* Griglia Dati di Fatturazione Cliente */
+.dfn-customer-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.dfn-customer-details-grid.has-shipping {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+.dfn-customer-column {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.dfn-customer-section-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #004b23;
+    margin: 0 0 14px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dfn-customer-info-box {
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #334155;
+}
+
+.dfn-customer-name strong {
+    color: #0f172a;
+    font-size: 15px;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.dfn-customer-company {
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 500;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.dfn-customer-address {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 13.5px;
+    color: #475569;
+}
+
+.dfn-customer-contacts-box {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.dfn-contact-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13.5px;
+}
+
+.dfn-contact-icon {
+    font-size: 16px;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.dfn-contact-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 2px;
+}
+
+.dfn-contact-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    word-break: break-word;
+}
+
 /* Fallimento ordine */
 .dfn-failed-card {
     text-align: center;
