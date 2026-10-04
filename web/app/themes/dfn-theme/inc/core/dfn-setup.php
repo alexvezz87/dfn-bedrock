@@ -206,13 +206,15 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
             ]);
         }
 
-        // Enqueue condizionale per l'Express Checkout (solo nelle pagine checkout)
-        if (is_checkout() && ! is_order_received_page()) {
+        // Enqueue nativo per il Checkout DFN (checkout standard, order-pay, thankyou)
+        if (is_checkout()) {
             wp_enqueue_style(
-                'dfn-checkout-express-css',
-                trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-checkout-express.css',
+                'dfn-checkout-css',
+                trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-checkout.css',
                 [],
-                '2.0.0',
+                file_exists(get_stylesheet_directory() . '/assets/css/dfn-checkout.css')
+                    ? (string) filemtime(get_stylesheet_directory() . '/assets/css/dfn-checkout.css')
+                    : '2.0.0',
             );
         }
     }
