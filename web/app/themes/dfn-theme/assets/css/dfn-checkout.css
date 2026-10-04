@@ -157,12 +157,28 @@ body.woocommerce-order-received .titolo-checkout {
 }
 
 .woocommerce-checkout .dfn-privacy-consent-label,
-.woocommerce-order-pay .dfn-privacy-consent-label {
+.woocommerce-order-pay .dfn-privacy-consent-label,
+label.dfn-privacy-consent-label {
+    display: block !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
     font-size: 12px !important;
     line-height: 1.5 !important;
     color: #475569 !important;
     cursor: pointer !important;
-    word-break: break-word;
+    word-break: break-word !important;
+}
+
+.dfn-privacy-consent-label strong,
+.dfn-privacy-consent-label a,
+.dfn-privacy-consent-label em,
+.dfn-privacy-consent-label span {
+    display: inline !important;
+}
+
+.dfn-privacy-consent-label > strong:first-child {
+    display: block !important;
+    margin-bottom: 4px !important;
 }
 
 .woocommerce-checkout .dfn-privacy-consent-label strong,
@@ -362,14 +378,14 @@ body.woocommerce-order-received .titolo-checkout {
 }
 
 /* ==========================================================================
-   3. FORM CAMPI & INPUT WOOCOMMERCE
+   3. FORM CAMPI & INPUT WOOCOMMERCE — DESIGN ELEGANTE FAI
    ========================================================================== */
 .woocommerce-billing-fields__field-wrapper,
 .woocommerce-shipping-fields__field-wrapper,
 .woocommerce-additional-fields__field-wrapper {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: 18px;
 }
 
 .woocommerce-additional-fields {
@@ -420,181 +436,368 @@ body.woocommerce-order-received .titolo-checkout {
     grid-column: 2;
 }
 
-.form-row label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #334155;
-    margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+/* Etichette form eleganti (escludendo checkbox e privacy) */
+.woocommerce form .form-row:not(.thwcfd-field-checkbox):not(#accettazione_field) > label:not(.checkbox):not(.dfn-privacy-consent-label),
+.woocommerce-checkout .form-row:not(.thwcfd-field-checkbox):not(#accettazione_field) > label:not(.checkbox):not(.dfn-privacy-consent-label),
+.woocommerce-order-pay .form-row:not(.thwcfd-field-checkbox):not(#accettazione_field) > label:not(.checkbox):not(.dfn-privacy-consent-label) {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #334155 !important;
+    margin-bottom: 7px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    letter-spacing: 0.01em !important;
 }
 
-.form-row label .required {
-    color: #dc2626;
-    text-decoration: none;
-    font-weight: 700;
+.woocommerce form .form-row label .required,
+.woocommerce-checkout .form-row label .required {
+    color: #ef4444 !important;
+    text-decoration: none !important;
+    font-weight: 700 !important;
+    margin-left: 2px;
 }
 
-.form-row .input-text,
-.form-row select,
-.form-row textarea {
+/* Input text, select e textarea moderni ad alta definizione */
+.woocommerce-checkout input[type="text"],
+.woocommerce-checkout input[type="email"],
+.woocommerce-checkout input[type="tel"],
+.woocommerce-checkout input[type="password"],
+.woocommerce-checkout select,
+.woocommerce-checkout textarea,
+.woocommerce-checkout .input-text,
+.woocommerce-order-pay input[type="text"],
+.woocommerce-order-pay input[type="email"],
+.woocommerce-order-pay input[type="tel"],
+.woocommerce-order-pay input[type="password"],
+.woocommerce-order-pay select,
+.woocommerce-order-pay textarea,
+.woocommerce-order-pay .input-text,
+.woocommerce form .form-row input.input-text,
+.woocommerce form .form-row textarea,
+.woocommerce form .form-row select {
     width: 100% !important;
-    height: 44px;
-    padding: 10px 14px;
-    font-size: 14px;
+    height: 48px;
+    padding: 12px 16px;
+    font-size: 14.5px;
+    font-weight: 500;
     color: #0f172a;
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
+    background-color: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
     box-sizing: border-box;
-    transition: all 0.15s ease-in-out;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
 }
 
-.form-row textarea {
-    height: 90px;
+.woocommerce-checkout textarea,
+.woocommerce-order-pay textarea,
+.woocommerce form .form-row textarea {
+    height: 100px;
+    min-height: 100px;
+    line-height: 1.5;
     resize: vertical;
 }
 
-.form-row .input-text:focus,
-.form-row select:focus,
-.form-row textarea:focus {
-    border-color: #004b23;
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.12);
+.woocommerce-checkout input[type="text"]:hover,
+.woocommerce-checkout input[type="email"]:hover,
+.woocommerce-checkout input[type="tel"]:hover,
+.woocommerce-checkout input[type="password"]:hover,
+.woocommerce-checkout select:hover,
+.woocommerce-checkout textarea:hover,
+.woocommerce-checkout .input-text:hover,
+.woocommerce-order-pay input[type="text"]:hover,
+.woocommerce-order-pay select:hover,
+.woocommerce-order-pay textarea:hover,
+.woocommerce form .form-row input.input-text:hover,
+.woocommerce form .form-row textarea:hover,
+.woocommerce form .form-row select:hover {
+    border-color: #cbd5e1;
+    background-color: #ffffff;
 }
 
-.form-row .input-text::placeholder,
-.form-row textarea::placeholder {
+.woocommerce-checkout input[type="text"]:focus,
+.woocommerce-checkout input[type="email"]:focus,
+.woocommerce-checkout input[type="tel"]:focus,
+.woocommerce-checkout input[type="password"]:focus,
+.woocommerce-checkout select:focus,
+.woocommerce-checkout textarea:focus,
+.woocommerce-checkout .input-text:focus,
+.woocommerce-order-pay input[type="text"]:focus,
+.woocommerce-order-pay select:focus,
+.woocommerce-order-pay textarea:focus,
+.woocommerce form .form-row input.input-text:focus,
+.woocommerce form .form-row textarea:focus,
+.woocommerce form .form-row select:focus {
+    border-color: #004b23 !important;
+    background-color: #ffffff !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3.5px rgba(0, 75, 35, 0.12), 0 2px 6px rgba(0, 75, 35, 0.06) !important;
+}
+
+.woocommerce-checkout input::placeholder,
+.woocommerce-checkout textarea::placeholder,
+.woocommerce-order-pay input::placeholder,
+.woocommerce-order-pay textarea::placeholder,
+.woocommerce form .form-row input::placeholder,
+.woocommerce form .form-row textarea::placeholder {
     color: #94a3b8;
+    font-size: 13.5px;
+    font-weight: 400;
 }
 
 /* Select2 Country / State Dropdowns */
 .select2-container--default .select2-selection--single {
-    height: 44px !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 8px !important;
-    padding: 8px 12px !important;
+    height: 48px !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 10px !important;
+    padding: 10px 16px !important;
     display: flex !important;
     align-items: center !important;
     box-sizing: border-box !important;
+    background: #f8fafc !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+    transition: all 0.2s ease !important;
+}
+
+.select2-container--default .select2-selection--single:hover {
+    border-color: #cbd5e1 !important;
+    background: #ffffff !important;
 }
 
 .select2-container--default .select2-selection--single .select2-selection__arrow {
-    height: 42px !important;
-    right: 8px !important;
+    height: 46px !important;
+    right: 12px !important;
 }
 
 .select2-container--default .select2-selection--single .select2-selection__rendered {
     color: #0f172a !important;
-    font-size: 14px !important;
+    font-size: 14.5px !important;
     line-height: 26px !important;
     padding: 0 !important;
+    font-weight: 500 !important;
 }
 
 .select2-container--default.select2-container--focus .select2-selection--single,
 .select2-container--default.select2-container--open .select2-selection--single {
     border-color: #004b23 !important;
-    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.12) !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 3.5px rgba(0, 75, 35, 0.12), 0 2px 6px rgba(0, 75, 35, 0.06) !important;
 }
 
-/* Checkbox Personalizzate & Contributo Non Rimborsabile — Stile Istituzionale FAI */
+/* Checkbox Personalizzate & Contributo Non Rimborsabile — Allineamento Perfetto FAI */
 #accettazione_field,
 .thwcfd-field-checkbox {
     background: #fffdf5 !important;
     border: 1px solid #fde68a !important;
-    border-left: 3.5px solid #d97706 !important;
-    border-radius: 10px !important;
-    padding: 14px 16px !important;
-    margin: 14px 0 6px 0 !important;
+    border-left: 4px solid #d97706 !important;
+    border-radius: 12px !important;
+    padding: 16px 18px !important;
+    margin: 16px 0 10px 0 !important;
     box-sizing: border-box !important;
+    box-shadow: 0 1px 3px rgba(217, 119, 6, 0.04) !important;
 }
 
 #accettazione_field .woocommerce-input-wrapper,
-.thwcfd-field-checkbox .woocommerce-input-wrapper {
+.thwcfd-field-checkbox .woocommerce-input-wrapper,
+#accettazione_field label.checkbox,
+#accettazione_field label,
+.thwcfd-field-checkbox label.checkbox,
+.thwcfd-field-checkbox label {
     display: flex !important;
+    flex-direction: row !important;
     align-items: flex-start !important;
     gap: 12px !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
 }
 
 #accettazione_field input[type="checkbox"],
 .thwcfd-field-checkbox input[type="checkbox"] {
-    width: 18px !important;
-    height: 18px !important;
-    min-width: 18px !important;
-    margin-top: 2px !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    max-width: 20px !important;
+    margin: 2px 0 0 0 !important;
+    flex-shrink: 0 !important;
     accent-color: #d97706 !important;
     cursor: pointer !important;
 }
 
 #accettazione_field label.checkbox,
-.thwcfd-field-checkbox label.checkbox {
-    font-size: 12.5px !important;
-    line-height: 1.5 !important;
+#accettazione_field label,
+.thwcfd-field-checkbox label.checkbox,
+.thwcfd-field-checkbox label {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
     color: #78350f !important;
     font-weight: 500 !important;
     cursor: pointer !important;
-    margin: 0 !important;
-    display: inline !important;
-    word-break: break-word;
+    word-break: break-word !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+}
+
+#accettazione_field label.checkbox span,
+#accettazione_field label span,
+.thwcfd-field-checkbox label.checkbox span,
+.thwcfd-field-checkbox label span {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    display: block !important;
 }
 
 /* ==========================================================================
-   4. RIEPILOGO ORDINE & TABELLA
+   4. RIEPILOGO ORDINE & TOTALI — DESIGN RICEVUTA SENZA BORDER CLASSICI
    ========================================================================== */
-.dfn-review-table {
-    width: 100%;
-    border-collapse: collapse;
+.dfn-review-order-table-wrapper {
     margin-bottom: 20px;
 }
 
-.dfn-review-table th,
-.dfn-review-table td {
-    padding: 12px 0;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 14px;
+/* Neutralizzazione totale di tutti i bordi classici della tabella */
+.woocommerce-checkout table.shop_table,
+.woocommerce-checkout table.shop_table *,
+.woocommerce-checkout table.dfn-review-table,
+.woocommerce-checkout table.dfn-review-table *,
+.woocommerce-order-pay table.shop_table,
+.woocommerce-order-pay table.shop_table *,
+.woocommerce table.shop_table,
+.woocommerce table.shop_table * {
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
-.dfn-review-table thead th {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #64748b;
-    border-bottom: 1.5px solid #e2e8f0;
-    padding-bottom: 8px;
+.woocommerce-checkout table.shop_table.dfn-review-table,
+.woocommerce-checkout table.shop_table,
+.woocommerce-order-pay table.shop_table,
+.woocommerce table.shop_table {
+    border: none !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    width: 100% !important;
+    background: transparent !important;
+    margin: 0 !important;
 }
 
-.dfn-review-table tbody td.product-name {
+/* Rimuovi l'header tabellare squadrato */
+.dfn-review-table thead,
+.woocommerce-checkout table.shop_table thead {
+    display: none !important;
+}
+
+/* Voci del carrello / biglietti */
+.dfn-review-table tbody tr,
+.woocommerce-checkout table.shop_table tbody tr {
+    border: none !important;
+    background: transparent !important;
+}
+
+.dfn-review-table tbody td,
+.woocommerce-checkout table.shop_table tbody td {
+    border: none !important;
+    padding: 14px 0 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.dfn-review-table tbody td.product-name,
+.woocommerce-checkout table.shop_table tbody td.product-name {
+    padding-right: 12px !important;
+    vertical-align: middle !important;
+}
+
+.dfn-cart-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dfn-cart-item-title {
+    font-size: 14.5px;
+    font-weight: 700;
     color: #0f172a;
-    font-weight: 500;
+    line-height: 1.35;
 }
 
-.dfn-review-table tbody td.product-total {
-    text-align: right;
-    font-weight: 600;
-    color: #0f172a;
+.dfn-cart-item-info strong.product-quantity,
+.woocommerce-checkout .product-quantity {
+    display: inline-flex;
+    align-items: center;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    width: fit-content;
+    margin-top: 2px;
 }
 
-.dfn-review-table tfoot th {
-    font-weight: 500;
-    color: #64748b;
-    text-align: left;
+.dfn-review-table tbody td.product-total,
+.woocommerce-checkout table.shop_table tbody td.product-total {
+    text-align: right !important;
+    font-size: 15.5px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
 }
 
-.dfn-review-table tfoot td {
-    text-align: right;
-    font-weight: 600;
-    color: #0f172a;
+/* Righe Totali TFOOT */
+.dfn-review-table tfoot tr,
+.woocommerce-checkout table.shop_table tfoot tr {
+    border: none !important;
+    background: transparent !important;
+}
+
+.dfn-review-table tfoot th,
+.dfn-review-table tfoot td,
+.woocommerce-checkout table.shop_table tfoot th,
+.woocommerce-checkout table.shop_table tfoot td {
+    border: none !important;
+    padding: 10px 0 !important;
+    font-size: 13.5px !important;
+}
+
+.dfn-review-table tfoot tr.cart-subtotal th,
+.woocommerce-checkout table.shop_table tfoot tr.cart-subtotal th {
+    color: #64748b !important;
+    font-weight: 500 !important;
+}
+
+.dfn-review-table tfoot tr.cart-subtotal td,
+.woocommerce-checkout table.shop_table tfoot tr.cart-subtotal td {
+    color: #0f172a !important;
+    font-weight: 600 !important;
+    text-align: right !important;
+}
+
+/* Sconto Soci FAI & Coupon */
+.dfn-review-table tfoot tr.fee,
+.woocommerce-checkout table.shop_table tfoot tr.fee,
+.woocommerce-checkout table.shop_table tfoot tr.cart-discount {
+    background: #f0fdf4 !important;
+    border-radius: 8px !important;
 }
 
 .dfn-fai-fee-highlight th,
 .dfn-fai-fee-highlight td {
     color: #15803d !important;
+    padding: 8px 12px !important;
 }
 
 .dfn-fai-fee-badge {
     display: inline-flex;
     align-items: center;
+    gap: 4px;
     background: #dcfce7;
     color: #15803d;
     font-size: 12px;
@@ -603,24 +806,39 @@ body.woocommerce-order-received .titolo-checkout {
     border-radius: 6px;
 }
 
+/* Totale Contributo — Ricevuta in Evidenza con Bordo Morbido FAI */
+.dfn-review-table tfoot tr.dfn-order-total-row,
+.woocommerce-checkout table.shop_table tfoot tr.order-total {
+    background: linear-gradient(135deg, #f0fdf4 0%, #e8f7ee 100%) !important;
+    border: 1px solid #bbf7d0 !important;
+    border-radius: 12px !important;
+}
+
 .dfn-order-total-row th,
-.dfn-order-total-row td {
-    border-top: 2px solid #e2e8f0;
-    border-bottom: none;
-    padding-top: 16px;
-    padding-bottom: 8px;
+.woocommerce-checkout table.shop_table tfoot tr.order-total th {
+    padding: 16px 18px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #166534 !important;
+    border-top-left-radius: 12px !important;
+    border-bottom-left-radius: 12px !important;
 }
 
-.dfn-order-total-row th {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
+.dfn-order-total-row td,
+.woocommerce-checkout table.shop_table tfoot tr.order-total td {
+    padding: 16px 18px !important;
+    text-align: right !important;
+    border-top-right-radius: 12px !important;
+    border-bottom-right-radius: 12px !important;
 }
 
-.dfn-order-total-row td strong {
-    font-size: 20px;
-    font-weight: 800;
-    color: #004b23;
+.dfn-order-total-row td strong,
+.woocommerce-checkout table.shop_table tfoot tr.order-total td strong,
+.woocommerce-checkout table.shop_table tfoot tr.order-total td .woocommerce-Price-amount {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: #004b23 !important;
+    letter-spacing: -0.02em !important;
 }
 
 /* ==========================================================================
@@ -855,45 +1073,6 @@ body.woocommerce-order-received .titolo-checkout {
 }
 
 /* ==========================================================================
-   6. TRUST BADGES
-   ========================================================================== */
-.dfn-checkout-trust-badges {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-top: 8px;
-}
-
-.dfn-trust-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 14px 16px;
-}
-
-.dfn-trust-icon {
-    color: #004b23;
-    flex-shrink: 0;
-    margin-top: 2px;
-}
-
-.dfn-trust-text strong {
-    display: block;
-    font-size: 13px;
-    color: #0f172a;
-    margin-bottom: 2px;
-}
-
-.dfn-trust-text span {
-    font-size: 12px;
-    color: #64748b;
-    line-height: 1.35;
-}
-
-/* ==========================================================================
    7. PAGINA ORDER-PAY (PAGAMENTO DIFFERITO)
    ========================================================================== */
 .dfn-pay-header {
@@ -1043,27 +1222,33 @@ body.woocommerce-order-received .titolo-checkout {
 .dfn-total-row {
     display: flex;
     justify-content: space-between;
-    padding: 8px 0;
+    align-items: center;
+    padding: 10px 0;
     font-size: 14px;
     color: #475569;
+    border-bottom: 1px dashed #f1f5f9;
 }
 
 .dfn-total-final {
-    border-top: 2px solid #e2e8f0;
-    padding-top: 14px;
-    margin-top: 6px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #e8f7ee 100%) !important;
+    border: 1px solid #bbf7d0 !important;
+    border-radius: 12px !important;
+    padding: 16px 18px !important;
+    margin-top: 14px !important;
+    border-bottom: none !important;
 }
 
 .dfn-total-final .dfn-total-label {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #166534 !important;
 }
 
 .dfn-total-final .dfn-total-value {
-    font-size: 22px;
-    font-weight: 800;
-    color: #004b23;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: #004b23 !important;
+    letter-spacing: -0.02em !important;
 }
 
 /* ==========================================================================
