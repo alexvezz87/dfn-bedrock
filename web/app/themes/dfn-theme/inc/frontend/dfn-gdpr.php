@@ -142,7 +142,7 @@ function dfn_get_privacy_checkbox_html(string $form_id = 'form', string $context
  */
 
 /**
- * Inietta la checkbox privacy nel checkout WooCommerce prima del riepilogo ordine.
+ * Inietta la checkbox privacy nel checkout WooCommerce prima del pulsante di invio ordine.
  *
  * @return void
  */
@@ -155,7 +155,7 @@ function dfn_wc_checkout_privacy_checkbox(): void
 
     echo dfn_get_privacy_checkbox_html('wc_checkout', 'prenotazione');
 }
-add_action('woocommerce_checkout_before_order_review', 'dfn_wc_checkout_privacy_checkbox', 5);
+add_action('woocommerce_review_order_before_submit', 'dfn_wc_checkout_privacy_checkbox', 5);
 
 /**
  * Valida lato server la checkbox privacy nel checkout WooCommerce.

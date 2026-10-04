@@ -12,23 +12,101 @@
 /* ==========================================================================
    1. LAYOUT & CONTAINER PRINCIPALE
    ========================================================================== */
-/* Nascondi il titolo generico della pagina se siamo nel flusso checkout/order-pay per evitare titoli doppi */
+/* Nascondi titoli doppi/generici e campi ridondanti nel checkout */
+body.woocommerce-checkout .page-header,
 body.woocommerce-checkout .entry-header,
+body.woocommerce-checkout h1.entry-title,
+body.woocommerce-checkout h1.page-title,
 body.woocommerce-checkout .elementor-heading-title,
 body.woocommerce-checkout .titolo-checkout,
+body.woocommerce-checkout .woocommerce-billing-fields > h3,
+body.woocommerce-checkout .woocommerce-additional-fields > h3,
+body.woocommerce-order-pay .page-header,
 body.woocommerce-order-pay .entry-header,
+body.woocommerce-order-pay h1.entry-title,
 body.woocommerce-order-pay .elementor-heading-title,
 body.woocommerce-order-pay .titolo-checkout,
+body.woocommerce-order-received .page-header,
 body.woocommerce-order-received .entry-header,
+body.woocommerce-order-received h1.entry-title,
 body.woocommerce-order-received .elementor-heading-title,
 body.woocommerce-order-received .titolo-checkout {
     display: none !important;
 }
 
+/* Express Checkout Stripe (Apple Pay / Google Pay / Link) */
+#wc-stripe-payment-request-wrapper {
+    max-width: 520px;
+    margin: 0 auto 14px auto !important;
+    padding: 0;
+}
+
+#wc-stripe-payment-request-button-separator {
+    text-align: center;
+    margin: 16px auto 28px auto !important;
+    font-size: 13px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* GDPR Privacy Consent in Checkout */
+.dfn-privacy-consent-block {
+    background: #f0fdf4 !important;
+    border: 1px solid #bbf7d0 !important;
+    border-radius: 10px !important;
+    padding: 14px 16px !important;
+    margin: 18px 0 20px 0 !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    color: #166534 !important;
+}
+
+.dfn-privacy-consent-wrapper {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+}
+
+.dfn-privacy-consent-checkbox {
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    margin-top: 2px !important;
+    accent-color: #004b23 !important;
+    cursor: pointer !important;
+}
+
+.dfn-privacy-consent-label {
+    font-size: 12px !important;
+    color: #1e3a2b !important;
+    cursor: pointer !important;
+    line-height: 1.45 !important;
+}
+
+.dfn-privacy-consent-label a {
+    color: #004b23 !important;
+    font-weight: 700 !important;
+    text-decoration: underline !important;
+}
+
+.dfn-privacy-consent-label a:hover {
+    color: #002e15 !important;
+}
+
+.dfn-privacy-error-msg {
+    display: none;
+    color: #dc2626 !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    margin-top: 6px !important;
+}
+
 .dfn-checkout-container {
     max-width: 1180px;
-    margin: 20px auto 60px auto;
-    padding: 24px 28px;
+    margin: 30px auto 60px auto;
+    padding: 28px 32px;
     background: #ffffff;
     border-radius: 16px;
     box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);

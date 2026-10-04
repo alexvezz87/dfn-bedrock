@@ -31,17 +31,17 @@ if (! $checkout->is_registration_enabled() && $checkout->is_registration_require
     <div class="dfn-checkout-steps" aria-label="<?php esc_attr_e('Stato di avanzamento prenotazione', 'dfn-theme'); ?>">
         <div class="dfn-step dfn-step-completed">
             <span class="dfn-step-num"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            <span class="dfn-step-label"><?php esc_html_e('1. Scelta Posti', 'dfn-theme'); ?></span>
+            <span class="dfn-step-label"><?php esc_html_e('Scelta Posti', 'dfn-theme'); ?></span>
         </div>
         <div class="dfn-step-divider"></div>
         <div class="dfn-step dfn-step-active">
             <span class="dfn-step-num">2</span>
-            <span class="dfn-step-label"><?php esc_html_e('2. Dati & Pagamento', 'dfn-theme'); ?></span>
+            <span class="dfn-step-label"><?php esc_html_e('Dati & Pagamento', 'dfn-theme'); ?></span>
         </div>
         <div class="dfn-step-divider"></div>
         <div class="dfn-step">
             <span class="dfn-step-num">3</span>
-            <span class="dfn-step-label"><?php esc_html_e('3. Conferma Biglietti', 'dfn-theme'); ?></span>
+            <span class="dfn-step-label"><?php esc_html_e('Conferma Biglietti', 'dfn-theme'); ?></span>
         </div>
     </div>
 
