@@ -47,3 +47,5 @@ deploy.tar.gz
 
 # Scratch / temp scripts
 scratch/
+scripts/
+*.zip

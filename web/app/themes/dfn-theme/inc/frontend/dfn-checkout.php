@@ -60,42 +60,70 @@ function dfn_is_express_checkout_needed()
 }
 
 /**
- * Filtra e rimuove i campi del checkout di fatturazione se è attivo l'Express Checkout.
+ * Evita la duplicazione della checkbox di accettazione contributo non rimborsabile
+ * se è già presente nella sezione di fatturazione.
  *
  * @param array $fields Campi del checkout di WooCommerce.
  * @return array
  */
-function dfn_conditionally_simplify_checkout_fields($fields)
+function dfn_deduplicate_checkout_fields($fields)
 {
-    if (! dfn_is_express_checkout_needed()) {
-        return $fields;
-    }
-
-    // Campi da tenere obbligatoriamente
-    $fields_to_keep = [
-        'billing_first_name',
-        'billing_last_name',
-        'billing_email',
-        'billing_phone',
-    ];
-
-    // Rimuovi tutti i campi di fatturazione tranne quelli essenziali
-    if (isset($fields['billing']) && is_array($fields['billing'])) {
-        foreach ($fields['billing'] as $key => $field) {
-            if (! in_array($key, $fields_to_keep)) {
-                unset($fields['billing'][$key]);
-            }
+    if (isset($fields['billing']['accettazione'])) {
+        if (isset($fields['order']['accettazione'])) {
+            unset($fields['order']['accettazione']);
+        }
+        if (isset($fields['additional']['accettazione'])) {
+            unset($fields['additional']['accettazione']);
         }
     }
-
-    // Rimuovi i campi di spedizione (non usati per i biglietti digitali)
-    if (isset($fields['shipping'])) {
-        unset($fields['shipping']);
-    }
-
     return $fields;
 }
-add_filter('woocommerce_checkout_fields', 'dfn_conditionally_simplify_checkout_fields', 999);
+add_filter('woocommerce_checkout_fields', 'dfn_deduplicate_checkout_fields', 9999);
+
+/**
+ * Pulisce le righe dei totali ordine per evitare che checkbox legali o campi booleani
+ * vengano stampati come voci di costo nella tabella dei totali della Thank You page.
+ *
+ * @param array $total_rows
+ * @param WC_Order $order
+ * @param string $tax_display
+ * @return array
+ */
+function dfn_clean_order_item_totals($total_rows, $order, $tax_display)
+{
+    if (! is_array($total_rows)) {
+        return $total_rows;
+    }
+
+    foreach ($total_rows as $key => $row) {
+        if (
+            strpos(strtolower($key), 'accettazione') !== false
+            || strpos(strtolower($key), 'thwcfd') !== false
+            || (isset($row['label']) && (
+                stripos($row['label'], 'accettazione') !== false
+                || stripos($row['label'], 'rimborsabile') !== false
+                || stripos($row['label'], 'questo contributo') !== false
+                || stripos($row['label'], 'fondazione') !== false
+            ))
+            || (isset($row['value']) && ($row['value'] === '1' || $row['value'] === 1))
+        ) {
+            unset($total_rows[$key]);
+        }
+    }
+    return $total_rows;
+}
+add_filter('woocommerce_get_order_item_totals', 'dfn_clean_order_item_totals', 99, 3);
+
+/**
+ * Rimuove il campo di consenso / accettazione dai dettagli ordine di THWCFD.
+ */
+add_filter('thwcfd_order_details_display_fields', function ($fields) {
+    if (is_array($fields) && isset($fields['accettazione'])) {
+        unset($fields['accettazione']);
+    }
+    return $fields;
+}, 999);
+add_filter('thwcfd_display_custom_fields_in_order_details', '__return_false', 999);
 
 /**
  * Rende facoltativo o nasconde lo stato di necessità del pagamento se il totale è zero.
@@ -114,24 +142,6 @@ function dfn_checkout_needs_payment($needs_payment)
 }
 add_filter('woocommerce_cart_needs_payment', 'dfn_checkout_needs_payment', 10);
 
-/**
- * Aggiunge classi CSS speciali al body per consentire una metamorfosi visiva del checkout
- * tramite stili dedicati (dfn-checkout-express.css).
- *
- * @param array $classes Classi correnti del body.
- * @return array
- */
-function dfn_checkout_body_classes($classes)
-{
-    if (is_checkout() && ! is_order_received_page()) {
-        if (dfn_is_express_checkout_needed()) {
-            $classes[] = 'dfn-express-checkout-active';
-        }
-    }
-    return $classes;
-}
-add_filter('body_class', 'dfn_checkout_body_classes');
-
 add_action('woocommerce_cart_calculate_fees', 'dfn_apply_fai_members_discount_to_cart', 10, 1);
 /**
  * Calcola e applica dinamicamente lo sconto per Soci FAI nel carrello/checkout.
@@ -147,7 +157,7 @@ function dfn_apply_fai_members_discount_to_cart($cart)
         return;
     }
 
-    $total_discount = 0;
+    $total_discount = 0.00;
     $total_fai_qty  = 0;
 
     foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
@@ -170,17 +180,15 @@ function dfn_apply_fai_members_discount_to_cart($cart)
         // La scontistica unitaria è la differenza tra biglietto ordinario e socio FAI
         $unit_discount = $price_standard - $price_fai;
 
-        if ($unit_discount !== 0.00) {
-            $total_discount += $unit_discount * $qty_fai;
+        if ($unit_discount > 0.00) {
+            $total_discount += ($unit_discount * $qty_fai);
             $total_fai_qty  += $qty_fai;
         }
     }
 
-    // Se c'è uno sconto/adeguamento calcolato, lo applica come fee
-    if ($total_discount !== 0.00) {
-        $fee_label = $total_discount > 0.00 
-            ? sprintf(__('Sconto Soci FAI (%d tessere)', 'dfn-theme'), $total_fai_qty)
-            : sprintf(__('Adeguamento Soci FAI (%d tessere)', 'dfn-theme'), $total_fai_qty);
+    // Se c'è uno sconto calcolato per tessere FAI valide, lo applica come fee negativa
+    if ($total_discount > 0.00 && $total_fai_qty > 0) {
+        $fee_label = sprintf(__('Sconto Soci FAI (%d %s)', 'dfn-theme'), $total_fai_qty, $total_fai_qty > 1 ? __('tessere', 'dfn-theme') : __('tessera', 'dfn-theme'));
         $cart->add_fee(
             $fee_label,
             -$total_discount,
