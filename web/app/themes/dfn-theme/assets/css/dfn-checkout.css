@@ -322,6 +322,67 @@ label.dfn-privacy-consent-label {
     box-sizing: border-box;
 }
 
+/* Trust Badges Bar */
+.dfn-checkout-trust-badges {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16px !important;
+    margin-top: 20px !important;
+    margin-bottom: 24px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+@media (max-width: 640px) {
+    .dfn-checkout-trust-badges {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+}
+
+.dfn-trust-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 14px 16px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+    box-sizing: border-box !important;
+}
+
+.dfn-trust-icon {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 9px !important;
+    background: rgba(0, 75, 35, 0.08) !important;
+    color: #004b23 !important;
+}
+
+.dfn-trust-text {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+}
+
+.dfn-trust-text strong {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    line-height: 1.3 !important;
+}
+
+.dfn-trust-text span {
+    font-size: 11.5px !important;
+    color: #64748b !important;
+    line-height: 1.3 !important;
+}
+
 /* ==========================================================================
    2. CARD & ELEMENTI VISIVI
    ========================================================================== */
