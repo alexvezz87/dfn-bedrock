@@ -267,6 +267,20 @@ body.woocommerce-order-received .titolo-checkout {
     gap: 16px;
 }
 
+.woocommerce-additional-fields {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.woocommerce-additional-fields > h3 {
+    display: block !important;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 14px 0;
+}
+
 .form-row {
     margin: 0 !important;
     padding: 0 !important;
@@ -276,16 +290,28 @@ body.woocommerce-order-received .titolo-checkout {
 
 .form-row-wide,
 .form-row.notes,
+#billing_company_field,
+#billing_country_field,
+#billing_address_1_field,
+#billing_address_2_field,
 #billing_email_field,
-#billing_phone_field {
+#order_comments_field,
+#accettazione_field,
+.thwcfd-field-checkbox {
     grid-column: span 2;
 }
 
-.form-row-first {
+.form-row-first,
+#billing_first_name_field,
+#billing_city_field,
+#billing_postcode_field {
     grid-column: 1;
 }
 
-.form-row-last {
+.form-row-last,
+#billing_last_name_field,
+#billing_state_field,
+#billing_phone_field {
     grid-column: 2;
 }
 
@@ -311,7 +337,7 @@ body.woocommerce-order-received .titolo-checkout {
     width: 100% !important;
     height: 44px;
     padding: 10px 14px;
-    font-size: 14.5px;
+    font-size: 14px;
     color: #0f172a;
     background: #ffffff;
     border: 1px solid #cbd5e1;
@@ -321,7 +347,7 @@ body.woocommerce-order-received .titolo-checkout {
 }
 
 .form-row textarea {
-    height: 80px;
+    height: 90px;
     resize: vertical;
 }
 
@@ -333,8 +359,76 @@ body.woocommerce-order-received .titolo-checkout {
     box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.12);
 }
 
-.form-row .input-text::placeholder {
+.form-row .input-text::placeholder,
+.form-row textarea::placeholder {
     color: #94a3b8;
+}
+
+/* Select2 Country / State Dropdowns */
+.select2-container--default .select2-selection--single {
+    height: 44px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 42px !important;
+    right: 8px !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #0f172a !important;
+    font-size: 14px !important;
+    line-height: 26px !important;
+    padding: 0 !important;
+}
+
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--default.select2-container--open .select2-selection--single {
+    border-color: #004b23 !important;
+    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.12) !important;
+}
+
+/* Checkbox Personalizzate & Contributo Non Rimborsabile */
+#accettazione_field,
+.thwcfd-field-checkbox {
+    background: #fffbeb !important;
+    border: 1.5px solid #fde68a !important;
+    border-radius: 10px !important;
+    padding: 14px 16px !important;
+    margin: 12px 0 6px 0 !important;
+}
+
+#accettazione_field .woocommerce-input-wrapper,
+.thwcfd-field-checkbox .woocommerce-input-wrapper {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+}
+
+#accettazione_field input[type="checkbox"],
+.thwcfd-field-checkbox input[type="checkbox"] {
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    margin-top: 2px !important;
+    accent-color: #d97706 !important;
+    cursor: pointer !important;
+}
+
+#accettazione_field label.checkbox,
+.thwcfd-field-checkbox label.checkbox {
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    color: #78350f !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+    display: inline !important;
 }
 
 /* ==========================================================================

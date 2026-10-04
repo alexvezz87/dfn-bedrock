@@ -60,39 +60,25 @@ function dfn_is_express_checkout_needed()
 }
 
 /**
- * Filtra e rimuove i campi del checkout di fatturazione non necessari per i biglietti digitali
- * (indirizzo, cap, città, nazione, azienda), mantenendo solo Nome, Cognome, Email e Telefono.
+ * Evita la duplicazione della checkbox di accettazione contributo non rimborsabile
+ * se è già presente nella sezione di fatturazione.
  *
  * @param array $fields Campi del checkout di WooCommerce.
  * @return array
  */
-function dfn_conditionally_simplify_checkout_fields($fields)
+function dfn_deduplicate_checkout_fields($fields)
 {
-    // Campi essenziali da mantenere per l'emissione dei biglietti digitali
-    $fields_to_keep = [
-        'billing_first_name',
-        'billing_last_name',
-        'billing_email',
-        'billing_phone',
-    ];
-
-    // Rimuovi tutti i campi di fatturazione tranne quelli essenziali
-    if (isset($fields['billing']) && is_array($fields['billing'])) {
-        foreach ($fields['billing'] as $key => $field) {
-            if (! in_array($key, $fields_to_keep, true)) {
-                unset($fields['billing'][$key]);
-            }
+    if (isset($fields['billing']['accettazione'])) {
+        if (isset($fields['order']['accettazione'])) {
+            unset($fields['order']['accettazione']);
+        }
+        if (isset($fields['additional']['accettazione'])) {
+            unset($fields['additional']['accettazione']);
         }
     }
-
-    // Rimuovi i campi di spedizione (non usati per i pass ed i biglietti digitali)
-    if (isset($fields['shipping'])) {
-        unset($fields['shipping']);
-    }
-
     return $fields;
 }
-add_filter('woocommerce_checkout_fields', 'dfn_conditionally_simplify_checkout_fields', 999);
+add_filter('woocommerce_checkout_fields', 'dfn_deduplicate_checkout_fields', 9999);
 
 /**
  * Rende facoltativo o nasconde lo stato di necessità del pagamento se il totale è zero.

@@ -69,13 +69,8 @@ if (! $checkout->is_registration_enabled() && $checkout->is_registration_require
 
                         <div class="dfn-card-body">
                             <?php do_action('woocommerce_checkout_billing'); ?>
+                            <?php do_action('woocommerce_checkout_shipping'); ?>
                         </div>
-
-                        <?php if (WC()->cart && WC()->cart->needs_shipping_address()) : ?>
-                            <div class="dfn-shipping-section">
-                                <?php do_action('woocommerce_checkout_shipping'); ?>
-                            </div>
-                        <?php endif; ?>
                     </div>
 
                     <?php do_action('woocommerce_checkout_after_customer_details'); ?>
