@@ -12,6 +12,68 @@
 /* ==========================================================================
    1. LAYOUT & CONTAINER PRINCIPALE
    ========================================================================== */
+/* Prevenzione scrolling orizzontale su tutta la pagina */
+html,
+body.woocommerce-checkout,
+body.woocommerce-order-pay,
+body.woocommerce-order-received {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+}
+
+body.woocommerce-checkout .site-main,
+body.woocommerce-checkout .page-content,
+body.woocommerce-checkout .entry-content,
+body.woocommerce-checkout #content,
+body.woocommerce-order-pay .site-main,
+body.woocommerce-order-pay .page-content,
+body.woocommerce-order-pay .entry-content,
+body.woocommerce-order-pay #content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+}
+
+/* Resetta tutti i float e larghezze legacy di WooCommerce */
+.woocommerce-checkout form.checkout,
+.woocommerce-checkout #customer_details,
+.woocommerce-checkout #order_review,
+.woocommerce-checkout .col2-set,
+.woocommerce-checkout .col-1,
+.woocommerce-checkout .col-2,
+.woocommerce-checkout .woocommerce-billing-fields,
+.woocommerce-checkout .woocommerce-shipping-fields,
+.woocommerce-checkout .woocommerce-additional-fields,
+.woocommerce-checkout .woocommerce-checkout-review-order {
+    float: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+    clear: both !important;
+}
+
+.woocommerce-checkout .form-row,
+.woocommerce-checkout .form-row-first,
+.woocommerce-checkout .form-row-last,
+.woocommerce-checkout .form-row-wide {
+    float: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    clear: none !important;
+}
+
 /* Nascondi titoli doppi/generici e campi ridondanti nel checkout */
 body.woocommerce-checkout .page-header,
 body.woocommerce-checkout .entry-header,
@@ -20,7 +82,6 @@ body.woocommerce-checkout h1.page-title,
 body.woocommerce-checkout .elementor-heading-title,
 body.woocommerce-checkout .titolo-checkout,
 body.woocommerce-checkout .woocommerce-billing-fields > h3,
-body.woocommerce-checkout .woocommerce-additional-fields > h3,
 body.woocommerce-order-pay .page-header,
 body.woocommerce-order-pay .entry-header,
 body.woocommerce-order-pay h1.entry-title,
@@ -36,9 +97,11 @@ body.woocommerce-order-received .titolo-checkout {
 
 /* Express Checkout Stripe (Apple Pay / Google Pay / Link) */
 #wc-stripe-payment-request-wrapper {
-    max-width: 520px;
+    max-width: 100% !important;
+    width: 100% !important;
     margin: 0 auto 14px auto !important;
     padding: 0;
+    box-sizing: border-box;
 }
 
 #wc-stripe-payment-request-button-separator {
@@ -61,6 +124,7 @@ body.woocommerce-order-received .titolo-checkout {
     font-size: 12px !important;
     line-height: 1.45 !important;
     color: #166534 !important;
+    box-sizing: border-box !important;
 }
 
 .dfn-privacy-consent-wrapper {
@@ -83,6 +147,7 @@ body.woocommerce-order-received .titolo-checkout {
     color: #1e3a2b !important;
     cursor: pointer !important;
     line-height: 1.45 !important;
+    word-break: break-word;
 }
 
 .dfn-privacy-consent-label a {
@@ -104,6 +169,7 @@ body.woocommerce-order-received .titolo-checkout {
 }
 
 .dfn-checkout-container {
+    width: 100%;
     max-width: 1180px;
     margin: 30px auto 60px auto;
     padding: 28px 32px;
@@ -113,6 +179,7 @@ body.woocommerce-order-received .titolo-checkout {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     color: #1e293b;
     box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 .dfn-checkout-container * {
@@ -126,6 +193,7 @@ body.woocommerce-order-received .titolo-checkout {
     justify-content: center;
     margin-bottom: 35px;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 .dfn-step {
@@ -178,19 +246,30 @@ body.woocommerce-order-received .titolo-checkout {
 /* Griglia Principale a 2 Colonne */
 .dfn-checkout-layout {
     display: grid;
-    grid-template-columns: 1fr 430px;
-    gap: 32px;
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 28px;
     align-items: start;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .dfn-checkout-main {
     display: flex;
     flex-direction: column;
     gap: 24px;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .dfn-checkout-sidebar {
     position: relative;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .dfn-sticky-sidebar {
@@ -199,6 +278,9 @@ body.woocommerce-order-received .titolo-checkout {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* ==========================================================================
@@ -1140,7 +1222,7 @@ body.woocommerce-order-received .titolo-checkout {
 /* ==========================================================================
    10. RESPONSIVE MEDIA QUERIES
    ========================================================================== */
-@media (max-width: 991px) {
+@media (max-width: 1024px) {
     .dfn-checkout-layout {
         grid-template-columns: 1fr;
         gap: 24px;
