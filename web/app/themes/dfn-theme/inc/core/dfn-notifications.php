@@ -1474,7 +1474,7 @@ function dfn_format_volunteer_bullet_list(string $text): string
  * @param int          $user_id        ID utente WordPress collegato (opzionale).
  * @return string
  */
-function dfn_replace_volunteer_email_placeholders(string $text, $volunteer_data, int $user_id = 0): string
+function dfn_replace_volunteer_email_placeholders(string $text, $volunteer_data, int $user_id = 0, string $password_reset_url = ''): string
 {
     $v = is_object($volunteer_data) ? (array) $volunteer_data : (array) $volunteer_data;
 
@@ -1483,6 +1483,20 @@ function dfn_replace_volunteer_email_placeholders(string $text, $volunteer_data,
     $email      = $v['email'] ?? '';
     $phone      = ! empty($v['phone']) ? $v['phone'] : '—';
     $card_no    = ! empty($v['card_number']) ? $v['card_number'] : 'Da assegnare';
+
+    // Recupera lo username WordPress collegato se disponibile
+    $username = $email;
+    if ($user_id > 0) {
+        $user_obj = get_userdata($user_id);
+        if ($user_obj) {
+            $username = $user_obj->user_login;
+        }
+    } elseif (! empty($v['user_id'])) {
+        $user_obj = get_userdata((int) $v['user_id']);
+        if ($user_obj) {
+            $username = $user_obj->user_login;
+        }
+    }
 
     // Costruzione etichetta mansioni / disponibilità
     $mansioni_list = [];
@@ -1497,25 +1511,28 @@ function dfn_replace_volunteer_email_placeholders(string $text, $volunteer_data,
     }
     $mansioni_str = implode(', ', $mansioni_list);
 
-    $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+    $delegation_name   = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
     $delegation_footer = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_footer', 'FAI - Delegazione di Novara') : 'FAI - Delegazione di Novara';
-    $created_at = ! empty($v['created_at']) ? date_i18n('d/m/Y H:i', strtotime($v['created_at'])) : current_time('d/m/Y H:i');
+    $created_at        = ! empty($v['created_at']) ? date_i18n('d/m/Y H:i', strtotime($v['created_at'])) : current_time('d/m/Y H:i');
 
     $access_url = function_exists('wc_get_account_endpoint_url') ? wc_get_account_endpoint_url('volontari-fai') : site_url('/mio-account/volontari-fai/');
+    $pwd_url    = ! empty($password_reset_url) ? $password_reset_url : $access_url;
     $admin_url  = admin_url('admin.php?page=dfn-volunteers&status=pending');
 
     $replacements = [
-        '{nome}'           => $first_name,
-        '{cognome}'        => $last_name,
-        '{email}'          => $email,
-        '{telefono}'       => $phone,
-        '{tessera_fai}'    => $card_no,
-        '{mansioni}'       => $mansioni_str,
-        '{delegazione}'    => $delegation_name,
-        '{citta}'          => $delegation_footer,
-        '{data_richiesta}' => $created_at,
-        '{link_accesso}'   => $access_url,
-        '{link_admin}'     => $admin_url,
+        '{nome}'                  => $first_name,
+        '{cognome}'               => $last_name,
+        '{email}'                 => $email,
+        '{username}'              => $username,
+        '{telefono}'              => $phone,
+        '{tessera_fai}'           => $card_no,
+        '{mansioni}'              => $mansioni_str,
+        '{delegazione}'           => $delegation_name,
+        '{citta}'                 => $delegation_footer,
+        '{data_richiesta}'        => $created_at,
+        '{link_accesso}'          => $access_url,
+        '{link_imposta_password}' => $pwd_url,
+        '{link_admin}'            => $admin_url,
     ];
 
     return str_replace(array_keys($replacements), array_values($replacements), $text);
@@ -1801,6 +1818,249 @@ function dfn_send_volunteer_approved_email($volunteer_data, int $user_id = 0, st
     $sender  = dfn_get_volunteer_email_sender();
 
     return dfn_send_notification_email($to, $subject, $title, $body, [], '[Approvazione Volontario]', $sender);
+}
+
+/**
+ * Assembla il layout HTML per l'email di invio/reinvio credenziali e benvenuto al volontario.
+ *
+ * @param array|object $volunteer_data     Dati anagrafici del volontario.
+ * @param WP_User|null $user               Istanza utente WordPress.
+ * @param string       $password_reset_url URL per impostare o reimpostare la password.
+ * @return string HTML formattato.
+ */
+function dfn_build_volunteer_credentials_email_html($volunteer_data, $user = null, string $password_reset_url = ''): string
+{
+    $v       = is_object($volunteer_data) ? (array) $volunteer_data : (array) $volunteer_data;
+    $user_id = ($user instanceof \WP_User) ? $user->ID : (int) ($v['user_id'] ?? 0);
+
+    $intro_raw        = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_credentials_intro') : '';
+    $box_title_raw    = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_credentials_box_title', '🏛️ Le tue Credenziali di Accesso') : '🏛️ Le tue Credenziali di Accesso';
+    $btn_text_raw     = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_credentials_btn_text', '🔐 Imposta la tua Password ed Accedi →') : '🔐 Imposta la tua Password ed Accedi →';
+    $info_title_raw   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_credentials_info_title', '✨ Cosa puoi fare nella tua Area Riservata?') : '✨ Cosa puoi fare nella tua Area Riservata?';
+    $info_bullets_raw = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_credentials_info_bullets') : '';
+    $notes_raw        = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_credentials_notes') : '';
+    $sig_raw          = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_credentials_signature') : '';
+
+    $intro_text   = dfn_replace_volunteer_email_placeholders((string) $intro_raw, $v, $user_id, $password_reset_url);
+    $box_title    = dfn_replace_volunteer_email_placeholders((string) $box_title_raw, $v, $user_id, $password_reset_url);
+    $btn_text     = dfn_replace_volunteer_email_placeholders((string) $btn_text_raw, $v, $user_id, $password_reset_url);
+    $info_title   = dfn_replace_volunteer_email_placeholders((string) $info_title_raw, $v, $user_id, $password_reset_url);
+    $info_bullets = dfn_replace_volunteer_email_placeholders((string) $info_bullets_raw, $v, $user_id, $password_reset_url);
+    $notes_text   = dfn_replace_volunteer_email_placeholders((string) $notes_raw, $v, $user_id, $password_reset_url);
+    $sig_text     = dfn_replace_volunteer_email_placeholders((string) $sig_raw, $v, $user_id, $password_reset_url);
+
+    $access_url   = function_exists('wc_get_account_endpoint_url') ? wc_get_account_endpoint_url('volontari-fai') : site_url('/mio-account/volontari-fai/');
+    $cta_url      = ! empty($password_reset_url) ? $password_reset_url : $access_url;
+    $username     = ($user instanceof \WP_User) ? $user->user_login : ($v['email'] ?? '');
+    $email_addr   = $v['email'] ?? '';
+
+    $html = dfn_format_volunteer_text_paragraphs($intro_text);
+
+    // Box Credenziali in evidenza (Design System FAI)
+    $html .= '<div class="info-box" style="background-color:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #004b23; padding:18px 22px; margin:24px 0; border-radius:6px;">';
+    if (! empty($box_title)) {
+        $html .= '<p class="info-box-title" style="font-weight:700; font-size:15.5px; color:#004b23; margin:0 0 12px;">' . esc_html($box_title) . '</p>';
+    }
+    $html .= '<table style="width:100%; border-collapse:collapse; font-size:14px;">';
+    $html .= '<tr><td style="padding:6px 0; font-weight:600; width:140px; color:#475569;">👤 Nome Utente:</td><td style="padding:6px 0; color:#0f172a; font-weight:700;"><code style="background:#e2e8f0; padding:2px 8px; border-radius:4px; font-size:13.5px;">' . esc_html($username) . '</code></td></tr>';
+    $html .= '<tr><td style="padding:6px 0; font-weight:600; color:#475569;">📧 Email:</td><td style="padding:6px 0; color:#0f172a; font-weight:600;">' . esc_html($email_addr) . '</td></tr>';
+    $html .= '<tr><td style="padding:6px 0; font-weight:600; color:#475569;">🔑 Password:</td><td style="padding:6px 0; color:#15803d; font-weight:600;">Da impostare tramite il pulsante sicuro qui sotto</td></tr>';
+    $html .= '</table>';
+    $html .= '</div>';
+
+    // Pulsante di attivazione password
+    if (! empty($btn_text)) {
+        $html .= '<div style="text-align:center; margin:28px 0;">';
+        $html .= '<a href="' . esc_url($cta_url) . '" class="button" style="display:inline-block; background-color:#004b23; color:#ffffff; font-size:15px; font-weight:700; text-decoration:none; padding:13px 26px; border-radius:6px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">' . esc_html($btn_text) . '</a>';
+        $html .= '</div>';
+    }
+
+    // Box Opportunità / Cosa puoi fare
+    if (! empty($info_title) || ! empty($info_bullets)) {
+        $html .= '<div style="background-color:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #166534; padding:16px 20px; margin:24px 0; border-radius:6px;">';
+        if (! empty($info_title)) {
+            $html .= '<p style="font-weight:700; font-size:14.5px; color:#166534; margin:0 0 10px;">' . esc_html($info_title) . '</p>';
+        }
+        if (! empty($info_bullets)) {
+            $html .= dfn_format_volunteer_bullet_list($info_bullets);
+        }
+        $html .= '</div>';
+    }
+
+    if (! empty($notes_text)) {
+        $html .= '<p style="font-size:13px; color:#64748b; line-height:1.5; margin:16px 0;"><em>' . nl2br(esc_html($notes_text)) . '</em></p>';
+    }
+
+    if (! empty($sig_text)) {
+        $html .= '<p style="margin-top:24px; font-size:15px; color:#2d3748; line-height:1.5;">' . nl2br(esc_html($sig_text)) . '</p>';
+    }
+
+    return $html;
+}
+
+/**
+ * Invia o reinvia l'email di benvenuto e credenziali (con link sicuro per impostare la password) al volontario.
+ * Se l'utente WordPress non esiste ancora, viene creato automaticamente.
+ *
+ * @param int|object|array $volunteer_or_id ID del record in dfn_fai_members o array/object.
+ * @param bool             $force_create_user Se true, crea l'utente WP se non esistente.
+ * @param string           $override_to       Destinatario opzionale per test.
+ * @return array ['success' => bool, 'message' => string, 'user_id' => int]
+ */
+function dfn_send_volunteer_credentials_email($volunteer_or_id, bool $force_create_user = true, string $override_to = ''): array
+{
+    global $wpdb;
+    $table_fai = $wpdb->prefix . 'dfn_fai_members';
+
+    $vol = null;
+    if (is_numeric($volunteer_or_id)) {
+        $vol = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", (int) $volunteer_or_id));
+    } elseif (is_object($volunteer_or_id)) {
+        $vol = $volunteer_or_id;
+    } elseif (is_array($volunteer_or_id)) {
+        $vol = (object) $volunteer_or_id;
+    }
+
+    if (! $vol) {
+        return [
+            'success' => false,
+            'message' => __('Scheda anagrafica volontario non trovata.', 'dfn-theme'),
+            'user_id' => 0,
+        ];
+    }
+
+    $email = sanitize_email($vol->email ?? '');
+    if (empty($email) || ! is_email($email)) {
+        return [
+            'success' => false,
+            'message' => __('Indirizzo email del volontario non valido o assente.', 'dfn-theme'),
+            'user_id' => 0,
+        ];
+    }
+
+    $user = null;
+    if (! empty($vol->user_id)) {
+        $user = get_userdata((int) $vol->user_id);
+    }
+
+    if (! $user) {
+        $user_by_email = get_user_by('email', $email);
+        if ($user_by_email) {
+            $user = $user_by_email;
+            if (! empty($vol->id)) {
+                $wpdb->update($table_fai, ['user_id' => $user->ID], ['id' => $vol->id], ['%d'], ['%d']);
+                $vol->user_id = $user->ID;
+            }
+        }
+    }
+
+    if (! $user && $force_create_user) {
+        $first_name = ! empty($vol->first_name) ? trim($vol->first_name) : 'Volontario';
+        $last_name  = ! empty($vol->last_name) ? trim($vol->last_name) : 'FAI';
+
+        $base_login = sanitize_user(strtolower($first_name . '.' . $last_name), true);
+        $base_login = preg_replace('/[^a-z0-9._-]/i', '', $base_login);
+        if (empty($base_login)) {
+            $base_login = sanitize_user(strstr($email, '@', true), true);
+        }
+        if (empty($base_login)) {
+            $base_login = 'volontario';
+        }
+
+        $login   = $base_login;
+        $counter = 1;
+        while (username_exists($login)) {
+            $counter++;
+            $login = $base_login . $counter;
+        }
+
+        $random_password = wp_generate_password(24, true, true);
+        $new_user_id     = wp_insert_user([
+            'user_login'   => $login,
+            'user_pass'    => $random_password,
+            'user_email'   => $email,
+            'first_name'   => $first_name,
+            'last_name'    => $last_name,
+            'display_name' => trim($first_name . ' ' . $last_name),
+            'role'         => 'dfn_volunteer',
+        ]);
+
+        if (is_wp_error($new_user_id)) {
+            return [
+                'success' => false,
+                'message' => sprintf(__('Errore nella creazione dell\'account utente: %s', 'dfn-theme'), $new_user_id->get_error_message()),
+                'user_id' => 0,
+            ];
+        }
+
+        $user = get_userdata($new_user_id);
+        if (! empty($vol->id)) {
+            $wpdb->update($table_fai, ['user_id' => $new_user_id], ['id' => $vol->id], ['%d'], ['%d']);
+            $vol->user_id = $new_user_id;
+        }
+    }
+
+    if (! $user) {
+        return [
+            'success' => false,
+            'message' => __('Nessun account utente collegato e creazione automatica non eseguita.', 'dfn-theme'),
+            'user_id' => 0,
+        ];
+    }
+
+    // Assicura che l'utente abbia il ruolo dfn_volunteer
+    if (! in_array('dfn_volunteer', (array) $user->roles, true)) {
+        $user->add_role('dfn_volunteer');
+    }
+
+    // Generazione della chiave di reset password sicura
+    $key = get_password_reset_key($user);
+    if (is_wp_error($key)) {
+        $key = wp_generate_password(20, false);
+    }
+
+    $lost_pwd_endpoint = function_exists('wc_get_endpoint_url') && function_exists('wc_get_page_permalink')
+        ? wc_get_endpoint_url('lost-password', '', wc_get_page_permalink('myaccount'))
+        : site_url('/mio-account/lost-password/');
+
+    $password_reset_url = add_query_arg([
+        'key'   => $key,
+        'id'    => $user->ID,
+        'login' => rawurlencode($user->user_login),
+    ], $lost_pwd_endpoint);
+
+    $to          = $override_to ?: $email;
+    $raw_subject = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_credentials_subject', 'Benvenuto nella Squadra Volontari del {delegazione}! Attiva le tue credenziali') : 'Benvenuto nella Squadra Volontari del {delegazione}! Attiva le tue credenziali';
+    $raw_title   = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_email_credentials_title', 'Benvenuto nella Squadra Volontari FAI!') : 'Benvenuto nella Squadra Volontari FAI!';
+
+    $subject = dfn_replace_volunteer_email_placeholders((string) $raw_subject, (array) $vol, $user->ID, $password_reset_url);
+    $title   = dfn_replace_volunteer_email_placeholders((string) $raw_title, (array) $vol, $user->ID, $password_reset_url);
+    $body    = dfn_build_volunteer_credentials_email_html((array) $vol, $user, $password_reset_url);
+    $sender  = dfn_get_volunteer_email_sender();
+
+    $sent = dfn_send_notification_email($to, $subject, $title, $body, [], '[Credenziali Volontario]', $sender);
+
+    if ($sent) {
+        if (function_exists('dfn_log_volunteer_roster') && ! empty($vol->id)) {
+            dfn_log_volunteer_roster((int) $vol->id, 'Invio email credenziali account', "Email con link impostazione password inviata a {$to} (Username: {$user->user_login})");
+        }
+        if (function_exists('dfn_log_write')) {
+            $author_name = is_user_logged_in() ? wp_get_current_user()->display_name : 'Sistema';
+            dfn_log_write('volontari', $author_name, sprintf("Inviata email credenziali e benvenuto a %s %s (%s)", $vol->first_name, $vol->last_name, $to), 'success');
+        }
+
+        return [
+            'success' => true,
+            'message' => sprintf(__('Email di benvenuto e credenziali inviata con successo a %s %s (%s)!', 'dfn-theme'), esc_html($vol->first_name), esc_html($vol->last_name), esc_html($to)),
+            'user_id' => $user->ID,
+        ];
+    }
+
+    return [
+        'success' => false,
+        'message' => __('Errore durante l\'invio dell\'email dal server di posta. Verifica i log del server.', 'dfn-theme'),
+        'user_id' => $user->ID,
+    ];
 }
 
 /**
