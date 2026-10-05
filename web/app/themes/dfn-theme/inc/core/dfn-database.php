@@ -2131,3 +2131,39 @@ function dfn_get_team_supervisors(int $team_id): array
 
     return $supervisors;
 }
+
+/**
+ * Recupera una mappa di tutte le squadre per ciascun membro [ member_id => [ team1, team2, ... ] ].
+ * Ottimizzato per evitare query N+1 durante il rendering tabellare.
+ *
+ * @return array<int, array<object>>
+ */
+function dfn_get_all_volunteer_teams_map(): array
+{
+    global $wpdb;
+    $table_teams   = $wpdb->prefix . 'dfn_teams';
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+
+    $sql = "SELECT tm.member_id, t.* 
+            FROM {$table_members} tm 
+            INNER JOIN {$table_teams} t ON tm.team_id = t.id 
+            WHERE t.is_active = 1 
+            ORDER BY t.order_num ASC, t.name ASC";
+
+    $rows = $wpdb->get_results($sql);
+    $map = [];
+
+    if (! empty($rows)) {
+        foreach ($rows as $r) {
+            $mid = (int) $r->member_id;
+            if (! isset($map[$mid])) {
+                $map[$mid] = [];
+            }
+            $map[$mid][] = $r;
+        }
+    }
+
+    return $map;
+}
+
+

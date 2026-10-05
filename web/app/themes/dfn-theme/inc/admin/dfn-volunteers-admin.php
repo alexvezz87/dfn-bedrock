@@ -912,7 +912,9 @@ function dfn_render_volunteers_list_page(): void
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (! empty($official_volunteers)) : ?>
+                    <?php if (! empty($official_volunteers)) : 
+                        $all_v_teams_map = function_exists('dfn_get_all_volunteer_teams_map') ? dfn_get_all_volunteer_teams_map() : [];
+                    ?>
                         <?php foreach ($official_volunteers as $v) : 
                             $user = $v->user_id ? get_userdata($v->user_id) : null;
                             $roles_label = '—';
@@ -1014,7 +1016,7 @@ function dfn_render_volunteers_list_page(): void
                                 </td>
                                 <td>
                                     <?php 
-                                    $v_teams = function_exists('dfn_get_volunteer_teams') ? dfn_get_volunteer_teams($v->id) : [];
+                                    $v_teams = $all_v_teams_map[(int) $v->id] ?? (function_exists('dfn_get_volunteer_teams') ? dfn_get_volunteer_teams($v->id) : []);
                                     if (! empty($v_teams)) : ?>
                                         <div style="display:flex; flex-wrap:wrap; gap:4px;">
                                             <?php foreach ($v_teams as $vt) : ?>
