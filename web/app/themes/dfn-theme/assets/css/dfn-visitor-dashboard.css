@@ -2112,16 +2112,22 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 }
 
 /* Hide duplicate WooCommerce pseudo dashicons and show-password-input */
+.dfn-password-input-wrap .show-password-input,
+.dfn-password-input-wrap button.show-password-input,
 .dfn-auth-card .show-password-input,
+.dfn-auth-card button.show-password-input,
+.woocommerce .dfn-auth-card .show-password-input,
+.woocommerce-account .dfn-auth-card .show-password-input,
+.woocommerce .dfn-password-input-wrap .show-password-input,
+.woocommerce-account .dfn-password-input-wrap .show-password-input,
 .dfn-auth-card .show-password-input::before,
 .dfn-auth-card .show-password-input::after,
+.dfn-password-input-wrap .show-password-input::before,
+.dfn-password-input-wrap .show-password-input::after,
 .dfn-auth-card .password-input::before,
 .dfn-auth-card .password-input::after,
 .dfn-auth-card span.show-password-input,
-.dfn-auth-card button.show-password-input,
-.dfn-auth-card a.show-password-input,
-.woocommerce-account .dfn-auth-card .show-password-input,
-.woocommerce-account .dfn-auth-card .password-input .show-password-input {
+.dfn-auth-card a.show-password-input {
     display: none !important;
     content: none !important;
     visibility: hidden !important;
@@ -2130,7 +2136,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     width: 0 !important;
     height: 0 !important;
     position: absolute !important;
-    left: -9999px !important;
+    left: -99999px !important;
 }
 
 /* Clean Custom Password Toggle Button */
