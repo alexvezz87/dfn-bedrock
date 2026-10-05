@@ -460,6 +460,46 @@ function dfn_db_install(): void
         UNIQUE KEY uk_event_role (event_id, role_id)
     ) {$charset_collate};";
 
+    // -------------------------------------------------------------------
+    // TABELLA 19: Squadre & Team di Delegazione
+    // -------------------------------------------------------------------
+    $table_teams = $wpdb->prefix . 'dfn_teams';
+    $sql_teams = "CREATE TABLE {$table_teams} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        name varchar(100) NOT NULL,
+        slug varchar(50) NOT NULL,
+        description text DEFAULT NULL,
+        icon varchar(20) NOT NULL DEFAULT '👥',
+        color varchar(20) NOT NULL DEFAULT '#004b23',
+        badge_bg varchar(20) NOT NULL DEFAULT '#f0fdf4',
+        supervisor_roles text DEFAULT NULL,
+        supervisor_user_id bigint(20) unsigned DEFAULT NULL,
+        is_active tinyint(1) NOT NULL DEFAULT 1,
+        order_num int(10) unsigned NOT NULL DEFAULT 0,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY uk_slug (slug),
+        KEY idx_active (is_active),
+        KEY idx_supervisor_user (supervisor_user_id)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 20: Componenti Squadre & Team
+    // -------------------------------------------------------------------
+    $table_team_members = $wpdb->prefix . 'dfn_team_members';
+    $sql_team_members = "CREATE TABLE {$table_team_members} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        team_id bigint(20) unsigned NOT NULL,
+        member_id bigint(20) unsigned NOT NULL,
+        user_id bigint(20) unsigned DEFAULT NULL,
+        joined_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY uk_team_member (team_id, member_id),
+        KEY idx_team (team_id),
+        KEY idx_member (member_id),
+        KEY idx_user (user_id)
+    ) {$charset_collate};";
+
 
     // Esecuzione idempotente di tutte le tabelle
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -481,6 +521,8 @@ function dfn_db_install(): void
     dbDelta($sql_vol_survey_responses);
     dbDelta($sql_roles);
     dbDelta($sql_event_roles);
+    dbDelta($sql_teams);
+    dbDelta($sql_team_members);
 
     // Popolamento ruoli predefiniti se la tabella è vuota
     $table_roles = $wpdb->prefix . 'dfn_volunteer_roles';
@@ -504,6 +546,67 @@ function dfn_db_install(): void
                 'requires_guide'        => $dr[6],
                 'is_default'            => $dr[7],
             ]);
+        }
+    }
+
+    // Popolamento squadre predefinite se la tabella è vuota
+    $table_teams = $wpdb->prefix . 'dfn_teams';
+    $teams_count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_teams}");
+    if ($teams_count === 0) {
+        $default_teams = [
+            [
+                'name'             => 'Team Ambiente',
+                'slug'             => 'team-ambiente',
+                'description'      => 'Progetti di tutela e valorizzazione ambientale, percorsi natura, beni paesaggistici e sentieri.',
+                'icon'             => '🌱',
+                'color'            => '#16a34a',
+                'badge_bg'         => '#f0fdf4',
+                'supervisor_roles' => json_encode(['dfn_delegato_ambiente', 'dfn_coord_volontari']),
+                'order_num'        => 1,
+            ],
+            [
+                'name'             => 'Team Eventi',
+                'slug'             => 'team-eventi',
+                'description'      => 'Organizzazione eventi culturali, concerti, mostre, visite esclusive e manifestazioni territoriali.',
+                'icon'             => '🎭',
+                'color'            => '#e11d48',
+                'badge_bg'         => '#ffe4e6',
+                'supervisor_roles' => json_encode(['dfn_delegato_eventi', 'dfn_coord_volontari']),
+                'order_num'        => 2,
+            ],
+            [
+                'name'             => 'Team Scuola',
+                'slug'             => 'team-scuola',
+                'description'      => 'Rapporti con gli istituti scolastici, formazione Apprendisti Ciceroni e visite guidate didattiche.',
+                'icon'             => '🎓',
+                'color'            => '#2563eb',
+                'badge_bg'         => '#eff6ff',
+                'supervisor_roles' => json_encode(['dfn_delegato_scuola', 'dfn_coord_volontari']),
+                'order_num'        => 3,
+            ],
+            [
+                'name'             => 'Team Comunicazione',
+                'slug'             => 'team-comunicazione',
+                'description'      => 'Gestione canali social, ufficio stampa, newsletter, rassegna stampa e promozione attività di Delegazione.',
+                'icon'             => '📢',
+                'color'            => '#8b5cf6',
+                'badge_bg'         => '#f5f3ff',
+                'supervisor_roles' => json_encode(['dfn_delegato_comunicazione', 'dfn_coord_volontari']),
+                'order_num'        => 4,
+            ],
+            [
+                'name'             => 'Gruppo Guide & Narrazione',
+                'slug'             => 'gruppo-guide-narrazione',
+                'description'      => 'Volontari abilitati alle visite narrate, approfondimenti storici, artistici e culturali del territorio.',
+                'icon'             => '🏛️',
+                'color'            => '#0891b2',
+                'badge_bg'         => '#ecfeff',
+                'supervisor_roles' => json_encode(['dfn_delegato_cultura', 'dfn_coord_volontari']),
+                'order_num'        => 5,
+            ],
+        ];
+        foreach ($default_teams as $dt) {
+            $wpdb->insert($table_teams, $dt);
         }
     }
 
@@ -1621,4 +1724,410 @@ function dfn_db_duplicate_event(int $event_id)
     }
 
     return $new_event_id;
+}
+
+/**
+ * Recupera tutte le squadre registrate nel sistema.
+ *
+ * @param bool $only_active Se true restituisce solo i team attivi.
+ * @return array<object>
+ */
+function dfn_get_all_teams(bool $only_active = false): array
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_teams';
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+
+    $where = $only_active ? 'WHERE t.is_active = 1' : '';
+    $sql = "SELECT t.*, COUNT(tm.id) as members_count 
+            FROM {$table} t 
+            LEFT JOIN {$table_members} tm ON t.id = tm.team_id 
+            {$where} 
+            GROUP BY t.id 
+            ORDER BY t.order_num ASC, t.name ASC";
+
+    $results = $wpdb->get_results($sql);
+    return is_array($results) ? $results : [];
+}
+
+/**
+ * Recupera un team specifico dal suo ID.
+ *
+ * @param int $team_id ID del team.
+ * @return object|null
+ */
+function dfn_get_team(int $team_id): ?object
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_teams';
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+
+    $sql = "SELECT t.*, COUNT(tm.id) as members_count 
+            FROM {$table} t 
+            LEFT JOIN {$table_members} tm ON t.id = tm.team_id 
+            WHERE t.id = %d 
+            GROUP BY t.id 
+            LIMIT 1";
+
+    $row = $wpdb->get_row($wpdb->prepare($sql, $team_id));
+    return $row ?: null;
+}
+
+/**
+ * Recupera un team dallo slug.
+ *
+ * @param string $slug Slug del team.
+ * @return object|null
+ */
+function dfn_get_team_by_slug(string $slug): ?object
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_teams';
+    $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE slug = %s LIMIT 1", $slug));
+    return $row ?: null;
+}
+
+/**
+ * Salva o aggiorna un team.
+ *
+ * @param array<string, mixed> $data    Dati del team.
+ * @param int|null             $team_id ID del team per aggiornamento, null per inserimento.
+ * @return int|false ID del team o false in caso di errore.
+ */
+function dfn_save_team(array $data, ?int $team_id = null)
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_teams';
+
+    $name = sanitize_text_field($data['name'] ?? '');
+    if (empty($name)) {
+        return false;
+    }
+
+    $slug = sanitize_title($data['slug'] ?? $name);
+    $description = sanitize_textarea_field($data['description'] ?? '');
+    $icon = sanitize_text_field($data['icon'] ?? '👥');
+    $color = sanitize_hex_color($data['color'] ?? '#004b23') ?: '#004b23';
+    $badge_bg = sanitize_hex_color($data['badge_bg'] ?? '#f0fdf4') ?: '#f0fdf4';
+    $supervisor_user_id = ! empty($data['supervisor_user_id']) ? (int) $data['supervisor_user_id'] : null;
+    $is_active = isset($data['is_active']) ? (int) $data['is_active'] : 1;
+    $order_num = isset($data['order_num']) ? (int) $data['order_num'] : 0;
+
+    // Normalizza supervisor_roles come JSON string
+    $supervisor_roles = $data['supervisor_roles'] ?? [];
+    if (is_array($supervisor_roles)) {
+        $supervisor_roles = json_encode(array_values(array_map('sanitize_key', $supervisor_roles)));
+    } elseif (is_string($supervisor_roles)) {
+        $decoded = json_decode($supervisor_roles, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $supervisor_roles = json_encode(array_values(array_map('sanitize_key', $decoded)));
+        } else {
+            $supervisor_roles = json_encode(array_values(array_filter(array_map('trim', explode(',', $supervisor_roles)))));
+        }
+    } else {
+        $supervisor_roles = json_encode([]);
+    }
+
+    $payload = [
+        'name'               => $name,
+        'slug'               => $slug,
+        'description'        => $description,
+        'icon'               => $icon,
+        'color'              => $color,
+        'badge_bg'           => $badge_bg,
+        'supervisor_roles'   => $supervisor_roles,
+        'supervisor_user_id' => $supervisor_user_id,
+        'is_active'          => $is_active,
+        'order_num'          => $order_num,
+    ];
+
+    if ($team_id && $team_id > 0) {
+        $updated = $wpdb->update($table, $payload, ['id' => $team_id]);
+        return ($updated !== false) ? $team_id : false;
+    }
+
+    $payload['created_at'] = current_time('mysql');
+    $inserted = $wpdb->insert($table, $payload);
+    return $inserted ? (int) $wpdb->insert_id : false;
+}
+
+/**
+ * Elimina un team e rimuove le relative assegnazioni componenti.
+ *
+ * @param int $team_id ID del team.
+ * @return bool
+ */
+function dfn_delete_team(int $team_id): bool
+{
+    global $wpdb;
+    $table_teams   = $wpdb->prefix . 'dfn_teams';
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+
+    $wpdb->delete($table_members, ['team_id' => $team_id], ['%d']);
+    $deleted = $wpdb->delete($table_teams, ['id' => $team_id], ['%d']);
+
+    return $deleted !== false;
+}
+
+/**
+ * Recupera tutti i volontari componenti di un determinato team.
+ *
+ * @param int $team_id ID del team.
+ * @return array<object>
+ */
+function dfn_get_team_members(int $team_id): array
+{
+    global $wpdb;
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+    $table_fai     = $wpdb->prefix . 'dfn_fai_members';
+
+    $sql = "SELECT tm.id as assignment_id, tm.joined_at, f.* 
+            FROM {$table_members} tm 
+            INNER JOIN {$table_fai} f ON tm.member_id = f.id 
+            WHERE tm.team_id = %d 
+            ORDER BY f.last_name ASC, f.first_name ASC";
+
+    $results = $wpdb->get_results($wpdb->prepare($sql, $team_id));
+    return is_array($results) ? $results : [];
+}
+
+/**
+ * Recupera tutte le squadre a cui è assegnato un determinato volontario (da member_id).
+ *
+ * @param int $member_id ID del membro in wp_dfn_fai_members.
+ * @return array<object>
+ */
+function dfn_get_volunteer_teams(int $member_id): array
+{
+    global $wpdb;
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+    $table_teams   = $wpdb->prefix . 'dfn_teams';
+
+    $sql = "SELECT t.*, tm.joined_at 
+            FROM {$table_teams} t 
+            INNER JOIN {$table_members} tm ON t.id = tm.team_id 
+            WHERE tm.member_id = %d 
+            ORDER BY t.order_num ASC, t.name ASC";
+
+    $results = $wpdb->get_results($wpdb->prepare($sql, $member_id));
+    return is_array($results) ? $results : [];
+}
+
+/**
+ * Recupera tutte le squadre a cui appartiene un utente WordPress (da user_id).
+ *
+ * @param int $user_id ID utente WP.
+ * @return array<object>
+ */
+function dfn_get_user_teams(int $user_id): array
+{
+    global $wpdb;
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+    $table_teams   = $wpdb->prefix . 'dfn_teams';
+    $table_fai     = $wpdb->prefix . 'dfn_fai_members';
+
+    $sql = "SELECT DISTINCT t.*, tm.joined_at 
+            FROM {$table_teams} t 
+            INNER JOIN {$table_members} tm ON t.id = tm.team_id 
+            LEFT JOIN {$table_fai} f ON tm.member_id = f.id 
+            WHERE (tm.user_id = %d OR f.user_id = %d) 
+            ORDER BY t.order_num ASC, t.name ASC";
+
+    $results = $wpdb->get_results($wpdb->prepare($sql, $user_id, $user_id));
+    return is_array($results) ? $results : [];
+}
+
+/**
+ * Assegna un insieme di squadre a un volontario (sincronizzazione completa).
+ *
+ * @param int      $member_id ID membro anagrafica.
+ * @param array<int> $team_ids Array di ID squadre.
+ * @param int|null $user_id   ID utente WordPress opzionale.
+ * @return void
+ */
+function dfn_set_volunteer_teams(int $member_id, array $team_ids, ?int $user_id = null): void
+{
+    global $wpdb;
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+    $table_fai     = $wpdb->prefix . 'dfn_fai_members';
+
+    if (! $user_id) {
+        $user_id = (int) $wpdb->get_var($wpdb->prepare("SELECT user_id FROM {$table_fai} WHERE id = %d", $member_id));
+    }
+
+    // Rimuovi assegnazioni attuali
+    $wpdb->delete($table_members, ['member_id' => $member_id], ['%d']);
+
+    foreach ($team_ids as $t_id) {
+        $t_id = (int) $t_id;
+        if ($t_id > 0) {
+            $wpdb->insert($table_members, [
+                'team_id'   => $t_id,
+                'member_id' => $member_id,
+                'user_id'   => ($user_id && $user_id > 0) ? $user_id : null,
+                'joined_at' => current_time('mysql'),
+            ], ['%d', '%d', '%d', '%s']);
+        }
+    }
+}
+
+/**
+ * Aggiunge un singolo volontario a una squadra.
+ *
+ * @param int      $team_id   ID del team.
+ * @param int      $member_id ID membro anagrafica.
+ * @param int|null $user_id   ID utente WP opzionale.
+ * @return bool
+ */
+function dfn_add_team_member(int $team_id, int $member_id, ?int $user_id = null): bool
+{
+    global $wpdb;
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+    $table_fai     = $wpdb->prefix . 'dfn_fai_members';
+
+    if (! $user_id) {
+        $user_id = (int) $wpdb->get_var($wpdb->prepare("SELECT user_id FROM {$table_fai} WHERE id = %d", $member_id));
+    }
+
+    // Verifica se già presente
+    $exists = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$table_members} WHERE team_id = %d AND member_id = %d", $team_id, $member_id));
+    if ($exists) {
+        return true;
+    }
+
+    $res = $wpdb->insert($table_members, [
+        'team_id'   => $team_id,
+        'member_id' => $member_id,
+        'user_id'   => ($user_id && $user_id > 0) ? $user_id : null,
+        'joined_at' => current_time('mysql'),
+    ], ['%d', '%d', '%d', '%s']);
+
+    return (bool) $res;
+}
+
+/**
+ * Rimuove un volontario da una squadra.
+ *
+ * @param int $team_id   ID del team.
+ * @param int $member_id ID membro anagrafica.
+ * @return bool
+ */
+function dfn_remove_team_member(int $team_id, int $member_id): bool
+{
+    global $wpdb;
+    $table_members = $wpdb->prefix . 'dfn_team_members';
+    $res = $wpdb->delete($table_members, ['team_id' => $team_id, 'member_id' => $member_id], ['%d', '%d']);
+    return $res !== false;
+}
+
+/**
+ * Verifica se un determinato utente WordPress è responsabile/supervisore di una squadra.
+ * Un utente è supervisore se:
+ * - È amministratore di sistema (manage_options)
+ * - È assegnato direttamente come supervisor_user_id nel team
+ * - Possiede uno dei ruoli/deleghe abilitate in supervisor_roles per quel team
+ *
+ * @param int $user_id ID utente WP.
+ * @param int $team_id ID del team.
+ * @return bool
+ */
+function dfn_is_user_team_supervisor(int $user_id, int $team_id): bool
+{
+    if (! $user_id || ! $team_id) {
+        return false;
+    }
+
+    // Amministratori di sistema hanno sempre supervisione
+    if (user_can($user_id, 'manage_options')) {
+        return true;
+    }
+
+    $team = dfn_get_team($team_id);
+    if (! $team) {
+        return false;
+    }
+
+    // Supervisore diretto assegnato per user ID
+    if (! empty($team->supervisor_user_id) && (int) $team->supervisor_user_id === $user_id) {
+        return true;
+    }
+
+    // Controllo dei ruoli/deleghe supervisore
+    $sup_roles = [];
+    if (! empty($team->supervisor_roles)) {
+        $decoded = json_decode($team->supervisor_roles, true);
+        if (is_array($decoded)) {
+            $sup_roles = $decoded;
+        }
+    }
+
+    if (empty($sup_roles)) {
+        return false;
+    }
+
+    $user = get_userdata($user_id);
+    if (! $user) {
+        return false;
+    }
+
+    $user_roles = (array) $user->roles;
+    $assigned_meta = (array) get_user_meta($user_id, '_dfn_assigned_fai_roles', true);
+    $all_user_roles = array_unique(array_merge($user_roles, $assigned_meta));
+
+    foreach ($sup_roles as $sr) {
+        if (in_array($sr, $all_user_roles, true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Recupera l'elenco degli utenti supervisori/delegati responsabili per una squadra.
+ *
+ * @param int $team_id ID del team.
+ * @return array<WP_User>
+ */
+function dfn_get_team_supervisors(int $team_id): array
+{
+    $team = dfn_get_team($team_id);
+    if (! $team) {
+        return [];
+    }
+
+    $supervisors = [];
+    $seen_uids = [];
+
+    // 1. Supervisore diretto
+    if (! empty($team->supervisor_user_id)) {
+        $direct_u = get_userdata((int) $team->supervisor_user_id);
+        if ($direct_u) {
+            $supervisors[] = $direct_u;
+            $seen_uids[$direct_u->ID] = true;
+        }
+    }
+
+    // 2. Utenti con ruoli supervisore abilitati
+    $sup_roles = [];
+    if (! empty($team->supervisor_roles)) {
+        $decoded = json_decode($team->supervisor_roles, true);
+        if (is_array($decoded)) {
+            $sup_roles = $decoded;
+        }
+    }
+
+    if (! empty($sup_roles)) {
+        foreach ($sup_roles as $r_slug) {
+            $users_in_role = get_users(['role' => $r_slug]);
+            foreach ($users_in_role as $ur) {
+                if (! isset($seen_uids[$ur->ID])) {
+                    $supervisors[] = $ur;
+                    $seen_uids[$ur->ID] = true;
+                }
+            }
+        }
+    }
+
+    return $supervisors;
 }
