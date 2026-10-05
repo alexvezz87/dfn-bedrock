@@ -225,6 +225,11 @@
         }
     });
 
+    // Rimuovi eventuali bottoni WooCommerce duplicati iniettati nei wrapper custom
+    $(function() {
+        $('.dfn-password-input-wrap .show-password-input').remove();
+    });
+
     // Toggle visibilità password
     $(document).on('click', '.dfn-pwd-toggle-btn', function(e) {
         e.preventDefault();
@@ -236,6 +241,7 @@
             var isPass = $input.attr('type') === 'password';
             $input.attr('type', isPass ? 'text' : 'password');
             $btn.toggleClass('is-active', isPass);
+            $btn.attr('aria-label', isPass ? 'Nascondi password' : 'Mostra password');
             $btn.find('.icon-eye-show').toggle(!isPass);
             $btn.find('.icon-eye-hide').toggle(isPass);
         }
