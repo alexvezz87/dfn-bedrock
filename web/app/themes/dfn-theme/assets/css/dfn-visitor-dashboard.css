@@ -1894,18 +1894,24 @@
    ========================================================================== */
 .dfn-auth-card {
     max-width: 440px !important;
-    margin: 32px auto 48px auto !important;
+    margin: 40px auto 48px auto !important;
     background: #ffffff !important;
     border-radius: 16px !important;
     border: 1px solid #e2e8f0 !important;
-    padding: 28px 24px !important;
-    box-shadow: 0 10px 30px rgba(0, 77, 53, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+    padding: 32px 28px !important;
+    box-shadow: 0 10px 30px rgba(0, 77, 53, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
     box-sizing: border-box !important;
     position: relative !important;
     width: 100% !important;
+    text-align: left !important;
 }
 
-/* Annulla stili duplicati per i form interni alla card */
+/* Suppress wpautop br tags inside auth card */
+.dfn-auth-card br {
+    display: none !important;
+}
+
+/* Forms inside auth card */
 .dfn-auth-card form,
 .dfn-auth-card form.woocommerce-ResetPassword,
 .dfn-auth-card form.lost_reset_password,
@@ -1917,24 +1923,26 @@
     box-shadow: none !important;
     max-width: 100% !important;
     width: 100% !important;
+    display: block !important;
+    text-align: left !important;
 }
 
 .dfn-card-header {
     text-align: center !important;
-    margin-bottom: 20px !important;
+    margin-bottom: 24px !important;
 }
 
 .dfn-card-icon-badge {
-    width: 46px !important;
-    height: 46px !important;
+    width: 48px !important;
+    height: 48px !important;
     border-radius: 12px !important;
     background: #f0fdf4 !important;
-    border: 1.5px solid #bbf7d0 !important;
-    display: inline-flex !important;
+    border: 1.5px solid #86efac !important;
+    display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    margin: 0 auto 10px auto !important;
-    color: #004d35 !important;
+    margin: 0 auto 12px auto !important;
+    color: #004b23 !important;
 }
 
 .dfn-card-icon-badge.dfn-badge-success {
@@ -1943,101 +1951,151 @@
 }
 
 .dfn-card-title,
-.woocommerce-account form.woocommerce-ResetPassword h2 {
-    font-size: 20px !important;
+.woocommerce-account form.woocommerce-ResetPassword h2,
+.dfn-auth-card h2 {
+    font-size: 22px !important;
     font-weight: 800 !important;
-    color: #004d35 !important;
+    color: #004b23 !important;
     text-align: center !important;
-    margin: 0 0 6px 0 !important;
+    margin: 0 0 8px 0 !important;
     letter-spacing: -0.3px !important;
     border-bottom: none !important;
     padding-bottom: 0 !important;
+    line-height: 1.25 !important;
 }
 
 .dfn-card-subtitle,
-.woocommerce-account form.woocommerce-ResetPassword > p:first-of-type {
+.woocommerce-account form.woocommerce-ResetPassword > p:first-of-type,
+.dfn-auth-card .dfn-card-subtitle {
     font-size: 13.5px !important;
     color: #64748b !important;
     text-align: center !important;
-    line-height: 1.45 !important;
-    margin: 0 0 18px 0 !important;
+    line-height: 1.5 !important;
+    margin: 0 0 20px 0 !important;
 }
 
+/* Form rows */
+.dfn-auth-card .form-row,
+.dfn-auth-card .woocommerce-form-row,
 .woocommerce-account form.woocommerce-ResetPassword .form-row,
 .woocommerce-account .lost_reset_password .form-row,
 .dfn-auth-form .form-row {
-    margin-bottom: 14px !important;
-    padding: 0 !important;
+    display: block !important;
     width: 100% !important;
+    margin: 0 0 16px 0 !important;
+    padding: 0 !important;
     float: none !important;
+    clear: both !important;
+    text-align: left !important;
+    box-sizing: border-box !important;
 }
 
+.dfn-auth-card label,
 .woocommerce-account form.woocommerce-ResetPassword label,
 .woocommerce-account .lost_reset_password label,
 .dfn-auth-form label {
     display: block !important;
-    font-size: 12.5px !important;
+    font-size: 13px !important;
     font-weight: 700 !important;
     color: #1e293b !important;
-    margin-bottom: 5px !important;
+    margin: 0 0 6px 0 !important;
     text-align: left !important;
 }
 
+.dfn-auth-card label .required {
+    color: #e11d48 !important;
+}
+
+/* Password wrapper inside auth card */
+.dfn-auth-card .password-input,
+.dfn-auth-card .dfn-password-input-wrap,
+.woocommerce-account form.woocommerce-ResetPassword .password-input,
+.woocommerce-account form.woocommerce-ResetPassword .dfn-password-input-wrap {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Inputs */
+.dfn-auth-card input.input-text,
+.dfn-auth-card input[type="text"],
+.dfn-auth-card input[type="password"],
+.dfn-auth-card input[type="email"],
 .woocommerce-account form.woocommerce-ResetPassword input.input-text,
 .woocommerce-account .lost_reset_password input.input-text,
 .dfn-auth-form input.input-text {
+    display: block !important;
     width: 100% !important;
-    height: 42px !important;
-    padding: 0 14px !important;
+    height: 44px !important;
+    line-height: 44px !important;
+    padding: 0 42px 0 14px !important;
+    margin: 0 !important;
     border-radius: 8px !important;
     border: 1.5px solid #cbd5e1 !important;
     background-color: #f8fafc !important;
     font-size: 14px !important;
     color: #0f172a !important;
-    transition: all 0.2s ease !important;
     box-sizing: border-box !important;
     outline: none !important;
+    box-shadow: none !important;
+    text-align: left !important;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 
+.dfn-auth-card input.input-text:focus,
+.dfn-auth-card input[type="text"]:focus,
+.dfn-auth-card input[type="password"]:focus,
+.dfn-auth-card input[type="email"]:focus,
 .woocommerce-account form.woocommerce-ResetPassword input.input-text:focus,
 .woocommerce-account .lost_reset_password input.input-text:focus,
 .dfn-auth-form input.input-text:focus {
-    border-color: #004d35 !important;
+    border-color: #004b23 !important;
     background-color: #ffffff !important;
-    box-shadow: 0 0 0 3px rgba(0, 77, 53, 0.12) !important;
+    box-shadow: 0 0 0 3px rgba(0, 75, 35, 0.12) !important;
 }
 
 /* Submit Buttons */
+.dfn-auth-card button.dfn-btn-primary,
+.dfn-auth-card button.woocommerce-Button,
+.dfn-auth-card button[type="submit"],
 .woocommerce-account form.woocommerce-ResetPassword button.woocommerce-Button,
 .woocommerce-account form.woocommerce-ResetPassword button[type="submit"],
 .woocommerce-account .lost_reset_password button[type="submit"],
 .dfn-btn-primary {
     width: 100% !important;
-    height: 44px !important;
+    height: 46px !important;
     border-radius: 50px !important;
-    background: #004d35 !important;
+    background: #004b23 !important;
     color: #ffffff !important;
     font-size: 14px !important;
     font-weight: 700 !important;
     border: none !important;
     cursor: pointer !important;
     transition: all 0.25s ease !important;
-    display: inline-flex !important;
+    display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    box-shadow: 0 4px 14px rgba(0, 77, 53, 0.22) !important;
+    box-shadow: 0 4px 14px rgba(0, 75, 35, 0.22) !important;
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
     text-decoration: none !important;
+    margin: 20px 0 0 0 !important;
 }
 
+.dfn-auth-card button.dfn-btn-primary:hover,
+.dfn-auth-card button.woocommerce-Button:hover,
+.dfn-auth-card button[type="submit"]:hover,
 .woocommerce-account form.woocommerce-ResetPassword button.woocommerce-Button:hover,
 .woocommerce-account form.woocommerce-ResetPassword button[type="submit"]:hover,
 .woocommerce-account .lost_reset_password button[type="submit"]:hover,
 .dfn-btn-primary:hover {
-    background: #003625 !important;
+    background: #003619 !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 6px 18px rgba(0, 77, 53, 0.3) !important;
+    box-shadow: 0 6px 18px rgba(0, 75, 35, 0.3) !important;
     color: #ffffff !important;
 }
 
@@ -2054,40 +2112,32 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 }
 
 /* Hide duplicate WooCommerce pseudo dashicons and show-password-input */
-.show-password-input,
-.woocommerce-account .show-password-input,
-.woocommerce-account .show-password-input::before,
-.woocommerce-account .show-password-input::after,
-.woocommerce-account .password-input .show-password-input,
-.woocommerce-account .password-input .show-password-input::before,
-.woocommerce-account .password-input .show-password-input::after {
+.dfn-auth-card .show-password-input,
+.dfn-auth-card .show-password-input::before,
+.dfn-auth-card .show-password-input::after,
+.dfn-auth-card .password-input::before,
+.dfn-auth-card .password-input::after,
+.dfn-auth-card span.show-password-input,
+.dfn-auth-card button.show-password-input,
+.dfn-auth-card a.show-password-input,
+.woocommerce-account .dfn-auth-card .show-password-input,
+.woocommerce-account .dfn-auth-card .password-input .show-password-input {
     display: none !important;
     content: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
     pointer-events: none !important;
-}
-
-/* Clean Password Toggle Button */
-.dfn-password-input-wrap {
-    position: relative !important;
-    display: flex !important;
-    align-items: center !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-.dfn-password-input-wrap input {
-    width: 100% !important;
-    height: 38px !important;
-    padding: 0 36px 0 12px !important;
-    margin: 0 !important;
-    box-sizing: border-box !important;
-}
-
-.dfn-pwd-toggle-btn {
+    width: 0 !important;
+    height: 0 !important;
     position: absolute !important;
-    right: 6px !important;
+    left: -9999px !important;
+}
+
+/* Clean Custom Password Toggle Button */
+.dfn-auth-card .dfn-pwd-toggle-btn,
+.woocommerce-account form.woocommerce-ResetPassword .dfn-pwd-toggle-btn {
+    position: absolute !important;
+    right: 8px !important;
     top: 50% !important;
     transform: translateY(-50%) !important;
     background: transparent !important;
@@ -2099,49 +2149,92 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    border-radius: 4px !important;
+    border-radius: 6px !important;
     transition: all 0.2s ease !important;
     line-height: 1 !important;
     box-shadow: none !important;
     outline: none !important;
-    width: 26px !important;
-    height: 26px !important;
+    width: 30px !important;
+    height: 30px !important;
     z-index: 10 !important;
 }
 
-.dfn-pwd-toggle-btn svg {
-    width: 16px !important;
-    height: 16px !important;
+.dfn-auth-card .dfn-pwd-toggle-btn svg,
+.woocommerce-account form.woocommerce-ResetPassword .dfn-pwd-toggle-btn svg {
+    width: 18px !important;
+    height: 18px !important;
     display: block !important;
     pointer-events: none !important;
 }
 
-.dfn-pwd-toggle-btn:hover,
-.dfn-pwd-toggle-btn:focus {
+.dfn-auth-card .dfn-pwd-toggle-btn:hover,
+.dfn-auth-card .dfn-pwd-toggle-btn:focus,
+.woocommerce-account form.woocommerce-ResetPassword .dfn-pwd-toggle-btn:hover,
+.woocommerce-account form.woocommerce-ResetPassword .dfn-pwd-toggle-btn:focus {
     color: #004b23 !important;
-    background: #f1f5f9 !important;
+    background: #e2e8f0 !important;
     outline: none !important;
 }
 
-.dfn-pwd-toggle-btn.is-active .icon-eye-show {
+.dfn-auth-card .dfn-pwd-toggle-btn.is-active .icon-eye-show,
+.woocommerce-account form.woocommerce-ResetPassword .dfn-pwd-toggle-btn.is-active .icon-eye-show {
     display: none !important;
 }
 
-.dfn-pwd-toggle-btn.is-active .icon-eye-hide {
-    display: inline-block !important;
+.dfn-auth-card .dfn-pwd-toggle-btn.is-active .icon-eye-hide,
+.woocommerce-account form.woocommerce-ResetPassword .dfn-pwd-toggle-btn.is-active .icon-eye-hide {
+    display: block !important;
     color: #004b23 !important;
+}
+
+/* Password strength meter and hint */
+.dfn-auth-card .woocommerce-password-strength {
+    margin-top: 8px !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+}
+
+.dfn-auth-card .woocommerce-password-strength.short,
+.dfn-auth-card .woocommerce-password-strength.bad {
+    background-color: #fef2f2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fecaca !important;
+}
+
+.dfn-auth-card .woocommerce-password-strength.good {
+    background-color: #fefce8 !important;
+    color: #854d0e !important;
+    border: 1px solid #fef08a !important;
+}
+
+.dfn-auth-card .woocommerce-password-strength.strong {
+    background-color: #f0fdf4 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0 !important;
+}
+
+.dfn-auth-card .woocommerce-password-hint {
+    display: block !important;
+    font-size: 11.5px !important;
+    color: #64748b !important;
+    margin-top: 6px !important;
+    line-height: 1.4 !important;
+    text-align: left !important;
 }
 
 /* Back to Login link */
 .dfn-card-footer-links {
-    margin-top: 18px !important;
+    margin-top: 20px !important;
     text-align: center !important;
 }
 
 .dfn-back-to-login {
     font-size: 13px !important;
     font-weight: 600 !important;
-    color: #004d35 !important;
+    color: #004b23 !important;
     text-decoration: none !important;
     transition: color 0.2s ease !important;
     display: inline-flex !important;
