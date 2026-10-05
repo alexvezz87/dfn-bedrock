@@ -230,12 +230,14 @@
         e.preventDefault();
         e.stopPropagation();
         var $btn   = $(this);
-        var $wrap  = $btn.closest('.dfn-password-input-wrap');
-        var $input = $wrap.find('input');
+        var $wrap  = $btn.closest('.dfn-password-input-wrap, .password-input');
+        var $input = $wrap.length ? $wrap.find('input') : $btn.siblings('input');
         if ($input.length) {
             var isPass = $input.attr('type') === 'password';
             $input.attr('type', isPass ? 'text' : 'password');
             $btn.toggleClass('is-active', isPass);
+            $btn.find('.icon-eye-show').toggle(!isPass);
+            $btn.find('.icon-eye-hide').toggle(isPass);
         }
     });
 
