@@ -687,17 +687,18 @@ function dfn_render_volunteers_list_page(): void
             </div>
 
             <?php if (! empty($pending_volunteers)) : ?>
-                <table class="wp-list-table widefat fixed striped" style="border:none;">
-                    <thead>
-                        <tr style="background:#fdf6e2;">
-                            <th style="width:180px; font-weight:700; color:#78350f;">Volontario</th>
-                            <th style="width:180px; font-weight:700; color:#78350f;">Origine Registrazione</th>
-                            <th style="width:190px; font-weight:700; color:#78350f;">Contatti</th>
-                            <th style="width:160px; font-weight:700; color:#78350f;">Stato Tessera &amp; SiVol</th>
-                            <th style="font-weight:700; color:#78350f;">Disponibilità / Competenze</th>
-                            <th style="width:190px; font-weight:700; color:#78350f; text-align:right;">Azioni Convalida</th>
-                        </tr>
-                    </thead>
+                <div style="overflow-x:auto;">
+                    <table class="wp-list-table widefat striped" style="border:none; width:100%; min-width:980px;">
+                        <thead>
+                            <tr style="background:#fdf6e2;">
+                                <th style="width:170px; min-width:150px; font-weight:700; color:#78350f;">Volontario</th>
+                                <th style="width:170px; min-width:150px; font-weight:700; color:#78350f;">Origine Registrazione</th>
+                                <th style="width:180px; min-width:160px; font-weight:700; color:#78350f;">Contatti</th>
+                                <th style="width:150px; min-width:140px; font-weight:700; color:#78350f;">Stato Tessera &amp; SiVol</th>
+                                <th style="font-weight:700; color:#78350f; min-width:160px;">Disponibilità / Competenze</th>
+                                <th style="width:260px; min-width:240px; font-weight:700; color:#78350f; text-align:right;">Azioni Convalida</th>
+                            </tr>
+                        </thead>
                     <tbody>
                         <?php foreach ($pending_volunteers as $p) : 
                             $u = $p->user_id ? get_userdata($p->user_id) : null;
@@ -822,6 +823,7 @@ function dfn_render_volunteers_list_page(): void
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
             <?php else : ?>
                 <div style="padding:24px; text-align:center; color:#64748b; font-size:13.5px;">
                     🎉 <strong>Nessun volontario in attesa di convalida trovato.</strong> Tutti i volontari registrati hanno la tessera FAI validata.
@@ -894,19 +896,19 @@ function dfn_render_volunteers_list_page(): void
         </div>
 
         <!-- TABELLA VOLONTARI UFFICIALI (VALIDATI) -->
-        <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; border-top:4px solid #004b23; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,0.05); margin-bottom:30px;">
-            <table class="wp-list-table widefat fixed striped table-view-list" style="border:none;">
+        <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; border-top:4px solid #004b23; overflow-x:auto; box-shadow:0 1px 2px rgba(0,0,0,0.05); margin-bottom:30px;">
+            <table class="wp-list-table widefat striped table-view-list" style="border:none; width:100%; min-width:1150px;">
                 <thead>
                     <tr>
-                        <th style="width:160px; font-weight:700;">Volontario</th>
-                        <th style="width:140px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
-                        <th style="width:90px; font-weight:700; text-align:center;">SiVol <?php dfn_tooltip_icon('dfn-tip-vol-sivol', 'Informazioni: Registrazione SiVol'); ?></th>
-                        <th style="width:170px; font-weight:700;">Contatti &amp; Origine</th>
-                        <th style="font-weight:700;">Incarichi &amp; Ruoli <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
-                        <th style="width:140px; font-weight:700;">Squadre &amp; Team</th>
-                        <th style="width:130px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
-                        <th style="width:85px; font-weight:700; text-align:center;">Stato</th>
-                        <th style="width:180px; font-weight:700; text-align:right;">Azioni</th>
+                        <th style="width:150px; min-width:140px; font-weight:700;">Volontario</th>
+                        <th style="width:130px; min-width:120px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
+                        <th style="width:75px; min-width:70px; font-weight:700; text-align:center;">SiVol <?php dfn_tooltip_icon('dfn-tip-vol-sivol', 'Informazioni: Registrazione SiVol'); ?></th>
+                        <th style="width:160px; min-width:150px; font-weight:700;">Contatti &amp; Origine</th>
+                        <th style="font-weight:700; min-width:160px;">Incarichi &amp; Ruoli <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
+                        <th style="width:140px; min-width:120px; font-weight:700;">Squadre &amp; Team</th>
+                        <th style="width:110px; min-width:100px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
+                        <th style="width:85px; min-width:80px; font-weight:700; text-align:center;">Stato</th>
+                        <th style="width:320px; min-width:300px; font-weight:700; text-align:right;">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
