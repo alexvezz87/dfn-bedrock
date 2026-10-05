@@ -404,6 +404,18 @@ function dfn_render_volunteers_list_page(): void
                     dfn_log_volunteer_roster($vol_id, 'Stato volontario modificato', "Nuovo stato: {$new_status}");
                 }
                 echo '<div class="notice notice-success is-dismissible"><p>✅ Stato volontario aggiornato a ' . esc_html($new_status) . '.</p></div>';
+            } elseif ($action === 'send_credentials') {
+                $vol = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_fai} WHERE id = %d", $vol_id));
+                if ($vol) {
+                    if (function_exists('dfn_send_volunteer_credentials_email')) {
+                        $res = dfn_send_volunteer_credentials_email($vol, true);
+                        if (! empty($res['success'])) {
+                            echo '<div class="notice notice-success is-dismissible" style="border-left-color:#004b23;"><p>✉️ <strong>' . esc_html($res['message']) . '</strong></p></div>';
+                        } else {
+                            echo '<div class="notice notice-error is-dismissible"><p>❌ <strong>' . esc_html($res['message'] ?? __('Impossibile inviare l\'email con le credenziali.', 'dfn-theme')) . '</strong></p></div>';
+                        }
+                    }
+                }
             }
         }
     }
@@ -757,6 +769,17 @@ function dfn_render_volunteers_list_page(): void
                                                 title="Inserisci Tessera FAI e convalida">
                                             <span>✅</span> Convalida
                                         </button>
+                                        <?php if (! empty($p->email) && is_email($p->email)) : 
+                                            $send_cred_pending_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=send_credentials&volunteer_id=' . $p->id . ($reg_source_pending !== 'all' ? '&reg_source_pending=' . $reg_source_pending : '') . (! empty($search_pending) ? '&s_pending=' . urlencode($search_pending) : '')), 'dfn_vol_action_' . $p->id);
+                                        ?>
+                                            <a href="<?php echo esc_url($send_cred_pending_url); ?>" 
+                                               class="button button-small" 
+                                               title="<?php esc_attr_e('Invia email di benvenuto e link per impostare la password', 'dfn-theme'); ?>" 
+                                               style="color:#004b23; font-weight:600; white-space:nowrap; padding:0 8px;"
+                                               onclick="return confirm('Confermi l\'invio dell\'email di benvenuto e del link di impostazione password a <?php echo esc_js($p->first_name . ' ' . $p->last_name . ' (' . $p->email . ')'); ?>?');">
+                                                ✉️ Credenziali
+                                            </a>
+                                        <?php endif; ?>
                                         <a href="<?php echo esc_url($edit_url); ?>" 
                                            class="button button-small" 
                                            title="Modifica scheda volontario" 
@@ -980,10 +1003,20 @@ function dfn_render_volunteers_list_page(): void
                                 <td style="text-align:right; vertical-align:middle;">
                                     <div style="display:flex; justify-content:flex-end; align-items:center; gap:6px; flex-wrap:nowrap;">
                                         <?php 
-                                        $edit_url   = admin_url('admin.php?page=dfn-volunteer-add&volunteer_id=' . $v->id);
-                                        $toggle_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=toggle_status&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '') . ($reg_source_official !== 'all' ? '&reg_source_official=' . $reg_source_official : '')), 'dfn_vol_action_' . $v->id);
-                                        $delete_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=delete&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '') . ($reg_source_official !== 'all' ? '&reg_source_official=' . $reg_source_official : '')), 'dfn_vol_action_' . $v->id);
+                                        $edit_url      = admin_url('admin.php?page=dfn-volunteer-add&volunteer_id=' . $v->id);
+                                        $toggle_url    = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=toggle_status&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '') . ($reg_source_official !== 'all' ? '&reg_source_official=' . $reg_source_official : '')), 'dfn_vol_action_' . $v->id);
+                                        $delete_url    = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=delete&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '') . ($reg_source_official !== 'all' ? '&reg_source_official=' . $reg_source_official : '')), 'dfn_vol_action_' . $v->id);
+                                        $send_cred_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=send_credentials&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '') . ($reg_source_official !== 'all' ? '&reg_source_official=' . $reg_source_official : '')), 'dfn_vol_action_' . $v->id);
                                         ?>
+                                        <?php if (! empty($v->email) && is_email($v->email)) : ?>
+                                            <a href="<?php echo esc_url($send_cred_url); ?>" 
+                                               class="button button-small" 
+                                               title="<?php esc_attr_e('Invia email di benvenuto e link per impostare la password', 'dfn-theme'); ?>" 
+                                               style="color:#004b23; font-weight:600; white-space:nowrap; padding:0 8px;"
+                                               onclick="return confirm('Confermi l\'invio dell\'email di benvenuto e del link di impostazione password a <?php echo esc_js($v->first_name . ' ' . $v->last_name . ' (' . $v->email . ')'); ?>?');">
+                                                ✉️ Credenziali
+                                            </a>
+                                        <?php endif; ?>
                                         <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="Modifica dati e ruoli" style="white-space:nowrap; padding:0 8px;">
                                             ✏️ Modifica
                                         </a>
@@ -1804,11 +1837,23 @@ function dfn_render_volunteer_add_page(): void
                     <textarea name="notes" id="dfn-field-notes" rows="3" placeholder="Es. Disponibile per visite guidate nei weekend, accoglienza banchetto..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:8px 10px;"><?php echo esc_textarea($volunteer_data ? ($volunteer_data->volunteer_notes ?: '') : ''); ?></textarea>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f0f0f1; padding-top:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f0f0f1; padding-top:16px; flex-wrap:wrap; gap:10px;">
                     <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteers')); ?>" class="button">Annulla</a>
-                    <button type="submit" name="dfn_save_volunteer" class="button button-primary" style="background:#004b23; border-color:#003b1c; padding:4px 18px; font-weight:700;">
-                        <?php echo $is_edit ? '💾 Salva Modifiche Volontario' : '➕ Salva &amp; Attiva Volontario'; ?>
-                    </button>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <?php if ($is_edit && ! empty($volunteer_data->email) && is_email($volunteer_data->email)) : 
+                            $send_cred_edit_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=send_credentials&volunteer_id=' . $volunteer_data->id), 'dfn_vol_action_' . $volunteer_data->id);
+                        ?>
+                            <a href="<?php echo esc_url($send_cred_edit_url); ?>" 
+                               class="button" 
+                               style="color:#004b23; border-color:#86efac; background:#f0fdf4; font-weight:600; padding:3px 12px;" 
+                               onclick="return confirm('Confermi l\'invio dell\'email di benvenuto e del link di impostazione password a <?php echo esc_js($volunteer_data->email); ?>?');">
+                                ✉️ Invia / Reinvia Credenziali Account
+                            </a>
+                        <?php endif; ?>
+                        <button type="submit" name="dfn_save_volunteer" class="button button-primary" style="background:#004b23; border-color:#003b1c; padding:4px 18px; font-weight:700;">
+                            <?php echo $is_edit ? '💾 Salva Modifiche Volontario' : '➕ Salva &amp; Attiva Volontario'; ?>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

@@ -88,6 +88,17 @@ function dfn_get_volunteer_setting(string $key, $default = null)
         'vol_email_approved_btn_text'        => 'Accedi alla tua Bacheca Volontario →',
         'vol_email_approved_notes'           => "Nota: Per accedere ti basterà utilizzare l'indirizzo email {email} e la password scelta in fase di registrazione.",
         'vol_email_approved_signature'       => "Benvenuto a bordo e buon lavoro per la nostra missione comune!\nLo Staff della {delegazione}",
+
+        // 4. Email Volontario: Invio / Reinvio Credenziali Account
+        'vol_email_credentials_subject'      => 'Benvenuto nella Squadra Volontari del {delegazione}! Attiva le tue credenziali',
+        'vol_email_credentials_title'        => 'Benvenuto nella Squadra Volontari FAI!',
+        'vol_email_credentials_intro'        => "Gentile {nome},\n\nSiamo felici di averti con noi nella Squadra Volontari del {delegazione}! 🎉\n\nPer permetterti di accedere alla tua Area Riservata e consultare i turni, le riunioni e i materiali, abbiamo preparato il tuo account personale.",
+        'vol_email_credentials_box_title'    => '🏛️ Le tue Credenziali di Accesso',
+        'vol_email_credentials_btn_text'     => '🔐 Imposta la tua Password ed Accedi →',
+        'vol_email_credentials_info_title'   => '✨ Cosa puoi fare nella tua Area Riservata?',
+        'vol_email_credentials_info_bullets' => "Consultare i turni assegnati e le sedi operative per le Giornate FAI\nCompilare i sondaggi di disponibilità oraria\nVisualizzare il calendario delle riunioni di delegazione e i verbali\nScaricare le dispense informative e le schede storico-artistiche",
+        'vol_email_credentials_notes'        => "Nota di sicurezza: Il link per l'impostazione della password è personale e valido per 24 ore. In caso di necessità potrai sempre richiedere un nuovo link dalla pagina di login: {link_accesso}.",
+        'vol_email_credentials_signature'    => "Benvenuto a bordo e buon lavoro per la nostra missione comune!\nLo Staff e il Coordinamento Volontari della {delegazione}",
     ];
 
     // Se esiste a database ed è valorizzato (non stringa vuota)
@@ -153,6 +164,17 @@ function dfn_volunteer_settings_save_fields(): void
         'vol_email_approved_btn_text'        => 'sanitize_text_field',
         'vol_email_approved_notes'           => 'sanitize_textarea_field',
         'vol_email_approved_signature'       => 'sanitize_textarea_field',
+
+        // 4. Volunteer Credentials
+        'vol_email_credentials_subject'      => 'sanitize_text_field',
+        'vol_email_credentials_title'        => 'sanitize_text_field',
+        'vol_email_credentials_intro'        => 'sanitize_textarea_field',
+        'vol_email_credentials_box_title'    => 'sanitize_text_field',
+        'vol_email_credentials_btn_text'     => 'sanitize_text_field',
+        'vol_email_credentials_info_title'   => 'sanitize_text_field',
+        'vol_email_credentials_info_bullets' => 'sanitize_textarea_field',
+        'vol_email_credentials_notes'        => 'sanitize_textarea_field',
+        'vol_email_credentials_signature'    => 'sanitize_textarea_field',
     ];
 
     $merged = $existing_settings;
@@ -876,6 +898,106 @@ function dfn_render_volunteer_settings_page(): void
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- ========================================================= -->
+                            <!-- 4. EMAIL CREDENZIALI & BENVEUTO (INVIO / REINVIO)       -->
+                            <!-- ========================================================= -->
+                            <div class="dfn-vol-accordion-item" id="dfn-vol-accordion-4">
+                                <div class="dfn-vol-accordion-header">
+                                    <div class="dfn-vol-accordion-title-wrap">
+                                        <span>🔐 4. Email Credenziali Account &amp; Impostazione Password (Invio / Reinvio)</span>
+                                        <span class="dfn-vol-accordion-badge" style="color:#0369a1; background:#e0f2fe;">Reinvio Credenziali</span>
+                                    </div>
+                                    <span class="dfn-vol-accordion-arrow dashicons dashicons-arrow-down-alt2"></span>
+                                </div>
+                                <div class="dfn-vol-accordion-body">
+                                    <div class="dfn-chips-bar">
+                                        <span style="font-size:12px; font-weight:700; color:#004b23; margin-right:4px;">🏷️ Segnaposto dinamici:</span>
+                                        <span class="dfn-chip-btn" data-card="4" data-tag="{nome}">+ {nome}</span>
+                                        <span class="dfn-chip-btn" data-card="4" data-tag="{cognome}">+ {cognome}</span>
+                                        <span class="dfn-chip-btn" data-card="4" data-tag="{email}">+ {email}</span>
+                                        <span class="dfn-chip-btn" data-card="4" data-tag="{username}">+ {username}</span>
+                                        <span class="dfn-chip-btn" data-card="4" data-tag="{delegazione}">+ {delegazione}</span>
+                                        <span class="dfn-chip-btn" data-card="4" data-tag="{link_accesso}">+ {link_accesso}</span>
+                                        <span class="dfn-chip-btn" data-card="4" data-tag="{link_imposta_password}">+ {link_imposta_password}</span>
+                                    </div>
+
+                                    <div class="dfn-email-builder-grid">
+                                        <!-- Form Col -->
+                                        <div class="dfn-form-col">
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">📧 Oggetto &amp; Intestazione</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_credentials_subject">Oggetto E-mail</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_credentials_subject]" id="vol_email_credentials_subject" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_credentials_subject')); ?>" class="dfn-input-watch" data-card="4" />
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_credentials_title">Titolo Banner Verde (Header)</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_credentials_title]" id="vol_email_credentials_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_credentials_title')); ?>" class="dfn-input-watch" data-card="4" />
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">👋 Saluto &amp; Benvenuto</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_credentials_intro">Testo Introduttivo</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_credentials_intro]" id="vol_email_credentials_intro" rows="3" class="dfn-input-watch" data-card="4"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_credentials_intro')); ?></textarea>
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">🔐 Riquadro Credenziali &amp; Pulsante Password</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_credentials_box_title">Titolo del Riquadro Credenziali</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_credentials_box_title]" id="vol_email_credentials_box_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_credentials_box_title')); ?>" class="dfn-input-watch" data-card="4" />
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_credentials_btn_text">Testo del Pulsante Imposta Password</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_credentials_btn_text]" id="vol_email_credentials_btn_text" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_credentials_btn_text')); ?>" class="dfn-input-watch" data-card="4" />
+                                                    <div class="dfn-help-text">Collega al form di impostazione password personale e sicuro.</div>
+                                                </div>
+                                            </div>
+
+                                            <div class="dfn-form-card">
+                                                <div class="dfn-form-card-title">✨ Riquadro Opportunità &amp; Bacheca Volontari</div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_credentials_info_title">Titolo del Riquadro Opportunità</label>
+                                                    <input type="text" name="dfn_vol_settings[vol_email_credentials_info_title]" id="vol_email_credentials_info_title" value="<?php echo esc_attr(dfn_get_volunteer_setting('vol_email_credentials_info_title')); ?>" class="dfn-input-watch" data-card="4" />
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_credentials_info_bullets">Punti Elenco (Cosa può fare il volontario)</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_credentials_info_bullets]" id="vol_email_credentials_info_bullets" rows="4" class="dfn-input-watch" data-card="4"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_credentials_info_bullets')); ?></textarea>
+                                                    <div class="dfn-help-text">💡 Inserisci una voce per riga: il sistema creerà automaticamente la lista puntata formattata.</div>
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_credentials_notes">Note di sicurezza e validità link</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_credentials_notes]" id="vol_email_credentials_notes" rows="2" class="dfn-input-watch" data-card="4"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_credentials_notes')); ?></textarea>
+                                                </div>
+                                                <div class="dfn-field-box">
+                                                    <label for="vol_email_credentials_signature">Firma / Saluti Finali</label>
+                                                    <textarea name="dfn_vol_settings[vol_email_credentials_signature]" id="vol_email_credentials_signature" rows="2" class="dfn-input-watch" data-card="4"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_email_credentials_signature')); ?></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Preview Col -->
+                                        <div class="dfn-mockup-wrapper">
+                                            <div style="font-size:12px; font-weight:700; color:#004b23; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                                                <span>✨ Anteprima Grafica Live (in tempo reale)</span>
+                                            </div>
+                                            <div class="dfn-mockup-card">
+                                                <div class="dfn-mockup-header-banner">
+                                                    <h3 id="dfn-preview-title-4"></h3>
+                                                </div>
+                                                <div class="dfn-mockup-content" id="dfn-preview-body-4"></div>
+                                                <div class="dfn-mockup-footer-bar">
+                                                    FAI - Fondo per l'Ambiente Italiano &bull; <?php echo esc_html($delegation_name); ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
@@ -1072,16 +1194,89 @@ function dfn_render_volunteer_settings_page(): void
                                 bodyTarget.innerHTML = html;
                             }
 
+                            function renderPreviewCard4() {
+                                var titleEl   = document.getElementById('vol_email_credentials_title');
+                                var introEl   = document.getElementById('vol_email_credentials_intro');
+                                var boxTEl    = document.getElementById('vol_email_credentials_box_title');
+                                var btnEl     = document.getElementById('vol_email_credentials_btn_text');
+                                var infoTEl   = document.getElementById('vol_email_credentials_info_title');
+                                var bulletsEl = document.getElementById('vol_email_credentials_info_bullets');
+                                var notesEl   = document.getElementById('vol_email_credentials_notes');
+                                var sigEl     = document.getElementById('vol_email_credentials_signature');
+
+                                var titleTarget = document.getElementById('dfn-preview-title-4');
+                                var bodyTarget  = document.getElementById('dfn-preview-body-4');
+                                if (!titleTarget || !bodyTarget) return;
+
+                                var title    = applyPlaceholders(titleEl ? titleEl.value : '');
+                                var intro    = applyPlaceholders(introEl ? introEl.value : '');
+                                var boxTitle = applyPlaceholders(boxTEl ? boxTEl.value : '');
+                                var btnText  = applyPlaceholders(btnEl ? btnEl.value : '');
+                                var infoTitle= applyPlaceholders(infoTEl ? infoTEl.value : '');
+                                var bullets  = applyPlaceholders(bulletsEl ? bulletsEl.value : '');
+                                var notes    = applyPlaceholders(notesEl ? notesEl.value : '');
+                                var sig      = applyPlaceholders(sigEl ? sigEl.value : '');
+
+                                titleTarget.textContent = title || 'Benvenuto nella Squadra Volontari FAI!';
+
+                                var html = formatParagraphs(intro);
+
+                                html += '<div class="info-box">';
+                                if (boxTitle) {
+                                    html += '<div class="info-box-title">' + escapeHtml(boxTitle) + '</div>';
+                                }
+                                html += '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
+                                html += '<tr><td style="padding:4px 0; font-weight:600; width:120px; color:#475569;">👤 Nome Utente:</td><td style="padding:4px 0; font-weight:700; color:#0f172a;"><code>mario.rossi</code></td></tr>';
+                                html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">📧 Email:</td><td style="padding:4px 0; color:#0f172a;">mario.rossi@email.it</td></tr>';
+                                html += '<tr><td style="padding:4px 0; font-weight:600; color:#475569;">🔑 Password:</td><td style="padding:4px 0; color:#15803d; font-weight:600;">Da impostare tramite il link qui sotto</td></tr>';
+                                html += '</table>';
+                                html += '</div>';
+
+                                if (btnText) {
+                                    html += '<div style="text-align:center; margin:22px 0;"><a href="#" class="button" onclick="return false;">' + escapeHtml(btnText) + '</a></div>';
+                                }
+
+                                if (infoTitle || bullets) {
+                                    html += '<div style="background-color:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #166534; padding:14px 16px; margin:18px 0; border-radius:6px;">';
+                                    if (infoTitle) {
+                                        html += '<div style="font-weight:700; font-size:13.5px; color:#166534; margin-bottom:8px;">' + escapeHtml(infoTitle) + '</div>';
+                                    }
+                                    if (bullets) {
+                                        var lines = bullets.split(/\r?\n/);
+                                        var items = lines.map(function(l) {
+                                            var clean = l.replace(/^[\s•\-\*]+/, '').trim();
+                                            return clean ? '<li style="margin-bottom:5px;">' + escapeHtml(clean) + '</li>' : '';
+                                        }).filter(Boolean);
+                                        if (items.length) {
+                                            html += '<ul style="margin:0; padding-left:18px; color:#334155; line-height:1.6; font-size:13px;">' + items.join('') + '</ul>';
+                                        }
+                                    }
+                                    html += '</div>';
+                                }
+
+                                if (notes) {
+                                    html += '<p style="font-size:13px; color:#64748b; line-height:1.5;"><em>' + escapeHtml(notes).replace(/\n/g, '<br>') + '</em></p>';
+                                }
+
+                                if (sig) {
+                                    html += '<p style="margin-top:18px; font-size:13.5px; color:#2d3748; line-height:1.5;">' + escapeHtml(sig).replace(/\n/g, '<br>') + '</p>';
+                                }
+
+                                bodyTarget.innerHTML = html;
+                            }
+
                             function updateCard(cardNum) {
                                 if (cardNum === '1' || cardNum === 1) renderPreviewCard1();
                                 if (cardNum === '2' || cardNum === 2) renderPreviewCard2();
                                 if (cardNum === '3' || cardNum === 3) renderPreviewCard3();
+                                if (cardNum === '4' || cardNum === 4) renderPreviewCard4();
                             }
 
-                            // Inizializza tutte e 3 le anteprime
+                            // Inizializza tutte e 4 le anteprime
                             renderPreviewCard1();
                             renderPreviewCard2();
                             renderPreviewCard3();
+                            renderPreviewCard4();
 
                             // Aggiorna in tempo reale ad ogni digitazione
                             document.querySelectorAll('.dfn-input-watch').forEach(function(input) {
@@ -1173,6 +1368,7 @@ function dfn_render_volunteer_settings_page(): void
                                         <option value="admin_notification">1. Notifica Nuovo Candidato (Admin)</option>
                                         <option value="candidate_pending">2. Ricezione Candidatura (Candidato - In Attesa)</option>
                                         <option value="volunteer_approved">3. Approvazione &amp; Benvenuto (Volontario)</option>
+                                        <option value="credentials">4. Benvenuto &amp; Credenziali Account con Password (Volontario)</option>
                                     </select>
                                     <p class="description">Seleziona quale tipologia di email generare con dati di test simulati.</p>
                                 </td>
@@ -1285,7 +1481,7 @@ function dfn_ajax_send_volunteer_test_email(): void
     ];
 
     $user_id = get_current_user_id();
-    $sent = false;
+    $sent    = false;
 
     if ($template === 'admin_notification') {
         if (function_exists('dfn_send_volunteer_admin_notification')) {
@@ -1298,6 +1494,11 @@ function dfn_ajax_send_volunteer_test_email(): void
     } elseif ($template === 'volunteer_approved') {
         if (function_exists('dfn_send_volunteer_approved_email')) {
             $sent = dfn_send_volunteer_approved_email($sample_volunteer, $user_id, $email);
+        }
+    } elseif ($template === 'credentials') {
+        if (function_exists('dfn_send_volunteer_credentials_email')) {
+            $res  = dfn_send_volunteer_credentials_email($sample_volunteer, false, $email);
+            $sent = ! empty($res['success']);
         }
     }
 
