@@ -274,7 +274,9 @@ function dfn_render_volunteer_settings_page(): void
     }
 
     // Mostra messaggi di notifica/errore
-    settings_errors('dfn_vol_settings_messages');
+    if (function_exists('settings_errors')) {
+        settings_errors('dfn_vol_settings_messages');
+    }
 
     $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'notifiche';
     $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
