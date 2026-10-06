@@ -2161,9 +2161,12 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
         return 0;
     }
 
+    // Carica tutti i luoghi dell'evento per smart matching preferenze
+    $all_event_places = function_exists('dfn_get_volunteer_event_all_places') ? dfn_get_volunteer_event_all_places((int) $survey->event_id) : [];
+
     // Carica tutte le risposte disponibili per il sondaggio una sola volta
     $all_responses = $wpdb->get_results($wpdb->prepare(
-        "SELECT r.*, f.is_guide, f.has_safety_course 
+        "SELECT r.*, f.first_name as fai_first_name, f.last_name as fai_last_name, f.is_guide, f.has_safety_course, f.volunteer_notes 
          FROM {$table_resp} r
          LEFT JOIN {$table_fai} f ON r.volunteer_id = f.id
          WHERE r.survey_id = %d AND r.is_available = 1",
@@ -2176,6 +2179,66 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
         $responses_by_day[$resp->day_id][$resp->time_slot_key][] = $resp;
         $responses_by_day[$resp->day_id][$clean_k][] = $resp;
     }
+
+    // Helper: Determina la preferenza di luogo (campo strutturato o smart text matching sulle note con anti-negazione)
+    $get_candidate_preferred_place_id = function(object $cand) use ($all_event_places): ?int {
+        // 1. Preferenza esplicita strutturata (da campo dropdown)
+        if (! empty($cand->preferred_place_id) && (int) $cand->preferred_place_id > 0) {
+            $p_id = (int) $cand->preferred_place_id;
+            foreach ($all_event_places as $ep) {
+                if ((int) $ep->id === $p_id) {
+                    return $p_id;
+                }
+            }
+        }
+
+        // 2. Smart text matching sulle note (della risposta al sondaggio o dell'anagrafica)
+        $text_to_scan = strtolower(trim(($cand->notes ?? '') . ' ' . ($cand->volunteer_notes ?? '')));
+        if (empty($text_to_scan) || empty($all_event_places)) {
+            return null;
+        }
+
+        $stop_words = [
+            'palazzo', 'chiesa', 'villa', 'castello', 'piazza', 'teatro', 'museo', 'parco', 'monastero', 'basilica',
+            'santo', 'santa', 'san', 'della', 'delle', 'degli', 'dello', 'del', 'dei', 'presso', 'vicino', 'luogo', 'bene'
+        ];
+
+        foreach ($all_event_places as $ep) {
+            $p_name = strtolower(trim($ep->place_name ?? ''));
+            if (empty($p_name)) {
+                continue;
+            }
+
+            // Estrai parole chiave significative del luogo (lunghezza >= 4 caratteri e non stop-words)
+            $words = preg_split('/[\s,\-\'\"]+/', $p_name);
+            $keywords = [];
+            foreach ($words as $w) {
+                $w = trim($w);
+                if (strlen($w) >= 4 && ! in_array($w, $stop_words, true)) {
+                    $keywords[] = $w;
+                }
+            }
+            if (empty($keywords)) {
+                $keywords = [$p_name];
+            }
+
+            foreach ($keywords as $kw) {
+                $pos = strpos($text_to_scan, $kw);
+                if ($pos !== false) {
+                    // Controllo anti-negazione: verifica se nei 15 caratteri precedenti c'è una negazione
+                    $prefix_start = max(0, $pos - 15);
+                    $prefix_len = $pos - $prefix_start;
+                    $prefix = substr($text_to_scan, $prefix_start, $prefix_len);
+                    if (preg_match('/\b(non|no|evitare|mai|tranne|escluso)\b/i', $prefix)) {
+                        continue; // Rilevata negazione (es. "no mirato", "non a mirato")
+                    }
+                    return (int) $ep->id;
+                }
+            }
+        }
+
+        return null;
+    };
 
     foreach ($target_days as $t_day) {
         $shifts_in_day = $wpdb->get_results($wpdb->prepare(
@@ -2221,11 +2284,11 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
             $assigned_vols_in_current_slot = [];
 
             // Helper di matching turno per luogo preferito
-            $find_best_shift_for_vol = function(int $v_id, array $available_shifts) use (&$vol_assigned_place_in_day, $wpdb, $table_ass): ?object {
+            $find_best_shift_for_vol = function(int $v_id, array $available_shifts, ?object $cand = null) use (&$vol_assigned_place_in_day, $get_candidate_preferred_place_id, $wpdb, $table_ass): ?object {
                 if (empty($available_shifts)) {
                     return null;
                 }
-                // Se il volontario è già stato assegnato a un luogo oggi, cerca lo shift di quel luogo
+                // Priorità 1: Se il volontario è già stato assegnato a un luogo oggi, cerca lo shift di quel luogo
                 if ($v_id > 0 && isset($vol_assigned_place_in_day[$v_id])) {
                     $target_pid = $vol_assigned_place_in_day[$v_id];
                     foreach ($available_shifts as $sh_item) {
@@ -2234,16 +2297,37 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                         }
                     }
                 }
-                // Altrimenti, scegli lo shift con meno assegnati per bilanciare il carico tra i luoghi
-                $best_sh = $available_shifts[0];
+
+                // Calcola il conteggio attuale per ciascuno shift per bilanciamento e protezione da sovraccarico
+                $shift_counts = [];
                 $min_count = 9999;
+                $best_sh = $available_shifts[0];
                 foreach ($available_shifts as $sh_item) {
                     $cnt = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_ass} WHERE shift_id = %d", $sh_item->id));
+                    $shift_counts[$sh_item->id] = $cnt;
                     if ($cnt < $min_count) {
                         $min_count = $cnt;
                         $best_sh = $sh_item;
                     }
                 }
+
+                // Priorità 2: Smart Place Preference (da campo strutturato o da match semantico nelle note)
+                if ($cand) {
+                    $pref_pid = $get_candidate_preferred_place_id($cand);
+                    if ($pref_pid) {
+                        foreach ($available_shifts as $sh_item) {
+                            if ((int) $sh_item->place_id === $pref_pid) {
+                                $cur_cnt = $shift_counts[$sh_item->id] ?? 0;
+                                // Protezione da sovrallocazione: assegna se non supera il minimo di oltre 2 volontari (o se tutti sono vuoti)
+                                if ($cur_cnt <= $min_count + 2) {
+                                    return $sh_item;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Priorità 3: Altrimenti, scegli lo shift con meno assegnati per bilanciare il carico tra i luoghi
                 return $best_sh;
             };
 
@@ -2280,8 +2364,18 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                                 break;
                             }
                         }
+                        // Poi cerca volontari con preferenza per questo luogo
                         if ($picked_idx === null) {
-                            // Altrimenti cerca uno non ancora vincolato ad un altro luogo
+                            foreach ($safety_volunteers as $s_idx => $s_cand) {
+                                $c_pref = $get_candidate_preferred_place_id($s_cand);
+                                if ($c_pref && $c_pref === (int) $shift->place_id) {
+                                    $picked_idx = $s_idx;
+                                    break;
+                                }
+                            }
+                        }
+                        // Poi cerca uno non ancora vincolato ad un altro luogo
+                        if ($picked_idx === null) {
                             foreach ($safety_volunteers as $s_idx => $s_cand) {
                                 $c_vid = (int) $s_cand->volunteer_id;
                                 if (! isset($vol_assigned_place_in_day[$c_vid])) {
@@ -2330,6 +2424,17 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                                 break;
                             }
                         }
+                        // Poi cerca guide con preferenza per questo luogo
+                        if ($picked_idx === null) {
+                            foreach ($guide_volunteers as $g_idx => $g_cand) {
+                                $c_pref = $get_candidate_preferred_place_id($g_cand);
+                                if ($c_pref && $c_pref === (int) $shift->place_id) {
+                                    $picked_idx = $g_idx;
+                                    break;
+                                }
+                            }
+                        }
+                        // Poi cerca guide non ancora vincolate ad un altro luogo
                         if ($picked_idx === null) {
                             foreach ($guide_volunteers as $g_idx => $g_cand) {
                                 $c_vid = (int) $g_cand->volunteer_id;
@@ -2395,6 +2500,17 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                                 break;
                             }
                         }
+                        // Poi cerca chi ha preferenza per questo luogo
+                        if ($picked_idx === null) {
+                            foreach ($remaining_pool as $r_idx => $r_cand) {
+                                $c_pref = $get_candidate_preferred_place_id($r_cand);
+                                if ($c_pref && $c_pref === (int) $shift->place_id) {
+                                    $picked_idx = $r_idx;
+                                    break;
+                                }
+                            }
+                        }
+                        // Poi cerca chi non è vincolato ad altri luoghi
                         if ($picked_idx === null) {
                             foreach ($remaining_pool as $r_idx => $r_cand) {
                                 $c_vid = (int) $r_cand->volunteer_id;
@@ -2432,7 +2548,7 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                 }
             }
 
-            // 4. Distribuzione bilanciata di tutti i restanti volontari rispettando il luogo già assegnato nel giorno
+            // 4. Distribuzione bilanciata di tutti i restanti volontari rispettando luogo del giorno e preferenze
             $role_index = 0;
             $num_roles  = count($standard_role_keys);
 
@@ -2443,8 +2559,8 @@ function dfn_run_volunteer_auto_assignment(int $event_id, int $day_id): int
                     continue;
                 }
 
-                // Trova il miglior turno per questo volontario: preferisce lo stesso luogo del giorno se già assegnato
-                $shift = $find_best_shift_for_vol($v_id, $shifts);
+                // Trova il miglior turno per questo volontario: preferisce lo stesso luogo del giorno se già assegnato, o luogo preferito
+                $shift = $find_best_shift_for_vol($v_id, $shifts, $picked);
                 if (! $shift) {
                     $shift = $shifts[0];
                 }
@@ -2601,6 +2717,7 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
 
             $selected_slots = isset($_POST['selected_slots']) ? (array) $_POST['selected_slots'] : [];
             $operational_notes = sanitize_textarea_field($_POST['operational_notes'] ?? '');
+            $manual_pref_place_id = isset($_POST['preferred_place_id']) && (int) $_POST['preferred_place_id'] > 0 ? (int) $_POST['preferred_place_id'] : null;
 
             if ($vol_id > 0 && ! empty($selected_slots)) {
                 $slots_added = 0;
@@ -2620,24 +2737,30 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                         if ($existing_resp) {
                             $wpdb->update(
                                 $table_resp,
-                                [ 'is_available' => 1, 'notes' => $note_text, 'submitted_at' => current_time('mysql') ],
+                                [ 
+                                    'is_available'       => 1, 
+                                    'notes'              => $note_text, 
+                                    'preferred_place_id' => $manual_pref_place_id,
+                                    'submitted_at'       => current_time('mysql') 
+                                ],
                                 [ 'id' => $existing_resp->id ],
-                                [ '%d', '%s', '%s' ],
+                                [ '%d', '%s', '%d', '%s' ],
                                 [ '%d' ]
                             );
                         } else {
                             $wpdb->insert(
                                 $table_resp,
                                 [
-                                    'survey_id'     => $survey->id,
-                                    'volunteer_id'  => $vol_id,
-                                    'day_id'        => $day_id,
-                                    'time_slot_key' => $slot_key,
-                                    'is_available'  => 1,
-                                    'notes'         => $note_text,
-                                    'submitted_at'  => current_time('mysql'),
+                                    'survey_id'          => $survey->id,
+                                    'volunteer_id'       => $vol_id,
+                                    'day_id'             => $day_id,
+                                    'time_slot_key'      => $slot_key,
+                                    'is_available'       => 1,
+                                    'preferred_place_id' => $manual_pref_place_id,
+                                    'notes'              => $note_text,
+                                    'submitted_at'       => current_time('mysql'),
                                 ],
-                                [ '%d', '%d', '%d', '%s', '%d', '%s', '%s' ]
+                                [ '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%s' ]
                             );
                         }
                         $slots_added++;
@@ -3088,6 +3211,27 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                                 </div>
                             <?php endif; ?>
                         </div>
+
+                        <?php if (function_exists('dfn_get_volunteer_setting') && dfn_get_volunteer_setting('vol_survey_enable_preferred_place', 'no') === 'yes') : 
+                            $event_places = function_exists('dfn_get_volunteer_event_all_places') ? dfn_get_volunteer_event_all_places((int) $event_id) : [];
+                            if (! empty($event_places)) : ?>
+                                <div style="margin-bottom:18px;">
+                                    <label style="display:block; font-size:12px; font-weight:700; color:#1e293b; margin-bottom:4px;">
+                                        🏛️ Preferenza Luogo Desiderato (Opzionale)
+                                    </label>
+                                    <select name="preferred_place_id" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-size:13px; background:#fff;">
+                                        <option value="">-- Nessuna preferenza / Indifferente --</option>
+                                        <?php foreach ($event_places as $ep) : ?>
+                                            <option value="<?php echo esc_attr($ep->id); ?>">
+                                                <?php echo esc_html($ep->place_name); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p style="font-size:11.5px; color:#64748b; margin:4px 0 0 0;">
+                                        Se indicato, l'algoritmo di assegnazione darà la massima priorità a questo luogo per tutti i turni selezionati.
+                                    </p>
+                                </div>
+                        <?php endif; endif; ?>
 
                         <!-- NOTE OPERATIVE -->
                         <div style="margin-bottom:20px;">
