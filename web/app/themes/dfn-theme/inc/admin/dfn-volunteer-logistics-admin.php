@@ -764,7 +764,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
     }
 
     // Gestione Modifica Rapida Mansione Volontario Assegnato
-    if (isset($_POST['dfn_update_role']) && wp_verify_nonce($_POST['dfn_update_role_nonce'] ?? '', 'dfn_update_role_action')) {
+    if ((isset($_POST['dfn_update_role']) || isset($_POST['assignment_id'], $_POST['new_role'])) && wp_verify_nonce($_POST['dfn_update_role_nonce'] ?? '', 'dfn_update_role_action')) {
         $ass_id   = (int) $_POST['assignment_id'];
         $new_role = sanitize_text_field($_POST['new_role'] ?? '');
 
@@ -1452,6 +1452,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                                                     <!-- Menu Rapido Cambio Mansione -->
                                                                                     <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $d->id)); ?>" style="margin-top:4px;">
                                                                                         <?php wp_nonce_field('dfn_update_role_action', 'dfn_update_role_nonce'); ?>
+                                                                                        <input type="hidden" name="dfn_update_role" value="1">
                                                                                         <input type="hidden" name="assignment_id" value="<?php echo esc_attr($a->id); ?>">
                                                                                         <select name="new_role" onchange="this.form.submit()" class="dfn-role-inline-select" style="background:<?php echo esc_attr($r_bg); ?>; color:<?php echo esc_attr($r_color); ?>;" title="Clicca per cambiare mansione">
                                                                                             <?php if (! empty($event_roles)) : ?>
@@ -1681,6 +1682,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                                 
                                                                 <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id . '&day_id=' . $d->id)); ?>" style="margin-top:4px;">
                                                                     <?php wp_nonce_field('dfn_update_role_action', 'dfn_update_role_nonce'); ?>
+                                                                    <input type="hidden" name="dfn_update_role" value="1">
                                                                     <input type="hidden" name="assignment_id" value="<?php echo esc_attr($a->id); ?>">
                                                                     <select name="new_role" onchange="this.form.submit()" class="dfn-role-inline-select" style="background:<?php echo esc_attr($r_bg); ?>; color:<?php echo esc_attr($r_color); ?>;" title="Clicca per cambiare mansione">
                                                                         <?php if (! empty($event_roles)) : ?>
