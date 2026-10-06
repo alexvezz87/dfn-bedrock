@@ -1319,7 +1319,7 @@ function dfn_get_volunteer_shift_assignments(int $shift_id): array
     $table_ass = $wpdb->prefix . 'dfn_volunteer_shift_assignments';
     $table_fai = $wpdb->prefix . 'dfn_fai_members';
 
-    $sql = "SELECT a.*, f.first_name, f.last_name, f.phone, f.email, f.card_number, f.is_guide, f.has_safety_course, f.user_id
+    $sql = "SELECT a.*, f.first_name, f.last_name, f.phone, f.email, f.card_number, f.is_guide, f.has_safety_course, f.user_id, f.volunteer_notes
             FROM {$table_ass} a
             LEFT JOIN {$table_fai} f ON a.volunteer_id = f.id
             WHERE a.shift_id = %d
