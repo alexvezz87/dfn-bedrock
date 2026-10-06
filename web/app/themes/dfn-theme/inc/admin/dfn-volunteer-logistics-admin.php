@@ -1436,6 +1436,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                                                             <?php echo esc_html($v_name); ?>
                                                                                             <?php if (empty($a->volunteer_id)) : ?>
                                                                                                 <span style="font-size:10.5px; color:#64748b; font-weight:normal; font-style:italic;">(Manuale)</span>
+                                                                                            <?php elseif (empty($a->user_id) && stripos($a->volunteer_notes ?? '', 'Segnaposto') !== false) : ?>
+                                                                                                <span style="font-size:10px; color:#475569; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:3px; padding:1px 4px; font-weight:normal; margin-left:4px;" title="Volontario segnaposto / esterno">👤 Segnaposto</span>
                                                                                             <?php endif; ?>
                                                                                         </strong>
                                                                                     </div>
@@ -2529,12 +2531,151 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
         }
     }
 
+    // 1. Gestione Inserimento Manuale Disponibilità (Volontario Registrato o Nuovo Segnaposto)
+    if (isset($_POST['dfn_add_manual_survey_response']) && wp_verify_nonce($_POST['dfn_manual_survey_nonce'] ?? '', 'dfn_add_manual_survey_action')) {
+        if (! current_user_can('manage_options') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_surveys')) && ! current_user_can('dfn_act_vol_surveys')) {
+            wp_die(__('Permessi insufficienti.', 'dfn-theme'));
+        }
+
+        if (! $survey) {
+            echo '<div class="notice notice-error is-dismissible"><p>⚠️ Salva prima le impostazioni del sondaggio per abilitare l\'inserimento delle risposte.</p></div>';
+        } else {
+            $entry_mode = sanitize_text_field($_POST['entry_mode'] ?? 'registered');
+            $vol_id = 0;
+            $vol_name = '';
+
+            if ($entry_mode === 'registered') {
+                $vol_id = (int) ($_POST['registered_volunteer_id'] ?? 0);
+                if ($vol_id > 0) {
+                    $existing_m = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_fai_members WHERE id = %d", $vol_id));
+                    if ($existing_m) {
+                        $vol_name = $existing_m->first_name . ' ' . $existing_m->last_name;
+                    }
+                }
+            } else {
+                // Nuovo Segnaposto / Esterno
+                $first_name = sanitize_text_field($_POST['guest_first_name'] ?? '');
+                $last_name  = sanitize_text_field($_POST['guest_last_name'] ?? '');
+                $email      = sanitize_email($_POST['guest_email'] ?? '');
+                $phone      = sanitize_text_field($_POST['guest_phone'] ?? '');
+                $is_guide   = ! empty($_POST['guest_is_guide']) ? 1 : 0;
+                $has_safety = ! empty($_POST['guest_has_safety']) ? 1 : 0;
+                $guest_notes = sanitize_textarea_field($_POST['guest_notes'] ?? '');
+
+                if (! empty($first_name) && ! empty($last_name)) {
+                    $notes_label = '👤 Segnaposto manuale per: ' . $event->title;
+                    if (! empty($guest_notes)) {
+                        $notes_label .= ' (' . $guest_notes . ')';
+                    }
+                    $wpdb->insert(
+                        $wpdb->prefix . 'dfn_fai_members',
+                        [
+                            'first_name'          => $first_name,
+                            'last_name'           => $last_name,
+                            'email'               => $email ?: null,
+                            'phone'               => $phone ?: null,
+                            'is_volunteer'        => 1,
+                            'volunteer_status'    => 'active',
+                            'volunteer_notes'     => $notes_label,
+                            'joined_date'         => current_time('Y-m-d'),
+                            'is_guide'            => $is_guide,
+                            'has_safety_course'   => $has_safety,
+                            'is_sivol_registered' => 0,
+                            'user_id'             => null,
+                            'created_at'          => current_time('mysql'),
+                            'updated_at'          => current_time('mysql'),
+                        ],
+                        [ '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s', '%s' ]
+                    );
+                    $vol_id = (int) $wpdb->insert_id;
+                    $vol_name = $first_name . ' ' . $last_name;
+                }
+            }
+
+            $selected_slots = isset($_POST['selected_slots']) ? (array) $_POST['selected_slots'] : [];
+            $operational_notes = sanitize_textarea_field($_POST['operational_notes'] ?? '');
+
+            if ($vol_id > 0 && ! empty($selected_slots)) {
+                $slots_added = 0;
+                foreach ($selected_slots as $slot_item) {
+                    $parts = explode('_', $slot_item, 2);
+                    if (count($parts) === 2) {
+                        $day_id   = (int) $parts[0];
+                        $slot_key = sanitize_key($parts[1]);
+
+                        $existing_resp = $wpdb->get_row($wpdb->prepare(
+                            "SELECT id FROM {$table_resp} WHERE survey_id = %d AND volunteer_id = %d AND day_id = %d AND time_slot_key = %s",
+                            $survey->id, $vol_id, $day_id, $slot_key
+                        ));
+
+                        $note_text = ! empty($operational_notes) ? '✍️ Inserimento manuale: ' . $operational_notes : '✍️ Inserimento manuale';
+
+                        if ($existing_resp) {
+                            $wpdb->update(
+                                $table_resp,
+                                [ 'is_available' => 1, 'notes' => $note_text, 'submitted_at' => current_time('mysql') ],
+                                [ 'id' => $existing_resp->id ],
+                                [ '%d', '%s', '%s' ],
+                                [ '%d' ]
+                            );
+                        } else {
+                            $wpdb->insert(
+                                $table_resp,
+                                [
+                                    'survey_id'     => $survey->id,
+                                    'volunteer_id'  => $vol_id,
+                                    'day_id'        => $day_id,
+                                    'time_slot_key' => $slot_key,
+                                    'is_available'  => 1,
+                                    'notes'         => $note_text,
+                                    'submitted_at'  => current_time('mysql'),
+                                ],
+                                [ '%d', '%d', '%d', '%s', '%d', '%s', '%s' ]
+                            );
+                        }
+                        $slots_added++;
+                    }
+                }
+
+                if (function_exists('dfn_log_write')) {
+                    dfn_log_write('volontari', wp_get_current_user()->display_name, "Registrata disponibilità manuale per {$vol_name} ({$slots_added} turni) in {$event->title}", 'success');
+                }
+
+                echo '<div class="notice notice-success is-dismissible"><p>✅ <strong>Disponibilità registrata per ' . esc_html($vol_name) . '!</strong> Aggiunto a ' . intval($slots_added) . ' turni del sondaggio.</p></div>';
+            } elseif ($vol_id <= 0) {
+                echo '<div class="notice notice-error is-dismissible"><p>⚠️ Seleziona un volontario valido o compila Nome e Cognome per il segnaposto.</p></div>';
+            } else {
+                echo '<div class="notice notice-warning is-dismissible"><p>⚠️ Seleziona almeno una fascia oraria di disponibilità.</p></div>';
+            }
+        }
+    }
+
+    // 2. Gestione Eliminazione Singola Disponibilità dal Sondaggio
+    if (isset($_GET['delete_response'], $_GET['_wpnonce'])) {
+        $del_resp_id = (int) $_GET['delete_response'];
+        if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_del_resp_' . $del_resp_id)) {
+            if (! current_user_can('manage_options') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_surveys')) && ! current_user_can('dfn_act_vol_surveys')) {
+                wp_die(__('Permessi insufficienti.', 'dfn-theme'));
+            }
+            $wpdb->delete($table_resp, ['id' => $del_resp_id], ['%d']);
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Disponibilità rimossa con successo dal sondaggio.</p></div>';
+        }
+    }
+
     $survey_link = $survey ? home_url('/sondaggio-volontari/?token=' . $survey->token_public) : '';
     $days = dfn_get_volunteer_event_days($event_id);
 
+    // Recupera tutti i volontari registrati per il dropdown di selezione
+    $all_registered_volunteers = $wpdb->get_results(
+        "SELECT id, first_name, last_name, card_number, is_guide, has_safety_course, volunteer_notes, user_id 
+         FROM {$wpdb->prefix}dfn_fai_members 
+         WHERE is_volunteer = 1 OR volunteer_status IN ('active', 'pending') 
+         ORDER BY last_name ASC, first_name ASC"
+    );
+
     // Recupera solo le disponibilità positive (is_available = 1)
     $available_responses = $survey ? $wpdb->get_results($wpdb->prepare(
-        "SELECT r.*, f.first_name, f.last_name, f.email, f.is_guide, f.has_safety_course, f.card_number 
+        "SELECT r.*, f.first_name, f.last_name, f.email, f.is_guide, f.has_safety_course, f.card_number, f.volunteer_notes, f.user_id 
          FROM {$table_resp} r
          LEFT JOIN {$wpdb->prefix}dfn_fai_members f ON r.volunteer_id = f.id
          WHERE r.survey_id = %d AND r.is_available = 1 
@@ -2550,11 +2691,23 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
 
     ?>
     <div class="wrap dfn-admin-wrap">
-        <header class="dfn-admin-header" style="margin-bottom:24px;">
-            <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics')); ?>" style="text-decoration:none; color:#004b23; font-weight:700;">← Torna agli eventi</a>
-            <h1 style="font-size:24px; font-weight:700; color:#1d2327; margin:6px 0 0 0;">
-                📊 Gestione Sondaggio Disponibilità: <?php echo esc_html($event->title); ?>
-            </h1>
+        <header class="dfn-admin-header" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+            <div>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics')); ?>" style="text-decoration:none; color:#004b23; font-weight:700;">← Torna agli eventi</a>
+                <h1 style="font-size:24px; font-weight:700; color:#1d2327; margin:6px 0 0 0;">
+                    📊 Gestione Sondaggio Disponibilità: <?php echo esc_html($event->title); ?>
+                </h1>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=matrix&event_id=' . $event_id)); ?>" class="button button-secondary" style="font-weight:700;">
+                    📋 Vai alla Matrice Turni
+                </a>
+                <?php if ($survey) : ?>
+                    <button type="button" class="button button-primary" id="dfn-btn-open-manual-modal" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:4px 14px; box-shadow:0 2px 4px rgba(0,75,35,0.15);">
+                        ➕ Aggiungi Disponibilità Manuale
+                    </button>
+                <?php endif; ?>
+            </div>
         </header>
 
         <div style="display:grid; grid-template-columns: 340px 1fr; gap:24px; align-items:flex-start;">
@@ -2611,17 +2764,25 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
 
             <!-- Sezione Disponibilità Volontari Divisa per Giorno e Fascia Oraria -->
             <div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                    <h2 style="font-size:17px; font-weight:800; color:#0f172a; margin:0;">
-                        ✅ Disponibilità Registrate (<?php echo count($available_responses); ?>)
-                    </h2>
-                    <span style="font-size:12px; color:#64748b; background:#f1f5f9; padding:4px 10px; border-radius:12px;">
-                        I 'Non Disponibili' sono stati filtrati
-                    </span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <h2 style="font-size:17px; font-weight:800; color:#0f172a; margin:0;">
+                            ✅ Disponibilità Registrate (<?php echo count($available_responses); ?>)
+                        </h2>
+                        <span style="font-size:12px; color:#64748b; background:#f1f5f9; padding:4px 10px; border-radius:12px;">
+                            I 'Non Disponibili' sono stati filtrati
+                        </span>
+                    </div>
+                    <?php if ($survey) : ?>
+                        <button type="button" class="button button-primary dfn-btn-trigger-manual-modal" style="background:#004b23; border-color:#003b1c; font-weight:700; font-size:12.5px;">
+                            ➕ Inserisci Disponibilità Manuale
+                        </button>
+                    <?php endif; ?>
                 </div>
 
                 <?php 
                 $active_days_with_shifts = 0;
+                $active_days_data = [];
                 if (! empty($days)) : ?>
                     <?php foreach ($days as $day) : 
                         // Recupera tutti gli shift configurati per questo giorno
@@ -2630,11 +2791,14 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                             $day->id
                         ));
 
-                        // Se il giorno non ha slot orari inseriti nella matrice, non viene incluso nel sondaggio
                         if (empty($shifts_in_day)) {
                             continue;
                         }
                         $active_days_with_shifts++;
+                        $active_days_data[$day->id] = [
+                            'day' => $day,
+                            'shifts' => $shifts_in_day
+                        ];
                     ?>
                         <!-- BLOCCO GIORNO EVENTO -->
                         <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; overflow:hidden; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
@@ -2652,7 +2816,6 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                                     // Ricerca risposte per questo slot con corrispondenza flessibile
                                     $slot_resps = $grouped_responses[$day->id][$slot_key] ?? [];
                                     if (empty($slot_resps) && isset($grouped_responses[$day->id])) {
-                                        // Match flessibile ignorando separatori non alfanumerici
                                         $clean_target = preg_replace('/[^a-z0-9]/', '', strtolower($sh->shift_label . substr($sh->time_start, 0, 5)));
                                         foreach ($grouped_responses[$day->id] as $resp_k => $resps) {
                                             $clean_k = preg_replace('/[^a-z0-9]/', '', strtolower($resp_k));
@@ -2685,16 +2848,35 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                                                     <th style="width:170px; font-weight:700;">Competenze / Ruoli</th>
                                                     <th style="font-weight:700;">Note &amp; Preferenze</th>
                                                     <th style="width:130px; font-weight:700;">Inviato il</th>
+                                                    <th style="width:60px; text-align:right; font-weight:700;">Azioni</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <?php if (! empty($slot_resps)) : ?>
-                                                    <?php foreach ($slot_resps as $r) : ?>
+                                                    <?php foreach ($slot_resps as $r) : 
+                                                        $is_manual = (stripos($r->notes ?? '', 'manuale') !== false);
+                                                        $is_placeholder = (empty($r->user_id) && stripos($r->volunteer_notes ?? '', 'Segnaposto') !== false);
+                                                        $del_resp_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-logistics&action=survey&event_id=' . $event_id . '&delete_response=' . $r->id), 'dfn_del_resp_' . $r->id);
+                                                    ?>
                                                         <tr>
                                                             <td>
-                                                                <strong style="color:#0f172a; font-size:13px; display:block;">
-                                                                    <?php echo esc_html($r->first_name . ' ' . $r->last_name); ?>
-                                                                </strong>
+                                                                <div style="display:flex; align-items:center; flex-wrap:wrap; gap:5px;">
+                                                                    <strong style="color:#0f172a; font-size:13px;">
+                                                                        <?php echo esc_html($r->first_name . ' ' . $r->last_name); ?>
+                                                                    </strong>
+                                                                    <?php if ($is_placeholder) : ?>
+                                                                        <span style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; font-size:10px; font-weight:700; padding:1px 5px;" title="Volontario esterno o segnaposto inserito a mano">
+                                                                            👤 Segnaposto
+                                                                        </span>
+                                                                    <?php elseif ($is_manual) : ?>
+                                                                        <span style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; border-radius:4px; font-size:10px; font-weight:700; padding:1px 5px;" title="Disponibilità inserita manualmente dall'amministratore">
+                                                                            ✍️ Manuale
+                                                                        </span>
+                                                                    <?php endif; ?>
+                                                                </div>
+                                                                <?php if (! empty($r->card_number)) : ?>
+                                                                    <span style="font-size:10.5px; color:#64748b;">Tessera: <?php echo esc_html($r->card_number); ?></span>
+                                                                <?php endif; ?>
                                                             </td>
                                                             <td>
                                                                 <div style="display:flex; flex-wrap:wrap; gap:4px;">
@@ -2721,11 +2903,16 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                                                             <td>
                                                                 <span style="font-size:11px; color:#64748b;"><?php echo esc_html(date_i18n('d/m/Y H:i', strtotime($r->submitted_at))); ?></span>
                                                             </td>
+                                                            <td style="text-align:right;">
+                                                                <a href="<?php echo esc_url($del_resp_url); ?>" onclick="return confirm('Sei sicuro di voler eliminare questa disponibilità dal turno?');" class="button button-small" style="color:#b91c1c; border-color:#fca5a5; font-size:11px; padding:1px 6px;" title="Rimuovi disponibilità">
+                                                                    ✕
+                                                                </a>
+                                                            </td>
                                                         </tr>
                                                     <?php endforeach; ?>
                                                 <?php else : ?>
                                                     <tr>
-                                                        <td colspan="4" style="padding:14px; text-align:center; color:#94a3b8; font-style:italic;">
+                                                        <td colspan="5" style="padding:14px; text-align:center; color:#94a3b8; font-style:italic;">
                                                             Nessun volontario disponibile per questo turno.
                                                         </td>
                                                     </tr>
@@ -2750,6 +2937,232 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
             </div>
         </div>
 
+        <!-- ============================================================= -->
+        <!-- MODALE INSERIMENTO MANUALE DISPONIBILITÀ (ISSUE #46)          -->
+        <!-- ============================================================= -->
+        <div id="dfn-manual-survey-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); z-index:100000; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(3px);">
+            <div style="background:#fff; width:100%; max-width:680px; max-height:90vh; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.04); overflow:hidden; display:flex; flex-direction:column;">
+                
+                <!-- Modal Header -->
+                <div style="padding:16px 22px; background:#004b23; color:#fff; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:20px;">➕</span>
+                        <h3 style="margin:0; font-size:16px; font-weight:800; color:#fff;">Aggiungi Disponibilità Manuale</h3>
+                    </div>
+                    <button type="button" id="dfn-btn-close-manual-modal" style="background:transparent; border:none; color:#fff; font-size:22px; cursor:pointer; line-height:1;">✕</button>
+                </div>
+
+                <!-- Modal Body with Scroll -->
+                <div style="padding:22px; overflow-y:auto; flex:1;">
+                    <form method="post" action="" id="dfn-form-manual-survey">
+                        <?php wp_nonce_field('dfn_add_manual_survey_action', 'dfn_manual_survey_nonce'); ?>
+                        <input type="hidden" name="dfn_add_manual_survey_response" value="1">
+                        <input type="hidden" name="entry_mode" id="dfn_entry_mode" value="registered">
+
+                        <!-- Tabs Mode Switcher -->
+                        <div style="display:flex; gap:8px; margin-bottom:18px; border-bottom:2px solid #e2e8f0; padding-bottom:12px;">
+                            <button type="button" class="dfn-tab-btn active" id="dfn-tab-registered" style="padding:8px 16px; border-radius:6px; font-weight:700; font-size:13px; cursor:pointer; border:1px solid #004b23; background:#004b23; color:#fff; transition:all 0.2s;">
+                                👥 Volontario Registrato
+                            </button>
+                            <button type="button" class="dfn-tab-btn" id="dfn-tab-guest" style="padding:8px 16px; border-radius:6px; font-weight:700; font-size:13px; cursor:pointer; border:1px solid #cbd5e1; background:#f8fafc; color:#475569; transition:all 0.2s;">
+                                👤 Nuovo Segnaposto / Esterno
+                            </button>
+                        </div>
+
+                        <!-- TAB 1: Volontario Registrato -->
+                        <div id="dfn-panel-registered" style="margin-bottom:18px;">
+                            <label style="display:block; font-size:12.5px; font-weight:700; color:#1e293b; margin-bottom:6px;">
+                                Seleziona Volontario dall'Anagrafica FAI <span style="color:#ef4444;">*</span>
+                            </label>
+                            <select name="registered_volunteer_id" id="dfn_registered_volunteer_id" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px; font-size:13px;">
+                                <option value="">-- Seleziona un volontario --</option>
+                                <?php if (! empty($all_registered_volunteers)) : ?>
+                                    <?php foreach ($all_registered_volunteers as $v) : 
+                                        $qual = [];
+                                        if (! empty($v->is_guide)) $qual[] = 'Guida';
+                                        if (! empty($v->has_safety_course)) $qual[] = 'Sicurezza';
+                                        $qual_str = ! empty($qual) ? ' [' . implode(', ', $qual) . ']' : '';
+                                        $card_str = ! empty($v->card_number) ? ' (Tessera: ' . $v->card_number . ')' : '';
+                                    ?>
+                                        <option value="<?php echo esc_attr($v->id); ?>">
+                                            <?php echo esc_html($v->last_name . ' ' . $v->first_name . $card_str . $qual_str); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </select>
+                            <p style="font-size:11.5px; color:#64748b; margin:4px 0 0 0;">
+                                Include tutti i volontari registrati nel sistema.
+                            </p>
+                        </div>
+
+                        <!-- TAB 2: Nuovo Segnaposto / Esterno -->
+                        <div id="dfn-panel-guest" style="display:none; margin-bottom:18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px;">
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                                <div>
+                                    <label style="display:block; font-size:12px; font-weight:700; color:#1e293b; margin-bottom:4px;">Nome <span style="color:#ef4444;">*</span></label>
+                                    <input type="text" name="guest_first_name" id="dfn_guest_first_name" placeholder="Es. Mario" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px; font-size:13px;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:12px; font-weight:700; color:#1e293b; margin-bottom:4px;">Cognome <span style="color:#ef4444;">*</span></label>
+                                    <input type="text" name="guest_last_name" id="dfn_guest_last_name" placeholder="Es. Rossi" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px; font-size:13px;">
+                                </div>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                                <div>
+                                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Email (Opzionale)</label>
+                                    <input type="email" name="guest_email" placeholder="mario.rossi@example.com" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px; font-size:12.5px;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Telefono (Opzionale)</label>
+                                    <input type="tel" name="guest_phone" placeholder="333 1234567" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px; font-size:12.5px;">
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; font-size:12px; font-weight:700; color:#1e293b; margin-bottom:6px;">Competenze &amp; Abilitazioni (Opzionali per l'algoritmo):</label>
+                                <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                                    <label style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; cursor:pointer; background:#fff; padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1;">
+                                        <input type="checkbox" name="guest_is_guide" value="1">
+                                        <span>🗣️ Guida Culturale</span>
+                                    </label>
+                                    <label style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; cursor:pointer; background:#fff; padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1;">
+                                        <input type="checkbox" name="guest_has_safety" value="1">
+                                        <span>🛡️ Corso Sicurezza</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Note Anagrafiche Segnaposto (Opzionale)</label>
+                                <input type="text" name="guest_notes" placeholder="Es. Amico di Luisa, studente universitario" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:34px; padding:0 8px; font-size:12.5px;">
+                            </div>
+                        </div>
+
+                        <!-- SELEZIONE FASCE ORARIE DISPONIBILI -->
+                        <div style="margin-bottom:18px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <label style="font-size:12.5px; font-weight:700; color:#1e293b;">
+                                    🗓️ Seleziona Fasce di Disponibilità <span style="color:#ef4444;">*</span>
+                                </label>
+                                <button type="button" id="dfn-btn-toggle-all-slots" class="button button-small" style="font-size:11.5px; font-weight:600;">
+                                    ✓ Seleziona Tutti i Turni
+                                </button>
+                            </div>
+
+                            <?php if (! empty($active_days_data)) : ?>
+                                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+                                    <?php foreach ($active_days_data as $day_id_k => $d_data) : 
+                                        $d_obj = $d_data['day'];
+                                        $d_shifts = $d_data['shifts'];
+                                    ?>
+                                        <div style="border:1px solid #cbd5e1; border-radius:8px; overflow:hidden; background:#fff;">
+                                            <div style="background:#f1f5f9; padding:8px 12px; font-size:12px; font-weight:700; color:#0f172a; border-bottom:1px solid #cbd5e1;">
+                                                📅 <?php echo esc_html($d_obj->day_label); ?>
+                                            </div>
+                                            <div style="padding:10px 12px; display:flex; flex-direction:column; gap:8px;">
+                                                <?php foreach ($d_shifts as $sh) : 
+                                                    $time_lbl = substr($sh->time_start, 0, 5) . ' - ' . substr($sh->time_end, 0, 5);
+                                                    $slot_key = sanitize_key($sh->shift_label . '_' . substr($sh->time_start, 0, 5));
+                                                    $val_key  = $day_id_k . '_' . $slot_key;
+                                                ?>
+                                                    <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; cursor:pointer; background:#f8fafc; padding:6px 10px; border-radius:6px; border:1px solid #e2e8f0;">
+                                                        <input type="checkbox" name="selected_slots[]" value="<?php echo esc_attr($val_key); ?>" class="dfn-modal-slot-checkbox">
+                                                        <span><strong><?php echo esc_html($sh->shift_label); ?></strong> <span style="color:#64748b; font-size:11.5px;">(<?php echo esc_html($time_lbl); ?>)</span></span>
+                                                    </label>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php else : ?>
+                                <div style="padding:12px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; color:#b91c1c; font-size:12px;">
+                                    Nessuno slot orario attivo trovato per questo evento.
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- NOTE OPERATIVE -->
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">
+                                Note / Dettagli Disponibilità (Opzionale)
+                            </label>
+                            <textarea name="operational_notes" rows="2" placeholder="Es. Accordo verbale, preferisce luogo in centro o turno ridotto..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:8px; font-size:12.5px;"></textarea>
+                        </div>
+
+                        <!-- MODAL ACTIONS -->
+                        <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #f1f5f9; padding-top:14px;">
+                            <button type="button" id="dfn-btn-cancel-manual-modal" class="button" style="font-weight:600;">
+                                Annulla
+                            </button>
+                            <button type="submit" class="button button-primary" style="background:#004b23; border-color:#003b1c; font-weight:700; padding:4px 20px;">
+                                💾 Registra Disponibilità
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        jQuery(document).ready(function($) {
+            // Open / Close Modal
+            $('#dfn-btn-open-manual-modal, .dfn-btn-trigger-manual-modal').on('click', function() {
+                $('#dfn-manual-survey-modal').css('display', 'flex');
+            });
+
+            $('#dfn-btn-close-manual-modal, #dfn-btn-cancel-manual-modal').on('click', function() {
+                $('#dfn-manual-survey-modal').hide();
+            });
+
+            // Close on overlay click outside content
+            $('#dfn-manual-survey-modal').on('click', function(e) {
+                if (e.target === this) {
+                    $(this).hide();
+                }
+            });
+
+            // Tab Switching
+            $('#dfn-tab-registered').on('click', function() {
+                $('#dfn-tab-registered').css({ 'background':'#004b23', 'color':'#fff', 'border-color':'#004b23' });
+                $('#dfn-tab-guest').css({ 'background':'#f8fafc', 'color':'#475569', 'border-color':'#cbd5e1' });
+                $('#dfn-panel-registered').show();
+                $('#dfn-panel-guest').hide();
+                $('#dfn_entry_mode').val('registered');
+                $('#dfn_registered_volunteer_id').prop('required', true);
+                $('#dfn_guest_first_name, #dfn_guest_last_name').prop('required', false);
+            });
+
+            $('#dfn-tab-guest').on('click', function() {
+                $('#dfn-tab-guest').css({ 'background':'#004b23', 'color':'#fff', 'border-color':'#004b23' });
+                $('#dfn-tab-registered').css({ 'background':'#f8fafc', 'color':'#475569', 'border-color':'#cbd5e1' });
+                $('#dfn-panel-guest').show();
+                $('#dfn-panel-registered').hide();
+                $('#dfn_entry_mode').val('guest');
+                $('#dfn_registered_volunteer_id').prop('required', false);
+                $('#dfn_guest_first_name, #dfn_guest_last_name').prop('required', true);
+            });
+
+            // Toggle All Slots
+            var allSelected = false;
+            $('#dfn-btn-toggle-all-slots').on('click', function() {
+                allSelected = !allSelected;
+                $('.dfn-modal-slot-checkbox').prop('checked', allSelected);
+                $(this).text(allSelected ? '✕ Deseleziona Tutti' : '✓ Seleziona Tutti i Turni');
+            });
+
+            // Validate at least one slot selected on submit
+            $('#dfn-form-manual-survey').on('submit', function(e) {
+                var checkedSlots = $('.dfn-modal-slot-checkbox:checked').length;
+                if (checkedSlots === 0) {
+                    alert('Seleziona almeno una fascia oraria di disponibilità prima di salvare.');
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        });
+        </script>
+
         <!-- Overlay e Tooltip Modals Gestione Sondaggio -->
         <div class="dfn-tooltip-overlay" id="dfn-tooltip-overlay"></div>
 
@@ -2763,6 +3176,7 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                 <ul>
                     <li><strong>Generazione Automatica:</strong> il sondaggio acquisisce in tempo reale gli slot orari configurati nella <em>Matrice Turni</em>;</li>
                     <li><strong>Compilazione Volontario:</strong> quando lo stato è <em>Aperto</em>, ciascun volontario accede al link o all'area riservata e seleziona le fasce orarie in cui è disponibile;</li>
+                    <li><strong>Inserimento Manuale:</strong> puoi aggiungere disponibilità per volontari registrati o creare segnaposto per persone esterne con il pulsante <em>➕ Aggiungi Disponibilità Manuale</em>;</li>
                     <li><strong>Chiusura e Assegnazione:</strong> al termine della scadenza o cliccando su <em>Chiudi Sondaggio</em>, l'algoritmo di assegnazione automatica userà queste risposte per popolare i turni.</li>
                 </ul>
             </div>
