@@ -418,12 +418,14 @@ function dfn_db_install(): void
         day_id bigint(20) unsigned NOT NULL,
         time_slot_key varchar(50) NOT NULL,
         is_available tinyint(1) NOT NULL DEFAULT 1,
+        preferred_place_id bigint(20) unsigned DEFAULT NULL,
         notes text DEFAULT NULL,
         submitted_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY idx_survey (survey_id),
         KEY idx_vol (volunteer_id),
-        KEY idx_slot (day_id, time_slot_key)
+        KEY idx_slot (day_id, time_slot_key),
+        KEY idx_pref_place (preferred_place_id)
     ) {$charset_collate};";
 
     // -------------------------------------------------------------------

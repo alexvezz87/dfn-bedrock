@@ -61,6 +61,7 @@ function dfn_get_volunteer_setting(string $key, $default = null)
         'vol_require_approval'               => 'yes',
         'vol_enable_candidate_pending_email' => 'yes',
         'vol_enable_approved_email'          => 'yes',
+        'vol_survey_enable_preferred_place'  => 'no',
 
         // 1. Email Admin: Notifica nuova candidatura
         'vol_email_admin_subject'            => 'Nuova Candidatura Volontario FAI: {nome} {cognome}',
@@ -137,6 +138,7 @@ function dfn_volunteer_settings_save_fields(): void
         'vol_require_approval'               => 'sanitize_text_field',
         'vol_enable_candidate_pending_email' => 'sanitize_text_field',
         'vol_enable_approved_email'          => 'sanitize_text_field',
+        'vol_survey_enable_preferred_place'  => 'sanitize_text_field',
 
         // 1. Admin Notification
         'vol_email_admin_subject'            => 'sanitize_text_field',
@@ -200,9 +202,16 @@ function dfn_volunteer_settings_save_fields(): void
         }
     }
 
-    // Toggle checkboxes default 'no' if unchecked in POST when saving notifications tab
+    // Toggle checkboxes default 'no' if unchecked in POST when saving notifications or surveys tab
     if ($active_tab === 'notifiche') {
         $toggles = ['vol_require_approval', 'vol_enable_candidate_pending_email', 'vol_enable_approved_email'];
+        foreach ($toggles as $t_key) {
+            if (! isset($raw_input[$t_key])) {
+                $merged[$t_key] = 'no';
+            }
+        }
+    } elseif ($active_tab === 'sondaggi') {
+        $toggles = ['vol_survey_enable_preferred_place'];
         foreach ($toggles as $t_key) {
             if (! isset($raw_input[$t_key])) {
                 $merged[$t_key] = 'no';
@@ -260,9 +269,10 @@ function dfn_render_volunteer_settings_page(): void
     $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
 
     $tabs = [
-        'notifiche'     => '&#128276; Notifiche &amp; Destinatari',
-        'modelli-email' => '&#128221; Modelli E-mail',
-        'test-invio'    => '&#129514; Test Invio E-mail',
+        'notifiche'     => '🔔 Notifiche &amp; Destinatari',
+        'sondaggi'      => '📋 Sondaggi &amp; Logistica',
+        'modelli-email' => '📝 Modelli E-mail',
+        'test-invio'    => '🧪 Test Invio E-mail',
     ];
     ?>
     <style>
@@ -603,6 +613,45 @@ function dfn_render_volunteer_settings_page(): void
                                 </td>
                             </tr>
                         </table>
+
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                            <?php submit_button(__('Salva Impostazioni', 'dfn-theme'), 'primary', 'submit', false, [ 'style' => 'background: #004b23; border-color: #003318; box-shadow: none; text-shadow: none;' ]); ?>
+                        </div>
+
+                    <?php elseif ($active_tab === 'sondaggi') : ?>
+                        <!-- TAB: SONDAGGI & ASSEGNAZIONE TURNI -->
+                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">📋 Gestione Sondaggi &amp; Assegnazione Turni</h2>
+                        <p class="description" style="margin-bottom: 25px;">Configura i campi opzionali del sondaggio di disponibilità e i parametri di calcolo dell'algoritmo di assegnazione automatica.</p>
+
+                        <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:20px; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                            <h3 style="margin-top:0; color:#0f172a; font-size:16px; display:flex; align-items:center; gap:8px;">
+                                🏛️ Selezione Esplicita della Preferenza Luogo
+                            </h3>
+                            <p style="font-size:13.5px; color:#475569; margin-bottom:16px; line-height:1.5;">
+                                Permette ai volontari di esprimere una preferenza specifica sul luogo dell'evento in cui desiderano prestare servizio.
+                            </p>
+
+                            <table class="form-table" role="presentation" style="margin-top:0;">
+                                <tr>
+                                    <th scope="row" style="padding-top:10px; width:260px;">Campo Preferenza Luogo</th>
+                                    <td style="padding-top:10px;">
+                                        <label for="vol_survey_enable_preferred_place" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:14px;">
+                                            <input type="checkbox" name="dfn_vol_settings[vol_survey_enable_preferred_place]" id="vol_survey_enable_preferred_place" value="yes" <?php checked(dfn_get_volunteer_setting('vol_survey_enable_preferred_place', 'no'), 'yes'); ?> style="accent-color:#004b23; width:18px; height:18px;" />
+                                            Abilita il menu a tendina "Preferenza Luogo Desiderato (Opzionale)" nei sondaggi
+                                        </label>
+                                        <div class="description" style="margin-top:8px;">
+                                            <strong>Come Funziona:</strong>
+                                            <ul style="margin:6px 0 0 18px; list-style:disc; font-size:12.5px; color:#64748b; line-height:1.6;">
+                                                <li><strong>Nei form pubblici del sondaggio:</strong> i volontari visualizzeranno un menu a tendina con l'elenco dei beni/luoghi dell'evento (es. <em>Palazzo Natta, Mirato, Castello...</em>).</li>
+                                                <li><strong>Nell'inserimento manuale admin:</strong> gli operatori potranno selezionare direttamente il bene richiesto dal volontario.</li>
+                                                <li><strong>Nell'Algoritmo Intelligente:</strong> l'assegnazione automatica darà precedenza assoluta al luogo selezionato, controllando la capienza oraria e ancorando il volontario allo stesso luogo per tutta la giornata.</li>
+                                                <li><strong>Smart Fallback:</strong> Se disattivato o se il volontario lascia il campo su <em>"Indifferente"</em>, l'algoritmo effettua l'analisi semantica del testo libero delle note (es. rilevando richieste come <em>"preferisco Mirato"</em>) e bilancia equamente i carichi.</li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
 
                         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
                             <?php submit_button(__('Salva Impostazioni', 'dfn-theme'), 'primary', 'submit', false, [ 'style' => 'background: #004b23; border-color: #003318; box-shadow: none; text-shadow: none;' ]); ?>

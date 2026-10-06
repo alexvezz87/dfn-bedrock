@@ -148,6 +148,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
 
     // Se l'utente ha già risposto in precedenza, recuperiamo le risposte
     $saved_responses = [];
+    $saved_pref_place_id = 0;
     if ($volunteer) {
         $table_resp = $wpdb->prefix . 'dfn_volunteer_survey_responses';
         $rows = $wpdb->get_results($wpdb->prepare(
@@ -159,6 +160,9 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
             $saved_responses[ $r->day_id . '_' . $r->time_slot_key ] = (int) $r->is_available;
             if (! empty($r->notes)) {
                 $user_notes = $r->notes;
+            }
+            if (! empty($r->preferred_place_id)) {
+                $saved_pref_place_id = (int) $r->preferred_place_id;
             }
         }
     }
@@ -176,6 +180,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
             $f_pwd         = $_POST['password'] ?? '';
             $f_pwd_confirm = $_POST['password_confirm'] ?? '';
             $f_notes       = sanitize_textarea_field($_POST['notes'] ?? '');
+            $f_pref_place  = isset($_POST['preferred_place_id']) && (int) $_POST['preferred_place_id'] > 0 ? (int) $_POST['preferred_place_id'] : null;
             $slots_selected= isset($_POST['slots']) && is_array($_POST['slots']) ? $_POST['slots'] : [];
 
             $has_error = false;
@@ -341,15 +346,16 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                         $wpdb->insert(
                             $table_resp,
                             [
-                                'survey_id'    => $survey->id,
-                                'volunteer_id' => $vol_id,
-                                'day_id'       => $day->id,
-                                'time_slot_key'=> $slot_k,
-                                'is_available' => $is_avail,
-                                'notes'        => $f_notes,
-                                'submitted_at' => current_time('mysql'),
+                                'survey_id'          => $survey->id,
+                                'volunteer_id'       => $vol_id,
+                                'day_id'             => $day->id,
+                                'time_slot_key'      => $slot_k,
+                                'is_available'       => $is_avail,
+                                'preferred_place_id' => $f_pref_place,
+                                'notes'              => $f_notes,
+                                'submitted_at'       => current_time('mysql'),
                             ],
-                            [ '%d', '%d', '%d', '%s', '%d', '%s', '%s' ]
+                            [ '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%s' ]
                         );
 
                         $saved_responses[$compound_key] = $is_avail;
@@ -679,6 +685,27 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                         <?php endif; ?>
                     </div>
                 </div>
+
+                <?php if (function_exists('dfn_get_volunteer_setting') && dfn_get_volunteer_setting('vol_survey_enable_preferred_place', 'no') === 'yes') : 
+                    $event_places = function_exists('dfn_get_volunteer_event_all_places') ? dfn_get_volunteer_event_all_places((int) $event->id) : [];
+                    if (! empty($event_places)) : ?>
+                        <div style="margin-bottom: 20px;">
+                            <label style="display:block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+                                🏛️ Preferenza Luogo Desiderato <span style="font-size: 11.5px; font-weight: normal; color: #64748b;">(Opzionale)</span>
+                            </label>
+                            <select name="preferred_place_id" <?php echo $is_expired ? 'disabled' : ''; ?> style="width: 100%; border-radius: 8px; border: 1.5px solid #cbd5e1; height: 42px; padding: 0 12px; font-size: 13.5px; background: #ffffff; <?php echo $is_expired ? 'background:#f1f5f9; color:#475569; cursor:not-allowed;' : ''; ?>">
+                                <option value="">-- Nessuna preferenza / Indifferente --</option>
+                                <?php foreach ($event_places as $ep) : ?>
+                                    <option value="<?php echo esc_attr($ep->id); ?>" <?php selected($saved_pref_place_id, (int) $ep->id); ?>>
+                                        <?php echo esc_html($ep->place_name); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p style="font-size: 11.5px; color: #64748b; margin: 4px 0 0 0;">
+                                Se hai una preferenza per un luogo specifico tra quelli aperti, indicalo qui: l'organizzazione cercherà di accontentarti nei limiti delle disponibilità.
+                            </p>
+                        </div>
+                <?php endif; endif; ?>
 
                 <!-- Note / Preferenze aggiuntive -->
                 <div style="margin-bottom: 24px;">
