@@ -474,6 +474,8 @@ function dfn_db_install(): void
         icon varchar(20) NOT NULL DEFAULT '👥',
         color varchar(20) NOT NULL DEFAULT '#004b23',
         badge_bg varchar(20) NOT NULL DEFAULT '#f0fdf4',
+        whatsapp_url varchar(255) DEFAULT NULL,
+        drive_url varchar(255) DEFAULT NULL,
         supervisor_roles text DEFAULT NULL,
         supervisor_user_id bigint(20) unsigned DEFAULT NULL,
         is_active tinyint(1) NOT NULL DEFAULT 1,
@@ -656,6 +658,12 @@ function dfn_db_install(): void
     if (empty($row_reg)) {
         $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN fai_registry_id varchar(50) DEFAULT NULL AFTER card_number");
         $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_registry (fai_registry_id)");
+    }
+
+    // Colonne canali WhatsApp e Drive nella tabella Squadre
+    $row_teams_wa = $wpdb->get_results("SHOW COLUMNS FROM {$table_teams} LIKE 'whatsapp_url'");
+    if (empty($row_teams_wa)) {
+        $wpdb->query("ALTER TABLE {$table_teams} ADD COLUMN whatsapp_url varchar(255) DEFAULT NULL AFTER badge_bg, ADD COLUMN drive_url varchar(255) DEFAULT NULL AFTER whatsapp_url");
     }
 
     // Assicura che i semplici soci senza status volontario abbiano volunteer_status = 'none' e is_volunteer = 0
@@ -1830,6 +1838,9 @@ function dfn_save_team(array $data, ?int $team_id = null)
         $supervisor_roles = json_encode([]);
     }
 
+    $whatsapp_url = ! empty($data['whatsapp_url']) ? esc_url_raw(trim($data['whatsapp_url'])) : null;
+    $drive_url    = ! empty($data['drive_url']) ? esc_url_raw(trim($data['drive_url'])) : null;
+
     $payload = [
         'name'               => $name,
         'slug'               => $slug,
@@ -1837,6 +1848,8 @@ function dfn_save_team(array $data, ?int $team_id = null)
         'icon'               => $icon,
         'color'              => $color,
         'badge_bg'           => $badge_bg,
+        'whatsapp_url'       => $whatsapp_url,
+        'drive_url'          => $drive_url,
         'supervisor_roles'   => $supervisor_roles,
         'supervisor_user_id' => $supervisor_user_id,
         'is_active'          => $is_active,

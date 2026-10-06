@@ -1633,23 +1633,9 @@ function dfn_render_volunteer_add_page(): void
             }
 
             // Sincronizzazione squadre / team assegnati
-            if (isset($_POST['dfn_admin_teams_present']) && function_exists('dfn_get_all_teams')) {
-                $table_tm = $wpdb->prefix . 'dfn_team_members';
-                if ($wpdb->get_var("SHOW TABLES LIKE '{$table_tm}'") === $table_tm) {
-                    $submitted_teams = isset($_POST['volunteer_teams']) && is_array($_POST['volunteer_teams']) ? array_map('intval', $_POST['volunteer_teams']) : [];
-                    $wpdb->delete($table_tm, ['member_id' => $saved_id], ['%d']);
-                    foreach ($submitted_teams as $t_id) {
-                        if ($t_id > 0) {
-                            $wpdb->insert($table_tm, [
-                                'team_id'      => $t_id,
-                                'member_id'    => $saved_id,
-                                'user_id'      => $user_id,
-                                'role_in_team' => 'Membro',
-                                'joined_at'    => current_time('mysql'),
-                            ], ['%d', '%d', '%d', '%s', '%s']);
-                        }
-                    }
-                }
+            if (isset($_POST['dfn_admin_teams_present']) && function_exists('dfn_set_volunteer_teams')) {
+                $submitted_teams = isset($_POST['volunteer_teams']) && is_array($_POST['volunteer_teams']) ? array_map('intval', $_POST['volunteer_teams']) : [];
+                dfn_set_volunteer_teams($saved_id, $submitted_teams, $user_id ? (int) $user_id : null);
             }
 
 
