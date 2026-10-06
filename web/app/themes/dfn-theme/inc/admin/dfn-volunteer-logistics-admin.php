@@ -2664,131 +2664,162 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
             echo '<div class="notice notice-error is-dismissible"><p>⚠️ Salva prima le impostazioni del sondaggio per abilitare l\'inserimento delle risposte.</p></div>';
         } else {
             $entry_mode = sanitize_text_field($_POST['entry_mode'] ?? 'registered');
-            $vol_id = 0;
-            $vol_name = '';
-
-            if ($entry_mode === 'registered') {
-                $vol_id = (int) ($_POST['registered_volunteer_id'] ?? 0);
-                if ($vol_id > 0) {
-                    $existing_m = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_fai_members WHERE id = %d", $vol_id));
-                    if ($existing_m) {
-                        $vol_name = $existing_m->first_name . ' ' . $existing_m->last_name;
-                    }
-                }
-            } else {
-                // Nuovo Segnaposto / Esterno
-                $first_name = sanitize_text_field($_POST['guest_first_name'] ?? '');
-                $last_name  = sanitize_text_field($_POST['guest_last_name'] ?? '');
-                $email      = sanitize_email($_POST['guest_email'] ?? '');
-                $phone      = sanitize_text_field($_POST['guest_phone'] ?? '');
-                $is_guide   = ! empty($_POST['guest_is_guide']) ? 1 : 0;
-                $has_safety = ! empty($_POST['guest_has_safety']) ? 1 : 0;
-                $guest_notes = sanitize_textarea_field($_POST['guest_notes'] ?? '');
-
-                if (! empty($first_name) && ! empty($last_name)) {
-                    $notes_label = '👤 Segnaposto manuale per: ' . $event->title;
-                    if (! empty($guest_notes)) {
-                        $notes_label .= ' (' . $guest_notes . ')';
-                    }
-                    $wpdb->insert(
-                        $wpdb->prefix . 'dfn_fai_members',
-                        [
-                            'first_name'          => $first_name,
-                            'last_name'           => $last_name,
-                            'email'               => $email ?: null,
-                            'phone'               => $phone ?: null,
-                            'is_volunteer'        => 1,
-                            'volunteer_status'    => 'active',
-                            'volunteer_notes'     => $notes_label,
-                            'joined_date'         => current_time('Y-m-d'),
-                            'is_guide'            => $is_guide,
-                            'has_safety_course'   => $has_safety,
-                            'is_sivol_registered' => 0,
-                            'user_id'             => null,
-                            'created_at'          => current_time('mysql'),
-                            'updated_at'          => current_time('mysql'),
-                        ],
-                        [ '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s', '%s' ]
-                    );
-                    $vol_id = (int) $wpdb->insert_id;
-                    $vol_name = $first_name . ' ' . $last_name;
-                }
-            }
-
             $selected_slots = isset($_POST['selected_slots']) ? (array) $_POST['selected_slots'] : [];
             $operational_notes = sanitize_textarea_field($_POST['operational_notes'] ?? '');
             $manual_pref_place_id = isset($_POST['preferred_place_id']) && (int) $_POST['preferred_place_id'] > 0 ? (int) $_POST['preferred_place_id'] : null;
 
-            if ($vol_id > 0 && ! empty($selected_slots)) {
-                $slots_added = 0;
-                foreach ($selected_slots as $slot_item) {
-                    $parts = explode('_', $slot_item, 2);
-                    if (count($parts) === 2) {
-                        $day_id   = (int) $parts[0];
-                        $slot_key = sanitize_key($parts[1]);
+            if (empty($selected_slots)) {
+                echo '<div class="notice notice-warning is-dismissible"><p>⚠️ Seleziona almeno una fascia oraria di disponibilità prima di salvare.</p></div>';
+            } else {
+                $vol_id = 0;
+                $vol_name = '';
 
-                        $existing_resp = $wpdb->get_row($wpdb->prepare(
-                            "SELECT id FROM {$table_resp} WHERE survey_id = %d AND volunteer_id = %d AND day_id = %d AND time_slot_key = %s",
-                            $survey->id, $vol_id, $day_id, $slot_key
-                        ));
-
-                        $note_text = ! empty($operational_notes) ? '✍️ Inserimento manuale: ' . $operational_notes : '✍️ Inserimento manuale';
-
-                        if ($existing_resp) {
-                            $wpdb->update(
-                                $table_resp,
-                                [ 
-                                    'is_available'       => 1, 
-                                    'notes'              => $note_text, 
-                                    'preferred_place_id' => $manual_pref_place_id,
-                                    'submitted_at'       => current_time('mysql') 
-                                ],
-                                [ 'id' => $existing_resp->id ],
-                                [ '%d', '%s', '%d', '%s' ],
-                                [ '%d' ]
-                            );
-                        } else {
-                            $wpdb->insert(
-                                $table_resp,
-                                [
-                                    'survey_id'          => $survey->id,
-                                    'volunteer_id'       => $vol_id,
-                                    'day_id'             => $day_id,
-                                    'time_slot_key'      => $slot_key,
-                                    'is_available'       => 1,
-                                    'preferred_place_id' => $manual_pref_place_id,
-                                    'notes'              => $note_text,
-                                    'submitted_at'       => current_time('mysql'),
-                                ],
-                                [ '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%s' ]
-                            );
+                if ($entry_mode === 'registered') {
+                    $vol_id = (int) ($_POST['registered_volunteer_id'] ?? 0);
+                    if ($vol_id > 0) {
+                        $existing_m = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_fai_members WHERE id = %d", $vol_id));
+                        if ($existing_m) {
+                            $vol_name = $existing_m->first_name . ' ' . $existing_m->last_name;
                         }
-                        $slots_added++;
+                    }
+                } else {
+                    // Nuovo Segnaposto / Esterno
+                    $first_name = sanitize_text_field($_POST['guest_first_name'] ?? '');
+                    $last_name  = sanitize_text_field($_POST['guest_last_name'] ?? '');
+                    $email      = sanitize_email($_POST['guest_email'] ?? '');
+                    $phone      = sanitize_text_field($_POST['guest_phone'] ?? '');
+                    $is_guide   = ! empty($_POST['guest_is_guide']) ? 1 : 0;
+                    $has_safety = ! empty($_POST['guest_has_safety']) ? 1 : 0;
+                    $guest_notes = sanitize_textarea_field($_POST['guest_notes'] ?? '');
+
+                    if (! empty($first_name) && ! empty($last_name)) {
+                        $notes_label = '👤 Segnaposto manuale per: ' . $event->title;
+                        if (! empty($guest_notes)) {
+                            $notes_label .= ' (' . $guest_notes . ')';
+                        }
+                        $wpdb->insert(
+                            $wpdb->prefix . 'dfn_fai_members',
+                            [
+                                'first_name'          => $first_name,
+                                'last_name'           => $last_name,
+                                'email'               => $email ?: null,
+                                'phone'               => $phone ?: null,
+                                'is_volunteer'        => 1,
+                                'volunteer_status'    => 'active',
+                                'volunteer_notes'     => $notes_label,
+                                'joined_date'         => current_time('Y-m-d'),
+                                'is_guide'            => $is_guide,
+                                'has_safety_course'   => $has_safety,
+                                'is_sivol_registered' => 0,
+                                'user_id'             => null,
+                                'created_at'          => current_time('mysql'),
+                                'updated_at'          => current_time('mysql'),
+                            ],
+                            [ '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s', '%s' ]
+                        );
+                        $vol_id = (int) $wpdb->insert_id;
+                        $vol_name = $first_name . ' ' . $last_name;
                     }
                 }
 
-                if (function_exists('dfn_log_write')) {
-                    dfn_log_write('volontari', wp_get_current_user()->display_name, "Registrata disponibilità manuale per {$vol_name} ({$slots_added} turni) in {$event->title}", 'success');
-                }
+                if ($vol_id > 0) {
+                    $slots_added = 0;
+                    foreach ($selected_slots as $slot_item) {
+                        $parts = explode('_', $slot_item, 2);
+                        if (count($parts) === 2) {
+                            $day_id   = (int) $parts[0];
+                            $slot_key = sanitize_key($parts[1]);
 
-                echo '<div class="notice notice-success is-dismissible"><p>✅ <strong>Disponibilità registrata per ' . esc_html($vol_name) . '!</strong> Aggiunto a ' . intval($slots_added) . ' turni del sondaggio.</p></div>';
-            } elseif ($vol_id <= 0) {
-                echo '<div class="notice notice-error is-dismissible"><p>⚠️ Seleziona un volontario valido o compila Nome e Cognome per il segnaposto.</p></div>';
-            } else {
-                echo '<div class="notice notice-warning is-dismissible"><p>⚠️ Seleziona almeno una fascia oraria di disponibilità.</p></div>';
+                            $existing_resp = $wpdb->get_row($wpdb->prepare(
+                                "SELECT id FROM {$table_resp} WHERE survey_id = %d AND volunteer_id = %d AND day_id = %d AND time_slot_key = %s",
+                                $survey->id, $vol_id, $day_id, $slot_key
+                            ));
+
+                            $note_text = ! empty($operational_notes) ? '✍️ Inserimento manuale: ' . $operational_notes : '✍️ Inserimento manuale';
+
+                            if ($existing_resp) {
+                                $wpdb->update(
+                                    $table_resp,
+                                    [ 
+                                        'is_available'       => 1, 
+                                        'notes'              => $note_text, 
+                                        'preferred_place_id' => $manual_pref_place_id,
+                                        'submitted_at'       => current_time('mysql') 
+                                    ],
+                                    [ 'id' => $existing_resp->id ],
+                                    [ '%d', '%s', '%d', '%s' ],
+                                    [ '%d' ]
+                                );
+                            } else {
+                                $wpdb->insert(
+                                    $table_resp,
+                                    [
+                                        'survey_id'          => $survey->id,
+                                        'volunteer_id'       => $vol_id,
+                                        'day_id'             => $day_id,
+                                        'time_slot_key'      => $slot_key,
+                                        'is_available'       => 1,
+                                        'preferred_place_id' => $manual_pref_place_id,
+                                        'notes'              => $note_text,
+                                        'submitted_at'       => current_time('mysql'),
+                                    ],
+                                    [ '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%s' ]
+                                );
+                            }
+                            $slots_added++;
+                        }
+                    }
+
+                    if (function_exists('dfn_log_write')) {
+                        dfn_log_write('volontari', wp_get_current_user()->display_name, "Registrata disponibilità manuale per {$vol_name} ({$slots_added} turni) in {$event->title}", 'success');
+                    }
+
+                    echo '<div class="notice notice-success is-dismissible"><p>✅ <strong>Disponibilità registrata per ' . esc_html($vol_name) . '!</strong> Aggiunto a ' . intval($slots_added) . ' turni del sondaggio.</p></div>';
+                } elseif ($entry_mode === 'guest') {
+                    echo '<div class="notice notice-error is-dismissible"><p>⚠️ Compila Nome e Cognome per il nuovo volontario / segnaposto.</p></div>';
+                } else {
+                    echo '<div class="notice notice-error is-dismissible"><p>⚠️ Seleziona un volontario valido dall\'elenco.</p></div>';
+                }
             }
         }
     }
 
-    // 2. Gestione Eliminazione Singola Disponibilità dal Sondaggio
+    // 2. Gestione Eliminazione Singola Disponibilità dal Turno del Sondaggio
     if (isset($_GET['delete_response'], $_GET['_wpnonce'])) {
         $del_resp_id = (int) $_GET['delete_response'];
         if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_del_resp_' . $del_resp_id)) {
             if (! current_user_can('manage_options') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_surveys')) && ! current_user_can('dfn_act_vol_surveys')) {
                 wp_die(__('Permessi insufficienti.', 'dfn-theme'));
             }
+            $resp_to_del = $wpdb->get_row($wpdb->prepare(
+                "SELECT r.*, f.first_name, f.last_name FROM {$table_resp} r LEFT JOIN {$wpdb->prefix}dfn_fai_members f ON r.volunteer_id = f.id WHERE r.id = %d",
+                $del_resp_id
+            ));
             $wpdb->delete($table_resp, ['id' => $del_resp_id], ['%d']);
-            echo '<div class="notice notice-success is-dismissible"><p>✅ Disponibilità rimossa con successo dal sondaggio.</p></div>';
+            $v_name = $resp_to_del ? trim($resp_to_del->first_name . ' ' . $resp_to_del->last_name) : 'Volontario';
+            if (function_exists('dfn_log_write')) {
+                dfn_log_write('volontari', wp_get_current_user()->display_name, "Rimossa disponibilità turno per {$v_name} nel sondaggio {$event->title}", 'info');
+            }
+            echo '<div class="notice notice-success is-dismissible"><p>✅ Disponibilità di <strong>' . esc_html($v_name) . '</strong> rimossa con successo dal turno.</p></div>';
+        }
+    }
+
+    // 3. Gestione Eliminazione Totale di un Volontario da Tutto il Sondaggio
+    if (isset($_GET['delete_volunteer_survey'], $_GET['_wpnonce'])) {
+        $del_vol_id = (int) $_GET['delete_volunteer_survey'];
+        if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_del_vol_survey_' . $del_vol_id)) {
+            if (! current_user_can('manage_options') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_surveys')) && ! current_user_can('dfn_act_vol_surveys')) {
+                wp_die(__('Permessi insufficienti.', 'dfn-theme'));
+            }
+            if ($survey) {
+                $v_info = $wpdb->get_row($wpdb->prepare("SELECT first_name, last_name FROM {$wpdb->prefix}dfn_fai_members WHERE id = %d", $del_vol_id));
+                $del_rows = $wpdb->delete($table_resp, ['survey_id' => $survey->id, 'volunteer_id' => $del_vol_id], ['%d', '%d']);
+                $v_name = $v_info ? trim($v_info->first_name . ' ' . $v_info->last_name) : 'Volontario';
+                if (function_exists('dfn_log_write')) {
+                    dfn_log_write('volontari', wp_get_current_user()->display_name, "Rimosse tutte le disponibilità ({$del_rows} turni) per {$v_name} nel sondaggio {$event->title}", 'info');
+                }
+                echo '<div class="notice notice-success is-dismissible"><p>✅ Tutte le disponibilità di <strong>' . esc_html($v_name) . '</strong> (' . intval($del_rows) . ' turni) sono state rimosse dal sondaggio.</p></div>';
+            }
         }
     }
 
