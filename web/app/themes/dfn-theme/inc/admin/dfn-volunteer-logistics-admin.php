@@ -1059,11 +1059,18 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     </a>
                 <?php endif; ?>
             </div>
-            </div>
         </header>
 
         <!-- ACCORDION VERTICALE GIORNI EVENTO -->
         <style>
+            #wpfooter {
+                position: relative !important;
+                clear: both !important;
+            }
+            .dfn-admin-wrap {
+                margin-bottom: 40px;
+                clear: both;
+            }
             .dfn-day-accordion {
                 border: 1px solid #cbd5e1;
                 border-radius: 10px;
