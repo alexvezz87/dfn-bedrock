@@ -1276,6 +1276,36 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                                     ?>
                                 </div>
                             <?php endif; ?>
+
+                            <!-- CANALI DI SQUADRA (WHATSAPP & GOOGLE DRIVE) -->
+                            <?php 
+                            $has_wa = ! empty($mt->whatsapp_url);
+                            $has_dr = ! empty($mt->drive_url);
+                            $is_wa_share_enabled = function_exists('dfn_get_volunteer_setting') && dfn_get_volunteer_setting('vol_enable_whatsapp_share', 'no') === 'yes';
+                            if ($has_wa || $has_dr) : ?>
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px solid #f1f5f9;">
+                                    <?php if ($has_wa) : ?>
+                                        <a href="<?php echo esc_url($mt->whatsapp_url); ?>" target="_blank" rel="noopener noreferrer" style="background: #25d366; color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(37,211,102,0.25);">
+                                            <span>💬</span> <?php esc_html_e('Gruppo WhatsApp', 'dfn-theme'); ?>
+                                        </a>
+                                        <?php if ($is_wa_share_enabled && $is_sup) : 
+                                            $del_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+                                            $tpl = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_whatsapp_share_template', '') : '';
+                                            $wa_msg = str_replace(['{squadra}', '{delegazione}', '{link_accesso}'], [$mt->name, $del_name, home_url('/mio-account/')], $tpl);
+                                            $wa_share_url = 'https://wa.me/?text=' . rawurlencode($wa_msg);
+                                        ?>
+                                            <a href="<?php echo esc_url($wa_share_url); ?>" target="_blank" rel="noopener noreferrer" style="background: #f0fdf4; color: #166534; border: 1px dashed #86efac; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;" title="Condividi un avviso precompilato nel gruppo WhatsApp">
+                                                <span>📲</span> <?php esc_html_e('Condividi', 'dfn-theme'); ?>
+                                            </a>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                    <?php if ($has_dr) : ?>
+                                        <a href="<?php echo esc_url($mt->drive_url); ?>" target="_blank" rel="noopener noreferrer" style="background: #0284c7; color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(2,132,199,0.25);">
+                                            <span>📁</span> <?php esc_html_e('Cartella Drive', 'dfn-theme'); ?>
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 </div>

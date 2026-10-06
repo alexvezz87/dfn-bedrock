@@ -156,6 +156,36 @@ function dfn_render_teams_admin_page(): void
                                 </div>
                             </div>
 
+                            <!-- CANALI DI COMUNICAZIONE (WHATSAPP & GOOGLE DRIVE) -->
+                            <?php 
+                            $has_wa = ! empty($t->whatsapp_url);
+                            $has_dr = ! empty($t->drive_url);
+                            $is_wa_share_enabled = function_exists('dfn_get_volunteer_setting') && dfn_get_volunteer_setting('vol_enable_whatsapp_share', 'no') === 'yes';
+                            if ($has_wa || $has_dr) : ?>
+                                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;">
+                                    <?php if ($has_wa) : ?>
+                                        <a href="<?php echo esc_url($t->whatsapp_url); ?>" target="_blank" rel="noopener noreferrer" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; border-radius:6px; font-size:11px; font-weight:700; padding:3px 8px; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                                            <span>💬</span> Gruppo WhatsApp
+                                        </a>
+                                        <?php if ($is_wa_share_enabled) : 
+                                            $del_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+                                            $tpl = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_whatsapp_share_template', '') : '';
+                                            $wa_msg = str_replace(['{squadra}', '{delegazione}', '{link_accesso}'], [$t->name, $del_name, home_url('/mio-account/')], $tpl);
+                                            $wa_share_url = 'https://wa.me/?text=' . rawurlencode($wa_msg);
+                                        ?>
+                                            <a href="<?php echo esc_url($wa_share_url); ?>" target="_blank" rel="noopener noreferrer" style="background:#f0fdf4; color:#166534; border:1px dashed #86efac; border-radius:6px; font-size:10.5px; font-weight:600; padding:3px 6px; text-decoration:none; display:inline-flex; align-items:center; gap:3px;" title="Invia messaggio precompilato su WhatsApp">
+                                                <span>📲</span> Condividi
+                                            </a>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                    <?php if ($has_dr) : ?>
+                                        <a href="<?php echo esc_url($t->drive_url); ?>" target="_blank" rel="noopener noreferrer" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:6px; font-size:11px; font-weight:700; padding:3px 8px; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                                            <span>📁</span> Google Drive
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+
                             <!-- COMPONENTI CONTEGGIO -->
                             <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#334155; font-weight:600;">
                                 <span>👥 Componenti assegnati:</span>
@@ -187,6 +217,8 @@ function dfn_render_teams_admin_page(): void
                                         data-team-icon="<?php echo esc_attr($t->icon ?: '👥'); ?>"
                                         data-team-color="<?php echo esc_attr($t->color ?: '#004b23'); ?>"
                                         data-team-bg="<?php echo esc_attr($t->badge_bg ?: '#f0fdf4'); ?>"
+                                        data-team-whatsapp="<?php echo esc_attr($t->whatsapp_url ?? ''); ?>"
+                                        data-team-drive="<?php echo esc_attr($t->drive_url ?? ''); ?>"
                                         data-team-sup-roles="<?php echo esc_attr($t->supervisor_roles ?: '[]'); ?>"
                                         data-team-sup-user="<?php echo esc_attr($t->supervisor_user_id ?: '0'); ?>"
                                         data-team-active="<?php echo esc_attr($t->is_active); ?>"
@@ -279,6 +311,30 @@ function dfn_render_teams_admin_page(): void
                     <div style="margin-bottom:18px;">
                         <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Descrizione / Obiettivi della Squadra</label>
                         <textarea name="description" id="dfn-field-team-desc" rows="3" placeholder="Descrivi le attività e la finalità di questo team..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:8px 10px; font-size:13px;"></textarea>
+                    </div>
+
+                    <!-- CANALI DI COMUNICAZIONE & DOCUMENTI -->
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:18px;">
+                        <label style="display:block; font-size:13px; font-weight:800; color:#0f172a; margin-bottom:4px;">
+                            🔗 Canali di Gruppo &amp; Spazio Documenti
+                        </label>
+                        <p style="font-size:12px; color:#64748b; margin:0 0 12px 0;">
+                            Inserisci i link per consentire ai membri assegnati di accedere con 1 clic al gruppo WhatsApp e alla cartella condivisa Drive.
+                        </p>
+
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">
+                                💬 Link Invito Gruppo WhatsApp
+                            </label>
+                            <input type="url" name="whatsapp_url" id="dfn-field-team-whatsapp" placeholder="https://chat.whatsapp.com/..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-size:12.5px;">
+                        </div>
+
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">
+                                📁 Link Cartella Google Drive Condivisa
+                            </label>
+                            <input type="url" name="drive_url" id="dfn-field-team-drive" placeholder="https://drive.google.com/drive/folders/..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-size:12.5px;">
+                        </div>
                     </div>
 
                     <!-- DELEGATI & RUOLI SUPERVISORI -->
@@ -428,6 +484,8 @@ function dfn_render_teams_admin_page(): void
             $('#dfn-field-team-icon').val('👥');
             $('#dfn-field-team-color').val('#004b23');
             $('#dfn-field-team-bg').val('#f0fdf4');
+            $('#dfn-field-team-whatsapp').val('');
+            $('#dfn-field-team-drive').val('');
             $('#dfn-field-team-desc').val('');
             $('#dfn-field-team-order').val('0');
             $('#dfn-field-team-sup-user').val('0');
@@ -447,6 +505,8 @@ function dfn_render_teams_admin_page(): void
             $('#dfn-field-team-icon').val(btn.data('team-icon'));
             $('#dfn-field-team-color').val(btn.data('team-color'));
             $('#dfn-field-team-bg').val(btn.data('team-bg'));
+            $('#dfn-field-team-whatsapp').val(btn.data('team-whatsapp') || '');
+            $('#dfn-field-team-drive').val(btn.data('team-drive') || '');
             $('#dfn-field-team-desc').val(btn.data('team-desc'));
             $('#dfn-field-team-order').val(btn.data('team-order'));
             $('#dfn-field-team-sup-user').val(btn.data('team-sup-user'));
@@ -697,6 +757,8 @@ function dfn_ajax_save_team_handler(): void
         'icon'               => sanitize_text_field($_POST['icon'] ?? '👥'),
         'color'              => sanitize_hex_color($_POST['color'] ?? '#004b23') ?: '#004b23',
         'badge_bg'           => sanitize_hex_color($_POST['badge_bg'] ?? '#f0fdf4') ?: '#f0fdf4',
+        'whatsapp_url'       => ! empty($_POST['whatsapp_url']) ? esc_url_raw($_POST['whatsapp_url']) : null,
+        'drive_url'          => ! empty($_POST['drive_url']) ? esc_url_raw($_POST['drive_url']) : null,
         'description'        => sanitize_textarea_field($_POST['description'] ?? ''),
         'supervisor_roles'   => $sup_roles,
         'supervisor_user_id' => ! empty($_POST['supervisor_user_id']) ? (int) $_POST['supervisor_user_id'] : null,

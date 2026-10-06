@@ -62,6 +62,8 @@ function dfn_get_volunteer_setting(string $key, $default = null)
         'vol_enable_candidate_pending_email' => 'yes',
         'vol_enable_approved_email'          => 'yes',
         'vol_survey_enable_preferred_place'  => 'no',
+        'vol_enable_whatsapp_share'          => 'no',
+        'vol_whatsapp_share_template'        => "Ciao! Ti inoltro l'aggiornamento per la squadra {squadra} della {delegazione}. Accedi al portale per tutti i dettagli:\n{link_accesso}",
 
         // 1. Email Admin: Notifica nuova candidatura
         'vol_email_admin_subject'            => 'Nuova Candidatura Volontario FAI: {nome} {cognome}',
@@ -139,6 +141,8 @@ function dfn_volunteer_settings_save_fields(): void
         'vol_enable_candidate_pending_email' => 'sanitize_text_field',
         'vol_enable_approved_email'          => 'sanitize_text_field',
         'vol_survey_enable_preferred_place'  => 'sanitize_text_field',
+        'vol_enable_whatsapp_share'          => 'sanitize_text_field',
+        'vol_whatsapp_share_template'        => 'sanitize_textarea_field',
 
         // 1. Admin Notification
         'vol_email_admin_subject'            => 'sanitize_text_field',
@@ -217,6 +221,13 @@ function dfn_volunteer_settings_save_fields(): void
                 $merged[$t_key] = 'no';
             }
         }
+    } elseif ($active_tab === 'canali') {
+        $toggles = ['vol_enable_whatsapp_share'];
+        foreach ($toggles as $t_key) {
+            if (! isset($raw_input[$t_key])) {
+                $merged[$t_key] = 'no';
+            }
+        }
     }
 
     $updated = update_option('dfn_volunteer_settings', $merged);
@@ -270,6 +281,7 @@ function dfn_render_volunteer_settings_page(): void
 
     $tabs = [
         'notifiche'     => '🔔 Notifiche &amp; Destinatari',
+        'canali'        => '🛡️ Squadre &amp; Canali',
         'sondaggi'      => '📋 Sondaggi &amp; Logistica',
         'modelli-email' => '📝 Modelli E-mail',
         'test-invio'    => '🧪 Test Invio E-mail',
@@ -613,6 +625,58 @@ function dfn_render_volunteer_settings_page(): void
                                 </td>
                             </tr>
                         </table>
+
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                            <?php submit_button(__('Salva Impostazioni', 'dfn-theme'), 'primary', 'submit', false, [ 'style' => 'background: #004b23; border-color: #003318; box-shadow: none; text-shadow: none;' ]); ?>
+                        </div>
+
+                    <?php elseif ($active_tab === 'canali') : ?>
+                        <!-- TAB: SQUADRE & CANALI DI COMUNICAZIONE (WHATSAPP & GOOGLE DRIVE) -->
+                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">🛡️ Squadre di Lavoro, Gruppi WhatsApp &amp; Google Drive</h2>
+                        <p class="description" style="margin-bottom: 25px;">
+                            Configura i canali integrati per le squadre operative di Delegazione. Ogni squadra può disporre di un link di invito al gruppo WhatsApp dedicato e di una cartella condivisa su Google Drive per la gestione di documenti e progetti.
+                        </p>
+
+                        <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:20px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                            <h3 style="font-size:16px; font-weight:700; color:#0f172a; margin:0 0 8px 0; display:flex; align-items:center; gap:8px;">
+                                <span>💬</span> Condivisione Rapida WhatsApp per Delegati &amp; Staff (Livello 2)
+                            </h3>
+                            <p style="font-size:13.5px; color:#475569; margin-bottom:16px; line-height:1.5;">
+                                Se abilitato, aggiunge un pulsante <strong>"Condividi su WhatsApp"</strong> nella gestione squadre e nelle schede dei Delegati per generare link precompilati (Click-to-Chat) con messaggi pronti all'invio per il gruppo o i singoli volontari.
+                            </p>
+
+                            <table class="form-table" role="presentation" style="margin-top:0;">
+                                <tr>
+                                    <th scope="row" style="padding-top:10px; width:260px;">Pulsanti Condivisione WhatsApp</th>
+                                    <td style="padding-top:10px;">
+                                        <label for="vol_enable_whatsapp_share" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:14px;">
+                                            <input type="checkbox" name="dfn_vol_settings[vol_enable_whatsapp_share]" id="vol_enable_whatsapp_share" value="yes" <?php checked(dfn_get_volunteer_setting('vol_enable_whatsapp_share', 'no'), 'yes'); ?> style="accent-color:#004b23; width:18px; height:18px;" />
+                                            Abilita strumenti di condivisione rapida e Click-to-Chat WhatsApp nel portale
+                                        </label>
+                                        <p class="description" style="margin-top:8px;">
+                                            <strong>Nota:</strong> I volontari possono sempre accedere direttamente al gruppo WhatsApp del proprio team tramite il pulsante visualizzato nella loro area riservata. Questa opzione attiva pulsanti aggiuntivi di inoltro rapido per i Delegati.
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" style="padding-top:10px;"><label for="vol_whatsapp_share_template">Messaggio Predefinito</label></th>
+                                    <td style="padding-top:10px;">
+                                        <textarea name="dfn_vol_settings[vol_whatsapp_share_template]" id="vol_whatsapp_share_template" rows="3" class="large-text" style="max-width:540px; font-family:monospace; font-size:12.5px;"><?php echo esc_textarea(dfn_get_volunteer_setting('vol_whatsapp_share_template')); ?></textarea>
+                                        <p class="description">Tag disponibili: <code>{squadra}</code>, <code>{delegazione}</code>, <code>{link_accesso}</code></p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:18px 20px;">
+                            <h4 style="margin:0 0 6px 0; font-size:14px; font-weight:700; color:#0f172a;">📁 Come configurare i canali per ciascuna squadra:</h4>
+                            <ol style="margin:0 0 0 20px; padding:0; font-size:13px; color:#475569; line-height:1.6;">
+                                <li>Accedi al sottomenu <strong>Volontari FAI &rarr; <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-teams')); ?>" style="color:#004b23; font-weight:700;">Squadre &amp; Team</a></strong>.</li>
+                                <li>Clicca su <strong>Modifica</strong> (✏️) sulla card della squadra desiderata.</li>
+                                <li>Inserisci il <strong>Link di invito al Gruppo WhatsApp</strong> (es. <code>https://chat.whatsapp.com/...</code>) e l'<strong>URL della Cartella Google Drive</strong> (es. <code>https://drive.google.com/drive/folders/...</code>).</li>
+                                <li>I pulsanti di accesso diretto compariranno automaticamente nella bacheca <strong>/mio-account/</strong> solo per i volontari assegnati a quel team!</li>
+                            </ol>
+                        </div>
 
                         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
                             <?php submit_button(__('Salva Impostazioni', 'dfn-theme'), 'primary', 'submit', false, [ 'style' => 'background: #004b23; border-color: #003318; box-shadow: none; text-shadow: none;' ]); ?>
