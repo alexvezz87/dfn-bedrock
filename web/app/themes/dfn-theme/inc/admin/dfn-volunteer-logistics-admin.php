@@ -2724,6 +2724,7 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
 
                 if ($vol_id > 0) {
                     $slots_added = 0;
+                    $slots_already_present = 0;
                     foreach ($selected_slots as $slot_item) {
                         $parts = explode('_', $slot_item, 2);
                         if (count($parts) === 2) {
@@ -2735,22 +2736,11 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                                 $survey->id, $vol_id, $day_id, $slot_key
                             ));
 
-                            $note_text = ! empty($operational_notes) ? '✍️ Inserimento manuale: ' . $operational_notes : '✍️ Inserimento manuale';
-
                             if ($existing_resp) {
-                                $wpdb->update(
-                                    $table_resp,
-                                    [ 
-                                        'is_available'       => 1, 
-                                        'notes'              => $note_text, 
-                                        'preferred_place_id' => $manual_pref_place_id,
-                                        'submitted_at'       => current_time('mysql') 
-                                    ],
-                                    [ 'id' => $existing_resp->id ],
-                                    [ '%d', '%s', '%d', '%s' ],
-                                    [ '%d' ]
-                                );
+                                // Il volontario è già presente per questo turno: non sovrascrivere
+                                $slots_already_present++;
                             } else {
+                                $note_text = ! empty($operational_notes) ? '✍️ Inserimento manuale: ' . $operational_notes : '✍️ Inserimento manuale';
                                 $wpdb->insert(
                                     $table_resp,
                                     [
@@ -2765,16 +2755,24 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                                     ],
                                     [ '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%s' ]
                                 );
+                                $slots_added++;
                             }
-                            $slots_added++;
                         }
                     }
 
-                    if (function_exists('dfn_log_write')) {
-                        dfn_log_write('volontari', wp_get_current_user()->display_name, "Registrata disponibilità manuale per {$vol_name} ({$slots_added} turni) in {$event->title}", 'success');
+                    if ($slots_added > 0 && $slots_already_present === 0) {
+                        if (function_exists('dfn_log_write')) {
+                            dfn_log_write('volontari', wp_get_current_user()->display_name, "Registrata disponibilità manuale per {$vol_name} ({$slots_added} turni) in {$event->title}", 'success');
+                        }
+                        echo '<div class="notice notice-success is-dismissible"><p>✅ <strong>Disponibilità registrata per ' . esc_html($vol_name) . '!</strong> Aggiunto a ' . intval($slots_added) . ' turno/i del sondaggio.</p></div>';
+                    } elseif ($slots_added > 0 && $slots_already_present > 0) {
+                        if (function_exists('dfn_log_write')) {
+                            dfn_log_write('volontari', wp_get_current_user()->display_name, "Registrata disponibilità manuale per {$vol_name} ({$slots_added} nuovi turni, {$slots_already_present} già presenti) in {$event->title}", 'info');
+                        }
+                        echo '<div class="notice notice-info is-dismissible"><p>ℹ️ Disponibilità registrata per <strong>' . esc_html($vol_name) . '</strong> su <strong>' . intval($slots_added) . '</strong> nuovo/i turno/i. <strong>' . intval($slots_already_present) . '</strong> turno/i erano già presenti e <u>non sono stati sovrascritti</u>.</p></div>';
+                    } elseif ($slots_added === 0 && $slots_already_present > 0) {
+                        echo '<div class="notice notice-warning is-dismissible"><p>⚠️ Il volontario <strong>' . esc_html($vol_name) . '</strong> è già presente negli slot orari selezionati. <u>Non è stato sovrascritto</u> e non è necessario aggiungerlo manualmente.</p></div>';
                     }
-
-                    echo '<div class="notice notice-success is-dismissible"><p>✅ <strong>Disponibilità registrata per ' . esc_html($vol_name) . '!</strong> Aggiunto a ' . intval($slots_added) . ' turni del sondaggio.</p></div>';
                 } elseif ($entry_mode === 'guest') {
                     echo '<div class="notice notice-error is-dismissible"><p>⚠️ Compila Nome e Cognome per il nuovo volontario / segnaposto.</p></div>';
                 } else {
