@@ -860,14 +860,14 @@ function dfn_render_volunteers_list_page(): void
             <table class="wp-list-table widefat fixed striped table-view-list" style="border:none;">
                 <thead>
                     <tr>
-                        <th style="width:170px; font-weight:700;">Volontario</th>
-                        <th style="width:140px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
-                        <th style="width:90px; font-weight:700; text-align:center;">SiVol <?php dfn_tooltip_icon('dfn-tip-vol-sivol', 'Informazioni: Registrazione SiVol'); ?></th>
-                        <th style="width:180px; font-weight:700;">Contatti &amp; Origine</th>
+                        <th style="width:160px; font-weight:700;">Volontario</th>
+                        <th style="width:130px; font-weight:700;">Tessera FAI <?php dfn_tooltip_icon('dfn-tip-vol-card', 'Informazioni: Tessere FAI'); ?></th>
+                        <th style="width:80px; font-weight:700; text-align:center;">SiVol <?php dfn_tooltip_icon('dfn-tip-vol-sivol', 'Informazioni: Registrazione SiVol'); ?></th>
+                        <th style="width:160px; font-weight:700;">Contatti &amp; Origine</th>
                         <th style="font-weight:700;">Incarichi &amp; Ruoli <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
-                        <th style="width:140px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
+                        <th style="width:110px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
                         <th style="width:85px; font-weight:700; text-align:center;">Stato</th>
-                        <th style="width:180px; font-weight:700; text-align:right;">Azioni</th>
+                        <th style="width:340px; font-weight:700; text-align:right;">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -989,7 +989,7 @@ function dfn_render_volunteers_list_page(): void
                                         <?php endif; ?>
                                     </div>
                                 </td>
-                                <td style="text-align:center; vertical-align:middle;">
+                                <td style="text-align:center; vertical-align:middle; width:85px;">
                                     <?php if ($v->volunteer_status === 'active') : ?>
                                         <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac; white-space:nowrap;">
                                             Attivo
@@ -1000,8 +1000,8 @@ function dfn_render_volunteers_list_page(): void
                                         </span>
                                     <?php endif; ?>
                                 </td>
-                                <td style="text-align:right; vertical-align:middle;">
-                                    <div style="display:flex; justify-content:flex-end; align-items:center; gap:6px; flex-wrap:nowrap;">
+                                <td style="text-align:right; vertical-align:middle; width:340px;">
+                                    <div style="display:flex; justify-content:flex-end; align-items:center; gap:5px; flex-wrap:wrap;">
                                         <?php 
                                         $edit_url      = admin_url('admin.php?page=dfn-volunteer-add&volunteer_id=' . $v->id);
                                         $toggle_url    = wp_nonce_url(admin_url('admin.php?page=dfn-volunteers&action=toggle_status&volunteer_id=' . $v->id . ($status_filter !== 'all' ? '&status=' . $status_filter : '') . ($reg_source_official !== 'all' ? '&reg_source_official=' . $reg_source_official : '')), 'dfn_vol_action_' . $v->id);
@@ -1012,18 +1012,18 @@ function dfn_render_volunteers_list_page(): void
                                             <a href="<?php echo esc_url($send_cred_url); ?>" 
                                                class="button button-small" 
                                                title="<?php esc_attr_e('Invia email di benvenuto e link per impostare la password', 'dfn-theme'); ?>" 
-                                               style="color:#004b23; font-weight:600; white-space:nowrap; padding:0 8px;"
+                                               style="color:#004b23; font-weight:600; white-space:nowrap; padding:0 6px; font-size:11.5px;"
                                                onclick="return confirm('Confermi l\'invio dell\'email di benvenuto e del link di impostazione password a <?php echo esc_js($v->first_name . ' ' . $v->last_name . ' (' . $v->email . ')'); ?>?');">
                                                 ✉️ Credenziali
                                             </a>
                                         <?php endif; ?>
-                                        <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="Modifica dati e ruoli" style="white-space:nowrap; padding:0 8px;">
+                                        <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="Modifica dati e ruoli" style="white-space:nowrap; padding:0 6px; font-size:11.5px;">
                                             ✏️ Modifica
                                         </a>
-                                        <a href="<?php echo esc_url($toggle_url); ?>" class="button button-small" title="Attiva/Disattiva" style="white-space:nowrap; padding:0 8px;">
+                                        <a href="<?php echo esc_url($toggle_url); ?>" class="button button-small" title="Attiva/Disattiva" style="white-space:nowrap; padding:0 6px; font-size:11.5px;">
                                             <?php echo ($v->volunteer_status === 'active') ? 'Disattiva' : 'Attiva'; ?>
                                         </a>
-                                        <a href="<?php echo esc_url($delete_url); ?>" class="button button-small" style="color:#b91c1c; white-space:nowrap; padding:0 8px;" onclick="return confirm('Confermi la rimozione del volontario dal registro?');">
+                                        <a href="<?php echo esc_url($delete_url); ?>" class="button button-small" style="color:#b91c1c; white-space:nowrap; padding:0 6px; font-size:11.5px;" onclick="return confirm('Confermi la rimozione del volontario dal registro?');">
                                             Rimuovi
                                         </a>
                                     </div>
