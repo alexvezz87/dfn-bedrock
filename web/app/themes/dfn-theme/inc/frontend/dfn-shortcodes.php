@@ -273,7 +273,11 @@ function dfn_render_evento_shortcode($atts): string
                                     <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
                                     <div class="dfn-qty-box">
                                         <label for="quantity"><?php esc_html_e('Numero Partecipanti', 'dfn-theme'); ?></label>
-                                        <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                        <div class="dfn-qty-control">
+                                            <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
+                                            <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                            <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
+                                        </div>
                                         <input type="hidden" name="dfn_qty_fai" id="dfn_qty_fai" value="0">
                                     </div>
                                 </div>
@@ -306,11 +310,19 @@ function dfn_render_evento_shortcode($atts): string
                                         <div class="dfn-qty-grid">
                                             <div class="dfn-qty-box">
                                                 <label for="quantity"><?php esc_html_e('Non Iscritti FAI (Intero)', 'dfn-theme'); ?></label>
-                                                <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                                <div class="dfn-qty-control">
+                                                    <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
+                                                    <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                                    <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
+                                                </div>
                                             </div>
                                             <div class="dfn-qty-box">
                                                 <label for="dfn_qty_fai"><?php esc_html_e('Soci FAI (Ridotto)', 'dfn-theme'); ?></label>
-                                                <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                                <div class="dfn-qty-control">
+                                                    <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
+                                                    <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                                    <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div style="font-size:11.5px; color:#64748b; margin-top:8px; line-height:1.45; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">
@@ -319,7 +331,11 @@ function dfn_render_evento_shortcode($atts): string
                                     <?php else : ?>
                                         <div class="dfn-qty-box">
                                             <label for="quantity"><?php esc_html_e('Numero di Biglietti', 'dfn-theme'); ?></label>
-                                            <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                            <div class="dfn-qty-control">
+                                                <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
+                                                <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                                <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
+                                            </div>
                                             <input type="hidden" name="dfn_qty_fai" id="dfn_qty_fai" value="0">
                                         </div>
                                     <?php endif; ?>
@@ -599,7 +615,11 @@ function dfn_render_evento_shortcode($atts): string
                                     <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
                                     <div class="dfn-qty-box">
                                         <label for="quantity"><?php esc_html_e('Numero Partecipanti', 'dfn-theme'); ?></label>
-                                        <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                        <div class="dfn-qty-control">
+                                            <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
+                                            <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                            <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
+                                        </div>
                                         <input type="hidden" name="dfn_qty_fai" id="dfn_qty_fai" value="0">
                                     </div>
                                 </div>
@@ -632,11 +652,19 @@ function dfn_render_evento_shortcode($atts): string
                                         <div class="dfn-qty-grid">
                                             <div class="dfn-qty-box">
                                                 <label for="quantity"><?php esc_html_e('Non Iscritti FAI (Intero)', 'dfn-theme'); ?></label>
-                                                <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                                <div class="dfn-qty-control">
+                                                    <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
+                                                    <input type="number" name="quantity" id="quantity" min="0" value="1">
+                                                    <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
+                                                </div>
                                             </div>
                                             <div class="dfn-qty-box">
                                                 <label for="dfn_qty_fai"><?php esc_html_e('Soci FAI (Ridotto)', 'dfn-theme'); ?></label>
-                                                <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                                <div class="dfn-qty-control">
+                                                    <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
+                                                    <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
+                                                    <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div style="font-size:11.5px; color:#64748b; margin-top:8px; line-height:1.45; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">
@@ -645,7 +673,11 @@ function dfn_render_evento_shortcode($atts): string
                                     <?php else : ?>
                                         <div class="dfn-qty-box">
                                             <label for="quantity"><?php esc_html_e('Numero di Biglietti', 'dfn-theme'); ?></label>
-                                            <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                            <div class="dfn-qty-control">
+                                                <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
+                                                <input type="number" name="quantity" id="quantity" min="1" value="1">
+                                                <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
+                                            </div>
                                             <input type="hidden" name="dfn_qty_fai" id="dfn_qty_fai" value="0">
                                         </div>
                                     <?php endif; ?>

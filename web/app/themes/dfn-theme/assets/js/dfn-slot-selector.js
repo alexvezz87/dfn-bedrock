@@ -54,6 +54,33 @@ jQuery(document).ready(function($) {
             }
         }
 
+        // Pulsanti Stepper Quantità (+ / -)
+        $widget.on('click', '.dfn-qty-btn', function(e) {
+            e.preventDefault();
+            var $btn = $(this);
+            var action = $btn.data('action');
+            var $input = $btn.closest('.dfn-qty-control').find('input[type="number"]');
+            if (!$input.length) return;
+
+            var currentVal = parseInt($input.val());
+            if (isNaN(currentVal)) currentVal = 0;
+            
+            var minVal = parseInt($input.attr('min'));
+            if (isNaN(minVal)) minVal = 0;
+            
+            var maxVal = parseInt($input.attr('max'));
+
+            if (action === 'plus') {
+                if (isNaN(maxVal) || currentVal < maxVal) {
+                    $input.val(currentVal + 1).trigger('input').trigger('change');
+                }
+            } else if (action === 'minus') {
+                if (currentVal > minVal) {
+                    $input.val(currentVal - 1).trigger('input').trigger('change');
+                }
+            }
+        });
+
         // Ascolta modifiche alle quantità
         $widget.find('input[name="quantity"], input[name="dfn_qty_fai"]').on('input change', function() {
             var qtyStandard = parseInt($widget.find('input[name="quantity"]').val()) || 0;
