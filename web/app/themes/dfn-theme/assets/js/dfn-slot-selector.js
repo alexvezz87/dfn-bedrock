@@ -547,6 +547,12 @@ jQuery(document).ready(function($) {
                         $feedbackArea.html('<div style="color:#b91c1c; font-size:13px; font-weight:700; background:#fee2e2; border:1px solid #fecaca; border-radius:6px; padding:10px; margin-top:12px;">❌ Errore: ' + (response.data ? response.data.message : 'Impossibile completare la richiesta.') + '</div>');
                         $submit.prop('disabled', false).css('pointer-events', 'auto').html('<span class="dashicons dashicons-calendar-alt"></span> Riprova');
                         $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
+
+                        if ($feedbackArea.length) {
+                            $('html, body').animate({
+                                scrollTop: Math.max(0, $feedbackArea.offset().top - 100)
+                            }, 350);
+                        }
                     }
                 },
                 error: function() {
@@ -554,6 +560,12 @@ jQuery(document).ready(function($) {
                     $feedbackArea.html('<div style="color:#b91c1c; font-size:13px; font-weight:700; background:#fee2e2; border:1px solid #fecaca; border-radius:6px; padding:10px; margin-top:12px;">❌ Errore di connessione al server. Riprova.</div>');
                     $submit.prop('disabled', false).css('pointer-events', 'auto').html('<span class="dashicons dashicons-calendar-alt"></span> Riprova');
                     $widget.find('.dfn-widget-btn-prev').prop('disabled', false);
+
+                    if ($feedbackArea.length) {
+                        $('html, body').animate({
+                            scrollTop: Math.max(0, $feedbackArea.offset().top - 100)
+                        }, 350);
+                    }
                 }
             });
         }
