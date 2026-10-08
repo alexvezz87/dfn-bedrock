@@ -1591,9 +1591,10 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     <select id="dfn-matrix-role-filter">
                         <option value="">🎭 Tutte le Mansioni</option>
                         <?php foreach ($event_roles as $er) : 
-                            $b_code = trim((string) $er->badge_code);
-                            $r_label = $er->role_name;
-                            if (! empty($b_code) && stripos($r_label, $b_code) === false) {
+                            $b_code_raw = trim((string) ($er->badge_code ?? ''));
+                            $b_code = trim($b_code_raw, " ()\t\n\r\0\x0B");
+                            $r_label = preg_replace('/\s*\(+[^)]*\)+$/', '', (string) $er->role_name);
+                            if (! empty($b_code)) {
                                 $r_label .= ' (' . $b_code . ')';
                             }
                         ?>
@@ -1897,17 +1898,40 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
                         <!-- Riga Compatta: Input Cerca/Manuale affiancato alla Select Mansione in Grid 2 Colonne -->
                         <div class="dfn-qa-compact-grid">
-                            <!-- Colonna Sinistra: Cerca Volontario oppure Nome Manuale -->
+                            <!-- Colonna Sinistra: Cerca Volontario oppure Seleziona dalla Lista Completa -->
                             <div class="dfn-qa-col-input">
                                 <div id="dfn-qa-registered-section">
-                                    <label for="dfn-qa-vol-search" class="dfn-form-label">Cerca Volontario:</label>
-                                    <div class="dfn-autocomplete-wrapper">
-                                        <input type="text" id="dfn-qa-vol-search" class="dfn-input-control" placeholder="Digita nome o cognome..." autocomplete="off">
-                                        <div class="dfn-autocomplete-results" id="dfn-qa-vol-results" style="display:none;"></div>
+                                    <div class="dfn-qa-field-block">
+                                        <label for="dfn-qa-vol-search" class="dfn-form-label">🔍 Cerca Volontario:</label>
+                                        <div class="dfn-autocomplete-wrapper">
+                                            <input type="text" id="dfn-qa-vol-search" class="dfn-input-control" placeholder="Digita nome o cognome..." autocomplete="off">
+                                            <div class="dfn-autocomplete-results" id="dfn-qa-vol-results" style="display:none;"></div>
+                                        </div>
                                     </div>
-                                    <div class="dfn-qa-selected-badge" id="dfn-qa-selected-badge" style="display:none;">
+
+                                    <div class="dfn-qa-field-block" style="margin-top: 8px;">
+                                        <label for="dfn-qa-vol-select" class="dfn-form-label">📋 Oppure scegli dalla lista:</label>
+                                        <select id="dfn-qa-vol-select" class="dfn-select-control">
+                                            <option value="">-- Seleziona dalla lista completa --</option>
+                                            <?php foreach ($all_volunteers as $v) : 
+                                                $v_last  = trim((string)$v->last_name);
+                                                $v_first = trim((string)$v->first_name);
+                                                $v_name  = trim($v_last . ' ' . $v_first);
+                                                if (empty($v_name)) $v_name = $v->email;
+                                                $icons = '';
+                                                if (! empty($v->has_safety_course)) $icons .= ' 🦺';
+                                                if (! empty($v->is_guide)) $icons .= ' 🏛️';
+                                            ?>
+                                                <option value="<?php echo esc_attr($v->id); ?>" data-name="<?php echo esc_attr($v_name); ?>">
+                                                    <?php echo esc_html($v_name . $icons); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+                                    <div class="dfn-qa-selected-badge" id="dfn-qa-selected-badge" style="display:none; margin-top: 8px;">
                                         <span id="dfn-qa-selected-name"></span>
-                                        <button type="button" id="dfn-qa-clear-selected-btn">✕</button>
+                                        <button type="button" id="dfn-qa-clear-selected-btn" title="Rimuovi selezione">✕</button>
                                     </div>
                                 </div>
 
@@ -1922,9 +1946,10 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                 <label for="dfn-qa-role-select" class="dfn-form-label">Mansione:</label>
                                 <select id="dfn-qa-role-select" class="dfn-select-control">
                                     <?php foreach ($event_roles as $er) : 
-                                        $b_code = trim((string) $er->badge_code);
-                                        $r_label = $er->role_name;
-                                        if (! empty($b_code) && stripos($r_label, $b_code) === false) {
+                                        $b_code_raw = trim((string) ($er->badge_code ?? ''));
+                                        $b_code = trim($b_code_raw, " ()\t\n\r\0\x0B");
+                                        $r_label = preg_replace('/\s*\(+[^)]*\)+$/', '', (string) $er->role_name);
+                                        if (! empty($b_code)) {
                                             $r_label .= ' (' . $b_code . ')';
                                         }
                                     ?>
@@ -3399,9 +3424,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     (data.roles || []).forEach(function(r) {
                         var opt = document.createElement('option');
                         opt.value = r.role_key;
-                        var bCode = (r.badge_code || '').trim();
-                        var rLabel = r.role_name;
-                        if (bCode && rLabel.indexOf(bCode) === -1) {
+                        var bCode = (r.badge_code || '').trim().replace(/^[\s()]+|[\s()]+$/g, '');
+                        var rLabel = (r.role_name || '').replace(/\s*\(+[^)]*\)+$/, '');
+                        if (bCode) {
                             rLabel += ' (' + bCode + ')';
                         }
                         opt.textContent = rLabel;
@@ -3581,6 +3606,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             var qaShiftIdInput = document.getElementById('dfn-qa-shift-id');
             var qaDayIdInput = document.getElementById('dfn-qa-day-id');
             var qaVolIdInput = document.getElementById('dfn-qa-selected-vol-id');
+            var qaVolSelect = document.getElementById('dfn-qa-vol-select');
             var qaSearchInput = document.getElementById('dfn-qa-vol-search');
             var qaResultsBox = document.getElementById('dfn-qa-vol-results');
             var qaBadge = document.getElementById('dfn-qa-selected-badge');
@@ -3601,9 +3627,33 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
                     qaVolIdInput.value = '';
                     qaSearchInput.value = '';
+                    if (qaVolSelect) qaVolSelect.value = '';
                     qaBadge.style.display = 'none';
                     qaResultsBox.style.display = 'none';
                     document.getElementById('dfn-qa-manual-name').value = '';
+
+                    // Evidenzia e formatta i volontari disponibili nel sondaggio per questo giorno
+                    if (qaVolSelect) {
+                        var targetDayId = parseInt(dayId, 10);
+                        var poolList = dayPoolData[targetDayId] || [];
+                        var poolIds = poolList.map(function(p) { return parseInt(p.volunteer_id, 10); });
+
+                        Array.from(qaVolSelect.options).forEach(function(opt) {
+                            if (! opt.value) return;
+                            var vId = parseInt(opt.value, 10);
+                            var origName = opt.getAttribute('data-name') || opt.textContent.replace(/^⭐\s*/, '').replace(/\s*\(Disponibile\)$/, '');
+                            var isAvail = (poolIds.indexOf(vId) !== -1);
+                            if (isAvail) {
+                                opt.textContent = '⭐ ' + origName + ' (Disponibile)';
+                                opt.style.fontWeight = '700';
+                                opt.style.color = '#004b23';
+                            } else {
+                                opt.textContent = origName;
+                                opt.style.fontWeight = 'normal';
+                                opt.style.color = '';
+                            }
+                        });
+                    }
 
                     openModal('dfn-modal-quick-assign-backdrop');
                     setTimeout(function() { qaSearchInput.focus(); }, 100);
@@ -3617,6 +3667,24 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     document.getElementById('dfn-qa-manual-section').style.display = isReg ? 'none' : 'block';
                 });
             });
+
+            if (qaVolSelect) {
+                qaVolSelect.addEventListener('change', function() {
+                    var vId = this.value;
+                    if (vId) {
+                        qaVolIdInput.value = vId;
+                        var selectedOpt = this.options[this.selectedIndex];
+                        var optName = selectedOpt.getAttribute('data-name') || selectedOpt.textContent.replace(/^⭐\s*/, '').replace(/\s*\(Disponibile\)$/, '');
+                        qaBadgeName.textContent = 'Selezionato: ' + optName;
+                        qaBadge.style.display = 'inline-flex';
+                        qaResultsBox.style.display = 'none';
+                        qaSearchInput.value = '';
+                    } else {
+                        qaVolIdInput.value = '';
+                        qaBadge.style.display = 'none';
+                    }
+                });
+            }
 
             if (qaSearchInput) {
                 qaSearchInput.addEventListener('input', function() {
@@ -3656,6 +3724,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
                         item.addEventListener('click', function() {
                             qaVolIdInput.value = v.id;
+                            if (qaVolSelect) qaVolSelect.value = v.id;
                             qaBadgeName.textContent = 'Selezionato: ' + v.name;
                             qaBadge.style.display = 'inline-flex';
                             qaResultsBox.style.display = 'none';
@@ -3672,7 +3741,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             if (qaClearBtn) {
                 qaClearBtn.addEventListener('click', function() {
                     qaVolIdInput.value = '';
+                    if (qaVolSelect) qaVolSelect.value = '';
                     qaBadge.style.display = 'none';
+                    qaSearchInput.value = '';
                     qaSearchInput.focus();
                 });
             }
@@ -3682,13 +3753,13 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 qaForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     var shiftId = qaShiftIdInput.value;
-                    var volId   = qaVolIdInput.value;
+                    var volId   = qaVolIdInput.value || (qaVolSelect ? qaVolSelect.value : '');
                     var mode    = document.querySelector('input[name="qa_mode"]:checked').value;
                     var manual  = document.getElementById('dfn-qa-manual-name').value;
                     var role    = document.getElementById('dfn-qa-role-select').value;
 
                     if (mode === 'registered' && ! volId) {
-                        alert('Seleziona un volontario dall\'elenco.');
+                        alert('Seleziona un volontario dall\'elenco o cercalo per nome.');
                         return;
                     }
                     if (mode === 'manual' && ! manual.trim()) {
