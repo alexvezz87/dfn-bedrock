@@ -1646,16 +1646,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             ?>
                                 <div class="dfn-place-box" id="dfn-place-box-<?php echo esc_attr($plc->id); ?>" data-place-id="<?php echo esc_attr($plc->id); ?>" data-day-id="<?php echo esc_attr($d_id); ?>">
                                     
-                                    <!-- Intestazione Luogo / Bene su Più Righe per Mostrare il Nome Completo -->
+                                    <!-- Intestazione Luogo / Bene (Badge e Azioni in alto, Titolo Completo sotto) -->
                                     <div class="dfn-place-box-header">
                                         <div class="dfn-place-header-top">
-                                            <span class="dfn-place-icon">📍</span>
-                                            <h3 class="dfn-place-name">
-                                                <?php echo esc_html($plc->place_name); ?>
-                                            </h3>
-                                        </div>
-
-                                        <div class="dfn-place-header-bottom">
                                             <div class="dfn-place-badges-wrap">
                                                 <span class="dfn-badge-counter dfn-badge-shifts" title="Turni configurati">
                                                     ⏰ <?php echo count($plc_shifts); ?> <?php echo count($plc_shifts) === 1 ? 'Turno' : 'Turni'; ?>
@@ -1673,6 +1666,13 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                     🗑️
                                                 </a>
                                             </div>
+                                        </div>
+
+                                        <div class="dfn-place-header-title-row">
+                                            <span class="dfn-place-icon">📍</span>
+                                            <h3 class="dfn-place-name">
+                                                <?php echo esc_html($plc->place_name); ?>
+                                            </h3>
                                         </div>
                                     </div>
 
@@ -1895,8 +1895,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             </label>
                         </div>
 
-                        <!-- Riga Compatta: Input Cerca/Manuale affiancato alla Select Mansione -->
-                        <div class="dfn-qa-compact-row">
+                        <!-- Riga Compatta: Input Cerca/Manuale affiancato alla Select Mansione in Grid 2 Colonne -->
+                        <div class="dfn-qa-compact-grid">
                             <!-- Colonna Sinistra: Cerca Volontario oppure Nome Manuale -->
                             <div class="dfn-qa-col-input">
                                 <div id="dfn-qa-registered-section">
@@ -2287,22 +2287,30 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 box-shadow: 0 3px 10px rgba(0,0,0,0.06);
             }
             
-            /* Intestazione Luogo / Bene su Più Righe */
+            /* Intestazione Luogo / Bene (Badge e Azioni sopra, Titolo sotto) */
             .dfn-place-box-header {
                 background: #f8fafc;
                 border-bottom: 1.5px solid #e2e8f0;
-                padding: 10px 12px;
+                padding: 8px 12px 10px 12px;
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 6px;
             }
             .dfn-place-header-top {
                 display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .dfn-place-header-title-row {
+                display: flex;
                 align-items: flex-start;
                 gap: 6px;
+                margin-top: 2px;
             }
             .dfn-place-icon {
-                font-size: 15px;
+                font-size: 14px;
                 flex-shrink: 0;
                 margin-top: 1px;
             }
@@ -2314,13 +2322,6 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 line-height: 1.35;
                 word-break: break-word;
                 white-space: normal;
-            }
-            .dfn-place-header-bottom {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 6px;
-                flex-wrap: wrap;
             }
             .dfn-place-badges-wrap {
                 display: flex;
@@ -2373,16 +2374,16 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 background: #ffffff;
             }
 
-            /* Shift Card */
+            /* Shift Card & Shift Header (Verde FAI #004b23 con badge ed elementi ad alto contrasto) */
             .dfn-shift-card {
                 background: #ffffff;
-                border: 1px solid #e2e8f0;
+                border: 1px solid #cbd5e1;
                 border-radius: 8px;
                 overflow: hidden;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                box-shadow: 0 1px 3px rgba(0,0,0,0.03);
             }
             .dfn-shift-card-header {
-                background: #0f172a;
+                background: #004b23;
                 color: #ffffff;
                 padding: 6px 10px;
                 display: flex;
@@ -2397,13 +2398,18 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 gap: 5px;
                 font-size: 12.5px;
             }
+            .dfn-shift-clock-icon {
+                font-size: 12px;
+                opacity: 0.9;
+            }
             .dfn-shift-label-txt { font-weight: 800; color: #ffffff; }
-            .dfn-shift-time-txt { font-size: 11.5px; opacity: 0.85; }
+            .dfn-shift-time-txt { font-size: 11.5px; color: #e2f0d9; }
             .dfn-shift-count-badge {
                 font-size: 10.5px;
                 font-weight: 800;
-                background: rgba(255,255,255,0.2);
+                background: rgba(255,255,255,0.22);
                 color: #ffffff;
+                border: 1px solid rgba(255,255,255,0.35);
                 padding: 1px 6px;
                 border-radius: 4px;
                 margin-left: 2px;
@@ -2414,38 +2420,46 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 gap: 4px;
             }
             .dfn-btn-quick-assign {
-                background: #004b23;
-                color: #ffffff;
-                border: 1px solid #003b1c;
+                background: #ffffff !important;
+                color: #004b23 !important;
+                border: 1px solid rgba(255,255,255,0.8) !important;
                 border-radius: 4px;
                 padding: 2px 8px;
                 font-size: 11px;
-                font-weight: 700;
+                font-weight: 800;
                 cursor: pointer;
                 line-height: 1.4;
-                transition: background 0.15s ease;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                transition: all 0.15s ease;
             }
-            .dfn-btn-quick-assign:hover { background: #003b1c; }
+            .dfn-btn-quick-assign:hover {
+                background: #f0fdf4 !important;
+                color: #003b1c !important;
+                border-color: #ffffff !important;
+            }
             .dfn-btn-edit-shift {
-                background: rgba(255,255,255,0.15);
+                background: rgba(255,255,255,0.18);
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255,255,255,0.25);
                 border-radius: 4px;
                 padding: 2px 5px;
                 font-size: 11px;
                 cursor: pointer;
             }
-            .dfn-btn-edit-shift:hover { background: rgba(255,255,255,0.3); }
+            .dfn-btn-edit-shift:hover { background: rgba(255,255,255,0.35); }
             .dfn-btn-icon-del-shift {
-                background: rgba(239,68,68,0.25);
-                color: #fee2e2;
-                border: none;
+                background: rgba(239,68,68,0.3);
+                color: #ffffff;
+                border: 1px solid rgba(239,68,68,0.5);
                 border-radius: 4px;
                 padding: 2px 5px;
                 font-size: 11px;
                 text-decoration: none;
             }
-            .dfn-btn-icon-del-shift:hover { background: #ef4444; }
+            .dfn-btn-icon-del-shift:hover {
+                background: #ef4444;
+                color: #ffffff;
+            }
 
             /* Dropzone & Chips */
             .dfn-shift-dropzone {
@@ -2723,11 +2737,12 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 border-radius: 12px;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.2);
                 width: 100%;
-                max-width: 520px;
+                max-width: 540px;
                 max-height: 90vh;
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
+                box-sizing: border-box;
                 animation: dfnModalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
             }
             @keyframes dfnModalPop {
@@ -2741,6 +2756,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+                box-sizing: border-box;
             }
             .dfn-modal-title { margin: 0; font-size: 15.5px; font-weight: 800; color: #004b23; }
             .dfn-modal-subtitle { margin: 2px 0 0 0; font-size: 12px; color: #64748b; }
@@ -2756,6 +2772,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             .dfn-modal-body {
                 padding: 16px 18px;
                 overflow-y: auto;
+                overflow-x: hidden !important;
+                box-sizing: border-box;
+                width: 100%;
             }
             .dfn-modal-footer {
                 padding: 12px 18px;
@@ -2764,6 +2783,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 display: flex;
                 justify-content: flex-end;
                 gap: 8px;
+                box-sizing: border-box;
             }
 
             /* Dossier Styles */
@@ -2889,7 +2909,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             }
             .dfn-btn-remove-ass:hover { background: #fef2f2 !important; }
 
-            /* Quick Assign Modal Compact Styles */
+            /* Quick Assign Modal Compact Styles (Grid 2 Colonne, Nessun Overflow Orizzontale) */
             .dfn-qa-mode-switch {
                 display: flex;
                 gap: 16px;
@@ -2898,6 +2918,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 border-radius: 6px;
                 border: 1px solid #e2e8f0;
                 margin-bottom: 12px;
+                box-sizing: border-box;
+                width: 100%;
             }
             .dfn-qa-radio-label {
                 display: inline-flex;
@@ -2907,19 +2929,19 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 font-weight: 700;
                 cursor: pointer;
             }
-            .dfn-qa-compact-row {
-                display: flex;
-                gap: 10px;
-                align-items: flex-start;
-                margin-bottom: 10px;
+            .dfn-qa-compact-grid {
+                display: grid;
+                grid-template-columns: 1.15fr 0.85fr;
+                gap: 12px;
+                width: 100%;
+                box-sizing: border-box;
+                margin-bottom: 12px;
+                align-items: start;
             }
-            .dfn-qa-col-input {
-                flex: 3;
+            .dfn-qa-col-input, .dfn-qa-col-role {
                 min-width: 0;
-            }
-            .dfn-qa-col-role {
-                flex: 2;
-                min-width: 170px;
+                width: 100%;
+                box-sizing: border-box;
             }
             .dfn-form-label {
                 display: block;
@@ -2928,7 +2950,11 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 color: #334155;
                 margin-bottom: 4px;
             }
-            .dfn-autocomplete-wrapper { position: relative; }
+            .dfn-autocomplete-wrapper { 
+                position: relative; 
+                width: 100%;
+                box-sizing: border-box;
+            }
             .dfn-autocomplete-results {
                 position: absolute;
                 top: 36px; left: 0; right: 0;
@@ -2939,6 +2965,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 max-height: 200px;
                 overflow-y: auto;
                 z-index: 10000;
+                box-sizing: border-box;
+                width: 100%;
             }
             .dfn-ac-item {
                 padding: 7px 10px;
@@ -2948,6 +2976,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 justify-content: space-between;
                 align-items: center;
                 font-size: 12px;
+                box-sizing: border-box;
             }
             .dfn-ac-item:hover { background: #f0fdf4; }
             .dfn-ac-item-star {
@@ -2970,6 +2999,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 border-radius: 5px;
                 font-weight: 700;
                 font-size: 11.5px;
+                max-width: 100%;
+                box-sizing: border-box;
+                word-break: break-all;
             }
             .dfn-qa-selected-badge button {
                 background: none;
