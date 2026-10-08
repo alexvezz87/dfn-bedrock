@@ -3026,6 +3026,22 @@ button.dfn-accordion-header:hover,
     white-space: nowrap !important;
 }
 
+.dfn-btn-survey.btn-survey-closed {
+    background: #004b23 !important;
+    box-shadow: 0 3px 8px rgba(0, 75, 35, 0.2) !important;
+}
+
+.dfn-dash-vol-box-survey.is-closed {
+    background: #fffbeb !important;
+    border: 1.5px solid #fde68a !important;
+    border-left: 5px solid #d97706 !important;
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.05) !important;
+}
+
+.dfn-dash-vol-box-survey.is-closed .dfn-dash-vol-survey-tag {
+    color: #b45309 !important;
+}
+
 .dfn-btn-survey img.emoji {
     height: 14px !important;
     width: 14px !important;
