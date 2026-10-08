@@ -21,13 +21,242 @@ require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
 
 // ========================================================================
+// FUNZIONI DI VERIFICA ERRORI E CONFLITTI ORARI (OVERLAP ENGINE)
+// ========================================================================
+
+/**
+ * Verifica se un volontario ha un conflitto di orario su un determinato turno.
+ *
+ * @param int         $target_shift_id       ID del turno a cui si vuole assegnare il volontario.
+ * @param int|null    $volunteer_id          ID del volontario FAI registrato (se presente).
+ * @param string      $volunteer_manual      Nome manuale del volontario (se esterno).
+ * @param int         $exclude_assignment_id ID assegnazione da escludere (es. durante spostamento).
+ * @return array{has_conflict: bool, message: string, conflicts: array}
+ */
+function dfn_check_volunteer_shift_conflict(
+    int $target_shift_id,
+    ?int $volunteer_id = null,
+    string $volunteer_manual = '',
+    int $exclude_assignment_id = 0
+): array {
+    global $wpdb;
+
+    $target_shift = $wpdb->get_row($wpdb->prepare(
+        "SELECT s.*, p.place_name, d.day_label, d.event_date 
+         FROM {$wpdb->prefix}dfn_volunteer_event_shifts s
+         LEFT JOIN {$wpdb->prefix}dfn_volunteer_event_places p ON s.place_id = p.id
+         LEFT JOIN {$wpdb->prefix}dfn_volunteer_event_days d ON s.day_id = d.id
+         WHERE s.id = %d",
+        $target_shift_id
+    ));
+
+    if (! $target_shift) {
+        return ['has_conflict' => false, 'message' => '', 'conflicts' => []];
+    }
+
+    $day_id      = (int) $target_shift->day_id;
+    $time_start  = $target_shift->time_start;
+    $time_end    = $target_shift->time_end;
+    $table_ass   = $wpdb->prefix . 'dfn_volunteer_shift_assignments';
+    $table_sh    = $wpdb->prefix . 'dfn_volunteer_event_shifts';
+    $table_p     = $wpdb->prefix . 'dfn_volunteer_event_places';
+
+    $conflicts = [];
+
+    if (! empty($volunteer_id)) {
+        $sql = "SELECT a.id as assignment_id, a.shift_id, a.role_assigned,
+                       s.shift_label, s.time_start, s.time_end, s.place_id,
+                       p.place_name
+                FROM {$table_ass} a
+                INNER JOIN {$table_sh} s ON a.shift_id = s.id
+                LEFT JOIN {$table_p} p ON s.place_id = p.id
+                WHERE s.day_id = %d
+                  AND a.volunteer_id = %d
+                  AND a.id != %d
+                  AND s.time_start < %s AND s.time_end > %s";
+        $conflicts = $wpdb->get_results($wpdb->prepare($sql, $day_id, $volunteer_id, $exclude_assignment_id, $time_end, $time_start));
+    } elseif (! empty($volunteer_manual)) {
+        $clean_manual = trim($volunteer_manual);
+        $sql = "SELECT a.id as assignment_id, a.shift_id, a.role_assigned,
+                       s.shift_label, s.time_start, s.time_end, s.place_id,
+                       p.place_name
+                FROM {$table_ass} a
+                INNER JOIN {$table_sh} s ON a.shift_id = s.id
+                LEFT JOIN {$table_p} p ON s.place_id = p.id
+                WHERE s.day_id = %d
+                  AND LOWER(TRIM(a.volunteer_name_manual)) = LOWER(%s)
+                  AND a.id != %d
+                  AND s.time_start < %s AND s.time_end > %s";
+        $conflicts = $wpdb->get_results($wpdb->prepare($sql, $day_id, $clean_manual, $exclude_assignment_id, $time_end, $time_start));
+    }
+
+    if (! empty($conflicts)) {
+        $c_details = [];
+        foreach ($conflicts as $c) {
+            $c_details[] = sprintf(
+                '%s — %s (%s-%s)',
+                $c->place_name ?: 'Altro bene',
+                $c->shift_label,
+                substr($c->time_start, 0, 5),
+                substr($c->time_end, 0, 5)
+            );
+        }
+        $msg = '⚠️ CONFLITTO ORARIO: Il volontario risulta già assegnato in questo orario a: ' . implode(', ', $c_details) . '.';
+        return [
+            'has_conflict' => true,
+            'message'      => $msg,
+            'conflicts'    => $conflicts,
+        ];
+    }
+
+    return ['has_conflict' => false, 'message' => '', 'conflicts' => []];
+}
+
+/**
+ * Recupera tutti i conflitti orari per un evento (o per un giorno specifico dell'evento).
+ *
+ * @param int $event_id ID dell'evento.
+ * @param int $day_id   ID opzionale del giorno (0 per tutti i giorni).
+ * @return array{conflicts: array, conflict_assignment_ids: array<int, array>}
+ */
+function dfn_get_volunteer_event_conflicts(int $event_id, int $day_id = 0): array
+{
+    global $wpdb;
+    $table_ass = $wpdb->prefix . 'dfn_volunteer_shift_assignments';
+    $table_sh  = $wpdb->prefix . 'dfn_volunteer_event_shifts';
+    $table_p   = $wpdb->prefix . 'dfn_volunteer_event_places';
+    $table_d   = $wpdb->prefix . 'dfn_volunteer_event_days';
+    $table_fai = $wpdb->prefix . 'dfn_fai_members';
+
+    $where_day = ($day_id > 0) ? $wpdb->prepare("AND s.day_id = %d", $day_id) : "";
+
+    $sql = "SELECT a.id as assignment_id, a.shift_id, a.volunteer_id, a.volunteer_name_manual, a.role_assigned,
+                   s.day_id, s.place_id, s.shift_label, s.time_start, s.time_end,
+                   p.place_name, d.day_label, d.event_date,
+                   f.first_name, f.last_name, f.phone, f.email
+            FROM {$table_ass} a
+            INNER JOIN {$table_sh} s ON a.shift_id = s.id
+            LEFT JOIN {$table_p} p ON s.place_id = p.id
+            LEFT JOIN {$table_d} d ON s.day_id = d.id
+            LEFT JOIN {$table_fai} f ON a.volunteer_id = f.id
+            WHERE s.event_id = %d {$where_day}
+            ORDER BY s.day_id ASC, s.time_start ASC, a.id ASC";
+
+    $rows = $wpdb->get_results($wpdb->prepare($sql, $event_id));
+    if (empty($rows)) {
+        return ['conflicts' => [], 'conflict_assignment_ids' => []];
+    }
+
+    // Raggruppa per day_id + volontario
+    $grouped = [];
+    foreach ($rows as $r) {
+        $v_key = ! empty($r->volunteer_id) 
+            ? ('id_' . (int) $r->volunteer_id) 
+            : ('manual_' . sanitize_title(trim((string) $r->volunteer_name_manual)));
+        
+        if (empty($v_key) || $v_key === 'manual_') {
+            continue;
+        }
+
+        $group_key = $r->day_id . '___' . $v_key;
+        $grouped[$group_key][] = $r;
+    }
+
+    $conflict_groups = [];
+    $conflict_assignment_ids = [];
+
+    foreach ($grouped as $group_key => $ass_list) {
+        if (count($ass_list) < 2) {
+            continue;
+        }
+
+        // Verifica sovrapposizioni tra tutte le coppie
+        $colliding_ass_ids = [];
+
+        $n = count($ass_list);
+        for ($i = 0; $i < $n; $i++) {
+            for ($j = $i + 1; $j < $n; $j++) {
+                $a1 = $ass_list[$i];
+                $a2 = $ass_list[$j];
+
+                // Time overlap check: start1 < end2 AND end1 > start2
+                if ($a1->time_start < $a2->time_end && $a1->time_end > $a2->time_start) {
+                    $colliding_ass_ids[$a1->assignment_id] = true;
+                    $colliding_ass_ids[$a2->assignment_id] = true;
+
+                    $conflict_assignment_ids[$a1->assignment_id][] = [
+                        'other_assignment_id' => (int) $a2->assignment_id,
+                        'other_place_name'    => $a2->place_name ?: 'Altro bene',
+                        'other_shift_label'   => $a2->shift_label,
+                        'other_time_start'    => substr($a2->time_start, 0, 5),
+                        'other_time_end'      => substr($a2->time_end, 0, 5),
+                    ];
+                    $conflict_assignment_ids[$a2->assignment_id][] = [
+                        'other_assignment_id' => (int) $a1->assignment_id,
+                        'other_place_name'    => $a1->place_name ?: 'Altro bene',
+                        'other_shift_label'   => $a1->shift_label,
+                        'other_time_start'    => substr($a1->time_start, 0, 5),
+                        'other_time_end'      => substr($a1->time_end, 0, 5),
+                    ];
+                }
+            }
+        }
+
+        if (! empty($colliding_ass_ids)) {
+            $first_r = $ass_list[0];
+            $v_name  = ! empty($first_r->volunteer_id) 
+                ? trim($first_r->first_name . ' ' . $first_r->last_name) 
+                : trim($first_r->volunteer_name_manual);
+            if (empty($v_name)) {
+                $v_name = 'Volontario #' . $first_r->volunteer_id;
+            }
+
+            $conflicting_items = [];
+            foreach ($ass_list as $a) {
+                if (isset($colliding_ass_ids[$a->assignment_id])) {
+                    $conflicting_items[] = [
+                        'assignment_id' => (int) $a->assignment_id,
+                        'shift_id'      => (int) $a->shift_id,
+                        'day_id'        => (int) $a->day_id,
+                        'place_id'      => (int) $a->place_id,
+                        'place_name'    => $a->place_name ?: 'Sede Principale',
+                        'shift_label'   => $a->shift_label,
+                        'time_start'    => substr($a->time_start, 0, 5),
+                        'time_end'      => substr($a->time_end, 0, 5),
+                        'role_assigned' => $a->role_assigned,
+                    ];
+                }
+            }
+
+            $conflict_groups[] = [
+                'day_id'         => (int) $first_r->day_id,
+                'day_label'      => $first_r->day_label,
+                'event_date'     => $first_r->event_date,
+                'volunteer_id'   => (int) ($first_r->volunteer_id ?? 0),
+                'volunteer_name' => $v_name,
+                'is_manual'      => empty($first_r->volunteer_id),
+                'phone'          => $first_r->phone ?? '',
+                'email'          => $first_r->email ?? '',
+                'assignments'    => $conflicting_items,
+            ];
+        }
+    }
+
+    return [
+        'conflicts'               => $conflict_groups,
+        'conflict_assignment_ids' => $conflict_assignment_ids,
+    ];
+}
+
+
+// ========================================================================
 // AJAX HANDLERS PER LA MATRICE DEI TURNI VOLONTARI
 // ========================================================================
 
 /**
  * Renderizza l'HTML di un singolo micro-chip volontario compatto.
  */
-function dfn_matrix_render_chip_html(object $a, array $roles_by_key = []): string
+function dfn_matrix_render_chip_html(object $a, array $roles_by_key = [], array $conflict_map = []): string
 {
     $r_obj   = $roles_by_key[$a->role_assigned] ?? null;
     if (! $r_obj && function_exists('dfn_get_volunteer_role_by_key')) {
@@ -46,7 +275,25 @@ function dfn_matrix_render_chip_html(object $a, array $roles_by_key = []): strin
     $safety  = ! empty($a->has_safety_course) ? 1 : 0;
     $guide   = ! empty($a->is_guide) ? 1 : 0;
 
+    $has_conflict = isset($conflict_map[$ass_id]) && ! empty($conflict_map[$ass_id]);
+    $conflict_badge = '';
+    $conflict_tooltip = '';
+    $chip_classes = 'dfn-matrix-chip';
+
+    if ($has_conflict) {
+        $chip_classes .= ' dfn-chip-has-conflict';
+        $other_places = [];
+        foreach ($conflict_map[$ass_id] as $co) {
+            $other_places[] = ($co['other_place_name'] ?? 'Altro bene') . ' (' . ($co['other_shift_label'] ?? 'Turno') . ' ' . ($co['other_time_start'] ?? '') . '-' . ($co['other_time_end'] ?? '') . ')';
+        }
+        $conflict_tooltip = '⚠️ CONFLITTO ORARIO: Assegnato anche a ' . implode(', ', $other_places);
+        $conflict_badge = '<span class="dfn-chip-badge-conflict" title="' . esc_attr($conflict_tooltip) . '">⚠️ Conflitto</span>';
+    }
+
     $extra_icons = '';
+    if ($conflict_badge) {
+        $extra_icons .= $conflict_badge;
+    }
     if ($safety) {
         $extra_icons .= '<span class="dfn-chip-icon" title="Ha completato il Corso Sicurezza">🦺</span>';
     }
@@ -59,9 +306,11 @@ function dfn_matrix_render_chip_html(object $a, array $roles_by_key = []): strin
         $extra_icons .= '<span class="dfn-chip-badge-manual" title="Volontario segnaposto / esterno">👤 Segnaposto</span>';
     }
 
+    $title_attr = esc_attr($v_name . ($conflict_tooltip ? (' | ' . $conflict_tooltip) : '') . ' | Clicca per dettagli / Trascina');
+
     ob_start();
     ?>
-    <div class="dfn-matrix-chip"
+    <div class="<?php echo esc_attr($chip_classes); ?>"
          draggable="true"
          data-assignment-id="<?php echo esc_attr($ass_id); ?>"
          data-shift-id="<?php echo esc_attr($sh_id); ?>"
@@ -69,7 +318,9 @@ function dfn_matrix_render_chip_html(object $a, array $roles_by_key = []): strin
          data-volunteer-key="<?php echo esc_attr($v_key); ?>"
          data-volunteer-name="<?php echo esc_attr($v_name); ?>"
          data-role-key="<?php echo esc_attr($a->role_assigned); ?>"
-         title="Clicca per aprire dettagli | Trascina per spostare">
+         data-has-conflict="<?php echo $has_conflict ? '1' : '0'; ?>"
+         data-conflict-info="<?php echo esc_attr($conflict_tooltip); ?>"
+         title="<?php echo $title_attr; ?>">
         <div class="dfn-chip-left">
             <span class="dfn-chip-handle" title="Trascina">⠿</span>
             <span class="dfn-chip-role-pill" style="background:<?php echo esc_attr($r_bg); ?>; color:<?php echo esc_attr($r_color); ?>;" title="Ruolo: <?php echo esc_attr($r_name); ?>">
@@ -144,7 +395,22 @@ function dfn_ajax_move_volunteer_shift(): void
     }
 
     if ($already_exists > 0) {
-        wp_send_json_error(['message' => 'Questo volontario è già assegnato a questo turno orario.']);
+        wp_send_json_error(['message' => 'Questo volontario è già presente in questo turno orario.']);
+    }
+
+    // Controllo conflitto di orario su altri turni dello stesso giorno
+    $conflict_check = dfn_check_volunteer_shift_conflict(
+        $target_shift_id,
+        $current_ass->volunteer_id ? (int) $current_ass->volunteer_id : null,
+        (string) ($current_ass->volunteer_name_manual ?? ''),
+        $assignment_id
+    );
+
+    if ($conflict_check['has_conflict']) {
+        wp_send_json_error([
+            'message'        => $conflict_check['message'],
+            'conflict_error' => true,
+        ]);
     }
 
     $old_shift_id = (int) $current_ass->shift_id;
@@ -214,6 +480,30 @@ function dfn_ajax_matrix_quick_assign(): void
         if ($exists > 0) {
             wp_send_json_error(['message' => 'Questo volontario è già presente in questo turno.']);
         }
+    } else {
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE shift_id = %d AND LOWER(TRIM(volunteer_name_manual)) = LOWER(TRIM(%s))",
+            $shift_id,
+            $vol_manual
+        ));
+        if ($exists > 0) {
+            wp_send_json_error(['message' => 'Questo nominativo manuale è già presente in questo turno.']);
+        }
+    }
+
+    // Controllo conflitto di orario su altri turni dello stesso giorno
+    $conflict_check = dfn_check_volunteer_shift_conflict(
+        $shift_id,
+        $vol_id,
+        $vol_manual,
+        0
+    );
+
+    if ($conflict_check['has_conflict']) {
+        wp_send_json_error([
+            'message'        => $conflict_check['message'],
+            'conflict_error' => true,
+        ]);
     }
 
     $inserted = $wpdb->insert(
@@ -301,6 +591,21 @@ function dfn_ajax_matrix_assign_from_pool(): void
     ));
     if ($already > 0) {
         wp_send_json_error(['message' => 'Questo volontario è già presente in questo turno.']);
+    }
+
+    // Controllo conflitto di orario su altri turni dello stesso giorno
+    $conflict_check = dfn_check_volunteer_shift_conflict(
+        $target_shift_id,
+        $volunteer_id,
+        '',
+        0
+    );
+
+    if ($conflict_check['has_conflict']) {
+        wp_send_json_error([
+            'message'        => $conflict_check['message'],
+            'conflict_error' => true,
+        ]);
     }
 
     if (empty($role_assigned)) {
@@ -575,6 +880,27 @@ function dfn_ajax_matrix_edit_shift(): void
         'time_start'  => substr($time_start, 0, 5),
         'time_end'    => substr($time_end, 0, 5),
     ]);
+}
+
+// 8. Recupero Elenco Conflitti Orari dell'Evento via AJAX
+add_action('wp_ajax_dfn_matrix_get_conflicts', 'dfn_ajax_matrix_get_conflicts');
+function dfn_ajax_matrix_get_conflicts(): void
+{
+    check_ajax_referer('dfn_matrix_drag_drop_nonce', 'security');
+
+    if (! current_user_can('dfn_act_fai_members') && ! current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Permessi insufficienti.']);
+    }
+
+    $event_id = (int) ($_POST['event_id'] ?? 0);
+    $day_id   = (int) ($_POST['day_id'] ?? 0);
+
+    if ($event_id <= 0) {
+        wp_send_json_error(['message' => 'Evento non valido.']);
+    }
+
+    $res = dfn_get_volunteer_event_conflicts($event_id, $day_id);
+    wp_send_json_success($res);
 }
 
 
@@ -1344,6 +1670,12 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
         $roles_by_key[$er->role_key] = $er;
     }
 
+    // Calcolo Conflitti Orari dell'Evento
+    $event_conflicts_data  = dfn_get_volunteer_event_conflicts($event_id, 0);
+    $conflict_map          = $event_conflicts_data['conflict_assignment_ids'] ?? [];
+    $all_conflicts         = $event_conflicts_data['conflicts'] ?? [];
+    $total_conflicts_count = count($all_conflicts);
+
     // Mappa risposte sondaggio
     $survey_avail_by_day = [];
     $survey_vol_details  = [];
@@ -1462,6 +1794,12 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
     $event_shift_ids     = $wpdb->get_col($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE event_id = %d", $event_id));
 
     $ajax_nonce = wp_create_nonce('dfn_matrix_drag_drop_nonce');
+
+    // Calcolo conflitti e sovrapposizioni orarie per l'evento
+    $event_conflicts_data  = dfn_get_volunteer_event_conflicts($event_id);
+    $all_conflicts         = $event_conflicts_data['conflicts'];
+    $conflict_map          = $event_conflicts_data['conflict_assignment_ids'];
+    $total_conflicts_count = count($all_conflicts);
     ?>
 
     <div class="wrap dfn-admin-wrap dfn-matrix-main-wrap">
@@ -1612,6 +1950,15 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             </div>
 
             <div class="dfn-toolbar-right">
+                <!-- Pulsante Verifica Errori e Conflitti Turni -->
+                <button type="button" class="button dfn-btn-conflicts <?php echo $total_conflicts_count === 0 ? 'is-clean' : ''; ?>" id="dfn-open-conflicts-modal-btn" title="Verifica sovrapposizioni orarie e conflitti tra turni dello stesso giorno">
+                    <?php if ($total_conflicts_count > 0) : ?>
+                        ⚠️ Conflitti (<span id="dfn-conflicts-badge" class="dfn-conflict-count-badge"><?php echo $total_conflicts_count; ?></span>)
+                    <?php else : ?>
+                        ✅ Nessun Conflitto (<span id="dfn-conflicts-badge" class="dfn-conflict-count-badge is-zero">0</span>)
+                    <?php endif; ?>
+                </button>
+
                 <!-- Pulsante Apertura Slide-Out Drawer Volontari Disponibili -->
                 <button type="button" class="button dfn-btn-pool-drawer" id="dfn-open-pool-drawer-btn">
                     👥 Pool Disponibili (<span id="dfn-drawer-pool-count">0</span>)
@@ -1728,7 +2075,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                                     <div class="dfn-shift-dropzone" data-shift-id="<?php echo esc_attr($shift->id); ?>" data-day-id="<?php echo esc_attr($d_id); ?>" data-place-id="<?php echo esc_attr($plc->id); ?>">
                                                         <?php if (! empty($assignments)) : ?>
                                                             <?php foreach ($assignments as $a) : ?>
-                                                                <?php echo dfn_matrix_render_chip_html($a, $roles_by_key); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                                                                <?php echo dfn_matrix_render_chip_html($a, $roles_by_key, $conflict_map); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
                                                             <?php endforeach; ?>
                                                         <?php else : ?>
                                                             <div class="dfn-dropzone-empty-msg">
@@ -2036,6 +2383,32 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             <button type="submit" class="button button-primary dfn-btn-fai" id="dfn-se-submit-btn">💾 Salva Turno</button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====================================================================
+             MODALE 5: VERIFICA ERRORI & CONFLITTI DI ASSEGNAZIONE
+             ==================================================================== -->
+        <div class="dfn-modal-backdrop" id="dfn-modal-conflicts-backdrop">
+            <div class="dfn-modal-window dfn-modal-conflicts-window" role="dialog" aria-modal="true" aria-labelledby="dfn-mc-title">
+                <div class="dfn-modal-header" style="background:#fff1f2; border-bottom:1px solid #fecdd3;">
+                    <div>
+                        <h3 class="dfn-modal-title" id="dfn-mc-title" style="color:#9f1239;">⚠️ Verifica Errori &amp; Conflitti Turni</h3>
+                        <p class="dfn-modal-subtitle" id="dfn-mc-subtitle" style="color:#881337;">Controllo sovrapposizioni orarie tra turni e beni dello stesso giorno</p>
+                    </div>
+                    <button type="button" class="dfn-modal-close-btn" data-close-modal="dfn-modal-conflicts-backdrop">✕</button>
+                </div>
+                <div class="dfn-modal-body" style="max-height:65vh; overflow-y:auto; padding:20px;">
+                    <div id="dfn-conflicts-modal-content">
+                        <!-- Caricato dinamicamente da JavaScript -->
+                    </div>
+                </div>
+                <div class="dfn-modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-size:12px; color:#64748b;">
+                        💡 <em>Rimuovendo un'assegnazione conflittuale, la matrice e il contatore si aggiorneranno in tempo reale.</em>
+                    </div>
+                    <button type="button" class="button" data-close-modal="dfn-modal-conflicts-backdrop">Chiudi</button>
                 </div>
             </div>
         </div>
@@ -3079,6 +3452,184 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 from { transform: translateY(20px); opacity: 0; }
                 to { transform: translateY(0); opacity: 1; }
             }
+
+            /* Conflict Visual Highlights & Badges */
+            .dfn-matrix-chip.dfn-chip-has-conflict {
+                border-color: #ef4444 !important;
+                background: #fff5f5 !important;
+                box-shadow: 0 0 0 1.5px rgba(239, 68, 68, 0.45), 0 2px 6px rgba(239, 68, 68, 0.15) !important;
+            }
+            .dfn-matrix-chip.dfn-chip-has-conflict:hover {
+                background: #fee2e2 !important;
+                border-color: #dc2626 !important;
+            }
+            .dfn-chip-badge-conflict {
+                background: #fee2e2;
+                color: #991b1b;
+                border: 1px solid #fca5a5;
+                font-size: 9px;
+                font-weight: 800;
+                padding: 1px 4px;
+                border-radius: 4px;
+                text-transform: uppercase;
+                letter-spacing: 0.2px;
+                display: inline-flex;
+                align-items: center;
+                gap: 2px;
+                white-space: nowrap;
+            }
+            .dfn-btn-conflicts {
+                background: #fff !important;
+                border-color: #fca5a5 !important;
+                color: #b91c1c !important;
+                font-weight: 700 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                transition: all 0.15s ease !important;
+            }
+            .dfn-btn-conflicts:hover {
+                background: #fee2e2 !important;
+                border-color: #ef4444 !important;
+                color: #991b1b !important;
+            }
+            .dfn-btn-conflicts.is-clean {
+                border-color: #86efac !important;
+                color: #15803d !important;
+                background: #f0fdf4 !important;
+            }
+            .dfn-btn-conflicts.is-clean:hover {
+                background: #dcfce7 !important;
+                border-color: #22c55e !important;
+            }
+            .dfn-conflict-count-badge {
+                background: #ef4444;
+                color: #ffffff;
+                font-size: 11px;
+                font-weight: 800;
+                padding: 1px 6px;
+                border-radius: 10px;
+                line-height: 1.2;
+            }
+            .dfn-conflict-count-badge.is-zero {
+                background: #22c55e;
+            }
+
+            /* Modal Conflicts Content */
+            .dfn-modal-conflicts-window {
+                max-width: 680px;
+            }
+            .dfn-conflict-empty-state {
+                padding: 36px 20px;
+                text-align: center;
+            }
+            .dfn-conflicts-summary-bar {
+                background: #fff1f2;
+                border: 1px solid #fecdd3;
+                border-radius: 8px;
+                padding: 10px 14px;
+                font-size: 13px;
+                font-weight: 700;
+                color: #9f1239;
+                margin-bottom: 16px;
+            }
+            .dfn-conflict-group-card {
+                background: #ffffff;
+                border: 1.5px solid #fca5a5;
+                border-radius: 8px;
+                margin-bottom: 14px;
+                overflow: hidden;
+                box-shadow: 0 2px 6px rgba(239, 68, 68, 0.08);
+            }
+            .dfn-conflict-group-header {
+                background: #fff5f5;
+                border-bottom: 1px solid #fee2e2;
+                padding: 10px 14px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .dfn-conflict-vol-info {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .dfn-conflict-icon { font-size: 16px; }
+            .dfn-conflict-name {
+                font-size: 14px;
+                font-weight: 800;
+                color: #991b1b;
+            }
+            .dfn-conflict-day-badge {
+                font-size: 11.5px;
+                font-weight: 700;
+                background: #ffffff;
+                color: #475569;
+                padding: 2px 8px;
+                border-radius: 6px;
+                border: 1px solid #cbd5e1;
+            }
+            .dfn-conflict-shifts-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 10px;
+                padding: 12px;
+                background: #ffffff;
+            }
+            .dfn-conflict-shift-item {
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 10px 12px;
+                background: #f8fafc;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                gap: 6px;
+            }
+            .dfn-conflict-shift-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 6px;
+            }
+            .dfn-conflict-place-name {
+                font-size: 12.5px;
+                font-weight: 700;
+                color: #0f172a;
+            }
+            .dfn-conflict-role-tag {
+                font-size: 10px;
+                font-weight: 800;
+                background: #e2e8f0;
+                color: #334155;
+                padding: 1px 6px;
+                border-radius: 4px;
+            }
+            .dfn-conflict-time-row {
+                font-size: 12px;
+                color: #334155;
+            }
+            .dfn-conflict-shift-actions {
+                margin-top: 4px;
+                padding-top: 6px;
+                border-top: 1px dashed #e2e8f0;
+            }
+            .dfn-btn-resolve-conflict {
+                color: #b91c1c !important;
+                border-color: #fca5a5 !important;
+                background: #ffffff !important;
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                width: 100%;
+                text-align: center;
+            }
+            .dfn-btn-resolve-conflict:hover {
+                background: #fee2e2 !important;
+                border-color: #ef4444 !important;
+                color: #991b1b !important;
+            }
         </style>
 
         <!-- JAVASCRIPT ENGINE MATRICE DEI TURNI -->
@@ -3088,6 +3639,11 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             var ajaxNonce = '<?php echo esc_js($ajax_nonce); ?>';
             var currentEventId = <?php echo intval($event_id); ?>;
             var activeDayId = <?php echo intval($selected_day_id); ?>;
+
+            var initialConflictAssignmentIds = <?php echo json_encode($conflict_map, JSON_UNESCAPED_UNICODE); ?>;
+            var initialConflictsList = <?php echo json_encode($all_conflicts, JSON_UNESCAPED_UNICODE); ?>;
+            var currentConflictMap = initialConflictAssignmentIds || {};
+            var currentConflictsList = initialConflictsList || [];
 
             var allVolunteersData = <?php echo json_encode(array_map(function($v) {
                 return [
@@ -3121,6 +3677,204 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     toast.style.transition = 'opacity 0.3s ease';
                     setTimeout(function() { toast.remove(); }, 300);
                 }, 3500);
+            }
+
+            // ====================================================================
+            // CONFLICT ENGINE: BADGES, HIGHLIGHTS, AUDIT MODAL & REFRESH
+            // ====================================================================
+            var conflictsModalBackdrop = document.getElementById('dfn-modal-conflicts-backdrop');
+            var conflictsModalContent  = document.getElementById('dfn-conflicts-modal-content');
+            var conflictsBtn           = document.getElementById('dfn-open-conflicts-modal-btn');
+            var conflictsBadge         = document.getElementById('dfn-conflicts-badge');
+
+            function updateConflictsBadge(conflictsCount) {
+                if (! conflictsBtn) return;
+                var count = parseInt(conflictsCount, 10) || 0;
+                conflictsBtn.classList.toggle('is-clean', count === 0);
+                conflictsBtn.innerHTML = (count > 0)
+                    ? '⚠️ Conflitti (<span id="dfn-conflicts-badge" class="dfn-conflict-count-badge">' + count + '</span>)'
+                    : '✅ Nessun Conflitto (<span id="dfn-conflicts-badge" class="dfn-conflict-count-badge is-zero">0</span>)';
+            }
+
+            function refreshChipsConflictBadges(conflictMap) {
+                conflictMap = conflictMap || {};
+                var chips = document.querySelectorAll('.dfn-matrix-chip');
+                chips.forEach(function(chip) {
+                    var assId = parseInt(chip.getAttribute('data-assignment-id'), 10);
+                    var conflicts = conflictMap[assId] || [];
+                    var hasConflict = conflicts.length > 0;
+                    var chipLeft = chip.querySelector('.dfn-chip-left');
+
+                    chip.setAttribute('data-has-conflict', hasConflict ? '1' : '0');
+                    chip.classList.toggle('dfn-chip-has-conflict', hasConflict);
+
+                    var existingBadge = chip.querySelector('.dfn-chip-badge-conflict');
+                    if (hasConflict) {
+                        var otherPlaces = conflicts.map(function(c) {
+                            return (c.other_place_name || 'Altro bene') + ' (' + (c.other_shift_label || 'Turno') + ' ' + (c.other_time_start || '') + '-' + (c.other_time_end || '') + ')';
+                        });
+                        var tooltip = '⚠️ CONFLITTO ORARIO: Assegnato anche a ' + otherPlaces.join(', ');
+                        chip.setAttribute('data-conflict-info', tooltip);
+                        chip.setAttribute('title', (chip.getAttribute('data-volunteer-name') || '') + ' | ' + tooltip);
+
+                        if (! existingBadge && chipLeft) {
+                            var badge = document.createElement('span');
+                            badge.className = 'dfn-chip-badge-conflict';
+                            badge.textContent = '⚠️ Conflitto';
+                            badge.title = tooltip;
+                            chipLeft.appendChild(badge);
+                        } else if (existingBadge) {
+                            existingBadge.title = tooltip;
+                        }
+                    } else {
+                        chip.removeAttribute('data-conflict-info');
+                        chip.setAttribute('title', (chip.getAttribute('data-volunteer-name') || '') + ' | Clicca per dettagli / Trascina');
+                        if (existingBadge) {
+                            existingBadge.remove();
+                        }
+                    }
+                });
+            }
+
+            function fetchFreshConflicts(callback) {
+                var fd = new FormData();
+                fd.append('action', 'dfn_matrix_get_conflicts');
+                fd.append('security', ajaxNonce);
+                fd.append('event_id', currentEventId);
+
+                fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(function(res) { return res.json(); })
+                .then(function(response) {
+                    if (response.success && response.data) {
+                        currentConflictMap = response.data.conflict_assignment_ids || {};
+                        currentConflictsList = response.data.conflicts || [];
+                        updateConflictsBadge(currentConflictsList.length);
+                        refreshChipsConflictBadges(currentConflictMap);
+
+                        if (conflictsModalBackdrop && conflictsModalBackdrop.classList.contains('is-open')) {
+                            renderConflictsModal();
+                        }
+                    }
+                    if (typeof callback === 'function') {
+                        callback(response.data);
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Errore durante il recupero dei conflitti:', err);
+                });
+            }
+
+            function renderConflictsModal() {
+                if (! conflictsModalContent) return;
+                if (! currentConflictsList || currentConflictsList.length === 0) {
+                    conflictsModalContent.innerHTML = 
+                        '<div class="dfn-conflict-empty-state">' +
+                            '<div style="font-size:42px; margin-bottom:12px;">🎉</div>' +
+                            '<h3 style="color:#15803d; font-size:18px; margin:0 0 6px 0;">Nessun conflitto o sovrapposizione!</h3>' +
+                            '<p style="color:#64748b; font-size:13px; margin:0;">Tutti i volontari assegnati hanno turni orari perfettamente compatibili e non sovrapposti.</p>' +
+                        '</div>';
+                    return;
+                }
+
+                var html = '<div class="dfn-conflicts-summary-bar">' +
+                    '⚠️ Rilevati <strong>' + currentConflictsList.length + '</strong> volontari con turni orari sovrapposti nello stesso giorno.' +
+                '</div>';
+
+                currentConflictsList.forEach(function(group) {
+                    var contactInfo = '';
+                    if (group.phone) contactInfo += '📞 ' + group.phone + ' ';
+                    if (group.email) contactInfo += '✉️ ' + group.email;
+
+                    html += '<div class="dfn-conflict-group-card">' +
+                        '<div class="dfn-conflict-group-header">' +
+                            '<div class="dfn-conflict-vol-info">' +
+                                '<span class="dfn-conflict-icon">⚠️</span>' +
+                                '<strong class="dfn-conflict-name">' + group.volunteer_name + '</strong>' +
+                                (group.is_manual ? ' <span class="dfn-chip-badge-manual">👤 Manuale</span>' : '') +
+                                (contactInfo ? ' <span style="font-size:11.5px; color:#64748b; margin-left:6px;">(' + contactInfo + ')</span>' : '') +
+                            '</div>' +
+                            '<span class="dfn-conflict-day-badge">🗓️ ' + group.day_label + ' (' + group.event_date + ')</span>' +
+                        '</div>' +
+                        '<div class="dfn-conflict-shifts-grid">';
+
+                    (group.assignments || []).forEach(function(assItem) {
+                        html += '<div class="dfn-conflict-shift-item">' +
+                            '<div class="dfn-conflict-shift-top">' +
+                                '<span class="dfn-conflict-place-name">📍 ' + assItem.place_name + '</span>' +
+                                '<span class="dfn-conflict-role-tag">🎭 ' + assItem.role_assigned + '</span>' +
+                            '</div>' +
+                            '<div class="dfn-conflict-time-row">' +
+                                '⏰ Turno: <strong>' + assItem.shift_label + '</strong> (' + assItem.time_start + ' - ' + assItem.time_end + ')' +
+                            '</div>' +
+                            '<div class="dfn-conflict-shift-actions">' +
+                                '<button type="button" class="button dfn-btn-resolve-conflict" data-assignment-id="' + assItem.assignment_id + '" data-shift-id="' + assItem.shift_id + '">' +
+                                    '🗑️ Rimuovi da questo turno' +
+                                '</button>' +
+                            '</div>' +
+                        '</div>';
+                    });
+
+                    html += '</div></div>';
+                });
+
+                conflictsModalContent.innerHTML = html;
+            }
+
+            if (conflictsBtn) {
+                conflictsBtn.addEventListener('click', function() {
+                    renderConflictsModal();
+                    openModal('dfn-modal-conflicts-backdrop');
+                    fetchFreshConflicts();
+                });
+            }
+
+            // 1-Click Resolve conflitto da modale
+            if (conflictsModalContent) {
+                conflictsModalContent.addEventListener('click', function(e) {
+                    var resBtn = e.target.closest('.dfn-btn-resolve-conflict');
+                    if (resBtn) {
+                        var assId = resBtn.getAttribute('data-assignment-id');
+                        if (! assId) return;
+
+                        if (! confirm('Rimuovere questa assegnazione per risolvere il conflitto?')) {
+                            return;
+                        }
+
+                        resBtn.disabled = true;
+                        resBtn.textContent = 'Rimozione in corso...';
+
+                        var fd = new FormData();
+                        fd.append('action', 'dfn_matrix_remove_assignment');
+                        fd.append('security', ajaxNonce);
+                        fd.append('assignment_id', assId);
+
+                        fetch(ajaxUrl, { method: 'POST', body: fd })
+                        .then(function(res) { return res.json(); })
+                        .then(function(response) {
+                            if (response.success) {
+                                var chip = document.querySelector('.dfn-matrix-chip[data-assignment-id="' + assId + '"]');
+                                if (chip) {
+                                    var dz = chip.closest('.dfn-shift-dropzone');
+                                    chip.remove();
+                                    if (dz && ! dz.querySelector('.dfn-matrix-chip')) {
+                                        dz.innerHTML = '<div class="dfn-dropzone-empty-msg">Nessun volontario assegnato. Trascina qui o clicca "+ Assegna".</div>';
+                                    }
+                                }
+                                showToast('Assegnazione rimossa con successo!');
+                                fetchFreshConflicts();
+                            } else {
+                                alert(response.data ? response.data.message : 'Errore durante la rimozione.');
+                                resBtn.disabled = false;
+                                resBtn.textContent = '🗑️ Rimuovi da questo turno';
+                            }
+                        })
+                        .catch(function(err) {
+                            alert('Errore di connessione.');
+                            resBtn.disabled = false;
+                            resBtn.textContent = '🗑️ Rimuovi da questo turno';
+                        });
+                    }
+                });
             }
 
             // 1. DAY TABS
@@ -3495,6 +4249,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             }
                             showToast('Mansione aggiornata con successo!');
                             closeModal('dfn-modal-volunteer-detail-backdrop');
+                            fetchFreshConflicts();
                         } else {
                             alert(response.data ? response.data.message : 'Errore durante l\'aggiornamento.');
                         }
@@ -3534,6 +4289,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             }
                             showToast('Volontario spostato con successo!');
                             closeModal('dfn-modal-volunteer-detail-backdrop');
+                            fetchFreshConflicts();
                         } else {
                             alert(response.data ? response.data.message : 'Errore nello spostamento.');
                         }
@@ -3567,6 +4323,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             }
                             showToast('Volontario rimosso dal turno.');
                             closeModal('dfn-modal-volunteer-detail-backdrop');
+                            fetchFreshConflicts();
                         } else {
                             alert(response.data ? response.data.message : 'Errore durante la rimozione.');
                         }
@@ -3598,6 +4355,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                 dz.innerHTML = '<div class="dfn-dropzone-empty-msg">Nessun volontario assegnato. Trascina qui o clicca "+ Assegna".</div>';
                             }
                             showToast('Volontario rimosso.');
+                            fetchFreshConflicts();
                         }
                     });
                 }
@@ -3790,9 +4548,13 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             }
                             showToast('Volontario assegnato con successo!');
                             closeModal('dfn-modal-quick-assign-backdrop');
+                            fetchFreshConflicts();
                         } else {
                             alert(response.data ? response.data.message : 'Errore nell\'assegnazione.');
                         }
+                    })
+                    .catch(function(err) {
+                        alert('Errore di connessione.');
                     });
                 });
             }
@@ -3876,6 +4638,7 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                                 }
                                 showToast('Orari turno aggiornati!');
                                 closeModal('dfn-modal-shift-editor-backdrop');
+                                fetchFreshConflicts();
                             } else {
                                 alert(response.data ? response.data.message : 'Errore nel salvataggio.');
                             }
@@ -3981,10 +4744,32 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     .then(function(response) {
                         if (response.success) {
                             showToast('Volontario spostato nel turno!');
+                            fetchFreshConflicts();
                         } else {
+                            // Rollback visuale in caso di errore / conflitto orario
+                            if (cardToMove && oldZone) {
+                                var oldEmptyMsg = oldZone.querySelector('.dfn-dropzone-empty-msg');
+                                if (oldEmptyMsg) oldEmptyMsg.remove();
+                                oldZone.appendChild(cardToMove);
+                                cardToMove.setAttribute('data-shift-id', oldShiftId);
+                            }
+                            if (dz && ! dz.querySelector('.dfn-matrix-chip')) {
+                                dz.innerHTML = '<div class="dfn-dropzone-empty-msg">Nessun volontario assegnato. Trascina qui o clicca "+ Assegna".</div>';
+                            }
                             alert(response.data ? response.data.message : 'Errore nello spostamento.');
-                            window.location.reload();
                         }
+                    })
+                    .catch(function(err) {
+                        if (cardToMove && oldZone) {
+                            var oldEmptyMsg = oldZone.querySelector('.dfn-dropzone-empty-msg');
+                            if (oldEmptyMsg) oldEmptyMsg.remove();
+                            oldZone.appendChild(cardToMove);
+                            cardToMove.setAttribute('data-shift-id', oldShiftId);
+                        }
+                        if (dz && ! dz.querySelector('.dfn-matrix-chip')) {
+                            dz.innerHTML = '<div class="dfn-dropzone-empty-msg">Nessun volontario assegnato. Trascina qui o clicca "+ Assegna".</div>';
+                        }
+                        alert('Errore di connessione durante lo spostamento.');
                     });
                 }
 
@@ -4011,9 +4796,13 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                             dz.insertAdjacentHTML('beforeend', response.data.chip_html);
                             showToast('Volontario assegnato con successo!');
                             closeDrawer();
+                            fetchFreshConflicts();
                         } else {
                             alert(response.data ? response.data.message : 'Errore nell\'assegnazione.');
                         }
+                    })
+                    .catch(function(err) {
+                        alert('Errore di connessione.');
                     });
                 }
             });
