@@ -204,6 +204,17 @@ function dfn_render_volunteer_events_list(): void
                             $days = dfn_get_volunteer_event_days((int) $ev->id);
                             $places = dfn_get_volunteer_event_all_places((int) $ev->id);
                             $survey = dfn_get_volunteer_survey_by_event((int) $ev->id);
+
+                            $now = current_time('mysql');
+                            $is_survey_expired = ($survey && ! empty($survey->deadline_at) && $survey->deadline_at < $now);
+                            $is_survey_closed_manually = ($survey && $survey->status === 'closed');
+
+                            $effective_status = $ev->status;
+                            if ($ev->status === 'survey_open' && ($is_survey_expired || $is_survey_closed_manually)) {
+                                $effective_status = 'survey_closed';
+                                // Auto-sync database event status
+                                $wpdb->update($wpdb->prefix . 'dfn_volunteer_events', ['status' => 'survey_closed'], ['id' => (int) $ev->id]);
+                            }
                         ?>
                             <tr>
                                 <td>
@@ -242,7 +253,7 @@ function dfn_render_volunteer_events_list(): void
                                         'published'     => ['Turni Pubblicati', '#dcfce7', '#15803d', '#86efac'],
                                         'completed'     => ['Concluso', '#f1f5f9', '#64748b', '#cbd5e1'],
                                     ];
-                                    $st = $status_labels[$ev->status] ?? [$ev->status, '#f1f5f9', '#475569', '#cbd5e1'];
+                                    $st = $status_labels[$effective_status] ?? [$effective_status, '#f1f5f9', '#475569', '#cbd5e1'];
                                     ?>
                                     <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; background:<?php echo $st[1]; ?>; color:<?php echo $st[2]; ?>; border:1px solid <?php echo $st[3]; ?>;">
                                         <?php echo esc_html($st[0]); ?>
@@ -261,9 +272,19 @@ function dfn_render_volunteer_events_list(): void
                                         📅 <strong><?php echo $num_days; ?></strong> <?php echo $num_days === 1 ? 'giorno' : 'giorni'; ?> • 🏛️ <strong><?php echo $num_places; ?></strong> <?php echo $num_places === 1 ? 'luogo aperto' : 'luoghi aperti'; ?><?php echo $place_suffix; ?>
                                     </div>
                                     <?php if ($survey) : ?>
-                                        <div style="font-size:11px; color:#0369a1; margin-top:2px;">
-                                            📋 Sondaggio attivo fino al <?php echo esc_html(date_i18n('d/m H:i', strtotime($survey->deadline_at))); ?>
-                                        </div>
+                                        <?php if ($is_survey_expired) : ?>
+                                            <div style="font-size:11px; color:#b91c1c; margin-top:2px; font-weight:600;">
+                                                ⏳ Sondaggio scaduto il <?php echo esc_html(date_i18n('d/m H:i', strtotime($survey->deadline_at))); ?>
+                                            </div>
+                                        <?php elseif ($is_survey_closed_manually) : ?>
+                                            <div style="font-size:11px; color:#64748b; margin-top:2px; font-weight:600;">
+                                                🔒 Sondaggio chiuso manualmente
+                                            </div>
+                                        <?php else : ?>
+                                            <div style="font-size:11px; color:#0369a1; margin-top:2px;">
+                                                📋 Sondaggio attivo fino al <?php echo esc_html(date_i18n('d/m H:i', strtotime($survey->deadline_at))); ?>
+                                            </div>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td style="text-align:right;">
@@ -2727,6 +2748,9 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                 if ($vol_id > 0) {
                     $slots_added = 0;
                     $slots_already_present = 0;
+                    $slots_failed = 0;
+                    $error_msgs = [];
+
                     foreach ($selected_slots as $slot_item) {
                         $parts = explode('_', $slot_item, 2);
                         if (count($parts) === 2) {
@@ -2743,37 +2767,54 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                                 $slots_already_present++;
                             } else {
                                 $note_text = ! empty($operational_notes) ? '✍️ Inserimento manuale: ' . $operational_notes : '✍️ Inserimento manuale';
-                                $wpdb->insert(
-                                    $table_resp,
-                                    [
-                                        'survey_id'          => $survey->id,
-                                        'volunteer_id'       => $vol_id,
-                                        'day_id'             => $day_id,
-                                        'time_slot_key'      => $slot_key,
-                                        'is_available'       => 1,
-                                        'preferred_place_id' => $manual_pref_place_id,
-                                        'notes'              => $note_text,
-                                        'submitted_at'       => current_time('mysql'),
-                                    ],
-                                    [ '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%s' ]
-                                );
-                                $slots_added++;
+                                $insert_data = [
+                                    'survey_id'          => $survey->id,
+                                    'volunteer_id'       => $vol_id,
+                                    'day_id'             => $day_id,
+                                    'time_slot_key'      => $slot_key,
+                                    'is_available'       => 1,
+                                    'preferred_place_id' => $manual_pref_place_id,
+                                    'notes'              => $note_text,
+                                    'submitted_at'       => current_time('mysql'),
+                                ];
+                                $insert_fmt = [ '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%s' ];
+
+                                $res = $wpdb->insert($table_resp, $insert_data, $insert_fmt);
+
+                                if ($res === false && strpos($wpdb->last_error, 'preferred_place_id') !== false) {
+                                    // Fallback if table lacks preferred_place_id column
+                                    unset($insert_data['preferred_place_id']);
+                                    $insert_fmt = [ '%d', '%d', '%d', '%s', '%d', '%s', '%s' ];
+                                    $res = $wpdb->insert($table_resp, $insert_data, $insert_fmt);
+                                }
+
+                                if ($res !== false && $res > 0) {
+                                    $slots_added++;
+                                } else {
+                                    $slots_failed++;
+                                    if (! empty($wpdb->last_error)) {
+                                        $error_msgs[] = $wpdb->last_error;
+                                    }
+                                }
                             }
                         }
                     }
 
-                    if ($slots_added > 0 && $slots_already_present === 0) {
+                    if ($slots_added > 0 && $slots_already_present === 0 && $slots_failed === 0) {
                         if (function_exists('dfn_log_write')) {
                             dfn_log_write('volontari', wp_get_current_user()->display_name, "Registrata disponibilità manuale per {$vol_name} ({$slots_added} turni) in {$event->title}", 'success');
                         }
                         echo '<div class="notice notice-success is-dismissible"><p>✅ <strong>Disponibilità registrata per ' . esc_html($vol_name) . '!</strong> Aggiunto a ' . intval($slots_added) . ' turno/i del sondaggio.</p></div>';
-                    } elseif ($slots_added > 0 && $slots_already_present > 0) {
+                    } elseif ($slots_added > 0 && $slots_already_present > 0 && $slots_failed === 0) {
                         if (function_exists('dfn_log_write')) {
                             dfn_log_write('volontari', wp_get_current_user()->display_name, "Registrata disponibilità manuale per {$vol_name} ({$slots_added} nuovi turni, {$slots_already_present} già presenti) in {$event->title}", 'info');
                         }
                         echo '<div class="notice notice-info is-dismissible"><p>ℹ️ Disponibilità registrata per <strong>' . esc_html($vol_name) . '</strong> su <strong>' . intval($slots_added) . '</strong> nuovo/i turno/i. <strong>' . intval($slots_already_present) . '</strong> turno/i erano già presenti e <u>non sono stati sovrascritti</u>.</p></div>';
-                    } elseif ($slots_added === 0 && $slots_already_present > 0) {
+                    } elseif ($slots_added === 0 && $slots_already_present > 0 && $slots_failed === 0) {
                         echo '<div class="notice notice-warning is-dismissible"><p>⚠️ Il volontario <strong>' . esc_html($vol_name) . '</strong> è già presente negli slot orari selezionati. <u>Non è stato sovrascritto</u> e non è necessario aggiungerlo manualmente.</p></div>';
+                    } elseif ($slots_failed > 0) {
+                        $err_detail = ! empty($error_msgs) ? ' (' . implode(', ', array_unique($error_msgs)) . ')' : '';
+                        echo '<div class="notice notice-error is-dismissible"><p>❌ Errore durante il salvataggio a database' . esc_html($err_detail) . '. Nessuna disponibilità salvata per <strong>' . esc_html($vol_name) . '</strong>.</p></div>';
                     }
                 } elseif ($entry_mode === 'guest') {
                     echo '<div class="notice notice-error is-dismissible"><p>⚠️ Compila Nome e Cognome per il nuovo volontario / segnaposto.</p></div>';

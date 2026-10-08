@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.5.0');
+define('DFN_DB_VERSION', '2.5.2');
 
 /**
  * ========================================================================
@@ -553,6 +553,13 @@ function dfn_db_install(): void
     if (empty($row_reg)) {
         $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN fai_registry_id varchar(50) DEFAULT NULL AFTER card_number");
         $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_registry (fai_registry_id)");
+    }
+
+    // Forza la creazione della colonna preferred_place_id in dfn_volunteer_survey_responses se manca
+    $table_vol_survey_responses = $wpdb->prefix . 'dfn_volunteer_survey_responses';
+    $row_pref = $wpdb->get_results("SHOW COLUMNS FROM {$table_vol_survey_responses} LIKE 'preferred_place_id'");
+    if (empty($row_pref)) {
+        $wpdb->query("ALTER TABLE {$table_vol_survey_responses} ADD COLUMN preferred_place_id bigint(20) unsigned DEFAULT NULL AFTER is_available, ADD INDEX idx_pref_place (preferred_place_id)");
     }
 
     // Assicura che i semplici soci senza status volontario abbiano volunteer_status = 'none' e is_volunteer = 0
