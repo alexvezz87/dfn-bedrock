@@ -1696,6 +1696,10 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
     // Prepara i dati per ogni giorno: Luoghi, Turni, Assegnazioni, Volontari disponibili non assegnati
     $day_data = [];
     $total_event_assignments = 0;
+    $days_by_id = [];
+    foreach ($days as $d_item) {
+        $days_by_id[(int) $d_item->id] = $d_item;
+    }
 
     foreach ($days as $d) {
         $d_id = (int) $d->id;
@@ -1765,6 +1769,14 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                         $roles_pref[] = $resp_item->preferred_role;
                     }
                 }
+
+                $all_avail_days = [];
+                foreach ($survey_avail_by_day as $other_day_id => $other_day_vols) {
+                    if (isset($other_day_vols[$vol_id]) && isset($days_by_id[$other_day_id])) {
+                        $all_avail_days[] = $days_by_id[$other_day_id]->day_label ?: date_i18n('D d/m', strtotime($days_by_id[$other_day_id]->event_date));
+                    }
+                }
+
                 $unassigned_pool[] = [
                     'volunteer_id'      => $vol_id,
                     'first_name'        => $v_info ? $v_info->first_name : '',
@@ -1774,8 +1786,12 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     'card_number'       => $v_info ? $v_info->card_number : '',
                     'has_safety_course' => $v_info ? (! empty($v_info->has_safety_course) ? 1 : 0) : 0,
                     'is_guide'          => $v_info ? (! empty($v_info->is_guide) ? 1 : 0) : 0,
+                    'day_id'            => $d_id,
+                    'day_label'         => $d->day_label,
+                    'event_date'        => $d->event_date,
                     'available_slots'   => array_unique($slots_list),
                     'preferred_roles'   => array_unique($roles_pref),
+                    'all_avail_days'    => array_unique($all_avail_days),
                 ];
             }
         }
@@ -2118,11 +2134,15 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     </h3>
                     <button type="button" class="dfn-drawer-close-btn" id="dfn-close-pool-drawer-btn" aria-label="Chiudi Drawer">✕</button>
                 </div>
-                <p class="dfn-drawer-subtitle">
-                    Volontari che hanno dato disponibilità nel sondaggio per questo giorno ma non sono ancora assegnati. <em>Trascinali direttamente su qualsiasi turno!</em>
+
+                <!-- Selettore / Banner Giorno Attivo nel Drawer -->
+                <div class="dfn-drawer-day-selector" id="dfn-drawer-day-selector"></div>
+
+                <p class="dfn-drawer-subtitle" id="dfn-drawer-subtitle-txt">
+                    Volontari disponibili nel sondaggio non ancora assegnati. <em>Trascinali direttamente su qualsiasi turno!</em>
                 </p>
                 <div class="dfn-drawer-search-wrap">
-                    <input type="text" id="dfn-drawer-search-input" placeholder="Filtra volontari disponibili..." autocomplete="off">
+                    <input type="text" id="dfn-drawer-search-input" placeholder="Filtra volontari per nome..." autocomplete="off">
                 </div>
             </div>
 
@@ -3091,6 +3111,72 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 font-weight: 800;
                 color: #0f172a;
             }
+            .dfn-drawer-day-selector {
+                margin: 8px 0 8px 0;
+            }
+            .dfn-drawer-tabs-pills {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .dfn-drawer-day-pill {
+                background: #ffffff;
+                border: 1.5px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 4px 10px;
+                font-size: 11.5px;
+                font-weight: 700;
+                color: #334155;
+                cursor: pointer;
+                transition: all 0.15s ease;
+            }
+            .dfn-drawer-day-pill:hover {
+                background: #f1f5f9;
+                border-color: #94a3b8;
+                color: #0f172a;
+            }
+            .dfn-drawer-day-pill.is-active {
+                background: #004b23;
+                border-color: #003b1c;
+                color: #ffffff;
+                box-shadow: 0 1px 3px rgba(0,75,35,0.25);
+            }
+            .dfn-drawer-active-day-banner {
+                background: #f0fdf4;
+                border: 1px solid #86efac;
+                color: #15803d;
+                padding: 5px 10px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 700;
+            }
+            .dfn-pool-day-tag {
+                font-size: 10.5px;
+                font-weight: 800;
+                background: #f1f5f9;
+                color: #334155;
+                border: 1px solid #cbd5e1;
+                padding: 2px 6px;
+                border-radius: 4px;
+                white-space: nowrap;
+            }
+            .dfn-pool-other-days-tag {
+                font-size: 10px;
+                font-weight: 700;
+                background: #fefce8;
+                color: #854d0e;
+                border: 1px solid #fef08a;
+                padding: 1px 6px;
+                border-radius: 4px;
+            }
+            .dfn-pool-card-footer-hint {
+                font-size: 10px;
+                color: #94a3b8;
+                text-align: right;
+                margin-top: 2px;
+                font-weight: 600;
+            }
+
             .dfn-pool-card-badges {
                 display: flex;
                 gap: 4px;
@@ -3664,6 +3750,16 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 echo json_encode($pool_export, JSON_UNESCAPED_UNICODE);
             ?>;
 
+            var eventDaysData = <?php echo json_encode(array_map(function($d) {
+                return [
+                    'id'             => (int) $d->id,
+                    'day_label'      => (string) $d->day_label,
+                    'event_date'     => (string) $d->event_date,
+                    'formatted_date' => date_i18n('l d F Y', strtotime($d->event_date)),
+                    'short_label'    => $d->day_label ?: date_i18n('D d/m', strtotime($d->event_date)),
+                ];
+            }, $days), JSON_UNESCAPED_UNICODE); ?>;
+
             function showToast(message, type) {
                 type = type || 'success';
                 var container = document.getElementById('dfn-matrix-toasts');
@@ -3910,6 +4006,34 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             var poolItemsContainer = document.getElementById('dfn-drawer-pool-items-container');
             var poolCountBadge = document.getElementById('dfn-drawer-pool-count');
             var poolSearchInput = document.getElementById('dfn-drawer-search-input');
+            var drawerDaySelector = document.getElementById('dfn-drawer-day-selector');
+            var drawerSubtitleTxt = document.getElementById('dfn-drawer-subtitle-txt');
+
+            function formatSlotBadgeLabel(slotKey) {
+                if (! slotKey) return '';
+                var k = String(slotKey).toLowerCase().trim();
+                var clean = k.replace(/_/g, ' ');
+                clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+
+                if (k.indexOf('mattina') !== -1) {
+                    var num = k.replace('mattina', '').replace(/[^0-9]/g, '');
+                    if (num && num.length >= 2) {
+                        return 'Mattina (' + num.substr(0, 2) + ':00)';
+                    }
+                    return 'Mattina';
+                }
+                if (k.indexOf('pomeriggio') !== -1) {
+                    var num = k.replace('pomeriggio', '').replace(/[^0-9]/g, '');
+                    if (num && num.length >= 2) {
+                        return 'Pomeriggio (' + num.substr(0, 2) + ':00)';
+                    }
+                    return 'Pomeriggio';
+                }
+                if (k.indexOf('giornata') !== -1) {
+                    return 'Intera Giornata';
+                }
+                return clean;
+            }
 
             function openDrawer() {
                 if (drawer && drawerOverlay) {
@@ -3937,11 +4061,43 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 var poolList = dayPoolData[activeDayId] || [];
                 if (poolCountBadge) poolCountBadge.textContent = poolList.length;
 
+                var curDay = (eventDaysData || []).find(function(d) { return d.id === activeDayId; });
+                var dayNameFormatted = curDay ? (curDay.formatted_date + (curDay.day_label ? ' — ' + curDay.day_label : '')) : 'Giornata';
+
+                // Renderizza selettore / pillole delle giornate nel drawer
+                if (drawerDaySelector) {
+                    if (eventDaysData && eventDaysData.length > 1) {
+                        var tabsHtml = '<div class="dfn-drawer-tabs-pills">';
+                        eventDaysData.forEach(function(d) {
+                            var isAct = (d.id === activeDayId);
+                            var pList = dayPoolData[d.id] || [];
+                            tabsHtml += '<button type="button" class="dfn-drawer-day-pill ' + (isAct ? 'is-active' : '') + '" data-drawer-day-id="' + d.id + '">' +
+                                '🗓️ ' + (d.short_label || d.day_label) + ' (' + pList.length + ')' +
+                            '</button>';
+                        });
+                        tabsHtml += '</div>';
+                        drawerDaySelector.innerHTML = tabsHtml;
+
+                        drawerDaySelector.querySelectorAll('.dfn-drawer-day-pill').forEach(function(btn) {
+                            btn.addEventListener('click', function() {
+                                var targetDid = parseInt(this.getAttribute('data-drawer-day-id'), 10);
+                                switchDayTab(targetDid);
+                            });
+                        });
+                    } else {
+                        drawerDaySelector.innerHTML = '<div class="dfn-drawer-active-day-banner">🗓️ ' + dayNameFormatted + '</div>';
+                    }
+                }
+
+                if (drawerSubtitleTxt && curDay) {
+                    drawerSubtitleTxt.innerHTML = 'Volontari disponibili nel sondaggio per <strong>' + (curDay.day_label || curDay.formatted_date) + '</strong> non ancora assegnati:';
+                }
+
                 var query = poolSearchInput ? poolSearchInput.value.toLowerCase().trim() : '';
                 poolItemsContainer.innerHTML = '';
 
                 if (poolList.length === 0) {
-                    poolItemsContainer.innerHTML = '<div style="padding:24px; text-align:center; color:#94a3b8; font-size:12.5px;">✅ Tutti i volontari disponibili per questa giornata sono stati assegnati!</div>';
+                    poolItemsContainer.innerHTML = '<div style="padding:24px; text-align:center; color:#94a3b8; font-size:12.5px;">✅ Tutti i volontari disponibili per <strong>' + (curDay ? (curDay.day_label || curDay.formatted_date) : 'questa giornata') + '</strong> sono stati assegnati!</div>';
                     return;
                 }
 
@@ -3963,24 +4119,32 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     card.setAttribute('data-volunteer-id', v.volunteer_id);
                     card.setAttribute('data-volunteer-name', v.first_name + ' ' + v.last_name);
 
-                    var slotsBadges = v.available_slots.map(function(s) {
-                        return '<span class="dfn-pool-slot-badge">⏰ ' + s + '</span>';
+                    var slotsBadges = (v.available_slots || []).map(function(s) {
+                        return '<span class="dfn-pool-slot-badge" title="Fascia oraria data nel sondaggio">⏰ ' + formatSlotBadgeLabel(s) + '</span>';
                     }).join(' ');
 
-                    var rolesBadges = v.preferred_roles.map(function(r) {
-                        return '<span class="dfn-pool-role-pref">🎭 ' + r + '</span>';
+                    var rolesBadges = (v.preferred_roles || []).map(function(r) {
+                        return '<span class="dfn-pool-role-pref" title="Mansione preferita indicata nel sondaggio">🎭 ' + r + '</span>';
                     }).join(' ');
 
                     var skillIcons = '';
-                    if (v.has_safety_course) skillIcons += '<span title="Corso Sicurezza">🦺</span> ';
-                    if (v.is_guide) skillIcons += '<span title="Guida FAI">🏛️</span> ';
+                    if (v.has_safety_course) skillIcons += '<span title="Corso Sicurezza Completato">🦺</span> ';
+                    if (v.is_guide) skillIcons += '<span title="Abilitato come Guida FAI">🏛️</span> ';
+
+                    var dayBadge = '<span class="dfn-pool-day-tag" title="Disponibilità registrata per questo giorno">🗓️ ' + (v.day_label || (curDay ? curDay.day_label : 'Giorno')) + '</span>';
+
+                    var otherDaysBadge = '';
+                    if (v.all_avail_days && v.all_avail_days.length > 1) {
+                        otherDaysBadge = '<span class="dfn-pool-other-days-tag" title="Disponibile anche per altri giorni del sondaggio">📅 Disp: ' + v.all_avail_days.join(', ') + '</span>';
+                    }
 
                     card.innerHTML = 
                         '<div class="dfn-pool-card-header">' +
                             '<strong class="dfn-pool-card-name">' + v.first_name + ' ' + v.last_name + ' ' + skillIcons + '</strong>' +
-                            '<span style="font-size:11px; color:#94a3b8;">⠿ Trascina</span>' +
+                            dayBadge +
                         '</div>' +
-                        '<div class="dfn-pool-card-badges">' + slotsBadges + ' ' + rolesBadges + '</div>';
+                        '<div class="dfn-pool-card-badges">' + slotsBadges + ' ' + rolesBadges + (otherDaysBadge ? ' ' + otherDaysBadge : '') + '</div>' +
+                        '<div class="dfn-pool-card-footer-hint">⠿ Trascina sul turno desiderato</div>';
 
                     card.addEventListener('dragstart', function(e) {
                         e.dataTransfer.effectAllowed = 'copyMove';
