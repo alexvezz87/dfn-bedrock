@@ -48,10 +48,10 @@ function dfn_handle_volunteer_survey_page_rewrite(): void
                 if (! is_wp_error($signon)) {
                     wp_set_current_user($signon->ID);
                     wp_set_auth_cookie($signon->ID, true);
-                    wp_safe_redirect(add_query_arg('token', $token, site_url('/sondaggio-volontari/')));
+                    wp_safe_redirect(add_query_arg('token', $token, home_url('/sondaggio-volontari/')));
                     exit;
                 } else {
-                    wp_safe_redirect(add_query_arg(['token' => $token, 'login_error' => '1'], site_url('/sondaggio-volontari/')));
+                    wp_safe_redirect(add_query_arg(['token' => $token, 'login_error' => '1'], home_url('/sondaggio-volontari/')));
                     exit;
                 }
             }
@@ -380,7 +380,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                 $user_notes      = $f_notes;
                 $volunteer       = dfn_get_volunteer_by_user($current_user_id);
 
-                $account_url = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : site_url('/mio-account/');
+                $account_url = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : home_url('/mio-account/');
 
                 $extra_info = $just_registered 
                     ? '<p style="margin:8px 0 0 0; font-size:13.5px; font-weight:normal;">Il tuo account volontario è stato creato con successo e ti abbiamo inviato un\'email di benvenuto. Puoi accedere alla tua <a href="' . esc_url($account_url) . '" style="color:#166534; font-weight:800; text-decoration:underline;">Area Personale Volontari</a> per visualizzare i turni e i tuoi dati.</p>'
@@ -475,7 +475,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                 </div>
                 <?php if ($is_user_logged && empty($saved_responses)) : ?>
                     <div style="margin-top: 12px;">
-                        <a href="<?php echo esc_url(function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : site_url('/mio-account/')); ?>" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; background: #004b23; color: #ffffff !important; padding: 7px 15px; border-radius: 6px; text-decoration: none;">
+                        <a href="<?php echo esc_url(function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : home_url('/mio-account/')); ?>" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; background: #004b23; color: #ffffff !important; padding: 7px 15px; border-radius: 6px; text-decoration: none;">
                             👤 Vai alla tua Area Personale
                         </a>
                     </div>
@@ -496,10 +496,10 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <a href="<?php echo esc_url(function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : site_url('/mio-account/')); ?>" style="font-size: 12px; font-weight: 700; color: #004b23; text-decoration: none; background: #e8f5e9; padding: 6px 12px; border-radius: 6px; border: 1px solid #a7f3d0; display: inline-flex; align-items: center; gap: 4px;">
+                    <a href="<?php echo esc_url(function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : home_url('/mio-account/')); ?>" style="font-size: 12px; font-weight: 700; color: #004b23; text-decoration: none; background: #e8f5e9; padding: 6px 12px; border-radius: 6px; border: 1px solid #a7f3d0; display: inline-flex; align-items: center; gap: 4px;">
                         👤 Area Personale Volontari
                     </a>
-                    <a href="<?php echo esc_url(wp_logout_url(add_query_arg('token', $token, site_url('/sondaggio-volontari/')))); ?>" style="font-size: 12px; font-weight: 700; color: #dc2626; text-decoration: none; background: #fee2e2; padding: 6px 12px; border-radius: 6px; border: 1px solid #fca5a5;">
+                    <a href="<?php echo esc_url(wp_logout_url(add_query_arg('token', $token, home_url('/sondaggio-volontari/')))); ?>" style="font-size: 12px; font-weight: 700; color: #dc2626; text-decoration: none; background: #fee2e2; padding: 6px 12px; border-radius: 6px; border: 1px solid #fca5a5;">
                         Esci
                     </a>
                 </div>
