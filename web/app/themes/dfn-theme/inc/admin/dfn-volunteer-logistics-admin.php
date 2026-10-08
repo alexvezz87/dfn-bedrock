@@ -3195,24 +3195,50 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                             <label style="display:block; font-size:12.5px; font-weight:700; color:#1e293b; margin-bottom:6px;">
                                 Seleziona Volontario dall'Anagrafica FAI <span style="color:#ef4444;">*</span>
                             </label>
-                            <select name="registered_volunteer_id" id="dfn_registered_volunteer_id" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px; font-size:13px;">
-                                <option value="">-- Seleziona un volontario --</option>
-                                <?php if (! empty($all_registered_volunteers)) : ?>
-                                    <?php foreach ($all_registered_volunteers as $v) : 
-                                        $qual = [];
-                                        if (! empty($v->is_guide)) $qual[] = 'Guida';
-                                        if (! empty($v->has_safety_course)) $qual[] = 'Sicurezza';
-                                        $qual_str = ! empty($qual) ? ' [' . implode(', ', $qual) . ']' : '';
-                                        $card_str = ! empty($v->card_number) ? ' (Tessera: ' . $v->card_number . ')' : '';
-                                    ?>
-                                        <option value="<?php echo esc_attr($v->id); ?>">
-                                            <?php echo esc_html($v->last_name . ' ' . $v->first_name . $card_str . $qual_str); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </select>
-                            <p style="font-size:11.5px; color:#64748b; margin:4px 0 0 0;">
-                                Include tutti i volontari registrati nel sistema.
+
+                            <!-- Campo Ricerca Rapida Autocompletamento (Issue #51) -->
+                            <div style="position:relative; margin-bottom:10px;">
+                                <div style="display:flex; align-items:center; position:relative;">
+                                    <span style="position:absolute; left:12px; font-size:14px; color:#64748b; pointer-events:none;">🔍</span>
+                                    <input type="text" id="dfn_volunteer_search_input" placeholder="Cerca volontario (es. Vezzelli, Alex, 1330613, Guida...)" style="width:100%; border-radius:8px; border:1.5px solid #004b23; height:40px; padding:0 36px 0 36px; font-size:13.5px; font-weight:500; background:#f0fdf4; box-shadow:0 1px 2px rgba(0,75,35,0.08);" autocomplete="off">
+                                    <button type="button" id="dfn_btn_clear_vol_search" style="display:none; position:absolute; right:10px; background:#e2e8f0; border:none; color:#475569; width:22px; height:22px; border-radius:50%; font-size:12px; cursor:pointer; line-height:22px; text-align:center; padding:0;" title="Cancella ricerca">✕</button>
+                                </div>
+                                <!-- Tendina Risultati Autocompletamento Dinamica -->
+                                <div id="dfn_volunteer_autocomplete_list" style="display:none; position:absolute; top:44px; left:0; right:0; max-height:230px; overflow-y:auto; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:8px; box-shadow:0 12px 24px -4px rgba(0,0,0,0.18), 0 4px 6px -2px rgba(0,0,0,0.05); z-index:100010;"></div>
+                            </div>
+
+                            <!-- Dropdown Master Sincronizzato -->
+                            <div style="margin-bottom:6px;">
+                                <select name="registered_volunteer_id" id="dfn_registered_volunteer_id" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px; font-size:13px; background:#fff;">
+                                    <option value="">-- Oppure scegli dalla lista completa --</option>
+                                    <?php if (! empty($all_registered_volunteers)) : ?>
+                                        <?php foreach ($all_registered_volunteers as $v) : 
+                                            $qual = [];
+                                            if (! empty($v->is_guide)) $qual[] = 'Guida';
+                                            if (! empty($v->has_safety_course)) $qual[] = 'Sicurezza';
+                                            $qual_str = ! empty($qual) ? ' [' . implode(', ', $qual) . ']' : '';
+                                            $card_str = ! empty($v->card_number) ? ' (Tessera: ' . $v->card_number . ')' : '';
+                                        ?>
+                                            <option value="<?php echo esc_attr($v->id); ?>" data-name="<?php echo esc_attr($v->last_name . ' ' . $v->first_name); ?>" data-card="<?php echo esc_attr($v->card_number ?? ''); ?>" data-guide="<?php echo ! empty($v->is_guide) ? '1' : '0'; ?>" data-safety="<?php echo ! empty($v->has_safety_course) ? '1' : '0'; ?>">
+                                                <?php echo esc_html($v->last_name . ' ' . $v->first_name . $card_str . $qual_str); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </select>
+                            </div>
+
+                            <!-- Badge di Anteprima Volontario Selezionato -->
+                            <div id="dfn_selected_volunteer_preview" style="display:none; margin-top:8px; padding:8px 12px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:8px; font-size:12.5px; color:#166534; justify-content:space-between; align-items:center;">
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span>👤 <strong>Volontario selezionato:</strong></span>
+                                    <strong id="dfn_selected_vol_name" style="color:#0f172a; font-size:13px;"></strong>
+                                    <span id="dfn_selected_vol_card" style="font-size:11px; color:#64748b;"></span>
+                                </div>
+                                <span id="dfn_selected_vol_badges" style="display:inline-flex; gap:4px;"></span>
+                            </div>
+
+                            <p style="font-size:11.5px; color:#64748b; margin:6px 0 0 0;">
+                                💡 <strong>Tip:</strong> Inizia a digitare nel campo verde in alto per filtrare istantaneamente i volontari per nome, cognome o tessera.
                             </p>
                         </div>
 
@@ -3351,16 +3377,23 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
             // Open / Close Modal
             $('#dfn-btn-open-manual-modal, .dfn-btn-trigger-manual-modal').on('click', function() {
                 $('#dfn-manual-survey-modal').css('display', 'flex');
+                setTimeout(function() {
+                    if ($('#dfn-panel-registered').is(':visible')) {
+                        $('#dfn_volunteer_search_input').focus();
+                    }
+                }, 100);
             });
 
             $('#dfn-btn-close-manual-modal, #dfn-btn-cancel-manual-modal').on('click', function() {
                 $('#dfn-manual-survey-modal').hide();
+                $('#dfn_volunteer_autocomplete_list').hide();
             });
 
             // Close on overlay click outside content
             $('#dfn-manual-survey-modal').on('click', function(e) {
                 if (e.target === this) {
                     $(this).hide();
+                    $('#dfn_volunteer_autocomplete_list').hide();
                 }
             });
 
@@ -3373,6 +3406,7 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                 $('#dfn_entry_mode').val('registered');
                 $('#dfn_registered_volunteer_id').prop('required', true);
                 $('#dfn_guest_first_name, #dfn_guest_last_name').prop('required', false);
+                $('#dfn_volunteer_search_input').focus();
             });
 
             $('#dfn-tab-guest').on('click', function() {
@@ -3383,6 +3417,194 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                 $('#dfn_entry_mode').val('guest');
                 $('#dfn_registered_volunteer_id').prop('required', false);
                 $('#dfn_guest_first_name, #dfn_guest_last_name').prop('required', true);
+                $('#dfn_guest_first_name').focus();
+            });
+
+            // =========================================================
+            // AUTOCOMPLETE E RICERCA RAPIDA VOLONTARI (Issue #51)
+            // =========================================================
+            var $searchInput = $('#dfn_volunteer_search_input');
+            var $autoList   = $('#dfn_volunteer_autocomplete_list');
+            var $select     = $('#dfn_registered_volunteer_id');
+            var $btnClear   = $('#dfn_btn_clear_vol_search');
+            var $preview    = $('#dfn_selected_volunteer_preview');
+            var $prevName   = $('#dfn_selected_vol_name');
+            var $prevCard   = $('#dfn_selected_vol_card');
+            var $prevBadges = $('#dfn_selected_vol_badges');
+
+            // Parse all volunteer options into memory
+            var volunteersData = [];
+            $select.find('option').each(function() {
+                var val = $(this).val();
+                if (val) {
+                    volunteersData.push({
+                        id: val,
+                        label: $(this).text().trim(),
+                        name: $(this).data('name') || $(this).text().trim(),
+                        card: String($(this).data('card') || ''),
+                        guide: $(this).data('guide') == '1',
+                        safety: $(this).data('safety') == '1'
+                    });
+                }
+            });
+
+            var highlightedIndex = -1;
+
+            function renderAutocompleteResults(query) {
+                query = (query || '').trim().toLowerCase();
+                if (!query) {
+                    $autoList.hide().empty();
+                    $btnClear.hide();
+                    return;
+                }
+
+                $btnClear.show();
+                var qParts = query.split(/\s+/).filter(Boolean);
+
+                var matches = volunteersData.filter(function(v) {
+                    var searchable = (v.name + ' ' + v.card + (v.guide ? ' guida' : '') + (v.safety ? ' sicurezza' : '')).toLowerCase();
+                    return qParts.every(function(part) {
+                        return searchable.indexOf(part) !== -1;
+                    });
+                });
+
+                if (matches.length === 0) {
+                    $autoList.html('<div style="padding:12px 14px; color:#94a3b8; font-size:12.5px; font-style:italic; text-align:center;">Nessun volontario trovato per "<strong>' + $('<div>').text(query).html() + '</strong>"</div>').show();
+                    highlightedIndex = -1;
+                    return;
+                }
+
+                var html = '<div style="padding:6px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:flex; justify-content:space-between;">' +
+                    '<span>' + matches.length + ' volontari trovati</span>' +
+                    '<span style="font-size:10.5px; font-weight:normal; color:#94a3b8;">Usa ↑ ↓ Invio per selezionare</span>' +
+                '</div>';
+                
+                matches.forEach(function(item, idx) {
+                    var badges = '';
+                    if (item.safety) {
+                        badges += '<span style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; border-radius:4px; font-size:10px; font-weight:700; padding:1px 5px;">🛡️ Sicurezza</span> ';
+                    }
+                    if (item.guide) {
+                        badges += '<span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:4px; font-size:10px; font-weight:700; padding:1px 5px;">🗣️ Guida</span> ';
+                    }
+                    var cardTxt = item.card ? '<span style="color:#64748b; font-size:11.5px; margin-left:6px;">(Tessera: ' + item.card + ')</span>' : '';
+
+                    html += '<div class="dfn-autocomplete-item" data-id="' + item.id + '" data-idx="' + idx + '" style="padding:10px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; transition:background 0.15s;">' +
+                        '<div><strong style="color:#0f172a; font-size:13px;">' + item.name + '</strong>' + cardTxt + '</div>' +
+                        '<div>' + badges + '</div>' +
+                    '</div>';
+                });
+
+                $autoList.html(html).show();
+                highlightedIndex = -1;
+            }
+
+            function selectVolunteer(id, syncInput) {
+                var found = volunteersData.find(function(v) { return v.id == id; });
+                if (found) {
+                    $select.val(found.id);
+                    if (syncInput !== false) {
+                        $searchInput.val(found.name);
+                    }
+                    $prevName.text(found.name);
+                    $prevCard.text(found.card ? '(Tessera: ' + found.card + ')' : '');
+                    
+                    var bHtml = '';
+                    if (found.safety) {
+                        bHtml += '<span style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; border-radius:4px; font-size:10.5px; font-weight:700; padding:1px 6px;">🛡️ Sicurezza</span>';
+                    }
+                    if (found.guide) {
+                        bHtml += '<span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:4px; font-size:10.5px; font-weight:700; padding:1px 6px;">🗣️ Guida</span>';
+                    }
+                    $prevBadges.html(bHtml);
+                    $preview.css('display', 'flex');
+                    $autoList.hide().empty();
+                    $btnClear.show();
+                } else {
+                    $select.val('');
+                    $preview.hide();
+                }
+            }
+
+            // Live Input typing
+            $searchInput.on('input', function() {
+                var q = $(this).val();
+                renderAutocompleteResults(q);
+            });
+
+            // Focus opens suggestions if query exists
+            $searchInput.on('focus', function() {
+                var q = $(this).val();
+                if (q) {
+                    renderAutocompleteResults(q);
+                }
+            });
+
+            // Click item in list
+            $autoList.on('click', '.dfn-autocomplete-item', function() {
+                var id = $(this).data('id');
+                selectVolunteer(id, true);
+            });
+
+            // Hover styling
+            $autoList.on('mouseenter', '.dfn-autocomplete-item', function() {
+                $('.dfn-autocomplete-item').css('background', '#fff');
+                $(this).css('background', '#f0fdf4');
+            });
+
+            // Keyboard navigation
+            $searchInput.on('keydown', function(e) {
+                var items = $autoList.find('.dfn-autocomplete-item');
+                if (!items.length) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    highlightedIndex = (highlightedIndex + 1) >= items.length ? 0 : highlightedIndex + 1;
+                    items.css('background', '#fff');
+                    items.eq(highlightedIndex).css('background', '#f0fdf4')[0].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    highlightedIndex = (highlightedIndex - 1) < 0 ? items.length - 1 : highlightedIndex - 1;
+                    items.css('background', '#fff');
+                    items.eq(highlightedIndex).css('background', '#f0fdf4')[0].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'Enter') {
+                    if ($autoList.is(':visible') && items.length) {
+                        e.preventDefault();
+                        var targetIdx = highlightedIndex >= 0 ? highlightedIndex : 0;
+                        var id = items.eq(targetIdx).data('id');
+                        selectVolunteer(id, true);
+                    }
+                } else if (e.key === 'Escape') {
+                    $autoList.hide();
+                }
+            });
+
+            // Native select change
+            $select.on('change', function() {
+                var val = $(this).val();
+                if (val) {
+                    selectVolunteer(val, true);
+                } else {
+                    $preview.hide();
+                    $searchInput.val('');
+                    $btnClear.hide();
+                }
+            });
+
+            // Clear search button
+            $btnClear.on('click', function() {
+                $searchInput.val('').focus();
+                $select.val('');
+                $autoList.hide().empty();
+                $preview.hide();
+                $(this).hide();
+            });
+
+            // Click outside to hide suggestions list
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#dfn-panel-registered').length) {
+                    $autoList.hide();
+                }
             });
 
             // Toggle All Slots
