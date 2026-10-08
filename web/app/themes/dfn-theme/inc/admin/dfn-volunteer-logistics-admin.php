@@ -1598,15 +1598,19 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
 
     // Fallback POST: Gestione Azzeramento Completo dei Turni Assegnati
     if (isset($_POST['dfn_clear_assignments']) && wp_verify_nonce($_POST['dfn_clear_nonce'] ?? '', 'dfn_clear_assignments_action')) {
-        $all_event_shift_ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE event_id = %d", $event_id));
-        if (! empty($all_event_shift_ids)) {
-            $in_placeholders = implode(',', array_fill(0, count($all_event_shift_ids), '%d'));
-            $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE shift_id IN ($in_placeholders)", ...$all_event_shift_ids));
+        if ($event->status === 'published') {
+            echo '<div class="notice notice-error is-dismissible"><p>⚠️ <strong>Operazione non consentita:</strong> I turni dell\'evento sono attualmente <strong>pubblicati</strong>. Per sicurezza, non è possibile azzerare le assegnazioni mentre sono visibili ai volontari. Sospendi prima la pubblicazione se desideri ripulire la matrice.</p></div>';
+        } else {
+            $all_event_shift_ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM {$wpdb->prefix}dfn_volunteer_event_shifts WHERE event_id = %d", $event_id));
+            if (! empty($all_event_shift_ids)) {
+                $in_placeholders = implode(',', array_fill(0, count($all_event_shift_ids), '%d'));
+                $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}dfn_volunteer_shift_assignments WHERE shift_id IN ($in_placeholders)", ...$all_event_shift_ids));
+            }
+            if (function_exists('dfn_log_volunteer_shift')) {
+                dfn_log_volunteer_shift($event_id, 'Azzeramento completo turni evento', "Tutte le assegnazioni rimosse per l'evento #{$event_id}");
+            }
+            echo '<div class="notice notice-success is-dismissible"><p>🧹 <strong>Turni azzerati!</strong> Tutte le assegnazioni dei volontari per questo evento sono state rimosse e la board è completamente pulita.</p></div>';
         }
-        if (function_exists('dfn_log_volunteer_shift')) {
-            dfn_log_volunteer_shift($event_id, 'Azzeramento completo turni evento', "Tutte le assegnazioni rimosse per l'evento #{$event_id}");
-        }
-        echo '<div class="notice notice-success is-dismissible"><p>🧹 <strong>Turni azzerati!</strong> Tutte le assegnazioni dei volontari per questo evento sono state rimosse e la board è completamente pulita.</p></div>';
     }
 
     // Fallback POST: Gestione Algoritmo Assegnazione Automatica
@@ -1614,7 +1618,9 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
         $now = current_time('mysql');
         $is_survey_closed = ($survey && ($survey->status === 'closed' || (! empty($survey->deadline_at) && $survey->deadline_at < $now)));
 
-        if (! $survey) {
+        if ($event->status === 'published') {
+            echo '<div class="notice notice-error is-dismissible"><p>⚠️ <strong>Operazione non consentita:</strong> I turni dell\'evento sono attualmente <strong>pubblicati</strong>. Per sicurezza, l\'assegnazione automatica è disattivata per non sovrascrivere i turni visibili ai volontari. Sospendi prima la pubblicazione se desideri rigenerare le assegnazioni.</p></div>';
+        } elseif (! $survey) {
             echo '<div class="notice notice-error is-dismissible"><p>⚠️ <strong>Nessun sondaggio trovato</strong> per questo evento. Crea prima un sondaggio per raccogliere le disponibilità.</p></div>';
         } elseif (! $is_survey_closed) {
             echo '<div class="notice notice-warning is-dismissible"><p>⚠️ <strong>Sondaggio ancora aperto:</strong> l\'assegnazione automatica può essere eseguita solo dopo la chiusura o la scadenza del sondaggio, per evitare assegnazioni parziali prima che tutti i volontari abbiano risposto.</p></div>';
@@ -1859,8 +1865,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     </form>
                 <?php endif; ?>
 
-                <!-- 2. Assegnazione Automatica -->
-                <?php if ($survey && $is_survey_closed) : ?>
+                <!-- 2. Assegnazione Automatica (disponibile solo prima della pubblicazione) -->
+                <?php if ($event->status !== 'published' && $survey && $is_survey_closed) : ?>
                     <form method="post" action="" onsubmit="return confirm('L\'assegnazione automatica distribuirà i volontari disponibili in base al sondaggio e alle sole mansioni abilitate. Continuare?');" style="margin:0;">
                         <?php wp_nonce_field('dfn_auto_assign_action', 'dfn_auto_nonce'); ?>
                         <button type="submit" name="dfn_auto_assign" class="button button-primary dfn-btn-fai">
@@ -1869,8 +1875,8 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                     </form>
                 <?php endif; ?>
 
-                <!-- 3. Azzera Assegnazioni -->
-                <?php if ($total_event_assignments > 0) : ?>
+                <!-- 3. Azzera Assegnazioni (disponibile solo prima della pubblicazione) -->
+                <?php if ($event->status !== 'published' && $total_event_assignments > 0) : ?>
                     <form method="post" action="" onsubmit="return confirm('Sei sicuro di voler azzerare TUTTI i turni assegnati? La griglia tornerà completamente pulita per questo evento.');" style="margin:0;">
                         <?php wp_nonce_field('dfn_clear_assignments_action', 'dfn_clear_nonce'); ?>
                         <button type="submit" name="dfn_clear_assignments" class="button dfn-btn-danger">
