@@ -2758,37 +2758,56 @@ function dfn_render_volunteer_event_survey_admin(int $event_id): void
                             $slot_key = sanitize_key($parts[1]);
 
                             $existing_resp = $wpdb->get_row($wpdb->prepare(
-                                "SELECT id FROM {$table_resp} WHERE survey_id = %d AND volunteer_id = %d AND day_id = %d AND time_slot_key = %s",
+                                "SELECT id, is_available FROM {$table_resp} WHERE survey_id = %d AND volunteer_id = %d AND day_id = %d AND time_slot_key = %s",
                                 $survey->id, $vol_id, $day_id, $slot_key
                             ));
 
-                            if ($existing_resp) {
-                                // Il volontario è già presente per questo turno: non sovrascrivere
+                            if ($existing_resp && (int) $existing_resp->is_available === 1) {
+                                // Il volontario è già disponibile per questo turno: non sovrascrivere
                                 $slots_already_present++;
                             } else {
                                 $note_text = ! empty($operational_notes) ? '✍️ Inserimento manuale: ' . $operational_notes : '✍️ Inserimento manuale';
-                                $insert_data = [
-                                    'survey_id'          => $survey->id,
-                                    'volunteer_id'       => $vol_id,
-                                    'day_id'             => $day_id,
-                                    'time_slot_key'      => $slot_key,
-                                    'is_available'       => 1,
-                                    'preferred_place_id' => $manual_pref_place_id,
-                                    'notes'              => $note_text,
-                                    'submitted_at'       => current_time('mysql'),
-                                ];
-                                $insert_fmt = [ '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%s' ];
+                                
+                                if ($existing_resp && (int) $existing_resp->is_available === 0) {
+                                    // Il volontario aveva indicato 'Non disponibile': aggiorniamo la riga a disponibile (is_available = 1)
+                                    $update_data = [
+                                        'is_available'       => 1,
+                                        'preferred_place_id' => $manual_pref_place_id,
+                                        'notes'              => $note_text,
+                                        'submitted_at'       => current_time('mysql'),
+                                    ];
+                                    $update_fmt = [ '%d', '%d', '%s', '%s' ];
+                                    $res = $wpdb->update($table_resp, $update_data, ['id' => (int) $existing_resp->id], $update_fmt, ['%d']);
+                                    if ($res === false && strpos($wpdb->last_error, 'preferred_place_id') !== false) {
+                                        unset($update_data['preferred_place_id']);
+                                        $update_fmt = [ '%d', '%s', '%s' ];
+                                        $res = $wpdb->update($table_resp, $update_data, ['id' => (int) $existing_resp->id], $update_fmt, ['%d']);
+                                    }
+                                } else {
+                                    // Nuovo inserimento
+                                    $insert_data = [
+                                        'survey_id'          => $survey->id,
+                                        'volunteer_id'       => $vol_id,
+                                        'day_id'             => $day_id,
+                                        'time_slot_key'      => $slot_key,
+                                        'is_available'       => 1,
+                                        'preferred_place_id' => $manual_pref_place_id,
+                                        'notes'              => $note_text,
+                                        'submitted_at'       => current_time('mysql'),
+                                    ];
+                                    $insert_fmt = [ '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%s' ];
 
-                                $res = $wpdb->insert($table_resp, $insert_data, $insert_fmt);
-
-                                if ($res === false && strpos($wpdb->last_error, 'preferred_place_id') !== false) {
-                                    // Fallback if table lacks preferred_place_id column
-                                    unset($insert_data['preferred_place_id']);
-                                    $insert_fmt = [ '%d', '%d', '%d', '%s', '%d', '%s', '%s' ];
                                     $res = $wpdb->insert($table_resp, $insert_data, $insert_fmt);
+
+                                    if ($res === false && strpos($wpdb->last_error, 'preferred_place_id') !== false) {
+                                        // Fallback if table lacks preferred_place_id column
+                                        unset($insert_data['preferred_place_id']);
+                                        $insert_fmt = [ '%d', '%d', '%d', '%s', '%d', '%s', '%s' ];
+                                        $res = $wpdb->insert($table_resp, $insert_data, $insert_fmt);
+                                    }
                                 }
 
-                                if ($res !== false && $res > 0) {
+                                if ($res !== false) {
                                     $slots_added++;
                                 } else {
                                     $slots_failed++;
