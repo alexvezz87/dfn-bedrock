@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.5.1');
+define('DFN_DB_VERSION', '2.5.2');
 
 /**
  * ========================================================================
@@ -664,6 +664,13 @@ function dfn_db_install(): void
     $row_teams_wa = $wpdb->get_results("SHOW COLUMNS FROM {$table_teams} LIKE 'whatsapp_url'");
     if (empty($row_teams_wa)) {
         $wpdb->query("ALTER TABLE {$table_teams} ADD COLUMN whatsapp_url varchar(255) DEFAULT NULL AFTER badge_bg, ADD COLUMN drive_url varchar(255) DEFAULT NULL AFTER whatsapp_url");
+    }
+
+    // Forza la creazione della colonna preferred_place_id in dfn_volunteer_survey_responses se manca
+    $table_vol_survey_responses = $wpdb->prefix . 'dfn_volunteer_survey_responses';
+    $row_pref = $wpdb->get_results("SHOW COLUMNS FROM {$table_vol_survey_responses} LIKE 'preferred_place_id'");
+    if (empty($row_pref)) {
+        $wpdb->query("ALTER TABLE {$table_vol_survey_responses} ADD COLUMN preferred_place_id bigint(20) unsigned DEFAULT NULL AFTER is_available, ADD INDEX idx_pref_place (preferred_place_id)");
     }
 
     // Assicura che i semplici soci senza status volontario abbiano volunteer_status = 'none' e is_volunteer = 0
