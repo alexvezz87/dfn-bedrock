@@ -2770,12 +2770,15 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
                 box-sizing: border-box;
                 animation: dfnModalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
             }
+            .dfn-modal-window.dfn-modal-quick-assign {
+                max-width: 680px !important;
+            }
             @keyframes dfnModalPop {
                 from { transform: scale(0.95); opacity: 0; }
                 to { transform: scale(1); opacity: 1; }
             }
             .dfn-modal-header {
-                padding: 14px 18px;
+                padding: 15px 22px;
                 background: #f8fafc;
                 border-bottom: 1.5px solid #e2e8f0;
                 display: flex;
@@ -2795,19 +2798,19 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             }
             .dfn-modal-close-btn:hover { color: #0f172a; }
             .dfn-modal-body {
-                padding: 16px 18px;
+                padding: 18px 22px;
                 overflow-y: auto;
                 overflow-x: hidden !important;
                 box-sizing: border-box;
                 width: 100%;
             }
             .dfn-modal-footer {
-                padding: 12px 18px;
+                padding: 14px 22px;
                 background: #f8fafc;
                 border-top: 1.5px solid #e2e8f0;
                 display: flex;
                 justify-content: flex-end;
-                gap: 8px;
+                gap: 10px;
                 box-sizing: border-box;
             }
 
@@ -2957,10 +2960,10 @@ function dfn_render_volunteer_event_matrix(int $event_id): void
             .dfn-qa-compact-grid {
                 display: grid;
                 grid-template-columns: 1.15fr 0.85fr;
-                gap: 12px;
+                gap: 20px;
                 width: 100%;
                 box-sizing: border-box;
-                margin-bottom: 12px;
+                margin-bottom: 14px;
                 align-items: start;
             }
             .dfn-qa-col-input, .dfn-qa-col-role {
