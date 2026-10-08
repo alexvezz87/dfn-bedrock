@@ -903,7 +903,7 @@ function dfn_volunteer_meetings_endpoint_content(): void
 // Rendering del contenuto della sezione "Sondaggi Disponibilità" per i Volontari
 add_action('woocommerce_account_sondaggi-fai_endpoint', 'dfn_volunteer_surveys_endpoint_content');
 /**
- * Renderizza l'elenco dei sondaggi di disponibilità attivi per i volontari.
+ * Renderizza l'elenco dei sondaggi di disponibilità attivi e in attesa di turni per i volontari.
  */
 function dfn_volunteer_surveys_endpoint_content(): void
 {
@@ -923,38 +923,112 @@ function dfn_volunteer_surveys_endpoint_content(): void
     }
 
     global $wpdb;
+    $current_user  = wp_get_current_user();
+    $table_fai     = $wpdb->prefix . 'dfn_fai_members';
     $table_surveys = $wpdb->prefix . 'dfn_volunteer_surveys';
     $table_events  = $wpdb->prefix . 'dfn_volunteer_events';
-    $surveys = $wpdb->get_results("SELECT s.*, e.title as event_title, e.event_type, e.date_start, e.date_end 
-                                   FROM {$table_surveys} s 
-                                   JOIN {$table_events} e ON s.event_id = e.id 
-                                   WHERE s.status = 'open' AND s.deadline_at >= NOW() 
-                                   ORDER BY s.deadline_at ASC");
+    $table_resp    = $wpdb->prefix . 'dfn_volunteer_survey_responses';
+
+    // Recupera dati del membro volontario
+    $member = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$table_fai} WHERE user_id = %d OR email = %s LIMIT 1",
+        $current_user_id,
+        $current_user->user_email
+    ));
+    $volunteer_id = $member ? (int) $member->id : 0;
+
+    $now = current_time('mysql');
+
+    // Recupera sia i sondaggi aperti alle risposte, sia i sondaggi chiusi per i quali i turni non sono ancora stati pubblicati
+    $surveys = $wpdb->get_results($wpdb->prepare(
+        "SELECT s.*, e.title as event_title, e.event_type, e.date_start, e.date_end, e.status as event_status 
+         FROM {$table_surveys} s 
+         JOIN {$table_events} e ON s.event_id = e.id 
+         WHERE (
+             (s.status = 'open' AND s.deadline_at >= %s)
+             OR
+             ((s.status = 'closed' OR s.deadline_at < %s) AND e.status NOT IN ('published', 'completed', 'archived'))
+         )
+         ORDER BY 
+             CASE WHEN (s.status = 'open' AND s.deadline_at >= %s) THEN 1 ELSE 2 END ASC,
+             s.deadline_at DESC",
+        $now, $now, $now
+    ));
     ?>
     <div class="dfn-volunteer-surveys-section">
         <div class="dfn-account-header-card">
             <h2 class="dfn-dashboard-title"><?php esc_html_e('📋 Sondaggi Disponibilità Volontari', 'dfn-theme'); ?></h2>
-            <p class="dfn-dashboard-desc"><?php esc_html_e('In questa sezione puoi indicare le tue fasce orarie di disponibilità per i prossimi eventi e giornate FAI.', 'dfn-theme'); ?></p>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('In questa sezione puoi indicare le tue fasce orarie di disponibilità per i prossimi eventi e verificare in sola lettura le risposte inviate per i sondaggi conclusi in attesa di pubblicazione dei turni.', 'dfn-theme'); ?></p>
         </div>
 
         <?php if (! empty($surveys)) : ?>
-            <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 20px;">
                 <?php foreach ($surveys as $s) : 
-                    $deadline_str = date_i18n('d/m/Y \a\l\l\e H:i', strtotime($s->deadline_at));
-                    $survey_url = home_url('/sondaggio-volontari/?token=' . $s->token_public);
+                    $is_survey_open = ($s->status === 'open' && $s->deadline_at >= $now);
+                    $deadline_str   = date_i18n('l d F Y \a\l\l\e H:i', strtotime($s->deadline_at));
+                    $date_start_str = date_i18n('d/m/Y', strtotime($s->date_start));
+                    $date_end_str   = date_i18n('d/m/Y', strtotime($s->date_end));
+                    $dates_text     = ($s->date_start === $s->date_end) ? $date_start_str : ($date_start_str . ' — ' . $date_end_str);
+                    $survey_url     = home_url('/sondaggio-volontari/?token=' . $s->token_public);
+
+                    // Verifica se il volontario ha risposte registrate
+                    $has_submitted = false;
+                    if ($volunteer_id > 0) {
+                        $resp_count = (int) $wpdb->get_var($wpdb->prepare(
+                            "SELECT COUNT(*) FROM {$table_resp} WHERE survey_id = %d AND volunteer_id = %d AND is_available = 1",
+                            $s->id,
+                            $volunteer_id
+                        ));
+                        $has_submitted = ($resp_count > 0);
+                    }
                 ?>
-                    <div class="dfn-survey-list-card">
-                        <div style="flex: 1; min-width: 260px;">
-                            <div style="margin-bottom: 6px;">
-                                <span class="dfn-badge-pill pill-status-open">⏳ Aperto alle risposte</span>
+                    <div class="dfn-survey-list-card" style="background: #ffffff; border: 1.5px solid <?php echo $is_survey_open ? '#bfdbfe' : '#fde68a'; ?>; border-left: 5px solid <?php echo $is_survey_open ? '#2563eb' : '#d97706'; ?>; border-radius: 14px; padding: 20px 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                        <div style="flex: 1; min-width: 280px;">
+                            <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <?php if ($is_survey_open) : ?>
+                                    <span class="dfn-badge-pill pill-status-open">🟢 Sondaggio Aperto alle Risposte</span>
+                                <?php else : ?>
+                                    <span class="dfn-badge-pill pill-status-closed">🔒 Sondaggio Chiuso (Assegnazione Turni in corso)</span>
+                                <?php endif; ?>
+                                <span class="dfn-badge-pill pill-type-fai"><?php echo ($s->event_type === 'giornata_fai') ? '🏰 Giornata FAI' : '📍 Evento Locale'; ?></span>
                             </div>
-                            <h3 style="margin: 0 0 6px 0; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.3;"><?php echo esc_html($s->title); ?></h3>
-                            <div style="font-size: 13px; color: #475569; margin-top: 4px;">🗓️ Date Evento: <strong><?php echo esc_html(date_i18n('d/m/Y', strtotime($s->date_start))); ?></strong><?php echo $s->date_end !== $s->date_start ? ' - <strong>' . esc_html(date_i18n('d/m/Y', strtotime($s->date_end))) . '</strong>' : ''; ?></div>
-                            <div style="font-size: 12.5px; color: #b91c1c; font-weight: 700; margin-top: 4px;">⏰ Scadenza invio: <?php echo esc_html($deadline_str); ?></div>
+
+                            <h3 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 800; color: #0f172a; line-height: 1.3;">
+                                <?php echo esc_html($s->title); ?>
+                            </h3>
+
+                            <div style="font-size: 13.5px; color: #475569; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                                <span>🗓️</span> Date Evento: <strong><?php echo esc_html($dates_text); ?></strong>
+                            </div>
+
+                            <div style="font-size: 13px; color: <?php echo $is_survey_open ? '#b91c1c' : '#78350f'; ?>; font-weight: 600; margin-top: 4px;">
+                                <?php if ($is_survey_open) : ?>
+                                    ⏱️ Scadenza invio: <strong><?php echo esc_html($deadline_str); ?></strong>
+                                <?php else : ?>
+                                    ⏱️ Termine per le risposte scaduto il <strong><?php echo esc_html($deadline_str); ?></strong>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Stato risposta del volontario -->
+                            <div style="margin-top: 10px; font-size: 12.5px; padding: 6px 12px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; background: <?php echo $has_submitted ? '#f0fdf4' : '#f8fafc'; ?>; border: 1px solid <?php echo $has_submitted ? '#bbf7d0' : '#e2e8f0'; ?>; color: <?php echo $has_submitted ? '#166534' : '#64748b'; ?>; font-weight: 700;">
+                                <?php if ($has_submitted) : ?>
+                                    <span>✅</span> Disponibilità registrate a tuo nome
+                                <?php else : ?>
+                                    <span>ℹ️</span> <?php echo $is_survey_open ? 'Non hai ancora inviato le tue disponibilità' : 'Nessuna risposta registrata a tuo nome prima della chiusura'; ?>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                         <div>
-                            <a href="<?php echo esc_url($survey_url); ?>" class="button dfn-btn-survey">✍️ Compila Sondaggio</a>
+                            <?php if ($is_survey_open) : ?>
+                                <a href="<?php echo esc_url($survey_url); ?>" class="button dfn-btn-survey" style="background: #2563eb !important; padding: 10px 22px; font-size: 13.5px; font-weight: 800; border-radius: 50px; text-decoration: none; color: #ffffff !important; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(37,99,235,0.25);">
+                                    <?php echo $has_submitted ? '✏️ Modifica Disponibilità' : '✍️ Compila Sondaggio'; ?>
+                                </a>
+                            <?php else : ?>
+                                <a href="<?php echo esc_url($survey_url); ?>" class="button" style="background: #004b23 !important; color: #ffffff !important; padding: 10px 20px; font-size: 13.5px; font-weight: 800; border-radius: 50px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(0,75,35,0.2); border: none;">
+                                    👁️ Visualizza Risposte Sondaggio &rarr;
+                                </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -963,7 +1037,7 @@ function dfn_volunteer_surveys_endpoint_content(): void
             <div class="dfn-fai-empty-state" style="margin-top: 20px;">
                 <div class="dfn-fai-empty-icon">📋</div>
                 <h4><?php esc_html_e('Nessun sondaggio attivo', 'dfn-theme'); ?></h4>
-                <p><?php esc_html_e('Al momento non ci sono sondaggi aperti che richiedono la tua disponibilità.', 'dfn-theme'); ?></p>
+                <p><?php esc_html_e('Al momento non ci sono sondaggi aperti o in fase di assegnazione turni.', 'dfn-theme'); ?></p>
             </div>
         <?php endif; ?>
     </div>
@@ -1019,9 +1093,23 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
     $my_shifts = function_exists('dfn_get_volunteer_assigned_shifts_for_user') ? dfn_get_volunteer_assigned_shifts_for_user($current_user_id) : [];
     $next_shift = ! empty($my_shifts) ? $my_shifts[0] : null;
 
-    // Recupera eventuale sondaggio aperto in scadenza
+    // Recupera eventuale sondaggio aperto o chiuso in attesa di turni
     $table_surveys = $wpdb->prefix . 'dfn_volunteer_surveys';
-    $open_survey = $wpdb->get_row("SELECT s.*, e.title as event_title FROM {$table_surveys} s JOIN {$wpdb->prefix}dfn_volunteer_events e ON s.event_id = e.id WHERE s.status = 'open' AND s.deadline_at >= NOW() ORDER BY s.deadline_at ASC LIMIT 1");
+    $active_survey = $wpdb->get_row($wpdb->prepare(
+        "SELECT s.*, e.title as event_title, e.status as event_status 
+         FROM {$table_surveys} s 
+         JOIN {$wpdb->prefix}dfn_volunteer_events e ON s.event_id = e.id 
+         WHERE (
+             (s.status = 'open' AND s.deadline_at >= %s)
+             OR
+             ((s.status = 'closed' OR s.deadline_at < %s) AND e.status NOT IN ('published', 'completed', 'archived'))
+         ) 
+         ORDER BY 
+             CASE WHEN (s.status = 'open' AND s.deadline_at >= %s) THEN 1 ELSE 2 END ASC,
+             s.deadline_at DESC 
+         LIMIT 1",
+        $now, $now, $now
+    ));
 
     // Recupera prossima riunione
     $upcoming_meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 1) : [];
@@ -1179,23 +1267,30 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
             <?php endif; ?>
         </div>
 
-        <!-- Sezione Quick Info: 2. Sondaggi di Disponibilità in Corso -->
-        <?php if (! empty($open_survey)) : ?>
-            <div class="dfn-dash-vol-box-survey">
+        <!-- Sezione Quick Info: 2. Sondaggi di Disponibilità in Corso o in Attesa Turni -->
+        <?php if (! empty($active_survey)) : 
+            $is_act_open = ($active_survey->status === 'open' && $active_survey->deadline_at >= $now);
+            $deadline_act_str = date_i18n('d/m/Y \a\l\l\e H:i', strtotime($active_survey->deadline_at));
+        ?>
+            <div class="dfn-dash-vol-box-survey <?php echo ! $is_act_open ? 'is-closed' : ''; ?>">
                 <div>
                     <div class="dfn-dash-vol-survey-tag">
-                        📋 Disponibilità Richiesta
+                        <?php echo $is_act_open ? '📋 Disponibilità Richiesta' : '🔒 Sondaggio Concluso (Assegnazione Turni)'; ?>
                     </div>
                     <h3 class="dfn-dash-vol-survey-title">
-                        <?php echo esc_html($open_survey->title); ?>
+                        <?php echo esc_html($active_survey->title); ?>
                     </h3>
                     <p class="dfn-dash-vol-survey-desc">
-                        Indica la tua disponibilità oraria entro il <strong><?php echo esc_html(date_i18n('d/m/Y \a\l\l\e H:i', strtotime($open_survey->deadline_at))); ?></strong>.
+                        <?php if ($is_act_open) : ?>
+                            Indica la tua disponibilità oraria entro il <strong><?php echo esc_html($deadline_act_str); ?></strong>.
+                        <?php else : ?>
+                            Termine risposte scaduto il <strong><?php echo esc_html($deadline_act_str); ?></strong>. Puoi visualizzare il riepilogo delle tue preferenze in sola lettura.
+                        <?php endif; ?>
                     </p>
                 </div>
                 <div>
-                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $open_survey->token_public)); ?>" class="button dfn-btn-survey">
-                        ✍️ Compila Ora
+                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $active_survey->token_public)); ?>" class="button dfn-btn-survey <?php echo ! $is_act_open ? 'btn-survey-closed' : ''; ?>">
+                        <?php echo $is_act_open ? '✍️ Compila Ora' : '👁️ Visualizza Risposte'; ?>
                     </a>
                 </div>
             </div>
@@ -1356,6 +1451,12 @@ function dfn_volunteer_events_endpoint_content(): void
                                 <div>
                                     <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $survey->token_public)); ?>" class="button" style="background: #2563eb; color: #ffffff; border-radius: 30px; font-weight: 700; padding: 8px 18px; font-size: 12.5px; text-decoration: none; border: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 8px rgba(37,99,235,0.2);">
                                         ✍️ Compila Sondaggio
+                                    </a>
+                                </div>
+                            <?php elseif ($is_survey_closed && ! $are_shifts_published && $survey) : ?>
+                                <div>
+                                    <a href="<?php echo esc_url(home_url('/sondaggio-volontari/?token=' . $survey->token_public)); ?>" class="button" style="background: #004b23; color: #ffffff; border-radius: 30px; font-weight: 700; padding: 8px 18px; font-size: 12.5px; text-decoration: none; border: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 8px rgba(0,75,35,0.2);">
+                                        👁️ Verifica Risposte
                                     </a>
                                 </div>
                             <?php endif; ?>
