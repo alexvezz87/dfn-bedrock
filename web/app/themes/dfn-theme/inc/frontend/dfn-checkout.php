@@ -357,4 +357,36 @@ function dfn_output_checkout_deadline_html(int $auto_cancel_hours, bool $is_orde
     <?php
 }
 
-
+/**
+ * Aggiunge script per lo scroll automatico agli errori di validazione del checkout WooCommerce.
+ */
+function dfn_checkout_auto_scroll_to_errors(): void
+{
+    if (! function_exists('is_checkout') || ! is_checkout()) {
+        return;
+    }
+    ?>
+    <script>
+    jQuery(document).ready(function($) {
+        $(document.body).on('checkout_error', function() {
+            var $errorNotice = $('.woocommerce-NoticeGroup-checkout, .woocommerce-error, .woocommerce-notices-wrapper .woocommerce-error').first();
+            if ($errorNotice.length) {
+                $('html, body').animate({
+                    scrollTop: Math.max(0, $errorNotice.offset().top - 100)
+                }, 400);
+            } else {
+                setTimeout(function() {
+                    var $lateError = $('.woocommerce-NoticeGroup-checkout, .woocommerce-error, .woocommerce-notices-wrapper .woocommerce-error').first();
+                    if ($lateError.length) {
+                        $('html, body').animate({
+                            scrollTop: Math.max(0, $lateError.offset().top - 100)
+                        }, 400);
+                    }
+                }, 250);
+            }
+        });
+    });
+    </script>
+    <?php
+}
+add_action('wp_footer', 'dfn_checkout_auto_scroll_to_errors', 99);

@@ -16,10 +16,10 @@ defined('ABSPATH') || exit;
 
 $booking = ($order && function_exists('dfn_db_get_booking_by_order')) ? dfn_db_get_booking_by_order($order->get_id()) : null;
 $event   = ($booking && function_exists('dfn_db_get_event')) ? dfn_db_get_event((int) $booking->event_id) : null;
-$hub_url = home_url('/hub-biglietti/');
-if ($booking && ! empty($booking->qr_token)) {
-    $hub_url = add_query_arg('token', $booking->qr_token, $hub_url);
-}
+$hub_token = $order ? hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce')) : '';
+$hub_url   = ($order && $hub_token)
+    ? home_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token)
+    : ($booking && ! empty($booking->qr_token) ? home_url('/hub-biglietti/?token=' . $booking->qr_token) : home_url());
 ?>
 
 <div class="dfn-checkout-container dfn-thankyou-container">
