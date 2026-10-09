@@ -24,40 +24,75 @@ add_action('template_redirect', 'dfn_handle_visitor_modification');
  */
 function dfn_render_group_ticket_hub(): void
 {
+    $req_uri     = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+    $is_hub_path = (strpos($req_uri, '/hub-biglietti') !== false);
     $has_dfn_hub = isset($_GET['dfn_hub']);
     $has_cv_hub  = isset($_GET['cv_hub']);
 
-    if ((! $has_dfn_hub && ! $has_cv_hub) || ! isset($_GET['order_id']) || ! isset($_GET['token'])) {
+    if (! $is_hub_path && ! $has_dfn_hub && ! $has_cv_hub) {
         return;
     }
 
-    $order_id = intval($_GET['order_id']);
-    $token    = sanitize_text_field($_GET['token']);
+    if (! isset($_GET['token']) && ! isset($_GET['order_id'])) {
+        return;
+    }
 
-    $order = wc_get_order($order_id);
+    global $wpdb, $wp_query;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $token          = isset($_GET['token']) ? sanitize_text_field(wp_unslash($_GET['token'])) : '';
+    $order_id       = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
+    $booking        = null;
+    $order          = null;
+
+    // 1. Risoluzione tramite qr_token (token univoco prenotazione, es. da /hub-biglietti/?token=XXX)
+    if (! empty($token)) {
+        $booking = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$table_bookings} WHERE qr_token = %s LIMIT 1",
+            $token
+        ));
+        if ($booking && ! empty($booking->order_id)) {
+            $order_id = intval($booking->order_id);
+            $order    = wc_get_order($order_id);
+        }
+    }
+
+    // 2. Risoluzione tramite order_id + HMAC token di sicurezza
+    if ((! $booking || ! $order) && $order_id > 0) {
+        $order = wc_get_order($order_id);
+        if ($order) {
+            $expected_token_dfn = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+            $expected_token_cv  = hash_hmac('sha256', $order->get_order_key() . '_hub', wp_salt('nonce'));
+
+            if (! hash_equals($expected_token_dfn, $token) && ! hash_equals($expected_token_cv, $token)) {
+                wp_die(esc_html__('Link non valido o scaduto.', 'dfn-theme'), esc_html__('Errore di sicurezza', 'dfn-theme'), 403);
+            }
+
+            $booking = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$table_bookings} WHERE order_id = %d LIMIT 1",
+                $order_id
+            ));
+        }
+    }
+
     if (! $order) {
         wp_die(esc_html__('Ordine non trovato.', 'dfn-theme'), esc_html__('Errore', 'dfn-theme'), 404);
     }
 
-    // Verifica token di sicurezza transazionale (supporta sia _dfn_hub che _hub legacy)
-    $expected_token_dfn = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
-    $expected_token_cv  = hash_hmac('sha256', $order->get_order_key() . '_hub', wp_salt('nonce'));
-
-    if (! hash_equals($expected_token_dfn, $token) && ! hash_equals($expected_token_cv, $token)) {
-        wp_die(esc_html__('Link non valido o scaduto.', 'dfn-theme'), esc_html__('Errore di sicurezza', 'dfn-theme'), 403);
-    }
-
-    // Recupera la prenotazione collegata a questo ordine
-    global $wpdb;
-    $table_bookings = $wpdb->prefix . 'dfn_bookings';
-    $booking = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$table_bookings} WHERE order_id = %d LIMIT 1",
-        $order_id,
-    ));
-
     if (! $booking) {
         wp_die(esc_html__('Nessuna prenotazione custom associata a questo ordine nel database.', 'dfn-theme'));
     }
+
+    // Se la rotta era /hub-biglietti, rimuoviamo lo stato 404 di WordPress
+    if ($is_hub_path) {
+        status_header(200);
+        if (isset($wp_query)) {
+            $wp_query->is_404 = false;
+        }
+    }
+
+    // Calcola il token HMAC canonico per i link interni (download, WA share, ecc.)
+    $canonical_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+    $token           = $canonical_token;
 
     // Se l'ordine è annullato, rimborsato o non pagato (escluso in loco pending)
     $payment_method = $order->get_payment_method();
@@ -341,31 +376,42 @@ function dfn_render_group_ticket_hub(): void
  */
 function dfn_handle_qr_download(): void
 {
-    if (! isset($_GET['dfn_download_qr']) || ! isset($_GET['order_id']) || ! isset($_GET['token'])) {
-        return;
-    }
-
-    $order_id = intval($_GET['order_id']);
-    $token    = sanitize_text_field($_GET['token']);
-
-    $order = wc_get_order($order_id);
-    if (! $order) {
-        return;
-    }
-
-    $expected_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
-    if (! hash_equals($expected_token, $token)) {
+    if (! isset($_GET['dfn_download_qr']) || (! isset($_GET['order_id']) && ! isset($_GET['token']))) {
         return;
     }
 
     global $wpdb;
     $table_bookings = $wpdb->prefix . 'dfn_bookings';
-    $booking = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$table_bookings} WHERE order_id = %d LIMIT 1",
-        $order_id,
-    ));
+    $token          = isset($_GET['token']) ? sanitize_text_field(wp_unslash($_GET['token'])) : '';
+    $order_id       = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
+    $booking        = null;
+    $order          = null;
 
-    if (! $booking || empty($booking->qr_token)) {
+    if (! empty($token)) {
+        $booking = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$table_bookings} WHERE qr_token = %s LIMIT 1",
+            $token
+        ));
+        if ($booking && ! empty($booking->order_id)) {
+            $order_id = intval($booking->order_id);
+            $order    = wc_get_order($order_id);
+        }
+    }
+
+    if ((! $booking || ! $order) && $order_id > 0) {
+        $order = wc_get_order($order_id);
+        if ($order) {
+            $expected_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
+            if (hash_equals($expected_token, $token)) {
+                $booking = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM {$table_bookings} WHERE order_id = %d LIMIT 1",
+                    $order_id
+                ));
+            }
+        }
+    }
+
+    if (! $order || ! $booking || empty($booking->qr_token)) {
         return;
     }
 

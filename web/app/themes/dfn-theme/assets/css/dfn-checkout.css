@@ -333,10 +333,9 @@ label.dfn-privacy-consent-label {
     box-sizing: border-box !important;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .dfn-checkout-trust-badges {
-        grid-template-columns: 1fr !important;
-        gap: 12px !important;
+        display: none !important;
     }
 }
 
@@ -1853,7 +1852,7 @@ table.thwcfd-order-details-table,
     }
 
     .dfn-checkout-trust-badges {
-        grid-template-columns: 1fr;
+        display: none !important;
     }
 
     .dfn-card-body {
