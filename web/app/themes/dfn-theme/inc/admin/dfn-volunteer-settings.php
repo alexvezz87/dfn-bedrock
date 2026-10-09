@@ -61,6 +61,11 @@ function dfn_get_volunteer_setting(string $key, $default = null)
         'vol_require_approval'               => 'yes',
         'vol_enable_candidate_pending_email' => 'yes',
         'vol_enable_approved_email'          => 'yes',
+        'vol_enable_teams'                   => 'yes',
+        'vol_enable_meeting_notifications'   => 'yes',
+        'vol_enable_meeting_reminders'       => 'yes',
+        'email_sandbox_mode'                 => 'live',
+        'email_sandbox_recipient'            => $delegation_email,
         'vol_survey_enable_preferred_place'  => 'no',
         'vol_enable_whatsapp_share'          => 'no',
         'vol_whatsapp_share_template'        => "Ciao! Ti inoltro l'aggiornamento per la squadra {squadra} della {delegazione}. Accedi al portale per tutti i dettagli:\n{link_accesso}",
@@ -140,6 +145,11 @@ function dfn_volunteer_settings_save_fields(): void
         'vol_require_approval'               => 'sanitize_text_field',
         'vol_enable_candidate_pending_email' => 'sanitize_text_field',
         'vol_enable_approved_email'          => 'sanitize_text_field',
+        'vol_enable_teams'                   => 'sanitize_text_field',
+        'vol_enable_meeting_notifications'   => 'sanitize_text_field',
+        'vol_enable_meeting_reminders'       => 'sanitize_text_field',
+        'email_sandbox_mode'                 => 'sanitize_text_field',
+        'email_sandbox_recipient'            => 'sanitize_email',
         'vol_survey_enable_preferred_place'  => 'sanitize_text_field',
         'vol_enable_whatsapp_share'          => 'sanitize_text_field',
         'vol_whatsapp_share_template'        => 'sanitize_textarea_field',
@@ -198,6 +208,8 @@ function dfn_volunteer_settings_save_fields(): void
                 $emails = array_map('sanitize_email', array_map('trim', explode(',', $val)));
                 $emails = array_filter($emails);
                 $merged[$field_key] = implode(', ', $emails);
+            } elseif ($sanitize_type === 'sanitize_email') {
+                $merged[$field_key] = sanitize_email(wp_unslash($val));
             } elseif ($sanitize_type === 'sanitize_textarea_field') {
                 $merged[$field_key] = sanitize_textarea_field(wp_unslash($val));
             } else {
@@ -206,9 +218,9 @@ function dfn_volunteer_settings_save_fields(): void
         }
     }
 
-    // Toggle checkboxes default 'no' if unchecked in POST when saving notifications or surveys tab
+    // Toggle checkboxes default 'no' if unchecked in POST when saving notifications, channels or surveys tab
     if ($active_tab === 'notifiche') {
-        $toggles = ['vol_require_approval', 'vol_enable_candidate_pending_email', 'vol_enable_approved_email'];
+        $toggles = ['vol_require_approval', 'vol_enable_candidate_pending_email', 'vol_enable_approved_email', 'vol_enable_meeting_notifications', 'vol_enable_meeting_reminders'];
         foreach ($toggles as $t_key) {
             if (! isset($raw_input[$t_key])) {
                 $merged[$t_key] = 'no';
@@ -222,7 +234,7 @@ function dfn_volunteer_settings_save_fields(): void
             }
         }
     } elseif ($active_tab === 'canali') {
-        $toggles = ['vol_enable_whatsapp_share'];
+        $toggles = ['vol_enable_teams', 'vol_enable_whatsapp_share'];
         foreach ($toggles as $t_key) {
             if (! isset($raw_input[$t_key])) {
                 $merged[$t_key] = 'no';
@@ -626,18 +638,74 @@ function dfn_render_volunteer_settings_page(): void
                                     <p class="description" style="margin-top:6px;"><strong>Comportamento:</strong> Invia una mail formattata con il pulsante di accesso alla bacheca volontari, promemoria riunioni e credenziali operative quando la candidatura viene approvata.</p>
                                 </td>
                             </tr>
+                            <tr>
+                                <th scope="row">Convocazioni Email Riunioni</th>
+                                <td>
+                                    <label for="vol_enable_meeting_notifications" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
+                                        <input type="checkbox" name="dfn_vol_settings[vol_enable_meeting_notifications]" id="vol_enable_meeting_notifications" value="yes" <?php checked(dfn_get_volunteer_setting('vol_enable_meeting_notifications', 'yes'), 'yes'); ?> style="accent-color:#004b23;" />
+                                        Abilita invio immediato email di convocazione quando si pubblica una nuova riunione
+                                    </label>
+                                    <p class="description" style="margin-top:6px;"><strong>Comportamento:</strong> Se attivo, consente di inviare la mail di convocazione formattata (plenaria o ai membri del singolo team) all'atto della pubblicazione o cliccando su <em>Invia Notifiche</em>.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Promemoria Automatici Riunioni (7gg e 1gg)</th>
+                                <td>
+                                    <label for="vol_enable_meeting_reminders" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
+                                        <input type="checkbox" name="dfn_vol_settings[vol_enable_meeting_reminders]" id="vol_enable_meeting_reminders" value="yes" <?php checked(dfn_get_volunteer_setting('vol_enable_meeting_reminders', 'yes'), 'yes'); ?> style="accent-color:#004b23;" />
+                                        Invia automaticamente promemoria email a 7 giorni e a 1 giorno prima dell'incontro
+                                    </label>
+                                    <p class="description" style="margin-top:6px;"><strong>Comportamento:</strong> Controlla l'attivazione del cron job automatico per i promemoria pre-riunione. Rispetta sempre le preferenze individuali espresse da ciascun volontario nel proprio profilo.</p>
+                                </td>
+                            </tr>
                         </table>
 
                         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
                             <?php submit_button(__('Salva Impostazioni', 'dfn-theme'), 'primary', 'submit', false, [ 'style' => 'background: #004b23; border-color: #003318; box-shadow: none; text-shadow: none;' ]); ?>
                         </div>
 
-                    <?php elseif ($active_tab === 'canali') : ?>
+                    <?php elseif ($active_tab === 'canali') : 
+                        $teams_enabled_val = dfn_get_volunteer_setting('vol_enable_teams', 'yes');
+                    ?>
                         <!-- TAB: SQUADRE & CANALI DI COMUNICAZIONE (WHATSAPP & GOOGLE DRIVE) -->
-                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">🛡️ Squadre di Lavoro, Gruppi WhatsApp &amp; Google Drive</h2>
+                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">🛡️ Squadre di Lavoro, Canali &amp; Sotto-modulo v2.1.1</h2>
                         <p class="description" style="margin-bottom: 25px;">
-                            Configura i canali integrati per le squadre operative di Delegazione. Ogni squadra può disporre di un link di invito al gruppo WhatsApp dedicato e di una cartella condivisa su Google Drive per la gestione di documenti e progetti.
+                            Configura l'attivazione della gestione squadre e i canali integrati (WhatsApp e Google Drive) per i gruppi operativi di Delegazione.
                         </p>
+
+                        <!-- MASTER SWITCH SOTTO-MODULO SQUADRE (v2.1.1) -->
+                        <div style="background:#ffffff; border:2px solid <?php echo $teams_enabled_val === 'yes' ? '#86efac' : '#cbd5e1'; ?>; border-radius:10px; padding:20px; margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:280px;">
+                                    <h3 style="font-size:16.5px; font-weight:800; color:#0f172a; margin:0 0 6px 0; display:flex; align-items:center; gap:8px;">
+                                        <span>🧩</span> Modulo Gestione Squadre &amp; Team (v2.1.1)
+                                    </h3>
+                                    <p style="font-size:13.5px; color:#475569; margin:0 0 14px 0; line-height:1.5;">
+                                        Permette di suddividere i volontari in gruppi operativi specializzati (es. <em>Ambiente, Comunicazione, Scuola, Guide</em>), nominare Delegati Responsabili e convocare riunioni mirate solo ai membri di quello specifico gruppo.
+                                    </p>
+                                    
+                                    <label for="vol_enable_teams" style="display:inline-flex; align-items:center; gap:10px; font-weight:700; cursor:pointer; font-size:14.5px; background:#f8fafc; padding:10px 16px; border-radius:8px; border:1px solid #cbd5e1;">
+                                        <input type="checkbox" name="dfn_vol_settings[vol_enable_teams]" id="vol_enable_teams" value="yes" <?php checked($teams_enabled_val, 'yes'); ?> style="accent-color:#004b23; width:20px; height:20px;" />
+                                        <span>Abilita Gestione Squadre, Supervisori &amp; Riunioni di Team (v2.1.1)</span>
+                                    </label>
+                                </div>
+                                <div>
+                                    <?php if ($teams_enabled_val === 'yes') : ?>
+                                        <span style="background:#dcfce7; color:#166534; font-weight:700; font-size:12px; padding:4px 10px; border-radius:12px; border:1px solid #86efac; display:inline-flex; align-items:center; gap:4px;">
+                                            ✅ Modulo 2.1.1 Attivo
+                                        </span>
+                                    <?php else : ?>
+                                        <span style="background:#f1f5f9; color:#64748b; font-weight:700; font-size:12px; padding:4px 10px; border-radius:12px; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:4px;">
+                                            ⏸️ Modalità 2.1 Pura (Delegazione Unica)
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <div style="margin-top:14px; padding-top:12px; border-top:1px solid #f1f5f9; font-size:12.5px; color:#64748b; line-height:1.5;">
+                                <strong>Effetto quando disattivato:</strong> Il sottomenu <em>Squadre &amp; Team</em> viene nascosto, l'elenco e l'inserimento volontari non richiedono l'assegnazione di gruppo e tutte le riunioni funzionano esclusivamente in modalità Plenaria per l'intera delegazione.
+                            </div>
+                        </div>
 
                         <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:20px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
                             <h3 style="font-size:16px; font-weight:700; color:#0f172a; margin:0 0 8px 0; display:flex; align-items:center; gap:8px;">
@@ -1470,32 +1538,90 @@ function dfn_render_volunteer_settings_page(): void
                         });
                         </script>
 
-                    <?php elseif ($active_tab === 'test-invio') : ?>
-                        <!-- TAB 3: TEST INVIO EMAIL -->
-                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">🧪 Test di Invio Email Notifiche Volontari</h2>
-                        <p class="description" style="margin-bottom: 25px;">Invia un'email di prova al tuo indirizzo per verificare la formattazione, i colori del template istituzionale FAI e i testi configurati.</p>
+                    <?php elseif ($active_tab === 'test-invio') : 
+                        $is_staging = (strpos(site_url(), 'staging') !== false || (defined('WP_ENVIRONMENT_TYPE') && WP_ENVIRONMENT_TYPE === 'staging'));
+                        $current_sandbox_mode = dfn_get_volunteer_setting('email_sandbox_mode', 'live');
+                    ?>
+                        <!-- TAB 3: TEST INVIO & PROTEZIONE SANDBOX -->
+                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">🧪 Test di Invio &amp; Protezione Sandbox E-mail</h2>
+                        <p class="description" style="margin-bottom: 20px;">Verifica la corretta consegna delle comunicazioni e imposta la modalità di sicurezza per collaudi o ambienti di Staging.</p>
 
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="dfn-test-vol-template">Modello da Testare</label></th>
-                                <td>
-                                    <select id="dfn-test-vol-template" class="regular-text" style="height:36px; max-width:440px;">
-                                        <option value="admin_notification">1. Notifica Nuovo Candidato (Admin)</option>
-                                        <option value="candidate_pending">2. Ricezione Candidatura (Candidato - In Attesa)</option>
-                                        <option value="volunteer_approved">3. Approvazione &amp; Benvenuto (Volontario)</option>
-                                        <option value="credentials">4. Benvenuto &amp; Credenziali Account con Password (Volontario)</option>
-                                    </select>
-                                    <p class="description">Seleziona quale tipologia di email generare con dati di test simulati.</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="dfn-test-vol-email">Indirizzo Email Destinazione</label></th>
-                                <td>
-                                    <input type="email" id="dfn-test-vol-email" value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>" class="regular-text" style="max-width:440px;" />
-                                    <p class="description">L'indirizzo a cui recapitare l'email di test.</p>
-                                </td>
-                            </tr>
-                        </table>
+                        <?php if ($is_staging) : ?>
+                            <div style="background:#fef3c7; border:1.5px solid #f59e0b; border-radius:8px; padding:14px 18px; margin-bottom:20px; display:flex; align-items:center; gap:12px;">
+                                <span style="font-size:24px;">🧪</span>
+                                <div>
+                                    <strong style="color:#92400e; font-size:13.5px;">Rilevato Ambiente di Staging (<code>staging.dfnprenotazioni.it</code>)</strong>
+                                    <div style="color:#78350f; font-size:12.5px; margin-top:2px;">
+                                        Per evitare l'invio accidentale di email a volontari o clienti reali durante i test, puoi selezionare la modalità <strong>Silenziosa (Mute)</strong> o <strong>Sandbox Redirect</strong>.
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- CARD CONTROLLO AMBIENTE NOTIFICHE -->
+                        <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:18px 20px; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                            <h3 style="font-size:15px; font-weight:700; color:#0f172a; margin:0 0 12px 0; display:flex; align-items:center; gap:8px;">
+                                <span>🛡️</span> Modalità di Consegna &amp; Sicurezza Notifiche
+                            </h3>
+                            <table class="form-table" role="presentation" style="margin-top:0;">
+                                <tr>
+                                    <th scope="row" style="padding-top:8px; width:240px;">Stato Invio Notifiche</th>
+                                    <td style="padding-top:8px;">
+                                        <fieldset>
+                                            <label style="display:flex; align-items:center; gap:8px; font-weight:600; margin-bottom:8px; cursor:pointer;">
+                                                <input type="radio" name="dfn_vol_settings[email_sandbox_mode]" value="live" <?php checked($current_sandbox_mode, 'live'); ?> style="accent-color:#004b23;" />
+                                                🟢 <span>Invio Reale a Destinatari (Produzione)</span>
+                                            </label>
+                                            <label style="display:flex; align-items:center; gap:8px; font-weight:600; margin-bottom:8px; cursor:pointer;">
+                                                <input type="radio" name="dfn_vol_settings[email_sandbox_mode]" value="mute" <?php checked($current_sandbox_mode, 'mute'); ?> style="accent-color:#004b23;" />
+                                                🔴 <span>Modalità Silenziosa / Mute (Blocca tutte le email in uscita, registra solo nei log)</span>
+                                            </label>
+                                            <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
+                                                <input type="radio" name="dfn_vol_settings[email_sandbox_mode]" value="sandbox_redirect" <?php checked($current_sandbox_mode, 'sandbox_redirect'); ?> style="accent-color:#004b23;" />
+                                                🟡 <span>Sandbox Redirect (Devia tutte le email a una casella di test designata)</span>
+                                            </label>
+                                        </fieldset>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" style="padding-top:8px;"><label for="email_sandbox_recipient">Email di Test Sandbox</label></th>
+                                    <td style="padding-top:8px;">
+                                        <input type="email" name="dfn_vol_settings[email_sandbox_recipient]" id="email_sandbox_recipient" value="<?php echo esc_attr(dfn_get_volunteer_setting('email_sandbox_recipient', get_option('admin_email'))); ?>" class="regular-text" style="max-width:440px;" />
+                                        <p class="description">Utilizzato come unico destinatario di tutte le email in uscita quando è attiva la modalità Sandbox Redirect.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div style="margin-top:16px; padding-top:12px; border-top:1px solid #f1f5f9;">
+                                <?php submit_button(__('Salva Modalità di Consegna', 'dfn-theme'), 'secondary', 'submit', false); ?>
+                            </div>
+                        </div>
+
+                        <!-- CARD TEST INVIO TEMPLATE -->
+                        <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                            <h3 style="font-size:15px; font-weight:700; color:#0f172a; margin:0 0 12px 0; display:flex; align-items:center; gap:8px;">
+                                <span>🚀</span> Test Invio Modello Singolo
+                            </h3>
+                            <table class="form-table" role="presentation" style="margin-top:0;">
+                                <tr>
+                                    <th scope="row"><label for="dfn-test-vol-template">Modello da Testare</label></th>
+                                    <td>
+                                        <select id="dfn-test-vol-template" class="regular-text" style="height:36px; max-width:440px;">
+                                            <option value="admin_notification">1. Notifica Nuovo Candidato (Admin)</option>
+                                            <option value="candidate_pending">2. Ricezione Candidatura (Candidato - In Attesa)</option>
+                                            <option value="volunteer_approved">3. Approvazione &amp; Benvenuto (Volontario)</option>
+                                            <option value="credentials">4. Benvenuto &amp; Credenziali Account con Password (Volontario)</option>
+                                        </select>
+                                        <p class="description">Seleziona quale tipologia di email generare con dati di test simulati.</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label for="dfn-test-vol-email">Indirizzo Email Destinazione</label></th>
+                                    <td>
+                                        <input type="email" id="dfn-test-vol-email" value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>" class="regular-text" style="max-width:440px;" />
+                                        <p class="description">L'indirizzo a cui recapitare l'email di test.</p>
+                                    </td>
+                                </tr>
+                            </table>
 
                         <div style="margin-top: 25px;">
                             <button type="button" id="dfn-send-vol-test-btn" class="button button-primary button-large" style="background:#004b23; border-color:#003318; font-weight:600; box-shadow:none; text-shadow:none;">
