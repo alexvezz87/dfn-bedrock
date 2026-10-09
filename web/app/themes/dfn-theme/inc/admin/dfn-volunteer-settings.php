@@ -257,21 +257,14 @@ function dfn_volunteer_settings_save_fields(): void
         );
     }
 
-    if ($updated) {
-        add_settings_error(
-            'dfn_vol_settings_messages',
-            'dfn_vol_settings_updated',
-            __('Impostazioni Volontari salvate con successo.', 'dfn-theme'),
-            'updated'
-        );
-    } else {
-        add_settings_error(
-            'dfn_vol_settings_messages',
-            'dfn_vol_settings_no_change',
-            __('Nessuna modifica rilevata o impostazioni già aggiornate.', 'dfn-theme'),
-            'info'
-        );
-    }
+    $redirect_url = add_query_arg([
+        'page'             => 'dfn-volunteer-settings',
+        'tab'              => $active_tab,
+        'settings-updated' => 'true',
+    ], admin_url('admin.php'));
+
+    wp_safe_redirect($redirect_url);
+    exit;
 }
 
 /**
@@ -281,6 +274,15 @@ function dfn_render_volunteer_settings_page(): void
 {
     if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members')) {
         wp_die(__('Permessi insufficienti per accedere a questa sezione.', 'dfn-theme'));
+    }
+
+    if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true') {
+        add_settings_error(
+            'dfn_vol_settings_messages',
+            'dfn_vol_settings_updated',
+            __('Impostazioni Volontari salvate con successo.', 'dfn-theme'),
+            'updated'
+        );
     }
 
     // Mostra messaggi di notifica/errore
@@ -583,7 +585,7 @@ function dfn_render_volunteer_settings_page(): void
 
             <!-- Form Content Area -->
             <div class="dfn-settings-content" style="flex-grow: 1; padding: 30px 40px; min-width: 0;">
-                <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-settings&tab=' . $active_tab)); ?>">
+                <form method="post" action="">
                     <?php wp_nonce_field('dfn_save_vol_settings_action', 'dfn_vol_settings_nonce'); ?>
 
                     <?php if ($active_tab === 'notifiche') : ?>
