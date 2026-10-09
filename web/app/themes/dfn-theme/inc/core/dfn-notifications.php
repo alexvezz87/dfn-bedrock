@@ -2342,3 +2342,259 @@ function dfn_send_booking_expired_unapproved(int $booking_id): bool
     $context_tag = "[Ordine #" . ($booking->order_id ?: 'N/D') . "] [Booking #{$booking_id}] [Scadenza Verifica]";
     return dfn_send_notification_email($booking->customer_email, $subject, $title, $content, [], $context_tag);
 }
+
+/**
+ * ==========================================================================
+ * MODULO 2.1.1: NOTIFICHE E CONVOCAZIONI RIUNIONI DI DELEGAZIONE E TEAM (#26)
+ * ==========================================================================
+ */
+
+/**
+ * Costruisce il template HTML per l'email di convocazione o promemoria riunione volontari (Plenaria o di Team).
+ *
+ * @param object      $meeting       Riga della riunione da wp_dfn_volunteer_meetings.
+ * @param object|null $team          Oggetto team da wp_dfn_teams (o null se Plenaria).
+ * @param bool        $is_reminder   Se si tratta di un promemoria (es. 7gg o 24h prima).
+ * @param string      $reminder_type Tipo promemoria ('7d', '1d', etc.).
+ * @return string HTML renderizzato.
+ */
+function dfn_build_volunteer_meeting_email_html(object $meeting, ?object $team = null, bool $is_reminder = false, string $reminder_type = ''): string
+{
+    $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+    $m_date = strtotime($meeting->meeting_date);
+    $date_formatted = date_i18n('l d F Y', $m_date);
+    $time_formatted = substr($meeting->meeting_time_start, 0, 5);
+    if (! empty($meeting->meeting_time_end)) {
+        $time_formatted .= ' - ' . substr($meeting->meeting_time_end, 0, 5);
+    }
+
+    $is_team = ! empty($team) && ! empty($team->id);
+    $scope_title = $is_team ? ($team->icon . ' ' . $team->name) : '🏛️ Plenaria di Delegazione (' . $delegation_name . ')';
+    $scope_bg    = $is_team ? ($team->badge_bg ?: '#f0fdf4') : '#f8fafc';
+    $scope_color = $is_team ? ($team->color ?: '#004b23') : '#1e293b';
+    $scope_border= $is_team ? ($team->color ? $team->color . '40' : '#86efac') : '#cbd5e1';
+
+    $intro_text = $is_reminder 
+        ? ($reminder_type === '1d' ? 'Ti ricordiamo che <strong>domani</strong> si terrà la seguente riunione programmata.' : 'Ti ricordiamo che tra una settimana si terrà la seguente riunione programmata.')
+        : 'Sei invitato a partecipare alla seguente riunione di delegazione/squadra:';
+
+    $hub_url = function_exists('wc_get_page_permalink') ? wc_get_endpoint_url('riunioni-fai', '', wc_get_page_permalink('myaccount')) : home_url('/mio-account/riunioni-fai/');
+
+    $html = '<div style="font-family:\'Outfit\',-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif; max-width:600px; margin:0 auto; color:#1e293b; line-height:1.6;">';
+    
+    // Header Badge Ambito
+    $html .= '<div style="margin-bottom: 20px; text-align: center;">';
+    $html .= '<span style="display:inline-block; background:' . esc_attr($scope_bg) . '; color:' . esc_attr($scope_color) . '; border:1px solid ' . esc_attr($scope_border) . '; padding:6px 14px; border-radius:20px; font-weight:700; font-size:13px;">' . esc_html($scope_title) . '</span>';
+    $html .= '</div>';
+
+    // Titolo Riunione
+    $html .= '<h2 style="font-size:22px; font-weight:800; color:#0f172a; margin:0 0 12px 0; text-align:center;">' . esc_html($meeting->title) . '</h2>';
+    $html .= '<p style="font-size:14.5px; color:#475569; text-align:center; margin:0 0 24px 0;">' . $intro_text . '</p>';
+
+    // Box Scheda Dettagli
+    $html .= '<div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid ' . esc_attr($scope_color) . '; border-radius:10px; padding:20px 24px; margin-bottom:24px; box-shadow:0 2px 6px rgba(0,0,0,0.04);">';
+    
+    // Data & Ora
+    $html .= '<div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:14px;">';
+    $html .= '<div style="font-size:20px; line-height:1;">🗓️</div>';
+    $html .= '<div><strong style="font-size:14px; color:#0f172a; display:block;">Data &amp; Orario:</strong>';
+    $html .= '<span style="font-size:14.5px; color:#334155; font-weight:600;">' . esc_html(ucfirst($date_formatted)) . '</span> <span style="background:#f1f5f9; padding:2px 8px; border-radius:4px; font-size:12.5px; font-weight:700; color:#0f172a; margin-left:6px; border:1px solid #e2e8f0;">⏰ ore ' . esc_html($time_formatted) . '</span>';
+    $html .= '</div></div>';
+
+    // Sede / Luogo
+    $html .= '<div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:14px;">';
+    $html .= '<div style="font-size:20px; line-height:1;">📍</div>';
+    $html .= '<div><strong style="font-size:14px; color:#0f172a; display:block;">Sede / Luogo:</strong>';
+    $html .= '<span style="font-size:14px; color:#334155;">' . esc_html($meeting->location) . '</span>';
+    $html .= '</div></div>';
+
+    // Ordine del giorno
+    if (! empty($meeting->agenda)) {
+        $html .= '<div style="margin-top:16px; padding-top:14px; border-top:1px dashed #e2e8f0;">';
+        $html .= '<strong style="font-size:13.5px; color:#0f172a; display:block; margin-bottom:6px;">📝 Ordine del Giorno &amp; Note:</strong>';
+        $html .= '<div style="font-size:13.5px; color:#475569; background:#f8fafc; padding:12px 14px; border-radius:6px; border:1px solid #edf2f7; white-space:pre-line;">' . esc_html($meeting->agenda) . '</div>';
+        $html .= '</div>';
+    }
+
+    $html .= '</div>';
+
+    // Bottone Partecipazione Online (se presente link)
+    if (! empty($meeting->meeting_link)) {
+        $html .= '<div style="text-align:center; margin-bottom:20px;">';
+        $html .= '<a href="' . esc_url($meeting->meeting_link) . '" target="_blank" rel="noopener noreferrer" style="background:#0284c7; color:#ffffff; font-weight:700; font-size:14px; text-decoration:none; padding:12px 24px; border-radius:8px; display:inline-block; box-shadow:0 2px 4px rgba(2,132,199,0.3);">';
+        $html .= '🔗 Partecipa alla Riunione Online (Meet / Zoom) &rarr;';
+        $html .= '</a>';
+        $html .= '</div>';
+    }
+
+    // Link Bacheca Volontario
+    $html .= '<div style="text-align:center; margin-bottom:24px;">';
+    $html .= '<a href="' . esc_url($hub_url) . '" style="color:#004b23; font-weight:700; font-size:13.5px; text-decoration:underline;">';
+    $html .= '👉 Consulta tutte le tue riunioni nell\'Area Riservata';
+    $html .= '</a>';
+    $html .= '</div>';
+
+    // Canali Squadra WhatsApp & Drive se presenti
+    if ($is_team && (! empty($team->whatsapp_url) || ! empty($team->drive_url))) {
+        $html .= '<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; text-align:center; margin-bottom:20px;">';
+        $html .= '<div style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:8px; text-transform:uppercase;">Canali ' . esc_html($team->name) . ':</div>';
+        $html .= '<div style="display:inline-flex; gap:10px; flex-wrap:wrap; justify-content:center;">';
+        if (! empty($team->whatsapp_url)) {
+            $html .= '<a href="' . esc_url($team->whatsapp_url) . '" target="_blank" style="background:#25d366; color:#ffffff; font-size:12px; font-weight:700; padding:6px 12px; border-radius:6px; text-decoration:none;">💬 Gruppo WhatsApp</a>';
+        }
+        if (! empty($team->drive_url)) {
+            $html .= '<a href="' . esc_url($team->drive_url) . '" target="_blank" style="background:#0284c7; color:#ffffff; font-size:12px; font-weight:700; padding:6px 12px; border-radius:6px; text-decoration:none;">📁 Cartella Drive</a>';
+        }
+        $html .= '</div></div>';
+    }
+
+    // Footer
+    $html .= '<p style="font-size:12px; color:#94a3b8; text-align:center; margin-top:24px; border-top:1px solid #f1f5f9; padding-top:14px;">';
+    $html .= 'Questa notifica è stata generata automaticamente dalla Delegazione ' . esc_html($delegation_name) . '. Puoi gestire le tue preferenze di notifica accedendo al tuo profilo.';
+    $html .= '</p>';
+
+    $html .= '</div>';
+
+    return $html;
+}
+
+/**
+ * Invia email di convocazione o promemoria per una riunione a tutti i destinatari profilati (Plenaria o Team specifico).
+ *
+ * @param int         $meeting_id          ID della riunione in wp_dfn_volunteer_meetings.
+ * @param bool        $is_reminder         Se true, genera un'email di promemoria.
+ * @param string      $reminder_type       Tipo promemoria ('7d', '1d', etc.).
+ * @param array<int>  $override_member_ids Array opzionale di ID membri per invio mirato/test.
+ * @return array Risultato dell'invio con contatori e destinatari.
+ */
+function dfn_send_volunteer_meeting_notification(int $meeting_id, bool $is_reminder = false, string $reminder_type = '', array $override_member_ids = []): array
+{
+    global $wpdb;
+    $table_meetings = $wpdb->prefix . 'dfn_volunteer_meetings';
+    $table_fai      = $wpdb->prefix . 'dfn_fai_members';
+
+    $meeting = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_meetings} WHERE id = %d", $meeting_id));
+    if (! $meeting) {
+        return [
+            'success'      => false,
+            'message'      => __('Riunione non trovata.', 'dfn-theme'),
+            'sent_count'   => 0,
+            'failed_count' => 0,
+            'recipients'   => [],
+        ];
+    }
+
+    $team = null;
+    $is_team = ! empty($meeting->team_id) && (int) $meeting->team_id > 0;
+    if ($is_team) {
+        $team = function_exists('dfn_get_team') ? dfn_get_team((int) $meeting->team_id) : null;
+    }
+
+    // 1. Identificazione dei destinatari
+    $recipients_pool = [];
+    if (! empty($override_member_ids)) {
+        $placeholders = implode(',', array_fill(0, count($override_member_ids), '%d'));
+        $sql = "SELECT * FROM {$table_fai} WHERE id IN ({$placeholders}) AND is_volunteer = 1";
+        $recipients_pool = $wpdb->get_results($wpdb->prepare($sql, ...$override_member_ids));
+    } elseif ($is_team) {
+        $recipients_pool = function_exists('dfn_get_team_members') ? dfn_get_team_members((int) $meeting->team_id) : [];
+        // Aggiungi anche i supervisori se non già presenti
+        $supervisors = function_exists('dfn_get_team_supervisors') ? dfn_get_team_supervisors((int) $meeting->team_id) : [];
+        $existing_emails = array_map(fn($v) => strtolower($v->email ?? ''), $recipients_pool);
+        foreach ($supervisors as $sup_u) {
+            if ($sup_u && ! empty($sup_u->user_email) && ! in_array(strtolower($sup_u->user_email), $existing_emails, true)) {
+                $recipients_pool[] = (object) [
+                    'id'         => 0,
+                    'user_id'    => $sup_u->ID,
+                    'first_name' => $sup_u->first_name ?: $sup_u->display_name,
+                    'last_name'  => $sup_u->last_name,
+                    'email'      => $sup_u->user_email,
+                ];
+            }
+        }
+    } else {
+        // Plenaria: tutti i volontari ufficiali attivi
+        $recipients_pool = $wpdb->get_results("SELECT * FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status = 'active' ORDER BY last_name ASC, first_name ASC");
+    }
+
+    if (empty($recipients_pool)) {
+        return [
+            'success'      => false,
+            'message'      => __('Nessun volontario trovato tra i destinatari del gruppo.', 'dfn-theme'),
+            'sent_count'   => 0,
+            'failed_count' => 0,
+            'recipients'   => [],
+        ];
+    }
+
+    $delegation_name = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
+    $scope_tag = $is_team && $team ? '[' . $team->name . ']' : '[' . $delegation_name . ']';
+    $m_date_str = date_i18n('d/m/Y', strtotime($meeting->meeting_date));
+
+    if ($is_reminder) {
+        $rem_label = ($reminder_type === '1d') ? 'Domani' : 'Promemoria';
+        $subject = sprintf('[%s] %s Riunione: %s - %s', $rem_label, $scope_tag, $meeting->title, $m_date_str);
+        $title_header = sprintf('⏰ %s Riunione %s', $rem_label, $is_team && $team ? $team->name : 'Plenaria');
+    } else {
+        $subject = sprintf('Convocazione Riunione %s: %s - %s', $scope_tag, $meeting->title, $m_date_str);
+        $title_header = sprintf('📅 Convocazione Riunione %s', $is_team && $team ? $team->name : 'Plenaria');
+    }
+
+    $html_content = dfn_build_volunteer_meeting_email_html($meeting, $team, $is_reminder, $reminder_type);
+    $sender = function_exists('dfn_get_volunteer_email_sender') ? dfn_get_volunteer_email_sender() : null;
+
+    $sent_emails   = [];
+    $failed_emails = [];
+
+    foreach ($recipients_pool as $recip) {
+        $to = sanitize_email($recip->email ?? '');
+        if (empty($to) || ! is_email($to)) {
+            continue;
+        }
+
+        // Verifica preferenze di notifica se collegato a utente WP
+        $u_id = ! empty($recip->user_id) ? (int) $recip->user_id : 0;
+        if ($u_id > 0 && function_exists('dfn_user_wants_meetings_notification')) {
+            if (! dfn_user_wants_meetings_notification($u_id)) {
+                continue; // Utente ha disattivato le notifiche per le riunioni
+            }
+        }
+
+        $sent = dfn_send_notification_email($to, $subject, $title_header, $html_content, [], '[Riunione Volontari]', $sender);
+        if ($sent) {
+            $sent_emails[] = $to;
+        } else {
+            $failed_emails[] = $to;
+        }
+    }
+
+    // Aggiornamento stato reminder nel DB
+    if ($is_reminder) {
+        if ($reminder_type === '7d') {
+            $wpdb->update($table_meetings, ['reminder_7d_sent' => 1], ['id' => $meeting_id], ['%d'], ['%d']);
+        } elseif ($reminder_type === '1d') {
+            $wpdb->update($table_meetings, ['reminder_1d_sent' => 1], ['id' => $meeting_id], ['%d'], ['%d']);
+        }
+    }
+
+    // Logging
+    $target_desc = $is_team && $team ? "Team {$team->name}" : 'Plenaria Volontari';
+    $action_desc = $is_reminder ? "Invio promemoria ({$reminder_type})" : "Invio convocazione";
+    if (function_exists('dfn_log_volunteer_meeting')) {
+        dfn_log_volunteer_meeting($meeting_id, "{$action_desc} email", "Inviate con successo a " . count($sent_emails) . " volontari ({$target_desc})");
+    }
+    if (function_exists('dfn_log_write')) {
+        $author_name = is_user_logged_in() ? wp_get_current_user()->display_name : 'Sistema';
+        dfn_log_write('volontari', $author_name, sprintf("%s per la riunione '%s' inviato a %d destinatari (%s)", $action_desc, $meeting->title, count($sent_emails), $target_desc), 'success');
+    }
+
+    return [
+        'success'      => count($sent_emails) > 0,
+        'message'      => sprintf(__('Email inviate con successo a %d volontari.', 'dfn-theme'), count($sent_emails)),
+        'sent_count'   => count($sent_emails),
+        'failed_count' => count($failed_emails),
+        'recipients'   => $sent_emails,
+        'target_label' => $target_desc,
+    ];
+}
+

@@ -66,3 +66,22 @@ web/app/themes/dfn-theme/inc/
 - **Chiamate AJAX**: Tutta l'interazione del widget di prenotazione e della PWA avviene tramite endpoint AJAX su `/wp/wp-admin/admin-ajax.php` con nonce di sicurezza dedicato (`dfn_booking_nonce`, `dfn_scanner_nonce`).
 - **Bypass Sicurezza**: Le chiamate AJAX sono esentate dai filtri di redirect amministrativi (`dfn_sblocca_backend_volontari` e `dfn_block_wp_admin_for_volunteers`), garantendo risposte JSON immediate a visitatori e utenti loggati.
 - **Integrazione WooCommerce**: I prodotti collegati a eventi (`wp_dfn_events.product_id`) mantengono prezzi dinamici e commissioni differenziate (soci FAI) agganciandosi agli hook di calcolo del carrello WooCommerce (`woocommerce_before_calculate_totals`, `woocommerce_cart_calculate_fees`).
+
+---
+
+## 4. Architettura Modulare & Sistema ON/OFF (Software Distribuibile a Moduli)
+
+Il sistema è concepito per essere un **software distribuibile e attivabile a moduli indipendenti**:
+
+1. **Modulo 2.0 (Core Booking & Eventi)**:
+   - Include il motore di gestione eventi, il widget di prenotazione, il checkout nativo, i gateway, la PWA di scansione QR e l'hub biglietti.
+   - Costituisce la base portante dell'intero ecosistema.
+
+2. **Modulo 2.1 (Gestione Volontari & Matrice Turni)**:
+   - Include l'anagrafica volontari, i sondaggi disponibilità e la matrice logistica ad alta densità.
+   - Funziona come modulo attivabile/disattivabile: se disattivato, il core 2.0 continua a funzionare regolarmente senza errori o dipendenze orfane.
+
+3. **Modulo 2.1.1 (Gestione Team)** e futuri moduli (`2.2`, `2.3`...):
+   - Progettati per integrarsi a monte o a valle rispettando sempre i controlli di feature-flag e l'isolamento dei dati.
+
+> **Regola Architetturale**: Nessun modulo opzionale deve invocare direttamente funzioni o tabelle di altri moduli senza prima verificarne l'esistenza o lo stato di attivazione (`function_exists()`, `class_exists()`, o controlli flag ON/OFF).

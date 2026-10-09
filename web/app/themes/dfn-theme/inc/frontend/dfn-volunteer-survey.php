@@ -44,11 +44,14 @@ function dfn_handle_volunteer_survey_page_rewrite(): void
                     'remember'      => true,
                 ];
                 $signon = wp_signon($creds, is_ssl());
+                $token  = sanitize_text_field($_GET['token'] ?? '');
                 if (! is_wp_error($signon)) {
                     wp_set_current_user($signon->ID);
                     wp_set_auth_cookie($signon->ID, true);
-                    $token = sanitize_text_field($_GET['token'] ?? '');
-                    wp_safe_redirect(add_query_arg('token', $token, site_url('/sondaggio-volontari/')));
+                    wp_safe_redirect(add_query_arg('token', $token, home_url('/sondaggio-volontari/')));
+                    exit;
+                } else {
+                    wp_safe_redirect(add_query_arg(['token' => $token, 'login_error' => '1'], home_url('/sondaggio-volontari/')));
                     exit;
                 }
             }
@@ -118,6 +121,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
 
     // Recupero dati utente loggato (se presente)
     $current_user_id = get_current_user_id();
+    $is_user_logged  = (bool) $current_user_id;
     $user            = null;
     $volunteer       = null;
     $user_first_name = '';
@@ -126,6 +130,14 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
     $user_phone      = '';
     $user_notes      = '';
     $just_registered = false;
+
+    $login_error = isset($_GET['login_error']) && $_GET['login_error'] === '1';
+    $feedback_msg = '';
+    if ($login_error) {
+        $feedback_msg = '<div class="notice notice-error" style="background:#fee2e2; border:1.5px solid #fca5a5; color:#991b1b; padding:12px 16px; border-radius:10px; margin-bottom:20px; font-size:13.5px;">'
+                      . '❌ <strong>Errore di accesso:</strong> Email/Username o password errati. Riprova o <a href="' . esc_url(wp_lostpassword_url()) . '" target="_blank" style="color:#991b1b; text-decoration:underline; font-weight:700;">recupera la password</a>.'
+                      . '</div>';
+    }
 
     if ($current_user_id) {
         $user = wp_get_current_user();
@@ -168,7 +180,6 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
     }
 
     // Gestione invio form sondaggio
-    $feedback_msg = '';
     if (isset($_POST['dfn_submit_survey']) && wp_verify_nonce($_POST['dfn_survey_nonce'] ?? '', 'dfn_survey_submit_action')) {
         if ($is_expired) {
             $feedback_msg = '<div class="notice notice-error" style="background:#fee2e2; color:#991b1b; padding:12px; border-radius:8px; margin-bottom:18px;">⚠️ Il termine per rispondere a questo sondaggio è scaduto.</div>';
@@ -369,7 +380,7 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                 $user_notes      = $f_notes;
                 $volunteer       = dfn_get_volunteer_by_user($current_user_id);
 
-                $account_url = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : site_url('/mio-account/');
+                $account_url = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : home_url('/mio-account/');
 
                 $extra_info = $just_registered 
                     ? '<p style="margin:8px 0 0 0; font-size:13.5px; font-weight:normal;">Il tuo account volontario è stato creato con successo e ti abbiamo inviato un\'email di benvenuto. Puoi accedere alla tua <a href="' . esc_url($account_url) . '" style="color:#166534; font-weight:800; text-decoration:underline;">Area Personale Volontari</a> per visualizzare i turni e i tuoi dati.</p>'
@@ -452,70 +463,88 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
                 </div>
                 <div style="font-size: 13px; color: #7f1d1d; line-height: 1.5;">
                     Le risposte per questo evento sono state chiuse per procedere con l'assegnazione dei turni.
-                    <?php if (! empty($saved_responses)) : ?>
-                        Di seguito puoi visualizzare il riepilogo delle disponibilità che hai inviato.
+                    <?php if ($is_user_logged) : ?>
+                        <?php if (! empty($saved_responses)) : ?>
+                            Di seguito puoi visualizzare il riepilogo delle disponibilità che hai inviato.
+                        <?php else : ?>
+                            Non risultano risposte registrate a tuo nome prima della chiusura del sondaggio.
+                        <?php endif; ?>
                     <?php else : ?>
-                        Non risultano risposte registrate a tuo nome prima della chiusura del sondaggio.
+                        Se sei un volontario registrato o hai già risposto in precedenza, <strong>effettua il login qui sotto</strong> per verificare le tue disponibilità o accedere alla tua Area Personale.
                     <?php endif; ?>
+                </div>
+                <?php if ($is_user_logged && empty($saved_responses)) : ?>
+                    <div style="margin-top: 12px;">
+                        <a href="<?php echo esc_url(function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : home_url('/mio-account/')); ?>" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; background: #004b23; color: #ffffff !important; padding: 7px 15px; border-radius: 6px; text-decoration: none;">
+                            👤 Vai alla tua Area Personale
+                        </a>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($is_user_logged) : ?>
+            <!-- Banner Utente Autenticato -->
+            <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px;">🟢</span>
+                    <div>
+                        <strong style="font-size: 14px; color: #166534; display: block;">
+                            Autenticato come <?php echo esc_html(trim($user_first_name . ' ' . $user_last_name) ?: ($user ? $user->display_name : 'Volontario')); ?>
+                        </strong>
+                        <span style="font-size: 12px; color: #15803d;"><?php echo esc_html($user_email); ?></span>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <a href="<?php echo esc_url(function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : home_url('/mio-account/')); ?>" style="font-size: 12px; font-weight: 700; color: #004b23; text-decoration: none; background: #e8f5e9; padding: 6px 12px; border-radius: 6px; border: 1px solid #a7f3d0; display: inline-flex; align-items: center; gap: 4px;">
+                        👤 Area Personale Volontari
+                    </a>
+                    <a href="<?php echo esc_url(wp_logout_url(add_query_arg('token', $token, home_url('/sondaggio-volontari/')))); ?>" style="font-size: 12px; font-weight: 700; color: #dc2626; text-decoration: none; background: #fee2e2; padding: 6px 12px; border-radius: 6px; border: 1px solid #fca5a5;">
+                        Esci
+                    </a>
                 </div>
             </div>
         <?php else : ?>
-            <?php if ($is_user_logged) : ?>
-                <!-- Banner Utente Autenticato -->
-                <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <!-- Box Invito al Login Rapido per chi è già registrato (Colori Ufficiali FAI) -->
+            <div class="dfn-survey-login-prompt" style="background: #f0fdf4; border: 1.5px solid #86efac; border-left: 5px solid #004b23; border-radius: 12px; padding: 14px 18px; margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">🟢</span>
+                        <span style="font-size: 22px;">🔑</span>
                         <div>
-                            <strong style="font-size: 14px; color: #166534; display: block;">
-                                Autenticato come <?php echo esc_html(trim($user_first_name . ' ' . $user_last_name) ?: ($user ? $user->display_name : 'Volontario')); ?>
-                            </strong>
-                            <span style="font-size: 12px; color: #15803d;"><?php echo esc_html($user_email); ?></span>
+                            <strong style="font-size: 14px; color: #004b23; display: block;">Sei già registrato come volontario?</strong>
+                            <span style="font-size: 12.5px; color: #166534;">
+                                <?php echo $is_expired ? 'Accedi per verificare subito le tue risposte o consultare la tua Area Personale' : 'Accedi per autocompilare istantaneamente i tuoi dati'; ?>
+                            </span>
                         </div>
                     </div>
-                    <a href="<?php echo esc_url(wp_logout_url(add_query_arg('token', $token, site_url('/sondaggio-volontari/')))); ?>" style="font-size: 12px; font-weight: 700; color: #dc2626; text-decoration: none; background: #fee2e2; padding: 4px 10px; border-radius: 6px; border: 1px solid #fca5a5;">
-                        Non sei tu? Esci
-                    </a>
+                    <button type="button" id="dfn-survey-toggle-login-btn" class="button" style="background: #004b23; color: #ffffff !important; border: none; font-weight: 700; font-size: 12.5px; border-radius: 6px; padding: 7px 16px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,75,35,0.2); transition: all 0.2s;">
+                        Accedi subito &darr;
+                    </button>
                 </div>
-            <?php else : ?>
-                <!-- Box Invito al Login Rapido per chi è già registrato (Colori Ufficiali FAI) -->
-                <div class="dfn-survey-login-prompt" style="background: #f0fdf4; border: 1.5px solid #86efac; border-left: 5px solid #004b23; border-radius: 12px; padding: 14px 18px; margin-bottom: 24px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 22px;">🔑</span>
-                            <div>
-                                <strong style="font-size: 14px; color: #004b23; display: block;">Sei già registrato come volontario?</strong>
-                                <span style="font-size: 12.5px; color: #166534;">Accedi per autocompilare istantaneamente i tuoi dati</span>
-                            </div>
-                        </div>
-                        <button type="button" id="dfn-survey-toggle-login-btn" class="button" style="background: #004b23; color: #ffffff !important; border: none; font-weight: 700; font-size: 12.5px; border-radius: 6px; padding: 7px 16px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,75,35,0.2); transition: all 0.2s;">
-                            Accedi subito &darr;
-                        </button>
-                    </div>
 
-                    <!-- Form Login Inline -->
-                    <div id="dfn-survey-login-box" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed #86efac;">
-                        <form method="post" action="" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: flex-end;">
-                            <?php wp_nonce_field('dfn_survey_login_action', 'dfn_survey_login_nonce'); ?>
-                            <div>
-                                <label style="display: block; font-size: 12px; font-weight: 700; color: #004b23; margin-bottom: 4px;">Email o Username</label>
-                                <input type="text" name="log" required placeholder="mario.rossi@email.it" style="width: 100%; border-radius: 6px; border: 1.5px solid #86efac; height: 36px; padding: 0 10px; font-size: 13px; background: #ffffff; color: #0f172a; outline: none;">
-                            </div>
-                            <div>
-                                <label style="display: block; font-size: 12px; font-weight: 700; color: #004b23; margin-bottom: 4px;">Password</label>
-                                <input type="password" name="pwd" required placeholder="••••••••" style="width: 100%; border-radius: 6px; border: 1.5px solid #86efac; height: 36px; padding: 0 10px; font-size: 13px; background: #ffffff; color: #0f172a; outline: none;">
-                            </div>
-                            <div>
-                                <button type="submit" name="dfn_survey_login" class="button button-primary" style="background: #004b23 !important; color: #ffffff !important; border: 1px solid #002e15 !important; height: 36px; font-weight: 700; padding: 0 18px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,75,35,0.2);">
-                                    Entra
-                                </button>
-                            </div>
-                        </form>
-                        <div style="margin-top: 8px; font-size: 11.5px; text-align: right;">
-                            <a href="<?php echo esc_url(wp_lostpassword_url()); ?>" target="_blank" style="color: #004b23; text-decoration: underline; font-weight: 600;">Hai dimenticato la password?</a>
+                <!-- Form Login Inline -->
+                <div id="dfn-survey-login-box" style="display: <?php echo $login_error ? 'block' : 'none'; ?>; margin-top: 14px; padding-top: 14px; border-top: 1px dashed #86efac;">
+                    <form method="post" action="" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: flex-end;">
+                        <?php wp_nonce_field('dfn_survey_login_action', 'dfn_survey_login_nonce'); ?>
+                        <div>
+                            <label style="display: block; font-size: 12px; font-weight: 700; color: #004b23; margin-bottom: 4px;">Email o Username</label>
+                            <input type="text" name="log" required placeholder="mario.rossi@email.it" style="width: 100%; border-radius: 6px; border: 1.5px solid #86efac; height: 36px; padding: 0 10px; font-size: 13px; background: #ffffff; color: #0f172a; outline: none;">
                         </div>
+                        <div>
+                            <label style="display: block; font-size: 12px; font-weight: 700; color: #004b23; margin-bottom: 4px;">Password</label>
+                            <input type="password" name="pwd" required placeholder="••••••••" style="width: 100%; border-radius: 6px; border: 1.5px solid #86efac; height: 36px; padding: 0 10px; font-size: 13px; background: #ffffff; color: #0f172a; outline: none;">
+                        </div>
+                        <div>
+                            <button type="submit" name="dfn_survey_login" class="button button-primary" style="background: #004b23 !important; color: #ffffff !important; border: 1px solid #002e15 !important; height: 36px; font-weight: 700; padding: 0 18px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,75,35,0.2);">
+                                Entra
+                            </button>
+                        </div>
+                    </form>
+                    <div style="margin-top: 8px; font-size: 11.5px; text-align: right;">
+                        <a href="<?php echo esc_url(wp_lostpassword_url()); ?>" target="_blank" style="color: #004b23; text-decoration: underline; font-weight: 600;">Hai dimenticato la password?</a>
                     </div>
                 </div>
-            <?php endif; ?>
+            </div>
         <?php endif; ?>
 
         <?php if (! $is_expired || ! empty($saved_responses)) : ?>
@@ -728,6 +757,9 @@ function dfn_render_volunteer_survey_shortcode($atts = []): string
         var toggleBtn = document.getElementById('dfn-survey-toggle-login-btn');
         var loginBox = document.getElementById('dfn-survey-login-box');
         if (toggleBtn && loginBox) {
+            <?php if ($login_error) : ?>
+                toggleBtn.innerHTML = 'Chiudi Login &uarr;';
+            <?php endif; ?>
             toggleBtn.addEventListener('click', function() {
                 if (loginBox.style.display === 'none' || !loginBox.style.display) {
                     loginBox.style.display = 'block';
