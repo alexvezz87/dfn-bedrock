@@ -16,7 +16,6 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-add_action('admin_init', 'dfn_volunteer_settings_save_fields');
 add_action('admin_menu', 'dfn_volunteer_settings_register_menu', 20);
 add_action('wp_ajax_dfn_send_volunteer_test_email', 'dfn_ajax_send_volunteer_test_email');
 add_action('wp_ajax_dfn_save_volunteer_settings_ajax', 'dfn_ajax_save_volunteer_settings');
@@ -199,7 +198,7 @@ function dfn_volunteer_settings_save_fields(): void
 
     $merged = $existing_settings;
     $raw_input = $_POST['dfn_vol_settings'] ?? [];
-    $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'notifiche';
+    $active_tab = isset($_POST['tab']) ? sanitize_key($_POST['tab']) : (isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'notifiche');
 
     if (is_array($raw_input)) {
         foreach ($raw_input as $field_key => $val) {
@@ -258,14 +257,12 @@ function dfn_volunteer_settings_save_fields(): void
         );
     }
 
-    $redirect_url = add_query_arg([
-        'page'             => 'dfn-volunteer-settings',
-        'tab'              => $active_tab,
-        'settings-updated' => 'true',
-    ], admin_url('admin.php'));
-
-    wp_safe_redirect($redirect_url);
-    exit;
+    add_settings_error(
+        'dfn_vol_settings_messages',
+        'dfn_vol_settings_updated',
+        __('Impostazioni Volontari salvate con successo.', 'dfn-theme'),
+        'updated'
+    );
 }
 
 /**
@@ -275,6 +272,11 @@ function dfn_render_volunteer_settings_page(): void
 {
     if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members')) {
         wp_die(__('Permessi insufficienti per accedere a questa sezione.', 'dfn-theme'));
+    }
+
+    // Gestisci il salvataggio sincrono standard POST se presente
+    if (isset($_POST['dfn_vol_settings_nonce'])) {
+        dfn_volunteer_settings_save_fields();
     }
 
     if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true') {
@@ -586,8 +588,9 @@ function dfn_render_volunteer_settings_page(): void
 
             <!-- Form Content Area -->
             <div class="dfn-settings-content" style="flex-grow: 1; padding: 30px 40px; min-width: 0;">
-                <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-settings&tab=' . $active_tab)); ?>" id="dfn-volunteer-settings-form">
+                <form method="post" action="" id="dfn-volunteer-settings-form">
                     <?php wp_nonce_field('dfn_save_vol_settings_action', 'dfn_vol_settings_nonce'); ?>
+                    <input type="hidden" name="tab" value="<?php echo esc_attr($active_tab); ?>" />
 
                     <?php if ($active_tab === 'notifiche') : ?>
                         <!-- TAB 1: NOTIFICHE & DESTINATARI -->
@@ -1673,7 +1676,13 @@ function dfn_render_volunteer_settings_page(): void
                                         resultBox.innerHTML = '<div class="notice notice-success inline" style="padding:12px; font-weight:600;">✅ ' + res.data.message + '</div>';
                                     } else {
                                         resultBox.innerHTML = '<div class="notice notice-error inline" style="padding:12px; font-weight:600;">❌ Errore: ' + (res.data ? res.data.message : 'Impossibile inviare') + '</div>';
-                                    }                                     resultBox.innerHTML = '<div class="notice notice-error inline" style="padding:12px; font-weight:600;">❌ Errore di connessione.</div>';
+                                    }
+                                })
+                                .catch(function() {
+                                    btn.disabled = false;
+                                    spinner.classList.remove('is-active');
+                                    resultBox.style.display = 'block';
+                                    resultBox.innerHTML = '<div class="notice notice-error inline" style="padding:12px; font-weight:600;">❌ Errore di connessione con il server.</div>';
                                 });
                             });
                         });
@@ -1682,133 +1691,144 @@ function dfn_render_volunteer_settings_page(): void
 
                     <!-- SCRIPT AJAX SALVATAGGIO IMPOSTAZIONI SENZA RELOAD -->
                     <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        var form = document.getElementById('dfn-volunteer-settings-form');
-                        if (!form) return;
+                    (function() {
+                        function initVolunteerSettingsAjax() {
+                            var form = document.getElementById('dfn-volunteer-settings-form');
+                            if (!form || form.dataset.ajaxBound) return;
+                            form.dataset.ajaxBound = 'true';
 
-                        form.addEventListener('submit', function(e) {
-                            e.preventDefault();
+                            form.addEventListener('submit', function(e) {
+                                e.preventDefault();
 
-                            var submitButtons = form.querySelectorAll('input[type="submit"], button[type="submit"]');
-                            submitButtons.forEach(function(btn) {
-                                btn.disabled = true;
-                                if (btn.tagName === 'INPUT') {
-                                    btn.dataset.origVal = btn.value;
-                                    btn.value = '⏳ Salvataggio in corso...';
-                                } else {
-                                    btn.dataset.origText = btn.innerText;
-                                    btn.innerText = '⏳ Salvataggio in corso...';
-                                }
-                            });
-
-                            var formData = new FormData(form);
-                            formData.append('action', 'dfn_save_volunteer_settings_ajax');
-                            formData.append('nonce', '<?php echo wp_create_nonce("dfn_save_vol_settings_action"); ?>');
-                            formData.append('tab', '<?php echo esc_js($active_tab); ?>');
-
-                            // Rimuovi eventuale vecchio avviso
-                            var oldNotice = document.getElementById('dfn-ajax-settings-notice');
-                            if (oldNotice) oldNotice.remove();
-
-                            fetch(ajaxurl, {
-                                method: 'POST',
-                                body: formData
-                            })
-                            .then(function(res) { return res.json(); })
-                            .then(function(res) {
+                                var submitButtons = form.querySelectorAll('input[type="submit"], button[type="submit"]');
                                 submitButtons.forEach(function(btn) {
-                                    btn.disabled = false;
+                                    btn.disabled = true;
                                     if (btn.tagName === 'INPUT') {
-                                        btn.value = btn.dataset.origVal || 'Salva Impostazioni';
+                                        btn.dataset.origVal = btn.value;
+                                        btn.value = '⏳ Salvataggio in corso...';
                                     } else {
-                                        btn.innerText = btn.dataset.origText || 'Salva Impostazioni';
+                                        btn.dataset.origText = btn.innerText;
+                                        btn.innerText = '⏳ Salvataggio in corso...';
                                     }
                                 });
 
-                                var notice = document.createElement('div');
-                                notice.id = 'dfn-ajax-settings-notice';
-                                notice.style.marginBottom = '22px';
-                                notice.style.padding = '14px 20px';
-                                notice.style.borderRadius = '8px';
-                                notice.style.fontWeight = '700';
-                                notice.style.fontSize = '14px';
-                                notice.style.display = 'flex';
-                                notice.style.alignItems = 'center';
-                                notice.style.gap = '10px';
-                                notice.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
+                                var formData = new FormData(form);
+                                formData.append('action', 'dfn_save_volunteer_settings_ajax');
+                                formData.append('nonce', '<?php echo wp_create_nonce("dfn_save_vol_settings_action"); ?>');
+                                formData.append('tab', '<?php echo esc_js($active_tab); ?>');
 
-                                if (res.success) {
-                                    notice.style.background = '#dcfce7';
-                                    notice.style.color = '#15803d';
-                                    notice.style.border = '1px solid #86efac';
-                                    notice.innerHTML = '<span>✅</span> ' + (res.data ? res.data.message : 'Impostazioni Volontari salvate con successo.');
+                                // Rimuovi eventuale vecchio avviso
+                                var oldNotice = document.getElementById('dfn-ajax-settings-notice');
+                                if (oldNotice) oldNotice.remove();
 
-                                    // AGGIORNAMENTO DINAMICO ISTANTANEO DEL MENU LATERALE WORDPRESS
-                                    var teamsEnabled = res.data && res.data.vol_enable_teams;
-                                    var adminMenu = document.getElementById('adminmenu');
-                                    if (adminMenu) {
-                                        var volunteersMenu = adminMenu.querySelector('li#toplevel_page_dfn-volunteers, li.toplevel_page_dfn-volunteers');
-                                        if (volunteersMenu) {
-                                            var teamsSubmenuItem = volunteersMenu.querySelector('a[href*="page=dfn-teams"]');
-                                            if (teamsEnabled === 'no') {
-                                                if (teamsSubmenuItem && teamsSubmenuItem.parentElement) {
-                                                    teamsSubmenuItem.parentElement.style.display = 'none';
-                                                }
-                                            } else {
-                                                if (teamsSubmenuItem && teamsSubmenuItem.parentElement) {
-                                                    teamsSubmenuItem.parentElement.style.display = '';
+                                var ajaxEndpoint = (typeof ajaxurl !== 'undefined') ? ajaxurl : '<?php echo esc_url(admin_url("admin-ajax.php")); ?>';
+
+                                fetch(ajaxEndpoint, {
+                                    method: 'POST',
+                                    body: formData
+                                })
+                                .then(function(res) { return res.json(); })
+                                .then(function(res) {
+                                    submitButtons.forEach(function(btn) {
+                                        btn.disabled = false;
+                                        if (btn.tagName === 'INPUT') {
+                                            btn.value = btn.dataset.origVal || 'Salva Impostazioni';
+                                        } else {
+                                            btn.innerText = btn.dataset.origText || 'Salva Impostazioni';
+                                        }
+                                    });
+
+                                    var notice = document.createElement('div');
+                                    notice.id = 'dfn-ajax-settings-notice';
+                                    notice.style.marginBottom = '22px';
+                                    notice.style.padding = '14px 20px';
+                                    notice.style.borderRadius = '8px';
+                                    notice.style.fontWeight = '700';
+                                    notice.style.fontSize = '14px';
+                                    notice.style.display = 'flex';
+                                    notice.style.alignItems = 'center';
+                                    notice.style.gap = '10px';
+                                    notice.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
+
+                                    if (res.success) {
+                                        notice.style.background = '#dcfce7';
+                                        notice.style.color = '#15803d';
+                                        notice.style.border = '1px solid #86efac';
+                                        notice.innerHTML = '<span>✅</span> ' + (res.data ? res.data.message : 'Impostazioni Volontari salvate con successo.');
+
+                                        // AGGIORNAMENTO DINAMICO ISTANTANEO DEL MENU LATERALE WORDPRESS
+                                        var teamsEnabled = res.data && res.data.vol_enable_teams;
+                                        var adminMenu = document.getElementById('adminmenu');
+                                        if (adminMenu) {
+                                            var volunteersMenu = adminMenu.querySelector('li#toplevel_page_dfn-volunteers, li.toplevel_page_dfn-volunteers');
+                                            if (volunteersMenu) {
+                                                var teamsSubmenuItem = volunteersMenu.querySelector('a[href*="page=dfn-teams"]');
+                                                if (teamsEnabled === 'no') {
+                                                    if (teamsSubmenuItem && teamsSubmenuItem.parentElement) {
+                                                        teamsSubmenuItem.parentElement.style.display = 'none';
+                                                    }
                                                 } else {
-                                                    var addVolLink = volunteersMenu.querySelector('a[href*="page=dfn-volunteer-add"]');
-                                                    if (addVolLink && addVolLink.parentElement && addVolLink.parentElement.parentElement) {
-                                                        var li = document.createElement('li');
-                                                        li.innerHTML = '<a href="' + (res.data.teams_url || 'admin.php?page=dfn-teams') + '">Team di lavoro</a>';
-                                                        addVolLink.parentElement.parentElement.insertBefore(li, addVolLink.parentElement.nextSibling);
+                                                    if (teamsSubmenuItem && teamsSubmenuItem.parentElement) {
+                                                        teamsSubmenuItem.parentElement.style.display = '';
+                                                    } else {
+                                                        var addVolLink = volunteersMenu.querySelector('a[href*="page=dfn-volunteer-add"]');
+                                                        if (addVolLink && addVolLink.parentElement && addVolLink.parentElement.parentElement) {
+                                                            var li = document.createElement('li');
+                                                            li.innerHTML = '<a href="' + (res.data.teams_url || 'admin.php?page=dfn-teams') + '">Team di lavoro</a>';
+                                                            addVolLink.parentElement.parentElement.insertBefore(li, addVolLink.parentElement.nextSibling);
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
-                                    }
 
-                                    // Aggiornamento badge visivo stato modulo
-                                    var badgeEl = document.querySelector('.dfn-settings-content [style*="border-radius:12px"]');
-                                    var teamsToggle = document.getElementById('vol_enable_teams');
-                                    if (teamsToggle && badgeEl) {
-                                        if (teamsToggle.checked) {
-                                            badgeEl.style.background = '#dcfce7';
-                                            badgeEl.style.color = '#166534';
-                                            badgeEl.style.borderColor = '#86efac';
-                                            badgeEl.innerHTML = '✅ Modulo 2.1.1 Attivo';
-                                        } else {
-                                            badgeEl.style.background = '#f1f5f9';
-                                            badgeEl.style.color = '#64748b';
-                                            badgeEl.style.borderColor = '#cbd5e1';
-                                            badgeEl.innerHTML = '⏸️ Modalità 2.1 Pura (Delegazione Unica)';
+                                        // Aggiornamento badge visivo stato modulo
+                                        var badgeEl = document.querySelector('.dfn-settings-content [style*="border-radius:12px"], .dfn-settings-content [style*="border-radius: 12px"]');
+                                        var teamsToggle = document.getElementById('vol_enable_teams');
+                                        if (teamsToggle && badgeEl) {
+                                            if (teamsToggle.checked) {
+                                                badgeEl.style.background = '#dcfce7';
+                                                badgeEl.style.color = '#166534';
+                                                badgeEl.style.borderColor = '#86efac';
+                                                badgeEl.innerHTML = '✅ Modulo 2.1.1 Attivo';
+                                            } else {
+                                                badgeEl.style.background = '#f1f5f9';
+                                                badgeEl.style.color = '#64748b';
+                                                badgeEl.style.borderColor = '#cbd5e1';
+                                                badgeEl.innerHTML = '⏸️ Modalità 2.1 Pura (Delegazione Unica)';
+                                            }
                                         }
-                                    }
 
-                                } else {
-                                    notice.style.background = '#fee2e2';
-                                    notice.style.color = '#b91c1c';
-                                    notice.style.border = '1px solid #fca5a5';
-                                    notice.innerHTML = '<span>❌</span> ' + (res.data ? res.data.message : 'Errore durante il salvataggio.');
-                                }
-
-                                form.insertBefore(notice, form.firstChild);
-                                notice.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                            })
-                            .catch(function(err) {
-                                submitButtons.forEach(function(btn) {
-                                    btn.disabled = false;
-                                    if (btn.tagName === 'INPUT') {
-                                        btn.value = btn.dataset.origVal || 'Salva Impostazioni';
                                     } else {
-                                        btn.innerText = btn.dataset.origText || 'Salva Impostazioni';
+                                        notice.style.background = '#fee2e2';
+                                        notice.style.color = '#b91c1c';
+                                        notice.style.border = '1px solid #fca5a5';
+                                        notice.innerHTML = '<span>❌</span> ' + (res.data ? res.data.message : 'Errore durante il salvataggio.');
                                     }
+
+                                    form.insertBefore(notice, form.firstChild);
+                                    notice.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                })
+                                .catch(function(err) {
+                                    submitButtons.forEach(function(btn) {
+                                        btn.disabled = false;
+                                        if (btn.tagName === 'INPUT') {
+                                            btn.value = btn.dataset.origVal || 'Salva Impostazioni';
+                                        } else {
+                                            btn.innerText = btn.dataset.origText || 'Salva Impostazioni';
+                                        }
+                                    });
+                                    alert('Errore di comunicazione con il server.');
                                 });
-                                alert('Errore di comunicazione con il server.');
                             });
-                        });
-                    });
+                        }
+
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', initVolunteerSettingsAjax);
+                        } else {
+                            initVolunteerSettingsAjax();
+                        }
+                    })();
                     </script>
                 </form>
             </div>
