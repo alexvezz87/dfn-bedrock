@@ -199,13 +199,13 @@ function dfn_volunteers_register_admin_menu(): void
         'dfn_render_volunteer_add_page'
     );
 
-    // Sottomenu: Squadre & Team di Delegazione (Sotto-modulo v2.1.1 Opzionale)
+    // Sottomenu: Team di Lavoro (Sotto-modulo v2.1.1 Opzionale)
     $teams_enabled = function_exists('dfn_get_volunteer_setting') ? (dfn_get_volunteer_setting('vol_enable_teams', 'yes') === 'yes') : true;
     if ($teams_enabled) {
         add_submenu_page(
             'dfn-volunteers',
-            __('Squadre & Team di Delegazione', 'dfn-theme'),
-            __('Squadre & Team', 'dfn-theme'),
+            __('Team di lavoro', 'dfn-theme'),
+            __('Team di lavoro', 'dfn-theme'),
             $cap_main,
             'dfn-teams',
             'dfn_render_teams_admin_page'
@@ -881,7 +881,7 @@ function dfn_render_volunteers_list_page(): void
                     $all_teams = ($teams_enabled && function_exists('dfn_get_all_teams')) ? dfn_get_all_teams() : [];
                     if (! empty($all_teams)) : ?>
                         <select name="team_id" onchange="this.form.submit()" style="border-radius:6px; border:1px solid #cbd5e1; height:32px; font-size:12.5px; padding:0 8px;">
-                            <option value="0"><?php esc_html_e('Tutte le Squadre', 'dfn-theme'); ?></option>
+                            <option value="0"><?php esc_html_e('Tutti i Team di Lavoro', 'dfn-theme'); ?></option>
                             <?php foreach ($all_teams as $tm) : ?>
                                 <option value="<?php echo esc_attr($tm->id); ?>" <?php selected($team_filter, (int) $tm->id); ?>>
                                     <?php echo esc_html(($tm->icon ? $tm->icon . ' ' : '') . $tm->name); ?>
@@ -910,7 +910,7 @@ function dfn_render_volunteers_list_page(): void
                         <th style="width:160px; min-width:150px; font-weight:700;">Contatti &amp; Origine</th>
                         <th style="font-weight:700; min-width:160px;">Incarichi &amp; Ruoli <?php dfn_tooltip_icon('dfn-tip-vol-user', 'Informazioni: Ruoli e Deleghe FAI'); ?></th>
                         <?php if ($teams_enabled) : ?>
-                            <th style="width:140px; min-width:120px; font-weight:700;">Squadre &amp; Team</th>
+                            <th style="width:140px; min-width:120px; font-weight:700;">Team di Lavoro</th>
                         <?php endif; ?>
                         <th style="width:110px; min-width:100px; font-weight:700;">Competenze <?php dfn_tooltip_icon('dfn-tip-vol-badges', 'Informazioni: Competenze e Formazione'); ?></th>
                         <th style="width:85px; min-width:80px; font-weight:700; text-align:center;">Stato</th>
@@ -1217,13 +1217,13 @@ function dfn_render_volunteers_list_page(): void
                 <?php endif; ?>
 
 
-                <!-- Squadre / Team di Delegazione -->
+                <!-- Team di Lavoro di Delegazione -->
                 <?php 
                 $all_avail_teams = function_exists('dfn_get_all_teams') ? dfn_get_all_teams() : [];
                 if (! empty($all_avail_teams)) : ?>
                     <div style="margin-bottom:18px;">
                         <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:6px;">
-                            👥 Assegna a Squadre / Team (Opzionale)
+                            👥 Assegna a Team di Lavoro (Opzionale)
                         </label>
                         <div style="max-height:120px; overflow-y:auto; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px; display:flex; flex-direction:column; gap:6px;">
                             <?php foreach ($all_avail_teams as $tm) : ?>
@@ -1934,10 +1934,10 @@ function dfn_render_volunteer_add_page(): void
                 ?>
                     <input type="hidden" name="dfn_admin_teams_present" value="1">
                     <h3 style="font-size:15px; font-weight:700; color:#1d2327; border-bottom:1px solid #f0f0f1; padding-bottom:8px; margin-top:20px;">
-                        👥 Squadre &amp; Team di Delegazione
+                        👥 Team di Lavoro di Delegazione
                     </h3>
                     <p style="font-size:12px; color:#64748b; margin-top:4px; margin-bottom:12px;">
-                        Assegna il volontario a una o più squadre operative della delegazione.
+                        Assegna il volontario a uno o più team operativi della delegazione.
                     </p>
 
                     <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:10px;">
@@ -2258,7 +2258,7 @@ function dfn_render_volunteer_meetings_admin_page(): void
                                     <option value="0">🏛️ Plenaria (Tutti i Volontari di Delegazione)</option>
                                 <?php endif; ?>
                                 <?php if (! empty($allowed_create_teams)) : ?>
-                                    <optgroup label="<?php esc_attr_e('Squadre / Team di Lavoro', 'dfn-theme'); ?>">
+                                    <optgroup label="<?php esc_attr_e('Team di Lavoro', 'dfn-theme'); ?>">
                                         <?php foreach ($allowed_create_teams as $act) : ?>
                                             <option value="<?php echo esc_attr($act->id); ?>">
                                                 <?php echo esc_html(($act->icon ?: '👥') . ' ' . $act->name); ?>
@@ -2268,7 +2268,7 @@ function dfn_render_volunteer_meetings_admin_page(): void
                                 <?php endif; ?>
                             </select>
                             <span style="display:block; font-size:11.5px; color:#64748b; margin-top:4px;">
-                                <?php esc_html_e('Le riunioni di team sono visibili e notificate solo ai membri della squadra selezionata.', 'dfn-theme'); ?>
+                                <?php esc_html_e('Le riunioni di team sono visibili e notificate solo ai membri del team selezionato.', 'dfn-theme'); ?>
                             </span>
                         <?php else : ?>
                             <input type="hidden" name="team_id" value="0">
@@ -2368,7 +2368,7 @@ function dfn_render_volunteer_meetings_admin_page(): void
                             <select name="team_filter" id="team_filter" onchange="this.form.submit();" style="font-size:12.5px; height:32px; border-radius:6px; border:1px solid #cbd5e1; padding:0 8px;">
                                 <option value="all" <?php selected($team_filter, 'all'); ?>>Tutti gli ambiti</option>
                                 <option value="plenary" <?php selected($team_filter, 'plenary'); ?>>🏛️ Solo Plenarie</option>
-                                <optgroup label="Squadre:">
+                                <optgroup label="Team di Lavoro:">
                                     <?php foreach ($all_active_teams as $t) : ?>
                                         <option value="<?php echo esc_attr($t->id); ?>" <?php selected($team_filter, (string) $t->id); ?>>
                                             <?php echo esc_html(($t->icon ?: '👥') . ' ' . $t->name); ?>

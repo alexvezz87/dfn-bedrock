@@ -119,9 +119,9 @@ function dfn_get_activities_catalog(): array
                 'description' => __('Consultazione elenco volontari, aggiunta, modifica anagrafica, tessere e competenze.', 'dfn-theme'),
             ],
             'dfn_act_vol_teams'       => [
-                'label'       => __('Squadre & Team di Delegazione', 'dfn-theme'),
+                'label'       => __('Team di Lavoro di Delegazione', 'dfn-theme'),
                 'icon'        => '🛡️',
-                'description' => __('Configurazione team di lavoro, delegati responsabili e assegnazione volontari alle squadre.', 'dfn-theme'),
+                'description' => __('Configurazione team di lavoro, delegati responsabili e assegnazione volontari ai team.', 'dfn-theme'),
             ],
             'dfn_act_vol_logistics'   => [
                 'label'       => __('Pianificazione & Matrice Turni', 'dfn-theme'),
