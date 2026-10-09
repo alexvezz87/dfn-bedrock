@@ -16,6 +16,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
+add_action('admin_init', 'dfn_volunteer_settings_save_fields');
 add_action('admin_menu', 'dfn_volunteer_settings_register_menu', 20);
 add_action('wp_ajax_dfn_send_volunteer_test_email', 'dfn_ajax_send_volunteer_test_email');
 
@@ -44,12 +45,14 @@ function dfn_volunteer_settings_register_menu(): void
  */
 function dfn_get_volunteer_setting(string $key, $default = null)
 {
-    static $vol_settings = null;
-    if ($vol_settings === null || isset($GLOBALS['dfn_volunteer_settings_cache'])) {
-        $vol_settings = isset($GLOBALS['dfn_volunteer_settings_cache']) ? $GLOBALS['dfn_volunteer_settings_cache'] : get_option('dfn_volunteer_settings', []);
+    if (isset($GLOBALS['dfn_volunteer_settings_cache']) && is_array($GLOBALS['dfn_volunteer_settings_cache'])) {
+        $vol_settings = $GLOBALS['dfn_volunteer_settings_cache'];
+    } else {
+        $vol_settings = get_option('dfn_volunteer_settings', []);
         if (! is_array($vol_settings)) {
             $vol_settings = [];
         }
+        $GLOBALS['dfn_volunteer_settings_cache'] = $vol_settings;
     }
 
     $delegation_name  = function_exists('dfn_get_setting') ? dfn_get_setting('delegation_name', 'FAI Novara') : 'FAI Novara';
@@ -280,11 +283,6 @@ function dfn_render_volunteer_settings_page(): void
         wp_die(__('Permessi insufficienti per accedere a questa sezione.', 'dfn-theme'));
     }
 
-    // Salvataggio su POST
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['dfn_vol_settings_nonce'])) {
-        dfn_volunteer_settings_save_fields();
-    }
-
     // Mostra messaggi di notifica/errore
     if (function_exists('settings_errors')) {
         settings_errors('dfn_vol_settings_messages');
@@ -295,7 +293,7 @@ function dfn_render_volunteer_settings_page(): void
 
     $tabs = [
         'notifiche'     => '🔔 Notifiche &amp; Destinatari',
-        'canali'        => '🛡️ Squadre &amp; Canali',
+        'canali'        => '🛡️ Team di Lavoro &amp; Canali',
         'sondaggi'      => '📋 Sondaggi &amp; Logistica',
         'modelli-email' => '📝 Modelli E-mail',
         'test-invio'    => '🧪 Test Invio E-mail',
@@ -667,18 +665,18 @@ function dfn_render_volunteer_settings_page(): void
                     <?php elseif ($active_tab === 'canali') : 
                         $teams_enabled_val = dfn_get_volunteer_setting('vol_enable_teams', 'yes');
                     ?>
-                        <!-- TAB: SQUADRE & CANALI DI COMUNICAZIONE (WHATSAPP & GOOGLE DRIVE) -->
-                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">🛡️ Squadre di Lavoro, Canali &amp; Sotto-modulo v2.1.1</h2>
+                        <!-- TAB: TEAM DI LAVORO & CANALI DI COMUNICAZIONE (WHATSAPP & GOOGLE DRIVE) -->
+                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">🛡️ Team di Lavoro, Canali &amp; Sotto-modulo v2.1.1</h2>
                         <p class="description" style="margin-bottom: 25px;">
-                            Configura l'attivazione della gestione squadre e i canali integrati (WhatsApp e Google Drive) per i gruppi operativi di Delegazione.
+                            Configura l'attivazione della gestione dei team operativi e i canali integrati (WhatsApp e Google Drive) per i gruppi di lavoro di Delegazione.
                         </p>
 
-                        <!-- MASTER SWITCH SOTTO-MODULO SQUADRE (v2.1.1) -->
+                        <!-- MASTER SWITCH SOTTO-MODULO TEAM DI LAVORO (v2.1.1) -->
                         <div style="background:#ffffff; border:2px solid <?php echo $teams_enabled_val === 'yes' ? '#86efac' : '#cbd5e1'; ?>; border-radius:10px; padding:20px; margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
                             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
                                 <div style="flex:1; min-width:280px;">
                                     <h3 style="font-size:16.5px; font-weight:800; color:#0f172a; margin:0 0 6px 0; display:flex; align-items:center; gap:8px;">
-                                        <span>🧩</span> Modulo Gestione Squadre &amp; Team (v2.1.1)
+                                        <span>🧩</span> Modulo Gestione Team di Lavoro (v2.1.1)
                                     </h3>
                                     <p style="font-size:13.5px; color:#475569; margin:0 0 14px 0; line-height:1.5;">
                                         Permette di suddividere i volontari in gruppi operativi specializzati (es. <em>Ambiente, Comunicazione, Scuola, Guide</em>), nominare Delegati Responsabili e convocare riunioni mirate solo ai membri di quello specifico gruppo.
@@ -686,7 +684,7 @@ function dfn_render_volunteer_settings_page(): void
                                     
                                     <label for="vol_enable_teams" style="display:inline-flex; align-items:center; gap:10px; font-weight:700; cursor:pointer; font-size:14.5px; background:#f8fafc; padding:10px 16px; border-radius:8px; border:1px solid #cbd5e1;">
                                         <input type="checkbox" name="dfn_vol_settings[vol_enable_teams]" id="vol_enable_teams" value="yes" <?php checked($teams_enabled_val, 'yes'); ?> style="accent-color:#004b23; width:20px; height:20px;" />
-                                        <span>Abilita Gestione Squadre, Supervisori &amp; Riunioni di Team (v2.1.1)</span>
+                                        <span>Abilita Gestione Team di Lavoro, Supervisori &amp; Riunioni di Team (v2.1.1)</span>
                                     </label>
                                 </div>
                                 <div>
@@ -703,16 +701,16 @@ function dfn_render_volunteer_settings_page(): void
                             </div>
 
                             <div style="margin-top:14px; padding-top:12px; border-top:1px solid #f1f5f9; font-size:12.5px; color:#64748b; line-height:1.5;">
-                                <strong>Effetto quando disattivato:</strong> Il sottomenu <em>Squadre &amp; Team</em> viene nascosto, l'elenco e l'inserimento volontari non richiedono l'assegnazione di gruppo e tutte le riunioni funzionano esclusivamente in modalità Plenaria per l'intera delegazione.
+                                <strong>Effetto quando disattivato:</strong> Il sottomenu <em>Team di lavoro</em> viene nascosto, l'elenco e l'inserimento volontari non richiedono l'assegnazione di gruppo e tutte le riunioni funzionano esclusivamente in modalità Plenaria per l'intera delegazione.
                             </div>
                         </div>
 
                         <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:20px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
                             <h3 style="font-size:16px; font-weight:700; color:#0f172a; margin:0 0 8px 0; display:flex; align-items:center; gap:8px;">
-                                <span>💬</span> Condivisione Rapida WhatsApp per Delegati &amp; Staff (Livello 2)
+                                <span>💬</span> Condivisione Rapida WhatsApp per Delegati &amp; Referenti Team
                             </h3>
                             <p style="font-size:13.5px; color:#475569; margin-bottom:16px; line-height:1.5;">
-                                Se abilitato, aggiunge un pulsante <strong>"Condividi su WhatsApp"</strong> nella gestione squadre e nelle schede dei Delegati per generare link precompilati (Click-to-Chat) con messaggi pronti all'invio per il gruppo o i singoli volontari.
+                                Se abilitato, aggiunge un pulsante <strong>"Condividi su WhatsApp"</strong> nella gestione team e nelle schede dei Delegati per generare link precompilati (Click-to-Chat) con messaggi pronti all'invio per il gruppo o i singoli volontari.
                             </p>
 
                             <table class="form-table" role="presentation" style="margin-top:0;">
@@ -739,10 +737,10 @@ function dfn_render_volunteer_settings_page(): void
                         </div>
 
                         <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:18px 20px;">
-                            <h4 style="margin:0 0 6px 0; font-size:14px; font-weight:700; color:#0f172a;">📁 Come configurare i canali per ciascuna squadra:</h4>
+                            <h4 style="margin:0 0 6px 0; font-size:14px; font-weight:700; color:#0f172a;">📁 Come configurare i canali per ciascun team:</h4>
                             <ol style="margin:0 0 0 20px; padding:0; font-size:13px; color:#475569; line-height:1.6;">
-                                <li>Accedi al sottomenu <strong>Volontari FAI &rarr; <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-teams')); ?>" style="color:#004b23; font-weight:700;">Squadre &amp; Team</a></strong>.</li>
-                                <li>Clicca su <strong>Modifica</strong> (✏️) sulla card della squadra desiderata.</li>
+                                <li>Accedi al sottomenu <strong>Volontari FAI &rarr; <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-teams')); ?>" style="color:#004b23; font-weight:700;">Team di lavoro</a></strong>.</li>
+                                <li>Clicca su <strong>Modifica</strong> (✏️) sulla card del team desiderato.</li>
                                 <li>Inserisci il <strong>Link di invito al Gruppo WhatsApp</strong> (es. <code>https://chat.whatsapp.com/...</code>) e l'<strong>URL della Cartella Google Drive</strong> (es. <code>https://drive.google.com/drive/folders/...</code>).</li>
                                 <li>I pulsanti di accesso diretto compariranno automaticamente nella bacheca <strong>/mio-account/</strong> solo per i volontari assegnati a quel team!</li>
                             </ol>

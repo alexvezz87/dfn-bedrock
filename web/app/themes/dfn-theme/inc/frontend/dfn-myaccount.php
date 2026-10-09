@@ -830,8 +830,8 @@ function dfn_volunteer_meetings_endpoint_content(): void
     ?>
     <div class="dfn-volunteer-meetings-section" id="dfn-meetings-section">
         <div class="dfn-account-header-card">
-            <h2 class="dfn-dashboard-title"><?php esc_html_e('📅 Riunioni di Delegazione & Squadre', 'dfn-theme'); ?></h2>
-            <p class="dfn-dashboard-desc"><?php esc_html_e('Consulta il calendario delle prossime riunioni plenarie o delle tue squadre di lavoro, gli orari, le sedi e gli ordini del giorno programmati.', 'dfn-theme'); ?></p>
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('📅 Riunioni di Delegazione & Team', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Consulta il calendario delle prossime riunioni plenarie o dei tuoi team di lavoro, gli orari, le sedi e gli ordini del giorno programmati.', 'dfn-theme'); ?></p>
         </div>
 
         <?php if (! empty($meetings)) : ?>
@@ -1210,10 +1210,10 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                     <?php if ($member && ! empty($member->has_safety_course)) : ?><span class="dfn-vol-role-badge badge-safety">🦺 Sicurezza FAI</span><?php endif; ?>
                 </div>
 
-                <!-- Squadre & Team di Delegazione -->
+                <!-- Team di Lavoro di Delegazione -->
                 <?php if (! empty($my_teams)) : ?>
                     <div class="dfn-vol-teams-list" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <span class="dfn-vol-roles-label" style="font-size: 12px; font-weight: 700; color: #475569;">Squadre:</span>
+                        <span class="dfn-vol-roles-label" style="font-size: 12px; font-weight: 700; color: #475569;">Team:</span>
                         <?php foreach ($my_teams as $mt) : 
                             $is_sup = function_exists('dfn_is_user_team_supervisor') && dfn_is_user_team_supervisor($current_user_id, (int) $mt->id);
                         ?>
@@ -1362,12 +1362,12 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
             <?php endif; ?>
         </div>
 
-        <!-- Sezione Quick Info: 4. Le Tue Squadre & Team di Delegazione -->
+        <!-- Sezione Quick Info: 4. I Tuoi Team di Lavoro di Delegazione -->
         <?php if (! empty($my_teams)) : ?>
             <div class="dfn-vol-hub-card">
                 <div class="dfn-vol-hub-card-header">
                     <h3 class="dfn-vol-hub-card-title">
-                        <span>🛡️</span> <?php esc_html_e('Le Tue Squadre di Lavoro', 'dfn-theme'); ?>
+                        <span>🛡️</span> <?php esc_html_e('I Tuoi Team di Lavoro', 'dfn-theme'); ?>
                     </h3>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; padding: 14px 18px;">

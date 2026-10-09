@@ -54,15 +54,15 @@ function dfn_render_teams_admin_page(): void
         <header class="dfn-admin-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom: 24px;">
             <div>
                 <h1 style="font-size:26px; font-weight:800; color:#0f172a; margin:0 0 6px 0; display:flex; align-items:center; gap:10px;">
-                    <span>🛡️</span> <?php esc_html_e('Squadre & Team di Delegazione', 'dfn-theme'); ?>
+                    <span>🛡️</span> <?php esc_html_e('Team di Lavoro', 'dfn-theme'); ?>
                 </h1>
                 <p style="font-size:14px; color:#64748b; margin:0;">
-                    <?php esc_html_e('Organizza i volontari in gruppi tematici (Ambiente, Eventi, Scuola, Comunicazione, Guide) e assegna i Delegati responsabili di ciascuna squadra.', 'dfn-theme'); ?>
+                    <?php esc_html_e('Organizza i volontari in gruppi tematici (Ambiente, Eventi, Scuola, Comunicazione, Guide) e assegna i Delegati responsabili di ciascun team.', 'dfn-theme'); ?>
                 </p>
             </div>
             <div>
                 <button type="button" class="button button-primary" id="dfn-btn-create-team" style="background:#004b23; border-color:#003b1c; font-size:13.5px; font-weight:700; padding:6px 18px; height:auto; border-radius:6px; display:inline-flex; align-items:center; gap:6px;">
-                    <span>➕</span> <?php esc_html_e('Crea Nuova Squadra', 'dfn-theme'); ?>
+                    <span>➕</span> <?php esc_html_e('Crea Nuovo Team di Lavoro', 'dfn-theme'); ?>
                 </button>
             </div>
         </header>
@@ -70,11 +70,11 @@ function dfn_render_teams_admin_page(): void
         <!-- KPI SUMMARY BAR -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
             <div style="background:#ffffff; border-radius:10px; border:1px solid #e2e8f0; padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-                <div style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Totale Squadre</div>
+                <div style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Totale Team</div>
                 <div style="font-size:26px; font-weight:800; color:#0f172a;"><?php echo esc_html($total_teams); ?></div>
             </div>
             <div style="background:#ffffff; border-radius:10px; border:1px solid #e2e8f0; padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-                <div style="font-size:12px; font-weight:700; color:#16a34a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Squadre Attive</div>
+                <div style="font-size:12px; font-weight:700; color:#16a34a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Team Attivi</div>
                 <div style="font-size:26px; font-weight:800; color:#16a34a;"><?php echo esc_html($active_teams); ?></div>
             </div>
             <div style="background:#ffffff; border-radius:10px; border:1px solid #e2e8f0; padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
@@ -241,9 +241,9 @@ function dfn_render_teams_admin_page(): void
             <?php else : ?>
                 <div style="grid-column:1/-1; background:#ffffff; border-radius:10px; border:1px solid #e2e8f0; padding:36px; text-align:center; color:#64748b;">
                     <div style="font-size:32px; margin-bottom:8px;">🛡️</div>
-                    <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin:0 0 6px 0;">Nessuna Squadra Configurata</h3>
-                    <p style="font-size:13px; margin:0 0 16px 0;">Crea le squadre di lavoro di delegazione per iniziare ad assegnare i volontari e i delegati responsabili.</p>
-                    <button type="button" class="button button-primary" onclick="document.getElementById('dfn-btn-create-team').click();">➕ Crea Nuova Squadra</button>
+                    <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin:0 0 6px 0;">Nessun Team di Lavoro Configurato</h3>
+                    <p style="font-size:13px; margin:0 0 16px 0;">Crea i team di lavoro di delegazione per iniziare ad assegnare i volontari e i delegati responsabili.</p>
+                    <button type="button" class="button button-primary" onclick="document.getElementById('dfn-btn-create-team').click();">➕ Crea Nuovo Team di Lavoro</button>
                 </div>
             <?php endif; ?>
         </div>
@@ -257,7 +257,7 @@ function dfn_render_teams_admin_page(): void
                 <button type="button" id="dfn-btn-close-team-modal" style="position:absolute; top:18px; right:20px; background:none; border:none; font-size:20px; cursor:pointer; color:#64748b; font-weight:700;">&times;</button>
                 
                 <h2 id="dfn-team-modal-title" style="margin:0 0 18px 0; font-size:20px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
-                    <span>🛡️</span> Crea Nuova Squadra
+                    <span>🛡️</span> Crea Nuovo Team di Lavoro
                 </h2>
 
                 <form id="dfn-team-form">
@@ -266,7 +266,7 @@ function dfn_render_teams_admin_page(): void
                     <!-- Nome & Icona -->
                     <div style="display:grid; grid-template-columns:1fr 80px; gap:12px; margin-bottom:16px;">
                         <div>
-                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Nome Squadra <span style="color:#ef4444;">*</span></label>
+                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Nome Team <span style="color:#ef4444;">*</span></label>
                             <input type="text" name="name" id="dfn-field-team-name" required placeholder="Es. Team Ambiente" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 10px; font-size:13.5px; font-weight:600;">
                         </div>
                         <div>
@@ -309,7 +309,7 @@ function dfn_render_teams_admin_page(): void
 
                     <!-- Descrizione -->
                     <div style="margin-bottom:18px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Descrizione / Obiettivi della Squadra</label>
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Descrizione / Obiettivi del Team</label>
                         <textarea name="description" id="dfn-field-team-desc" rows="3" placeholder="Descrivi le attività e la finalità di questo team..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:8px 10px; font-size:13px;"></textarea>
                     </div>
 
@@ -498,7 +498,7 @@ function dfn_render_teams_admin_page(): void
         // Apri Modal Modifica Squadra
         $('.dfn-btn-edit-team').on('click', function() {
             var btn = $(this);
-            $('#dfn-team-modal-title').html('<span>✏️</span> Modifica Squadra: ' + btn.data('team-name'));
+            $('#dfn-team-modal-title').html('<span>✏️</span> Modifica Team: ' + btn.data('team-name'));
             $('#dfn-field-team-id').val(btn.data('team-id'));
             $('#dfn-field-team-name').val(btn.data('team-name'));
             $('#dfn-field-team-slug').val(btn.data('team-slug'));
@@ -552,14 +552,14 @@ function dfn_render_teams_admin_page(): void
             formData.push({ name: 'nonce', value: nonce });
 
             $.post(ajaxurl, formData, function(res) {
-                submitBtn.prop('disabled', false).text('Salva Squadra');
+                submitBtn.prop('disabled', false).text('Salva Team');
                 if (res.success) {
                     location.reload();
                 } else {
                     errorBox.text(res.data || 'Errore durante il salvataggio.').show();
                 }
             }).fail(function() {
-                submitBtn.prop('disabled', false).text('Salva Squadra');
+                submitBtn.prop('disabled', false).text('Salva Team');
                 errorBox.text('Errore di comunicazione con il server.').show();
             });
         });
@@ -570,7 +570,7 @@ function dfn_render_teams_admin_page(): void
             var teamId = btn.data('team-id');
             var teamName = btn.data('team-name');
 
-            if (!confirm('Sei sicuro di voler eliminare la squadra "' + teamName + '"?\nLe associazioni dei volontari verranno rimosse (i volontari rimarranno in anagrafica).')) {
+            if (!confirm('Sei sicuro di voler eliminare il team "' + teamName + '"?\nLe associazioni dei volontari verranno rimosse (i volontari rimarranno in anagrafica).')) {
                 return;
             }
 
