@@ -86,6 +86,7 @@ function dfn_run_hourly_maintenance(): void
     dfn_cron_invia_alert_approvazione_staff();
     dfn_cron_invia_promemoria_24h();
     dfn_cron_gestisci_scadenza_waitlist();
+    dfn_cron_invia_promemoria_riunioni_volontari();
 }
 
 /**
@@ -710,3 +711,56 @@ function dfn_track_payment_page_visit(): void
     }
 }
 
+/**
+ * 6. PROMEMORIA RIUNIONI VOLONTARI (PLENARIE E DI TEAM) — ISSUE #26
+ *
+ * Controlla se vi sono riunioni programmate:
+ * - A 7 giorni da oggi (se reminder_7d_sent = 0)
+ * - A 1 giorno da oggi (se reminder_1d_sent = 0)
+ * Invia l'email di promemoria a tutti i volontari/membri del gruppo abilitati.
+ */
+function dfn_cron_invia_promemoria_riunioni_volontari(): void
+{
+    if (get_transient('dfn_cron_meetings_reminder_lock')) {
+        return;
+    }
+    set_transient('dfn_cron_meetings_reminder_lock', 1, 15 * MINUTE_IN_SECONDS);
+
+    global $wpdb;
+    $table_meetings = $wpdb->prefix . 'dfn_volunteer_meetings';
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$table_meetings}'") !== $table_meetings) {
+        return;
+    }
+
+    // 1. Riunioni a 7 giorni (tra 6 e 7 giorni)
+    $meetings_7d = $wpdb->get_results(
+        "SELECT id, title, meeting_date, team_id FROM {$table_meetings} 
+         WHERE status = 'scheduled' 
+           AND meeting_date = CURDATE() + INTERVAL 7 DAY 
+           AND reminder_7d_sent = 0"
+    );
+
+    if (! empty($meetings_7d)) {
+        foreach ($meetings_7d as $m7) {
+            if (function_exists('dfn_send_volunteer_meeting_notification')) {
+                dfn_send_volunteer_meeting_notification((int) $m7->id, true, '7d');
+            }
+        }
+    }
+
+    // 2. Riunioni a 1 giorno (domani)
+    $meetings_1d = $wpdb->get_results(
+        "SELECT id, title, meeting_date, team_id FROM {$table_meetings} 
+         WHERE status = 'scheduled' 
+           AND meeting_date = CURDATE() + INTERVAL 1 DAY 
+           AND reminder_1d_sent = 0"
+    );
+
+    if (! empty($meetings_1d)) {
+        foreach ($meetings_1d as $m1) {
+            if (function_exists('dfn_send_volunteer_meeting_notification')) {
+                dfn_send_volunteer_meeting_notification((int) $m1->id, true, '1d');
+            }
+        }
+    }
+}

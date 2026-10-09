@@ -2046,19 +2046,29 @@ function dfn_render_volunteer_add_page(): void
 }
 
 /**
- * Renderizza la schermata "Riunioni di Delegazione".
+ * Renderizza la schermata "Riunioni di Delegazione & di Team" (Issue #26).
  */
 function dfn_render_volunteer_meetings_admin_page(): void
 {
-    if (! current_user_can('manage_options') && ! current_user_can('dfn_act_fai_members') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_meetings'))) {
-        wp_die(__('Permessi insufficienti.', 'dfn-theme'));
+    $current_uid = get_current_user_id();
+    $is_admin = current_user_can('manage_options') || current_user_can('dfn_act_fai_members') || (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_meetings'));
+    $supervised_teams = function_exists('dfn_get_user_supervised_teams') ? dfn_get_user_supervised_teams($current_uid) : [];
+
+    if (! $is_admin && empty($supervised_teams)) {
+        wp_die(__('Permessi insufficienti per accedere alla gestione delle riunioni.', 'dfn-theme'));
     }
 
     global $wpdb;
     $table_meetings = $wpdb->prefix . 'dfn_volunteer_meetings';
+    $table_teams    = $wpdb->prefix . 'dfn_teams';
 
-    // Salvataggio nuova riunione
+    // Recupera squadre attive per il selettore
+    $all_active_teams = function_exists('dfn_get_all_teams') ? dfn_get_all_teams(true) : [];
+    $allowed_create_teams = $is_admin ? $all_active_teams : $supervised_teams;
+
+    // 1. Salvataggio nuova riunione
     if (isset($_POST['dfn_save_meeting']) && check_admin_referer('dfn_save_meeting_nonce')) {
+        $team_id       = isset($_POST['team_id']) ? (int) $_POST['team_id'] : 0;
         $title         = sanitize_text_field($_POST['title'] ?? '');
         $meeting_date  = sanitize_text_field($_POST['meeting_date'] ?? '');
         $time_start    = sanitize_text_field($_POST['meeting_time_start'] ?? '');
@@ -2066,11 +2076,25 @@ function dfn_render_volunteer_meetings_admin_page(): void
         $location      = sanitize_text_field($_POST['location'] ?? '');
         $meeting_link  = esc_url_raw($_POST['meeting_link'] ?? '');
         $agenda        = sanitize_textarea_field($_POST['agenda'] ?? '');
+        $send_notif    = ! empty($_POST['send_notification']);
 
-        if (! empty($title) && ! empty($meeting_date) && ! empty($time_start) && ! empty($location)) {
+        // Controllo Governance Permessi per Team
+        $can_create = false;
+        if ($team_id === 0 && $is_admin) {
+            $can_create = true;
+        } elseif ($team_id > 0) {
+            if ($is_admin || (function_exists('dfn_is_user_team_supervisor') && dfn_is_user_team_supervisor($current_uid, $team_id))) {
+                $can_create = true;
+            }
+        }
+
+        if (! $can_create) {
+            echo '<div class="notice notice-error is-dismissible"><p>❌ Permessi non sufficienti per pubblicare una riunione per l\'ambito o squadra selezionata.</p></div>';
+        } elseif (! empty($title) && ! empty($meeting_date) && ! empty($time_start) && ! empty($location)) {
             $wpdb->insert(
                 $table_meetings,
                 [
+                    'team_id'            => $team_id,
                     'title'              => $title,
                     'meeting_date'       => $meeting_date,
                     'meeting_time_start' => $time_start,
@@ -2079,141 +2103,359 @@ function dfn_render_volunteer_meetings_admin_page(): void
                     'meeting_link'       => $meeting_link,
                     'agenda'             => $agenda,
                     'status'             => 'scheduled',
-                    'created_by'         => get_current_user_id(),
+                    'reminder_7d_sent'   => 0,
+                    'reminder_1d_sent'   => 0,
+                    'created_by'         => $current_uid,
                 ],
-                [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d' ]
+                [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d' ]
             );
-            $inserted_meeting_id = $wpdb->insert_id;
-            if (function_exists('dfn_log_volunteer_meeting')) {
-                dfn_log_volunteer_meeting($inserted_meeting_id, 'Programmata nuova riunione di delegazione', "Titolo: {$title} | Data: {$meeting_date} ore {$time_start} | Sede: {$location}");
+            $inserted_meeting_id = (int) $wpdb->insert_id;
+
+            $team_label = 'Plenaria';
+            if ($team_id > 0 && function_exists('dfn_get_team')) {
+                $t_obj = dfn_get_team($team_id);
+                if ($t_obj) {
+                    $team_label = "Team {$t_obj->name}";
+                }
             }
-            echo '<div class="notice notice-success is-dismissible"><p>✅ Nuova riunione programmata con successo!</p></div>';
+
+            if (function_exists('dfn_log_volunteer_meeting')) {
+                dfn_log_volunteer_meeting($inserted_meeting_id, "Programmata nuova riunione ({$team_label})", "Titolo: {$title} | Data: {$meeting_date} ore {$time_start} | Sede: {$location}");
+            }
+
+            $success_msg = "✅ Nuova riunione ({$team_label}) programmata con successo!";
+
+            // Invio convocazione email immediata se richiesto
+            if ($send_notif && function_exists('dfn_send_volunteer_meeting_notification')) {
+                $notif_res = dfn_send_volunteer_meeting_notification($inserted_meeting_id, false);
+                if ($notif_res['success']) {
+                    $success_msg .= " ✉️ Convocazione inviata via email a {$notif_res['sent_count']} volontari del gruppo.";
+                } else {
+                    $success_msg .= " ⚠️ Impossibile recapitare le email: " . esc_html($notif_res['message']);
+                }
+            }
+
+            echo '<div class="notice notice-success is-dismissible"><p>' . $success_msg . '</p></div>';
         }
     }
 
-    // Cancellazione riunione
+    // 2. Invio manuale convocazione email
+    if (isset($_GET['action'], $_GET['meeting_id'], $_GET['_wpnonce']) && $_GET['action'] === 'send_meeting_notif') {
+        $m_id = (int) $_GET['meeting_id'];
+        if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_meeting_notify_' . $m_id)) {
+            $m_row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_meetings} WHERE id = %d", $m_id));
+            if ($m_row) {
+                $can_notify = $is_admin || ($m_row->team_id > 0 && function_exists('dfn_is_user_team_supervisor') && dfn_is_user_team_supervisor($current_uid, (int) $m_row->team_id));
+                if ($can_notify && function_exists('dfn_send_volunteer_meeting_notification')) {
+                    $notif_res = dfn_send_volunteer_meeting_notification($m_id, false);
+                    if ($notif_res['success']) {
+                        echo '<div class="notice notice-success is-dismissible"><p>✉️ Convocazione per "<strong>' . esc_html($m_row->title) . '</strong>" inviata con successo a ' . (int) $notif_res['sent_count'] . ' volontari (' . esc_html($notif_res['target_label']) . ')!</p></div>';
+                    } else {
+                        echo '<div class="notice notice-warning is-dismissible"><p>⚠️ Invio email non riuscito: ' . esc_html($notif_res['message']) . '</p></div>';
+                    }
+                } else {
+                    echo '<div class="notice notice-error is-dismissible"><p>❌ Permessi non sufficienti per inviare notifiche per questa riunione.</p></div>';
+                }
+            }
+        }
+    }
+
+    // 3. Cancellazione riunione
     if (isset($_GET['action'], $_GET['meeting_id'], $_GET['_wpnonce']) && $_GET['action'] === 'delete') {
         $m_id = (int) $_GET['meeting_id'];
         if (wp_verify_nonce($_GET['_wpnonce'], 'dfn_meeting_action_' . $m_id)) {
-            $wpdb->delete($table_meetings, ['id' => $m_id], ['%d']);
-            if (function_exists('dfn_log_volunteer_meeting')) {
-                dfn_log_volunteer_meeting($m_id, 'Riunione di delegazione eliminata', "ID riunione #{$m_id}");
+            $m_row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_meetings} WHERE id = %d", $m_id));
+            if ($m_row) {
+                $can_delete = $is_admin || ($m_row->team_id > 0 && function_exists('dfn_is_user_team_supervisor') && dfn_is_user_team_supervisor($current_uid, (int) $m_row->team_id));
+                if ($can_delete) {
+                    $wpdb->delete($table_meetings, ['id' => $m_id], ['%d']);
+                    if (function_exists('dfn_log_volunteer_meeting')) {
+                        dfn_log_volunteer_meeting($m_id, 'Riunione eliminata', "ID riunione #{$m_id} ('{$m_row->title}')");
+                    }
+                    echo '<div class="notice notice-success is-dismissible"><p>✅ Riunione eliminata con successo.</p></div>';
+                } else {
+                    echo '<div class="notice notice-error is-dismissible"><p>❌ Permessi non sufficienti per eliminare questa riunione.</p></div>';
+                }
             }
-            echo '<div class="notice notice-success is-dismissible"><p>✅ Riunione eliminata.</p></div>';
         }
     }
 
-    $meetings = $wpdb->get_results("SELECT * FROM {$table_meetings} ORDER BY meeting_date ASC, meeting_time_start ASC");
+    // Filtro Ambito / Team
+    $team_filter = isset($_GET['team_filter']) ? sanitize_text_field($_GET['team_filter']) : 'all';
+
+    // Costruzione query lista riunioni
+    $where_clauses = ["status != 'cancelled'"];
+    if (! $is_admin) {
+        // Supervisore: vede solo plenarie + i suoi team supervisionati
+        $sup_t_ids = [0];
+        foreach ($supervised_teams as $st) {
+            $sup_t_ids[] = (int) $st->id;
+        }
+        $sup_t_ids = array_unique($sup_t_ids);
+        $where_clauses[] = "team_id IN (" . implode(',', $sup_t_ids) . ")";
+    }
+
+    if ($team_filter === 'plenary') {
+        $where_clauses[] = "team_id = 0";
+    } elseif (is_numeric($team_filter) && (int) $team_filter > 0) {
+        $where_clauses[] = $wpdb->prepare("team_id = %d", (int) $team_filter);
+    }
+
+    $where_sql = implode(' AND ', $where_clauses);
+    $meetings  = $wpdb->get_results("SELECT * FROM {$table_meetings} WHERE {$where_sql} ORDER BY meeting_date ASC, meeting_time_start ASC");
+
+    // Mappa squadre per visualizzazione rapida
+    $teams_map = [];
+    if (! empty($all_active_teams)) {
+        foreach ($all_active_teams as $t) {
+            $teams_map[(int) $t->id] = $t;
+        }
+    }
 
     ?>
-    <div class="wrap dfn-admin-wrap">
-        <header class="dfn-admin-header" style="margin-bottom: 24px;">
-            <span class="dashicons dashicons-calendar-alt" style="font-size:32px; width:32px; height:32px; color:#004b23; vertical-align:middle;"></span>
-            <h1 style="font-size:24px; font-weight:700; color:#1d2327; margin:0 0 0 8px; display:inline-block; vertical-align:middle;">
-                Riunioni di Delegazione Volontari
-            </h1>
+    <div class="wrap dfn-admin-wrap" style="max-width: 1300px; margin: 20px 20px 40px 0; font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <header class="dfn-admin-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom: 24px;">
+            <div>
+                <h1 style="font-size:26px; font-weight:800; color:#0f172a; margin:0 0 6px 0; display:flex; align-items:center; gap:10px;">
+                    <span>📅</span> <?php esc_html_e('Riunioni di Delegazione & di Team', 'dfn-theme'); ?>
+                </h1>
+                <p style="font-size:14px; color:#64748b; margin:0;">
+                    <?php esc_html_e('Programma le riunioni plenarie di delegazione o gli incontri specifici per singoli Team di lavoro. I volontari visualizzeranno solo gli incontri a cui sono invitati.', 'dfn-theme'); ?>
+                </p>
+            </div>
         </header>
 
-        <div style="display:grid; grid-template-columns:1fr 1.5fr; gap:24px; align-items:start;">
-            <!-- FORM NUOVA RIUNIONE -->
-            <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; padding:20px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
-                <h3 style="font-size:15px; font-weight:700; color:#1d2327; margin-top:0; border-bottom:1px solid #f0f0f1; padding-bottom:8px;">
-                    ➕ Programma Nuova Riunione
+        <div style="display:grid; grid-template-columns:380px 1fr; gap:24px; align-items:start;">
+            
+            <!-- FORM PROGRAMMAZIONE RIUNIONE -->
+            <div style="background:#fff; border-radius:10px; border:1px solid #e2e8f0; padding:22px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                <h3 style="font-size:16px; font-weight:700; color:#0f172a; margin:0 0 16px 0; border-bottom:1px solid #f1f5f9; padding-bottom:10px; display:flex; align-items:center; gap:8px;">
+                    <span>➕</span> <?php esc_html_e('Programma Nuova Riunione', 'dfn-theme'); ?>
                 </h3>
-                <form method="post" action="">
+                
+                <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-meetings')); ?>">
                     <?php wp_nonce_field('dfn_save_meeting_nonce'); ?>
                     
+                    <!-- Destinatari / Team -->
                     <div style="margin-bottom:14px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Titolo / Oggetto Riunione <span style="color:#ef4444;">*</span></label>
-                        <input type="text" name="title" required placeholder="Es. Pianificazione Giornate FAI d'Autunno" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">
+                            <?php esc_html_e('Destinatari / Ambito', 'dfn-theme'); ?> <span style="color:#ef4444;">*</span>
+                        </label>
+                        <select name="team_id" required style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; font-size:13.5px; font-weight:600; color:#0f172a;">
+                            <?php if ($is_admin) : ?>
+                                <option value="0">🏛️ Plenaria (Tutti i Volontari di Delegazione)</option>
+                            <?php endif; ?>
+                            <?php if (! empty($allowed_create_teams)) : ?>
+                                <optgroup label="<?php esc_attr_e('Squadre / Team di Lavoro', 'dfn-theme'); ?>">
+                                    <?php foreach ($allowed_create_teams as $act) : ?>
+                                        <option value="<?php echo esc_attr($act->id); ?>">
+                                            <?php echo esc_html(($act->icon ?: '👥') . ' ' . $act->name); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endif; ?>
+                        </select>
+                        <span style="display:block; font-size:11.5px; color:#64748b; margin-top:4px;">
+                            <?php esc_html_e('Le riunioni di team sono visibili e notificate solo ai membri della squadra selezionata.', 'dfn-theme'); ?>
+                        </span>
                     </div>
 
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                    <!-- Titolo / Oggetto -->
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">
+                            <?php esc_html_e('Titolo / Oggetto Riunione', 'dfn-theme'); ?> <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="text" name="title" required placeholder="Es. Riunione Team Comunicazione — Pianificazione Autunno" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 12px; font-size:13.5px;">
+                    </div>
+
+                    <!-- Data e Orario -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
                         <div>
-                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Data <span style="color:#ef4444;">*</span></label>
-                            <input type="date" name="meeting_date" required style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">
+                                <?php esc_html_e('Data', 'dfn-theme'); ?> <span style="color:#ef4444;">*</span>
+                            </label>
+                            <input type="date" name="meeting_date" required min="<?php echo esc_attr(date('Y-m-d')); ?>" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-size:13px;">
                         </div>
                         <div>
-                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Ora Inizio <span style="color:#ef4444;">*</span></label>
-                            <input type="time" name="meeting_time_start" required style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">
+                                <?php esc_html_e('Ora Inizio', 'dfn-theme'); ?> <span style="color:#ef4444;">*</span>
+                            </label>
+                            <input type="time" name="meeting_time_start" required style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-size:13px;">
                         </div>
                     </div>
 
                     <div style="margin-bottom:14px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Luogo / Sede <span style="color:#ef4444;">*</span></label>
-                        <input type="text" name="location" required placeholder="Es. Sede Delegazione, Salone dell'Arengo" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">
+                            <?php esc_html_e('Ora Fine (Opzionale)', 'dfn-theme'); ?>
+                        </label>
+                        <input type="time" name="meeting_time_end" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-size:13px;">
                     </div>
 
+                    <!-- Sede / Luogo -->
                     <div style="margin-bottom:14px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Link Online (Opzionale Zoom / Meet)</label>
-                        <input type="url" name="meeting_link" placeholder="https://meet.google.com/..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px;">
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">
+                            <?php esc_html_e('Sede / Luogo', 'dfn-theme'); ?> <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="text" name="location" required placeholder="Es. Sede Delegazione, Sala Arengo / Online" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 12px; font-size:13.5px;">
                     </div>
 
+                    <!-- Link Online (Zoom / Meet) -->
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">
+                            <?php esc_html_e('Link Online (Opzionale Meet / Zoom)', 'dfn-theme'); ?>
+                        </label>
+                        <input type="url" name="meeting_link" placeholder="https://meet.google.com/abc-defg-hij" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:38px; padding:0 12px; font-size:13px;">
+                    </div>
+
+                    <!-- Ordine del giorno / Note -->
                     <div style="margin-bottom:16px;">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Ordine del Giorno / Note</label>
-                        <textarea name="agenda" rows="3" placeholder="Punti all'ordine del giorno..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:8px 10px;"></textarea>
+                        <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">
+                            <?php esc_html_e('Ordine del Giorno / Note', 'dfn-theme'); ?>
+                        </label>
+                        <textarea name="agenda" rows="3" placeholder="Punti all'ordine del giorno della riunione..." style="width:100%; border-radius:6px; border:1px solid #cbd5e1; padding:10px 12px; font-size:13px;"></textarea>
                     </div>
 
-                    <button type="submit" name="dfn_save_meeting" class="button button-primary" style="width:100%; background:#004b23; border-color:#003b1c; font-weight:700; height:38px;">
-                        Pubblica Riunione per i Volontari
+                    <!-- Checkbox Invio Convocazione Email Immediata -->
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-bottom:18px;">
+                        <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:#0f172a; cursor:pointer;">
+                            <input type="checkbox" name="send_notification" value="1" checked style="width:16px; height:16px; accent-color:#004b23;">
+                            <span>✉️ <?php esc_html_e('Invia subito convocazione email a tutti i membri del gruppo', 'dfn-theme'); ?></span>
+                        </label>
+                    </div>
+
+                    <button type="submit" name="dfn_save_meeting" class="button button-primary" style="width:100%; background:#004b23; border-color:#003b1c; font-weight:700; height:40px; font-size:14px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; gap:8px;">
+                        <span>📅</span> <?php esc_html_e('Pubblica Riunione', 'dfn-theme'); ?>
                     </button>
                 </form>
             </div>
 
-            <!-- LISTA RIUNIONI PROGRAMMATE -->
-            <div style="background:#fff; border-radius:8px; border:1px solid #c3c4c7; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
-                <div style="padding:14px 20px; border-bottom:1px solid #f0f0f1; background:#f8fafc;">
-                    <h3 style="margin:0; font-size:15px; font-weight:700; color:#1d2327;">📅 Calendario Riunioni Programmate</h3>
+            <!-- TABELLA RIUNIONI PROGRAMMATE -->
+            <div style="background:#fff; border-radius:10px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                
+                <!-- FILTER BAR -->
+                <div style="padding:14px 20px; border-bottom:1px solid #f1f5f9; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                        <span>🗓️</span> <?php esc_html_e('Calendario Riunioni Programmate', 'dfn-theme'); ?>
+                        <span style="font-size:12px; font-weight:700; background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:12px;"><?php echo count($meetings); ?></span>
+                    </h3>
+
+                    <!-- Selettore Filtro Ambito -->
+                    <form method="get" action="" style="display:flex; align-items:center; gap:8px;">
+                        <input type="hidden" name="page" value="dfn-volunteer-meetings">
+                        <label for="team_filter" style="font-size:12px; font-weight:700; color:#64748b;">Filtra:</label>
+                        <select name="team_filter" id="team_filter" onchange="this.form.submit();" style="font-size:12.5px; height:32px; border-radius:6px; border:1px solid #cbd5e1; padding:0 8px;">
+                            <option value="all" <?php selected($team_filter, 'all'); ?>>Tutti gli ambiti</option>
+                            <option value="plenary" <?php selected($team_filter, 'plenary'); ?>>🏛️ Solo Plenarie</option>
+                            <?php if (! empty($all_active_teams)) : ?>
+                                <optgroup label="Squadre:">
+                                    <?php foreach ($all_active_teams as $t) : ?>
+                                        <option value="<?php echo esc_attr($t->id); ?>" <?php selected($team_filter, (string) $t->id); ?>>
+                                            <?php echo esc_html(($t->icon ?: '👥') . ' ' . $t->name); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endif; ?>
+                        </select>
+                    </form>
                 </div>
+
+                <!-- TABLE -->
                 <table class="wp-list-table widefat fixed striped table-view-list" style="border:none;">
                     <thead>
                         <tr>
-                            <th style="width:110px; font-weight:700;">Data &amp; Ora</th>
-                            <th style="font-weight:700;">Riunione &amp; Ordine del Giorno</th>
-                            <th style="width:140px; font-weight:700;">Luogo / Link</th>
-                            <th style="width:80px; font-weight:700; text-align:right;">Azione</th>
+                            <th style="width:120px; font-weight:700;"><?php esc_html_e('Data & Ora', 'dfn-theme'); ?></th>
+                            <th style="width:180px; font-weight:700;"><?php esc_html_e('Ambito / Squadra', 'dfn-theme'); ?></th>
+                            <th style="font-weight:700;"><?php esc_html_e('Riunione & Ordine del Giorno', 'dfn-theme'); ?></th>
+                            <th style="width:160px; font-weight:700;"><?php esc_html_e('Luogo / Link', 'dfn-theme'); ?></th>
+                            <th style="width:140px; font-weight:700; text-align:right;"><?php esc_html_e('Azioni', 'dfn-theme'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (! empty($meetings)) : ?>
                             <?php foreach ($meetings as $m) : 
                                 $is_past = strtotime($m->meeting_date) < strtotime('today');
+                                $t_obj = ($m->team_id > 0 && isset($teams_map[(int) $m->team_id])) ? $teams_map[(int) $m->team_id] : null;
+                                
+                                $can_manage_this = $is_admin || ($m->team_id > 0 && function_exists('dfn_is_user_team_supervisor') && dfn_is_user_team_supervisor($current_uid, (int) $m->team_id));
                             ?>
-                                <tr <?php if ($is_past) echo 'style="opacity:0.6;"'; ?>>
+                                <tr <?php if ($is_past) echo 'style="opacity:0.65; background:#fafafa;"'; ?>>
+                                    <!-- Data & Ora -->
                                     <td>
-                                        <strong style="color:#0f172a; display:block;">
+                                        <strong style="color:#0f172a; display:block; font-size:13px;">
                                             <?php echo esc_html(date_i18n('d/m/Y', strtotime($m->meeting_date))); ?>
                                         </strong>
-                                        <code style="font-size:11px; background:#f1f5f9; padding:2px 5px; border-radius:4px; border:1px solid #e2e8f0;">
-                                            <?php echo esc_html(substr($m->meeting_time_start, 0, 5)); ?>
-                                        </code>
+                                        <span style="font-size:11.5px; font-weight:700; background:#f1f5f9; color:#0f172a; padding:2px 6px; border-radius:4px; border:1px solid #e2e8f0; display:inline-block; margin-top:3px;">
+                                            ⏰ <?php echo esc_html(substr($m->meeting_time_start, 0, 5)); ?><?php if ($m->meeting_time_end) echo '-' . esc_html(substr($m->meeting_time_end, 0, 5)); ?>
+                                        </span>
+                                        <?php if ($is_past) : ?>
+                                            <span style="display:block; font-size:10px; color:#94a3b8; margin-top:2px;">(Conclusa)</span>
+                                        <?php endif; ?>
                                     </td>
+
+                                    <!-- Ambito / Squadra -->
                                     <td>
-                                        <strong style="color:#0f172a; font-size:13px; display:block;"><?php echo esc_html($m->title); ?></strong>
+                                        <?php if ($m->team_id > 0 && $t_obj) : ?>
+                                            <span style="background:<?php echo esc_attr($t_obj->badge_bg ?: '#f0fdf4'); ?>; color:<?php echo esc_attr($t_obj->color ?: '#004b23'); ?>; border:1px solid <?php echo esc_attr($t_obj->color ? $t_obj->color . '40' : '#86efac'); ?>; font-weight:700; font-size:11.5px; padding:3px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                                <span><?php echo esc_html($t_obj->icon ?: '👥'); ?></span>
+                                                <?php echo esc_html($t_obj->name); ?>
+                                            </span>
+                                        <?php else : ?>
+                                            <span style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; font-weight:700; font-size:11.5px; padding:3px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                                <span>🏛️</span> <?php esc_html_e('Plenaria Delegazione', 'dfn-theme'); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+
+                                    <!-- Titolo & Agenda -->
+                                    <td>
+                                        <strong style="color:#0f172a; font-size:13.5px; display:block; margin-bottom:4px;">
+                                            <?php echo esc_html($m->title); ?>
+                                        </strong>
                                         <?php if ($m->agenda) : ?>
-                                            <div style="font-size:12px; color:#475569; margin-top:3px;"><?php echo nl2br(esc_html($m->agenda)); ?></div>
+                                            <div style="font-size:12px; color:#475569; line-height:1.4; background:#f8fafc; padding:6px 10px; border-radius:6px; border:1px solid #f1f5f9; white-space:pre-line;">
+                                                <?php echo esc_html($m->agenda); ?>
+                                            </div>
                                         <?php endif; ?>
                                     </td>
+
+                                    <!-- Luogo / Link -->
                                     <td>
-                                        <div style="font-size:12px; color:#334155;">📍 <?php echo esc_html($m->location); ?></div>
+                                        <div style="font-size:12px; color:#334155; display:flex; align-items:center; gap:4px;">
+                                            <span>📍</span> <span><?php echo esc_html($m->location); ?></span>
+                                        </div>
                                         <?php if ($m->meeting_link) : ?>
-                                            <a href="<?php echo esc_url($m->meeting_link); ?>" target="_blank" style="font-size:11.5px; color:#2563eb; display:inline-block; margin-top:3px;">🔗 Partecipa Online</a>
+                                            <a href="<?php echo esc_url($m->meeting_link); ?>" target="_blank" rel="noopener noreferrer" style="font-size:11.5px; color:#0284c7; font-weight:700; display:inline-flex; align-items:center; gap:3px; margin-top:4px; text-decoration:none;">
+                                                <span>🔗</span> <?php esc_html_e('Partecipa Online', 'dfn-theme'); ?>
+                                            </a>
                                         <?php endif; ?>
                                     </td>
+
+                                    <!-- Azioni -->
                                     <td style="text-align:right;">
-                                        <?php 
-                                        $del_m_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-meetings&action=delete&meeting_id=' . $m->id), 'dfn_meeting_action_' . $m->id);
+                                        <?php if ($can_manage_this) : 
+                                            $notify_url = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-meetings&action=send_meeting_notif&meeting_id=' . $m->id . ($team_filter !== 'all' ? '&team_filter=' . urlencode($team_filter) : '')), 'dfn_meeting_notify_' . $m->id);
+                                            $del_m_url  = wp_nonce_url(admin_url('admin.php?page=dfn-volunteer-meetings&action=delete&meeting_id=' . $m->id . ($team_filter !== 'all' ? '&team_filter=' . urlencode($team_filter) : '')), 'dfn_meeting_action_' . $m->id);
                                         ?>
-                                        <a href="<?php echo esc_url($del_m_url); ?>" class="button button-small" style="color:#b91c1c;" onclick="return confirm('Eliminare questa riunione?');">
-                                            Elimina
-                                        </a>
+                                            <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
+                                                <a href="<?php echo esc_url($notify_url); ?>" class="button button-small" style="font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="Invia o reinvia l'email di convocazione a tutti i membri del gruppo" onclick="return confirm('Inviare l\'email di convocazione per questa riunione a tutti i partecipanti abilitati?');">
+                                                    <span>✉️</span> <?php esc_html_e('Convocazione', 'dfn-theme'); ?>
+                                                </a>
+                                                <a href="<?php echo esc_url($del_m_url); ?>" class="button button-small" style="color:#b91c1c; font-size:11px;" onclick="return confirm('Sei sicuro di voler eliminare questa riunione?');">
+                                                    <span>🗑️</span> <?php esc_html_e('Elimina', 'dfn-theme'); ?>
+                                                </a>
+                                            </div>
+                                        <?php else : ?>
+                                            <span style="font-size:11px; color:#94a3b8;">—</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else : ?>
                             <tr>
-                                <td colspan="4" style="padding:25px; text-align:center; color:#64748b;">
-                                    Nessuna riunione programmata. Compila il modulo a sinistra per pubblicarne una.
+                                <td colspan="5" style="padding:30px; text-align:center; color:#64748b;">
+                                    <div style="font-size:24px; margin-bottom:6px;">📅</div>
+                                    <strong style="color:#0f172a;"><?php esc_html_e('Nessuna riunione trovata per l\'ambito selezionato.', 'dfn-theme'); ?></strong>
+                                    <p style="margin:4px 0 0 0; font-size:12.5px;"><?php esc_html_e('Compila il modulo a sinistra per programmare una nuova riunione plenaria o di squadra.', 'dfn-theme'); ?></p>
                                 </td>
                             </tr>
                         <?php endif; ?>

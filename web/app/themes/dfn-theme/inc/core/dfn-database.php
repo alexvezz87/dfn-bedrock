@@ -279,6 +279,7 @@ function dfn_db_install(): void
     $table_meetings = $wpdb->prefix . 'dfn_volunteer_meetings';
     $sql_meetings = "CREATE TABLE {$table_meetings} (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        team_id bigint(20) unsigned NOT NULL DEFAULT 0,
         title varchar(255) NOT NULL,
         meeting_date date NOT NULL,
         meeting_time_start time NOT NULL,
@@ -288,9 +289,12 @@ function dfn_db_install(): void
         agenda text DEFAULT NULL,
         notes text DEFAULT NULL,
         status varchar(20) NOT NULL DEFAULT 'scheduled',
+        reminder_7d_sent tinyint(1) NOT NULL DEFAULT 0,
+        reminder_1d_sent tinyint(1) NOT NULL DEFAULT 0,
         created_by bigint(20) unsigned DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
+        KEY idx_team (team_id),
         KEY idx_date (meeting_date),
         KEY idx_status (status)
     ) {$charset_collate};";
@@ -1303,13 +1307,45 @@ function dfn_get_volunteer_by_user(int $user_id)
 }
 
 /**
- * Recupera l'elenco delle prossime riunioni di delegazione programmate.
+ * Assicura che le colonne necessarie per le riunioni di team (team_id, reminder) esistano nella tabella.
  *
- * @param bool $upcoming_only Se true, restituisce solo le riunioni da oggi in poi.
- * @param int  $limit         Numero massimo di riunioni da restituire.
+ * @return void
+ */
+function dfn_ensure_meetings_table_columns(): void
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'dfn_volunteer_meetings';
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$table}'") !== $table) {
+        return;
+    }
+
+    $columns = $wpdb->get_col("DESCRIBE {$table}", 0);
+    if (! is_array($columns) || empty($columns)) {
+        return;
+    }
+
+    if (! in_array('team_id', $columns, true)) {
+        $wpdb->query("ALTER TABLE {$table} ADD COLUMN team_id bigint(20) unsigned NOT NULL DEFAULT 0 AFTER id, ADD INDEX idx_team (team_id)");
+    }
+    if (! in_array('reminder_7d_sent', $columns, true)) {
+        $wpdb->query("ALTER TABLE {$table} ADD COLUMN reminder_7d_sent tinyint(1) NOT NULL DEFAULT 0 AFTER status");
+    }
+    if (! in_array('reminder_1d_sent', $columns, true)) {
+        $wpdb->query("ALTER TABLE {$table} ADD COLUMN reminder_1d_sent tinyint(1) NOT NULL DEFAULT 0 AFTER reminder_7d_sent");
+    }
+}
+add_action('admin_init', 'dfn_ensure_meetings_table_columns');
+
+/**
+ * Recupera l'elenco delle prossime riunioni di delegazione o di team.
+ *
+ * @param bool     $upcoming_only Se true, restituisce solo le riunioni da oggi in poi.
+ * @param int      $limit         Numero massimo di riunioni da restituire.
+ * @param int|null $user_id       Filtra per permessi e squadre di appartenenza di uno specifico utente.
+ * @param int|null $team_id       Filtra direttamente per uno specifico ID di team (0 = Plenaria).
  * @return array<object>
  */
-function dfn_get_volunteer_meetings(bool $upcoming_only = true, int $limit = 20): array
+function dfn_get_volunteer_meetings(bool $upcoming_only = true, int $limit = 20, ?int $user_id = null, ?int $team_id = null): array
 {
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_volunteer_meetings';
@@ -1317,6 +1353,31 @@ function dfn_get_volunteer_meetings(bool $upcoming_only = true, int $limit = 20)
     $where = "status != 'cancelled'";
     if ($upcoming_only) {
         $where .= " AND meeting_date >= CURDATE()";
+    }
+
+    if ($team_id !== null && $team_id >= 0) {
+        $where .= $wpdb->prepare(" AND team_id = %d", $team_id);
+    } elseif ($user_id && $user_id > 0) {
+        $is_admin = user_can($user_id, 'manage_options') || user_can($user_id, 'dfn_act_fai_members') || (function_exists('dfn_user_has_module_access') && dfn_user_has_module_access('volontari', $user_id));
+        if (! $is_admin) {
+            // Recupera gli ID delle squadre di appartenenza o supervisione dell'utente
+            $user_teams = function_exists('dfn_get_user_teams') ? dfn_get_user_teams($user_id) : [];
+            $sup_teams  = function_exists('dfn_get_user_supervised_teams') ? dfn_get_user_supervised_teams($user_id) : [];
+            $allowed_team_ids = [0]; // Plenaria sempre visibile a tutti i volontari
+            foreach ($user_teams as $ut) {
+                if (! empty($ut->id)) {
+                    $allowed_team_ids[] = (int) $ut->id;
+                }
+            }
+            foreach ($sup_teams as $st) {
+                if (! empty($st->id)) {
+                    $allowed_team_ids[] = (int) $st->id;
+                }
+            }
+            $allowed_team_ids = array_unique($allowed_team_ids);
+            $in_clause = implode(',', array_map('intval', $allowed_team_ids));
+            $where .= " AND team_id IN ({$in_clause})";
+        }
     }
 
     $sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY meeting_date ASC, meeting_time_start ASC LIMIT %d";
@@ -2188,4 +2249,26 @@ function dfn_get_all_volunteer_teams_map(): array
     return $map;
 }
 
+/**
+ * Recupera tutte le squadre di cui un determinato utente è supervisore/delegato responsabile.
+ *
+ * @param int $user_id ID utente WordPress.
+ * @return array<object> Lista degli oggetti team supervisionati.
+ */
+function dfn_get_user_supervised_teams(int $user_id): array
+{
+    if (! $user_id) {
+        return [];
+    }
 
+    $all_teams = function_exists('dfn_get_all_teams') ? dfn_get_all_teams(true) : [];
+    $supervised = [];
+
+    foreach ($all_teams as $t) {
+        if (dfn_is_user_team_supervisor($user_id, (int) $t->id)) {
+            $supervised[] = $t;
+        }
+    }
+
+    return $supervised;
+}

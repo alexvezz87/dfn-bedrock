@@ -826,12 +826,12 @@ function dfn_volunteer_meetings_endpoint_content(): void
         return;
     }
 
-    $meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 50) : [];
+    $meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 50, $current_user_id) : [];
     ?>
     <div class="dfn-volunteer-meetings-section" id="dfn-meetings-section">
         <div class="dfn-account-header-card">
-            <h2 class="dfn-dashboard-title"><?php esc_html_e('📅 Riunioni di Delegazione', 'dfn-theme'); ?></h2>
-            <p class="dfn-dashboard-desc"><?php esc_html_e('Consulta il calendario delle prossime riunioni dei volontari FAI, gli orari, le sedi e gli ordini del giorno programmati.', 'dfn-theme'); ?></p>
+            <h2 class="dfn-dashboard-title"><?php esc_html_e('📅 Riunioni di Delegazione & Squadre', 'dfn-theme'); ?></h2>
+            <p class="dfn-dashboard-desc"><?php esc_html_e('Consulta il calendario delle prossime riunioni plenarie o delle tue squadre di lavoro, gli orari, le sedi e gli ordini del giorno programmati.', 'dfn-theme'); ?></p>
         </div>
 
         <?php if (! empty($meetings)) : ?>
@@ -841,6 +841,7 @@ function dfn_volunteer_meetings_endpoint_content(): void
                     $day_name = date_i18n('l', $m_date);
                     $day_num  = date_i18n('d', $m_date);
                     $month    = date_i18n('F Y', $m_date);
+                    $t_obj    = ($m->team_id > 0 && function_exists('dfn_get_team')) ? dfn_get_team((int) $m->team_id) : null;
                 ?>
                     <div class="dfn-meeting-compact-card">
                         <!-- Date Header Pill -->
@@ -855,6 +856,20 @@ function dfn_volunteer_meetings_endpoint_content(): void
                         <!-- Details Body -->
                         <div class="dfn-meeting-card-body">
                             <div>
+                                <!-- Ambito / Team Badge -->
+                                <div style="margin-bottom: 8px;">
+                                    <?php if ($t_obj) : ?>
+                                        <span style="background:<?php echo esc_attr($t_obj->badge_bg ?: '#f0fdf4'); ?>; color:<?php echo esc_attr($t_obj->color ?: '#004b23'); ?>; border:1px solid <?php echo esc_attr($t_obj->color ? $t_obj->color . '40' : '#86efac'); ?>; font-weight:700; font-size:11px; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                            <span><?php echo esc_html($t_obj->icon ?: '👥'); ?></span>
+                                            <?php echo esc_html($t_obj->name); ?>
+                                        </span>
+                                    <?php else : ?>
+                                        <span style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; font-weight:700; font-size:11px; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                            <span>🏛️</span> <?php esc_html_e('Plenaria Delegazione', 'dfn-theme'); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+
                                 <h3 class="dfn-meeting-card-title">
                                     <?php echo esc_html($m->title); ?>
                                 </h3>
@@ -1112,7 +1127,7 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
     ));
 
     // Recupera prossima riunione
-    $upcoming_meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 1) : [];
+    $upcoming_meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 1, $current_user_id) : [];
     $next_meeting = ! empty($upcoming_meetings) ? $upcoming_meetings[0] : null;
 
     // Recupera squadre di appartenenza
@@ -1311,9 +1326,22 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                 $m_d = strtotime($next_meeting->meeting_date);
                 $date_text = date_i18n('l d F Y', $m_d);
                 $time_text = substr($next_meeting->meeting_time_start, 0, 5);
+                $next_m_team = ($next_meeting->team_id > 0 && function_exists('dfn_get_team')) ? dfn_get_team((int) $next_meeting->team_id) : null;
             ?>
                 <div class="dfn-vol-meeting-box">
                     <div>
+                        <div style="margin-bottom: 4px;">
+                            <?php if ($next_m_team) : ?>
+                                <span style="background:<?php echo esc_attr($next_m_team->badge_bg ?: '#f0fdf4'); ?>; color:<?php echo esc_attr($next_m_team->color ?: '#004b23'); ?>; border:1px solid <?php echo esc_attr($next_m_team->color ? $next_m_team->color . '40' : '#86efac'); ?>; font-weight:700; font-size:10.5px; padding:2px 7px; border-radius:5px; display:inline-flex; align-items:center; gap:3px;">
+                                    <span><?php echo esc_html($next_m_team->icon ?: '👥'); ?></span>
+                                    <?php echo esc_html($next_m_team->name); ?>
+                                </span>
+                            <?php else : ?>
+                                <span style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; font-weight:700; font-size:10.5px; padding:2px 7px; border-radius:5px; display:inline-flex; align-items:center; gap:3px;">
+                                    <span>🏛️</span> <?php esc_html_e('Plenaria Delegazione', 'dfn-theme'); ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
                         <h4 class="dfn-vol-meeting-title"><?php echo esc_html($next_meeting->title); ?></h4>
                         <div class="dfn-vol-meeting-meta">
                             🗓️ <strong><?php echo esc_html(ucfirst($date_text)); ?></strong> alle <strong><?php echo esc_html($time_text); ?></strong> • 📍 <?php echo esc_html($next_meeting->location); ?>
