@@ -66,6 +66,37 @@ function dfn_send_notification_email($to, $subject, $title, $content_html, $atta
         }
     }
 
+    // GESTIONE AMBIENTE & SICUREZZA TEST (STAGING / SANDBOX / MUTE)
+    $sandbox_mode = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('email_sandbox_mode', 'live') : (function_exists('dfn_get_setting') ? dfn_get_setting('email_sandbox_mode', 'live') : 'live');
+
+    // 1. MUTE MODE (Blocco Totale Silenzioso - Non invia nulla e logga l'evento)
+    if ($sandbox_mode === 'mute') {
+        $to_str = is_array($to) ? implode(', ', $to) : (string) $to;
+        if (function_exists('dfn_log_write')) {
+            dfn_log_write('sistema', 'DFN Mailer [MUTE]', sprintf("Email intercettata [MUTE MODE - Destinatario: %s | Oggetto: %s]", $to_str, $subject), 'info');
+        }
+        $GLOBALS['dfn_current_email_context'] = '';
+        return true; // Restituisce true per non interrompere i processi di checkout o cron
+    }
+
+    // 2. SANDBOX REDIRECT MODE (Devia tutte le email a una casella di test designata)
+    if ($sandbox_mode === 'sandbox_redirect') {
+        $sandbox_recipient = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('email_sandbox_recipient', '') : '';
+        if (empty($sandbox_recipient) && function_exists('dfn_get_setting')) {
+            $sandbox_recipient = dfn_get_setting('email_sandbox_recipient', '');
+        }
+        if (empty($sandbox_recipient)) {
+            $sandbox_recipient = get_option('admin_email');
+        }
+
+        $orig_to_str = is_array($to) ? implode(', ', $to) : (string) $to;
+        $subject = '[TEST SANDBOX] ' . $subject;
+        $sandbox_banner = '<div style="background:#fffbeb; border:2px dashed #f59e0b; padding:12px 16px; margin-bottom:20px; border-radius:6px; font-family:sans-serif; font-size:13px; color:#92400e;"><strong>🧪 EMAIL IN MODALITÀ SANDBOX / TEST STAGING</strong><br>Destinatario originario: <code>' . esc_html($orig_to_str) . '</code></div>';
+        $content_html = $sandbox_banner . $content_html;
+        $to = $sandbox_recipient;
+        $headers = [ 'Content-Type: text/html; charset=UTF-8' ]; // Reset CC/BCC per evitare fughe di email
+    }
+
     // Filtro dinamico per applicare il nome mittente (From Name) mantenendo l'indirizzo email del server SMTP
     $filter_from_name = null;
     if (! empty($from_name)) {
@@ -2482,6 +2513,31 @@ function dfn_send_volunteer_meeting_notification(int $meeting_id, bool $is_remin
             'failed_count' => 0,
             'recipients'   => [],
         ];
+    }
+
+    // Verifica toggle impostazioni notifiche / promemoria riunioni
+    if ($is_reminder) {
+        $reminders_enabled = function_exists('dfn_get_volunteer_setting') ? (dfn_get_volunteer_setting('vol_enable_meeting_reminders', 'yes') === 'yes') : true;
+        if (! $reminders_enabled) {
+            return [
+                'success'      => false,
+                'message'      => __('Promemoria automatici riunioni disattivati nelle impostazioni.', 'dfn-theme'),
+                'sent_count'   => 0,
+                'failed_count' => 0,
+                'recipients'   => [],
+            ];
+        }
+    } else {
+        $notifs_enabled = function_exists('dfn_get_volunteer_setting') ? (dfn_get_volunteer_setting('vol_enable_meeting_notifications', 'yes') === 'yes') : true;
+        if (! $notifs_enabled) {
+            return [
+                'success'      => false,
+                'message'      => __('Invio notifiche convocazione riunioni disattivato nelle impostazioni.', 'dfn-theme'),
+                'sent_count'   => 0,
+                'failed_count' => 0,
+                'recipients'   => [],
+            ];
+        }
     }
 
     $team = null;

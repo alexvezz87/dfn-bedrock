@@ -1109,6 +1109,7 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
     $next_shift = ! empty($my_shifts) ? $my_shifts[0] : null;
 
     // Recupera eventuale sondaggio aperto o chiuso in attesa di turni
+    $now = current_time('mysql');
     $table_surveys = $wpdb->prefix . 'dfn_volunteer_surveys';
     $active_survey = $wpdb->get_row($wpdb->prepare(
         "SELECT s.*, e.title as event_title, e.status as event_status 
@@ -1130,8 +1131,9 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
     $upcoming_meetings = function_exists('dfn_get_volunteer_meetings') ? dfn_get_volunteer_meetings(true, 1, $current_user_id) : [];
     $next_meeting = ! empty($upcoming_meetings) ? $upcoming_meetings[0] : null;
 
-    // Recupera squadre di appartenenza
-    $my_teams = function_exists('dfn_get_user_teams') ? dfn_get_user_teams($current_user_id) : ($member ? (function_exists('dfn_get_volunteer_teams') ? dfn_get_volunteer_teams($member->id) : []) : []);
+    // Recupera squadre di appartenenza (se il modulo Squadre v2.1.1 è abilitato)
+    $teams_enabled = function_exists('dfn_get_volunteer_setting') ? (dfn_get_volunteer_setting('vol_enable_teams', 'yes') === 'yes') : true;
+    $my_teams = $teams_enabled ? (function_exists('dfn_get_user_teams') ? dfn_get_user_teams($current_user_id) : ($member ? (function_exists('dfn_get_volunteer_teams') ? dfn_get_volunteer_teams($member->id) : []) : [])) : [];
 
     // Verifica se l'utente ha accesso al modulo di gestione eventi/prenotazioni
     $has_events_mgr_access = function_exists('dfn_user_has_module_access') ? dfn_user_has_module_access('prenotazioni', $current_user_id) : current_user_can('manage_options');

@@ -726,18 +726,27 @@ function dfn_cron_invia_promemoria_riunioni_volontari(): void
     }
     set_transient('dfn_cron_meetings_reminder_lock', 1, 15 * MINUTE_IN_SECONDS);
 
+    // Verifica se i promemoria automatici riunioni sono attivi nelle impostazioni
+    $reminders_enabled = function_exists('dfn_get_volunteer_setting') ? (dfn_get_volunteer_setting('vol_enable_meeting_reminders', 'yes') === 'yes') : true;
+    if (! $reminders_enabled) {
+        return;
+    }
+
     global $wpdb;
     $table_meetings = $wpdb->prefix . 'dfn_volunteer_meetings';
     if ($wpdb->get_var("SHOW TABLES LIKE '{$table_meetings}'") !== $table_meetings) {
         return;
     }
 
+    $teams_enabled = function_exists('dfn_get_volunteer_setting') ? (dfn_get_volunteer_setting('vol_enable_teams', 'yes') === 'yes') : true;
+    $team_scope_sql = (! $teams_enabled) ? " AND (team_id IS NULL OR team_id = 0) " : "";
+
     // 1. Riunioni a 7 giorni (tra 6 e 7 giorni)
     $meetings_7d = $wpdb->get_results(
         "SELECT id, title, meeting_date, team_id FROM {$table_meetings} 
          WHERE status = 'scheduled' 
            AND meeting_date = CURDATE() + INTERVAL 7 DAY 
-           AND reminder_7d_sent = 0"
+           AND reminder_7d_sent = 0 {$team_scope_sql}"
     );
 
     if (! empty($meetings_7d)) {
@@ -753,7 +762,7 @@ function dfn_cron_invia_promemoria_riunioni_volontari(): void
         "SELECT id, title, meeting_date, team_id FROM {$table_meetings} 
          WHERE status = 'scheduled' 
            AND meeting_date = CURDATE() + INTERVAL 1 DAY 
-           AND reminder_1d_sent = 0"
+           AND reminder_1d_sent = 0 {$team_scope_sql}"
     );
 
     if (! empty($meetings_1d)) {
