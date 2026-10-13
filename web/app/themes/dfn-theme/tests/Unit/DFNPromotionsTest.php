@@ -292,5 +292,30 @@ namespace DFN\Theme\Tests\Unit {
             $this->assertEquals(15, $counts['sent']);
             $this->assertEquals(50, $counts['total']);
         }
+
+        /**
+         * Test 7: dfn_is_valid_promotional_email esclude rigorosamente email fittizie, botteghino e domini .local / example.
+         */
+        public function testIsValidPromotionalEmailExcludesDummiesAndLocalDomains(): void
+        {
+            // Email fittizie da escludere
+            $this->assertFalse(dfn_is_valid_promotional_email('no-email-1789931572@dfn.local'));
+            $this->assertFalse(dfn_is_valid_promotional_email('no-email@dfn.it'));
+            $this->assertFalse(dfn_is_valid_promotional_email('autorita_1776167621@fainovara.local'));
+            $this->assertFalse(dfn_is_valid_promotional_email('cassa_9968@fainovara.local'));
+            $this->assertFalse(dfn_is_valid_promotional_email('cassa-1234@dfn.local'));
+            $this->assertFalse(dfn_is_valid_promotional_email('testbooking@example.com'));
+            $this->assertFalse(dfn_is_valid_promotional_email('mario.rossi@example.com'));
+            $this->assertFalse(dfn_is_valid_promotional_email('user@test.local'));
+            $this->assertFalse(dfn_is_valid_promotional_email('invalid-email-format'));
+            $this->assertFalse(dfn_is_valid_promotional_email(''));
+
+            // Email reali e legittime da accettare
+            $this->assertTrue(dfn_is_valid_promotional_email('lisatestaquatra@gmail.com'));
+            $this->assertTrue(dfn_is_valid_promotional_email('mario.rossi@libero.it'));
+            $this->assertTrue(dfn_is_valid_promotional_email('volontario@fondoambiente.it'));
+            $this->assertTrue(dfn_is_valid_promotional_email('prenotazioni@fai.novara.it'));
+        }
     }
 }
+

@@ -153,6 +153,10 @@ namespace DFN\Theme\Tests\Unit {
          */
         public function test_simplify_checkout_fields_removes_unnecessary_fields_on_express()
         {
+            if (! function_exists('dfn_conditionally_simplify_checkout_fields')) {
+                $this->markTestSkipped('Rimossa in #40 per preservare i campi di checkout 1:1 con la produzione');
+            }
+
             // Mock della funzione di controllo Express Checkout
             Functions\when('dfn_is_express_checkout_needed')->justReturn(true);
 
