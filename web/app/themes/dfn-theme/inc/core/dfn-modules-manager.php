@@ -285,17 +285,8 @@ function dfn_register_modules_admin_menu(): void
         55.4
     );
 
-    // Se il menu Prenotazioni è attivo, aggiunge anche un link nel suo sottomenu per comodità
-    if (dfn_is_module_active('prenotazioni')) {
-        add_submenu_page(
-            'dfn-events',
-            __('Moduli FAI', 'dfn-theme'),
-            __('Moduli FAI', 'dfn-theme'),
-            'manage_options',
-            'dfn-modules',
-            'dfn_render_modules_manager_page'
-        );
-    }
+    // Menu di primo livello globale per l'ecosistema DFN
+    // I sotto-moduli di FAI Prenotazioni si configurano in FAI Prenotazioni -> Impostazioni -> Moduli
 
     // Se il menu Volontari è attivo, aggiunge anche un link nel sottomenu Volontari
     if (dfn_is_module_active('volontari')) {
@@ -522,23 +513,43 @@ function dfn_render_modules_manager_page(): void
                 </div>
             </div>
 
-            <!-- ===== SEZIONE 2: MODULI & FUNZIONALITÀ FAI PRENOTAZIONI ===== -->
-            <div style="margin-bottom: 40px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 22px;">
-                    <div>
-                        <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
-                            <span>⚙️</span> <?php esc_html_e('Moduli Funzionali FAI Prenotazioni', 'dfn-theme'); ?>
-                        </h2>
-                        <p style="margin: 4px 0 0; font-size: 13px; color: #64748b;">
-                            <?php esc_html_e('Funzionalità operative attivabili o disattivabili in base all\'organizzazione e alle necessità della Delegazione.', 'dfn-theme'); ?>
-                        </p>
-                    </div>
+            <!-- ===== SEZIONE 2: GUIDA ALLA CONFIGURAZIONE DEI SOTTO-MODULI ===== -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px 28px; margin-bottom: 35px;">
+                <div style="margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                        <span>🧩</span> <?php esc_html_e('Configurazione Sotto-Moduli Specifici', 'dfn-theme'); ?>
+                    </h3>
+                    <p style="margin: 0; font-size: 13.5px; color: #64748b; line-height: 1.5;">
+                        <?php esc_html_e('Ciascun macro-modulo dispone delle proprie impostazioni dedicate per gestire e abilitare/disabilitare i singoli sotto-moduli operativi:', 'dfn-theme'); ?>
+                    </p>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px;">
-                    <?php foreach ($feature_modules as $mod) : 
-                        dfn_render_module_card($mod, ! empty($status[$mod['id']]));
-                    endforeach; ?>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px;">
+                    <!-- Card Link FAI Prenotazioni -->
+                    <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+                        <div>
+                            <div style="font-weight: 800; color: #0f172a; font-size: 14.5px;">🎟️ <?php esc_html_e('Moduli FAI Prenotazioni', 'dfn-theme'); ?></div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                <?php esc_html_e('Promozioni, Lista d\'Attesa, Bilancio Eventi, Recensioni, Botteghino Live', 'dfn-theme'); ?>
+                            </div>
+                        </div>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-settings&tab=moduli')); ?>" class="button button-primary" style="background: #004b23; border-color: #004b23; font-weight: 700; height: 36px; line-height: 34px; padding: 0 16px; flex-shrink: 0;">
+                            <?php esc_html_e('Apri Moduli &rarr;', 'dfn-theme'); ?>
+                        </a>
+                    </div>
+
+                    <!-- Card Link Volontari FAI -->
+                    <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+                        <div>
+                            <div style="font-weight: 800; color: #0f172a; font-size: 14.5px;">👥 <?php esc_html_e('Moduli Volontari FAI', 'dfn-theme'); ?></div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                <?php esc_html_e('Team di Lavoro, Matrice Logistica Turni, Convocazioni, Sondaggi', 'dfn-theme'); ?>
+                            </div>
+                        </div>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-volunteer-settings')); ?>" class="button button-secondary" style="font-weight: 700; height: 36px; line-height: 34px; padding: 0 16px; flex-shrink: 0; color: #004b23; border-color: #004b23;">
+                            <?php esc_html_e('Impostazioni &rarr;', 'dfn-theme'); ?>
+                        </a>
+                    </div>
                 </div>
             </div>
 
