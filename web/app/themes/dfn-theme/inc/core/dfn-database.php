@@ -2111,8 +2111,8 @@ function dfn_promotions_build_email_html(object $promotion, string $recipient_na
         <!-- Event Card -->
         <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff; margin-bottom: 26px; box-shadow: 0 4px 6px rgba(0,0,0,0.04);">
             <?php if (! empty($event->image_url)) : ?>
-                <div style="width: 100%; max-height: 280px; overflow: hidden; background-color: #f7fafc; text-align: center;">
-                    <img src="<?php echo esc_url($event->image_url); ?>" alt="<?php echo esc_attr($event->title); ?>" style="width: 100%; max-width: 600px; height: auto; display: block; object-fit: cover;" />
+                <div style="width: 100%; background-color: #f7fafc; text-align: center; line-height: 0;">
+                    <img src="<?php echo esc_url($event->image_url); ?>" alt="<?php echo esc_attr($event->title); ?>" style="width: 100%; max-width: 600px; height: auto; display: block; margin: 0 auto; border: 0;" />
                 </div>
             <?php endif; ?>
 

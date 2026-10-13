@@ -480,9 +480,9 @@ function dfn_render_promotions_admin_page(): void
 
                                         <!-- Card Evento Preview -->
                                         <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fff; margin-bottom: 16px;">
-                                            <div id="preview-event-img-wrap" style="width: 100%; height: 160px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                                                <img id="preview-event-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
-                                                <span id="preview-event-placeholder" style="color: #94a3b8; font-size: 12px;">Immagine di copertina evento</span>
+                                            <div id="preview-event-img-wrap" style="width: 100%; background: #f8fafc; text-align: center; line-height: 0; border-bottom: 1px solid #e2e8f0;">
+                                                <img id="preview-event-img" src="" style="width: 100%; max-width: 100%; height: auto; display: none; margin: 0 auto;" />
+                                                <span id="preview-event-placeholder" style="color: #94a3b8; font-size: 12px; display: inline-block; padding: 40px 10px; line-height: 1.4;">Immagine di copertina evento</span>
                                             </div>
 
                                             <div style="padding: 14px;">
