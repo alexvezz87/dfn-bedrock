@@ -235,5 +235,32 @@ namespace DFN\Theme\Tests\Unit {
             $this->assertEquals('disabled', $result['status']);
             $this->assertEquals(0, $result['processed']);
         }
+
+        /**
+         * Test 5: process_queue_batch cerca campagne in stato sending o scheduled con scheduled_at <= NOW().
+         */
+        public function testProcessQueueBatchIncludesScheduledAtFilter(): void
+        {
+            global $wpdb;
+            $wpdb = \Mockery::mock('wpdb');
+            $wpdb->prefix = 'wp_';
+
+            Functions\when('dfn_get_setting')->alias(function ($key, $default = '') {
+                if ($key === 'enable_event_promotions') return 'yes';
+                return $default;
+            });
+
+            // Verifica che la query cerchi status = 'sending' OR (status = 'scheduled' AND scheduled_at <= NOW())
+            $wpdb->shouldReceive('get_results')
+                ->once()
+                ->with(\Mockery::on(function ($sql) {
+                    return strpos($sql, "status = 'sending'") !== false
+                        && strpos($sql, "status = 'scheduled' AND scheduled_at <= NOW()") !== false;
+                }))
+                ->andReturn([]);
+
+            $result = dfn_promotions_process_queue_batch(25);
+            $this->assertEquals('idle', $result['status']);
+        }
     }
 }

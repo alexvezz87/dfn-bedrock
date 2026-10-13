@@ -23,6 +23,7 @@ add_action('wp_ajax_dfn_promotions_save_campaign',     'dfn_ajax_promotions_save
 add_action('wp_ajax_dfn_promotions_process_batch',      'dfn_ajax_promotions_process_batch');
 add_action('wp_ajax_dfn_promotions_cancel_campaign',    'dfn_ajax_promotions_cancel_campaign');
 add_action('wp_ajax_dfn_promotions_delete_campaign',    'dfn_ajax_promotions_delete_campaign');
+add_action('wp_ajax_dfn_promotions_launch_scheduled_now', 'dfn_ajax_promotions_launch_scheduled_now');
 
 /**
  * Endpoint AJAX: Calcola le statistiche del pubblico target per l'evento selezionato.
@@ -156,15 +157,40 @@ function dfn_ajax_promotions_save_campaign(): void
 
     $existing_promo_id = isset($_POST['promo_id']) ? absint($_POST['promo_id']) : 0;
 
+    $send_mode        = (isset($_POST['send_mode']) && $_POST['send_mode'] === 'scheduled') ? 'scheduled' : 'immediate';
+    $scheduled_at_raw = isset($_POST['scheduled_at']) ? sanitize_text_field($_POST['scheduled_at']) : '';
+    $initial_batch_sz = isset($_POST['initial_batch_size']) ? max(1, min(100, absint($_POST['initial_batch_size']))) : 15;
+    $batch_size       = isset($_POST['batch_size']) ? max(5, min(200, absint($_POST['batch_size']))) : 25;
+    $batch_interval   = isset($_POST['batch_interval_minutes']) ? max(1, min(1440, absint($_POST['batch_interval_minutes']))) : 5;
+
+    $scheduled_mysql = null;
+    if ($send_mode === 'scheduled' && ! empty($scheduled_at_raw)) {
+        $ts = strtotime(str_replace('T', ' ', $scheduled_at_raw));
+        if ($ts && $ts > time()) {
+            $scheduled_mysql = date('Y-m-d H:i:s', $ts);
+        } else {
+            wp_send_json_error(['message' => __('La data e l\'ora di pianificazione devono essere successive al momento attuale.', 'dfn-theme')]);
+        }
+    }
+
     $campaign_data = [
-        'event_id'          => $event_id,
-        'title'             => $title,
-        'email_subject'     => $subject,
-        'email_intro'       => $intro,
-        'email_custom_text' => $custom_text,
-        'cta_text'          => $cta_text,
-        'status'            => $is_launch ? 'sending' : 'draft',
+        'event_id'               => $event_id,
+        'title'                  => $title,
+        'email_subject'          => $subject,
+        'email_intro'            => $intro,
+        'email_custom_text'      => $custom_text,
+        'cta_text'               => $cta_text,
+        'initial_batch_size'     => $initial_batch_sz,
+        'batch_size'             => $batch_size,
+        'batch_interval_minutes' => $batch_interval,
+        'status'                 => $is_launch ? ($send_mode === 'scheduled' ? 'scheduled' : 'sending') : 'draft',
     ];
+
+    if ($scheduled_mysql) {
+        $campaign_data['scheduled_at'] = $scheduled_mysql;
+    } elseif ($send_mode === 'immediate' && $is_launch) {
+        $campaign_data['scheduled_at'] = current_time('mysql');
+    }
 
     if ($existing_promo_id > 0) {
         $campaign_data['id'] = $existing_promo_id;
@@ -191,25 +217,39 @@ function dfn_ajax_promotions_save_campaign(): void
             ]);
         }
 
-        // Avvia immediatamente il primo lotto (es. fino a 15 email) per dare feedback immediato
-        $batch_result = dfn_promotions_process_queue_batch(15);
-
         // Assicura che l'evento cron per la coda sia schedulato
         if (! wp_next_scheduled('dfn_cron_process_promotions')) {
             wp_schedule_event(time() + 60, 'every_five_minutes', 'dfn_cron_process_promotions');
         }
 
-        wp_send_json_success([
-            'message' => sprintf(
-                __('Campagna avviata! %d contatti accodati. Primo lotto di %d email inviato subito, le restanti verranno spedite a scaglioni in background.', 'dfn-theme'),
-                $queued_count,
-                $batch_result['sent']
-            ),
-            'promo_id' => $promo_id,
-        ]);
+        if ($send_mode === 'scheduled' && $scheduled_mysql) {
+            $formatted_date = date_i18n('d/m/Y \a\l\l\e H:i', strtotime($scheduled_mysql));
+            wp_send_json_success([
+                'message' => sprintf(
+                    __('Campagna pianificata con successo per il %s! %d contatti messi in coda. Il primo invio avverrà automaticamente alla data prestabilita.', 'dfn-theme'),
+                    $formatted_date,
+                    $queued_count
+                ),
+                'promo_id' => $promo_id,
+            ]);
+        } else {
+            // Invio immediato: avvia il primo lotto personalizzato
+            $batch_result = dfn_promotions_process_queue_batch($initial_batch_sz);
+
+            wp_send_json_success([
+                'message' => sprintf(
+                    __('Campagna avviata! %d contatti accodati. Primo lotto di %d email inviato subito, le restanti verranno spedite a scaglioni in background (%d email ogni %d min).', 'dfn-theme'),
+                    $queued_count,
+                    $batch_result['sent'],
+                    $batch_size,
+                    $batch_interval
+                ),
+                'promo_id' => $promo_id,
+            ]);
+        }
     } else {
         wp_send_json_success([
-            'message' => __('Bozza della campagna promozionale salvata con successo!', 'dfn-theme'),
+            'message' => __('Bozza della campagna promozionale salvata con successo con le impostazioni personalizzate!', 'dfn-theme'),
             'promo_id' => $promo_id,
         ]);
     }
@@ -281,3 +321,47 @@ function dfn_ajax_promotions_delete_campaign(): void
         wp_send_json_error(['message' => __('Impossibile eliminare la campagna.', 'dfn-theme')]);
     }
 }
+
+/**
+ * Endpoint AJAX: Avvia anticipatamente una campagna in stato pianificato senza attendere l'orario prefissato.
+ */
+function dfn_ajax_promotions_launch_scheduled_now(): void
+{
+    check_ajax_referer('dfn_promotions_ajax_nonce', 'nonce');
+
+    if (! current_user_can('dfn_act_promotions') && ! current_user_can('manage_options')) {
+        wp_send_json_error(['message' => __('Permessi non sufficienti.', 'dfn-theme')]);
+    }
+
+    $promo_id = isset($_POST['promo_id']) ? absint($_POST['promo_id']) : 0;
+    if ($promo_id <= 0) {
+        wp_send_json_error(['message' => __('ID campagna non valido.', 'dfn-theme')]);
+    }
+
+    $promo = function_exists('dfn_db_get_promotion') ? dfn_db_get_promotion($promo_id) : null;
+    if (! $promo || $promo->status !== 'scheduled') {
+        wp_send_json_error(['message' => __('Questa campagna non è in stato pianificato.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $wpdb->update(
+        $wpdb->prefix . 'dfn_promotions',
+        [
+            'status'       => 'sending',
+            'scheduled_at' => current_time('mysql'),
+        ],
+        ['id' => $promo_id]
+    );
+
+    // Elabora subito il primo lotto personalizzato
+    $initial_batch = ! empty($promo->initial_batch_size) ? absint($promo->initial_batch_size) : 15;
+    $batch_result = dfn_promotions_process_queue_batch($initial_batch);
+
+    wp_send_json_success([
+        'message' => sprintf(
+            __('Pianificazione anticipata con successo! Campagna avviata ora: inviate subito %d email del primo lotto.', 'dfn-theme'),
+            $batch_result['sent']
+        ),
+    ]);
+}
+
