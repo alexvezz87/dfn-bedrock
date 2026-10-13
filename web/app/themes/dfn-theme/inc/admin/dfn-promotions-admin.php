@@ -79,6 +79,38 @@ function dfn_render_promotions_admin_page(): void
     $admin_email  = $current_user->user_email ?: get_option('admin_email');
     ?>
     <div class="wrap dfn-promotions-wrap" style="max-width: 1400px; margin: 20px auto 40px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <style>
+            .dfn-promotions-wrap select#promotion_event_id {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: 48px !important;
+                height: 48px !important;
+                line-height: 26px !important;
+                padding: 10px 38px 10px 14px !important;
+                font-size: 14px !important;
+                border-radius: 6px !important;
+                border: 1px solid #cbd5e1 !important;
+                background-color: #ffffff !important;
+                box-sizing: border-box !important;
+                vertical-align: middle !important;
+            }
+            .dfn-promotions-wrap input[type="text"],
+            .dfn-promotions-wrap input[type="email"] {
+                min-height: 42px !important;
+                line-height: 1.5 !important;
+                padding: 8px 14px !important;
+                border-radius: 6px !important;
+                border: 1px solid #cbd5e1 !important;
+                box-sizing: border-box !important;
+            }
+            .dfn-promotions-wrap select#promotion_event_id:focus,
+            .dfn-promotions-wrap input:focus,
+            .dfn-promotions-wrap textarea:focus {
+                border-color: #004b23 !important;
+                box-shadow: 0 0 0 1px #004b23 !important;
+                outline: none !important;
+            }
+        </style>
         
         <!-- Header con Branding FAI -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
@@ -286,7 +318,7 @@ function dfn_render_promotions_admin_page(): void
                                 <label for="promotion_event_id" style="font-weight: 600; font-size: 14px; display: block; margin-bottom: 6px;">
                                     <?php esc_html_e('Evento in programma:', 'dfn-theme'); ?> <span style="color: #dc2626;">*</span>
                                 </label>
-                                <select id="promotion_event_id" name="event_id" style="width: 100%; max-width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; height: 42px;">
+                                <select id="promotion_event_id" name="event_id" style="width: 100%; max-width: 100%; min-height: 48px; height: 48px; line-height: 26px; padding: 10px 38px 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box; background-color: #fff;">
                                     <option value=""><?php esc_html_e('-- Seleziona un evento da promuovere --', 'dfn-theme'); ?></option>
                                     <?php foreach ($future_events as $ev) :
                                         $d_str = date_i18n('d/m/Y', strtotime($ev->event_date_start));
