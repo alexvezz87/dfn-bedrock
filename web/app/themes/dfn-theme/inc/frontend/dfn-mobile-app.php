@@ -148,7 +148,7 @@ function dfn_ajax_mobile_search_events(): void
     $events = $wpdb->get_results($sql);
 
     $can_see_quick      = dfn_user_can('dfn_act_quick_booking', $current_user->ID);
-    $can_see_botteghino = dfn_user_can('dfn_act_boxoffice', $current_user->ID);
+    $can_see_botteghino = (! function_exists('dfn_is_module_active') || dfn_is_module_active('botteghino')) && dfn_user_can('dfn_act_boxoffice', $current_user->ID);
     $can_do_checkin     = dfn_user_can('dfn_act_checkin', $current_user->ID) || dfn_user_can('dfn_act_events_manage', $current_user->ID);
 
     $results = [];
@@ -1135,7 +1135,7 @@ function dfn_render_mobile_app(): void
     $can_see_home      = dfn_user_can('dfn_act_events_manage') || dfn_user_can('dfn_act_checkin') || dfn_user_can('dfn_act_verify_bookings');
     $can_see_scanner   = dfn_user_can('dfn_act_scanner');
     $can_see_quick     = dfn_user_can('dfn_act_quick_booking');
-    $can_see_botteghino= dfn_user_can('dfn_act_boxoffice');
+    $can_see_botteghino= (! function_exists('dfn_is_module_active') || dfn_is_module_active('botteghino')) && dfn_user_can('dfn_act_boxoffice');
 
     // Determina il tab attivo iniziale
     $default_tab = 'home';

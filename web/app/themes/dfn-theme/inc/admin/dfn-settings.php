@@ -162,6 +162,9 @@ function dfn_settings_save_fields(): void
         'enable_auto_complete_paid'           => 'sanitize_text_field', // 'yes' o 'no'
         'enable_auto_verify_fai'              => 'sanitize_text_field', // 'yes' o 'no' — default 'no'
         'enable_event_promotions'             => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
+        'enable_event_accounting'             => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
+        'enable_event_reviews'                => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
+        'enable_live_boxoffice'               => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
     ];
 
     $merged_settings = $existing_settings;
@@ -203,6 +206,9 @@ function dfn_settings_save_fields(): void
             'enable_auto_complete_paid',
             'enable_auto_verify_fai',
             'enable_event_promotions',
+            'enable_event_accounting',
+            'enable_event_reviews',
+            'enable_live_boxoffice',
         ];
         foreach ($toggle_keys as $t_key) {
             if (! isset($_POST['dfn_settings'][$t_key])) {
@@ -1512,6 +1518,48 @@ function dfn_render_settings_page(): void
                                         Sì, abilita il modulo promozioni per inviare newsletter e comunicazioni ai clienti sui nuovi eventi.
                                     </label>
                                     <p class="description"><strong>Comportamento:</strong> Se disattivato, nasconde la voce di menu "Promozioni &amp; Newsletter" e sospende l'invio asincrono delle campagne promozionali in coda.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Abilitare modulo Bilancio Eventi</th>
+                                <td>
+                                    <label for="enable_event_accounting">
+                                        <input name="dfn_settings[enable_event_accounting]" type="checkbox" id="enable_event_accounting" value="yes" <?php checked(dfn_get_setting('enable_event_accounting', 'yes'), 'yes'); ?> />
+                                        Sì, abilita la schermata di bilancio e consuntivi finanziari degli eventi.
+                                    </label>
+                                    <p class="description"><strong>Comportamento:</strong> Se disattivato, nasconde la voce di menu "Bilancio Eventi" e impedisce l'accesso ai report contabili.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Abilitare modulo Recensioni Eventi</th>
+                                <td>
+                                    <label for="enable_event_reviews">
+                                        <input name="dfn_settings[enable_event_reviews]" type="checkbox" id="enable_event_reviews" value="yes" <?php checked(dfn_get_setting('enable_event_reviews', 'yes'), 'yes'); ?> />
+                                        Sì, abilita la bacheca feedback e la visualizzazione di recensioni, scorecard e stelle nel front-end.
+                                    </label>
+                                    <p class="description"><strong>Comportamento:</strong> Se disattivato, nasconde la voce "Recensioni Eventi" e disattiva completamente carosello e scorecard nella scheda evento e archivio.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Abilitare modulo Botteghino Live</th>
+                                <td>
+                                    <label for="enable_live_boxoffice">
+                                        <input name="dfn_settings[enable_live_boxoffice]" type="checkbox" id="enable_live_boxoffice" value="yes" <?php checked(dfn_get_setting('enable_live_boxoffice', 'yes'), 'yes'); ?> />
+                                        Sì, abilita il pannello Botteghino Live e la relativa tab operativa nella PWA scanner/mobile.
+                                    </label>
+                                    <p class="description"><strong>Comportamento:</strong> Se disattivato, nasconde la voce "Botteghino Live" nel menu admin e rimuove la tab Botteghino dall'app mobile sul campo.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="padding: 12px 0;">
+                                    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;">
+                                        <span style="color: #065f46; font-size: 13px;">
+                                            🧩 <strong>Pannello Moduli Centralizzato:</strong> puoi gestire tutti questi interruttori e consultare la scheda dettagliata di ogni modulo anche dalla nuova sezione dedicata.
+                                        </span>
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-modules')); ?>" class="button button-secondary" style="border-color: #059669; color: #047857; font-weight: 700;">
+                                            Apri Moduli FAI &rarr;
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                             <tr>

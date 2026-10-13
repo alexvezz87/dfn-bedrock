@@ -1061,6 +1061,10 @@ function dfn_ajax_quick_get_slots(): void
  */
 function dfn_ajax_botteghino_create_booking(): void
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('botteghino')) {
+        wp_send_json_error(['message' => 'Il modulo Botteghino Live non è attualmente attivo.'], 403);
+    }
+
     dfn_ajax_admin_verify_access();
 
     $event_id       = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;

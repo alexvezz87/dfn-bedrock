@@ -20,6 +20,10 @@ if (!defined('ABSPATH')) {
 add_action('admin_menu', 'cv_aggiungi_generatore_fai');
 function cv_aggiungi_generatore_fai()
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('botteghino')) {
+        return;
+    }
+
     $hook = add_submenu_page(
         'dfn-events',
         'Botteghino Live',
@@ -58,6 +62,10 @@ function cv_enqueue_botteghino_assets($hook)
 // INTERFACCIA E LOGICA DI SALVATAGGIO
 function cv_render_generatore_fai()
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('botteghino')) {
+        wp_die(__('Il modulo Botteghino Live non è attualmente attivo.', 'dfn'), __('Modulo Disattivato', 'dfn'), ['response' => 403]);
+    }
+
     if (! current_user_can('manage_woocommerce')) {
         return;
     }

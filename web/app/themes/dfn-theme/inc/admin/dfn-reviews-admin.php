@@ -13,6 +13,10 @@ if (!defined('ABSPATH')) {
 add_action('admin_menu', 'cv_aggiungi_pagina_recensioni');
 function cv_aggiungi_pagina_recensioni()
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('reviews')) {
+        return;
+    }
+
     add_submenu_page(
         'dfn-events',
         'Recensioni Eventi',
@@ -81,6 +85,10 @@ function cv_ajax_toggle_event_reviews_visibility()
 
 function cv_render_pagina_recensioni()
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('reviews')) {
+        wp_die(__('Il modulo Recensioni Eventi non è attualmente attivo.', 'dfn'), __('Modulo Disattivato', 'dfn'), ['response' => 403]);
+    }
+
     if (! current_user_can('dfn_act_reviews')) {
         return;
     }

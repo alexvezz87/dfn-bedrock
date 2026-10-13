@@ -49,7 +49,6 @@ if (function_exists('dfn_is_module_active') && dfn_is_module_active('prenotazion
     require_once get_stylesheet_directory() . '/inc/admin/dfn-event-editor.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-slot-manager.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-settings.php';
-    require_once get_stylesheet_directory() . '/inc/admin/dfn-volunteer-dashboard.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-report.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-fai-members-admin.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-waitlist.php';

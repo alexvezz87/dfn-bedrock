@@ -409,9 +409,11 @@ function dfn_render_checkin_manager()
                     <button type="button" id="cv-send-reminders-btn" class="dfn-btn" style="background:#ff6600; border-color:#ff6600; color:#fff;">
                         <span class="dashicons dashicons-email"></span> <?php esc_html_e('Invia Reminder a Tutti', 'dfn-theme'); ?>
                     </button>
+                    <?php if (! function_exists('dfn_is_module_active') || dfn_is_module_active('reviews')) : ?>
                     <button type="button" id="cv-send-feedback-btn" class="dfn-btn" style="background:#e74f30; border-color:#e74f30; color:#fff;">
                         <span class="dashicons dashicons-star-filled"></span> <?php esc_html_e('Richiedi Recensioni', 'dfn-theme'); ?>
                     </button>
+                    <?php endif; ?>
                 </div>
             </div>
 

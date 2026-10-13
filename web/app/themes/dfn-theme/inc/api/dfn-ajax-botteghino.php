@@ -825,6 +825,10 @@ add_action('wp_ajax_cv_send_feedback_requests', 'cv_send_feedback_requests_ajax'
 add_action('wp_ajax_cv_send_feedback_request', 'cv_send_feedback_requests_ajax');
 function cv_send_feedback_requests_ajax()
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('reviews')) {
+        wp_send_json_error('Il modulo Recensioni Eventi non è attualmente attivo.');
+    }
+
     check_ajax_referer('cv_feedback_nonce', 'security');
     if (! current_user_can('manage_woocommerce') && ! current_user_can('dfn_manage_events')) {
         wp_send_json_error('Permessi insufficienti.');
