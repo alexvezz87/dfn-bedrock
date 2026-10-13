@@ -198,7 +198,9 @@ function dfn_ajax_promotions_save_campaign(): void
 
     $promo_id = dfn_db_save_promotion($campaign_data);
     if (! $promo_id) {
-        wp_send_json_error(['message' => __('Errore durante il salvataggio della campagna a database.', 'dfn-theme')]);
+        global $wpdb;
+        $db_err = (! empty($wpdb->last_error) && current_user_can('manage_options')) ? ': ' . $wpdb->last_error : '';
+        wp_send_json_error(['message' => __('Errore durante il salvataggio della campagna a database.', 'dfn-theme') . $db_err]);
     }
 
     if ($is_launch) {
