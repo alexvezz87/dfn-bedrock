@@ -223,16 +223,16 @@ function dfn_render_promotions_admin_page(): void
                         </a>
                     </div>
                 <?php else : ?>
-                    <table class="wp-list-table widefat fixed striped table-view-list" style="border: none;">
+                    <table class="wp-list-table widefat striped table-view-list" style="border: none; table-layout: auto;">
                         <thead>
                             <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                <th style="font-weight: 600; color: #475569; width: 60px;">ID</th>
-                                <th style="font-weight: 600; color: #475569; width: 220px;"><?php esc_html_e('Campagna & Oggetto', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569;"><?php esc_html_e('Evento Promosso', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569; width: 130px;"><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569; width: 240px;"><?php esc_html_e('Avanzamento Invii', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569; width: 140px;"><?php esc_html_e('Data Creazione', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569; width: 200px; text-align: right;"><?php esc_html_e('Azioni', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 50px;">ID</th>
+                                <th style="font-weight: 600; color: #475569; min-width: 220px;"><?php esc_html_e('Campagna & Oggetto', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; min-width: 180px;"><?php esc_html_e('Evento Promosso', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 120px; white-space: nowrap;"><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 180px;"><?php esc_html_e('Avanzamento Invii', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 130px; white-space: nowrap;"><?php esc_html_e('Data Creazione', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 330px; min-width: 310px; text-align: right; white-space: nowrap;"><?php esc_html_e('Azioni', 'dfn-theme'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -306,50 +306,50 @@ function dfn_render_promotions_admin_page(): void
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td style="color: #64748b; font-size: 13px;">
+                                    <td style="color: #64748b; font-size: 13px; white-space: nowrap;">
                                         <?php echo esc_html(date_i18n('d/m/Y H:i', strtotime($promo->created_at))); ?>
                                     </td>
-                                    <td style="text-align: right;">
-                                        <div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
+                                    <td style="text-align: right; white-space: nowrap;">
+                                        <div style="display: inline-flex; gap: 4px; justify-content: flex-end; align-items: center; white-space: nowrap; flex-wrap: nowrap;">
                                             <?php if ($promo->status === 'draft') : ?>
-                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #004b23; border-color: #004b23; font-weight: 600;" title="<?php esc_attr_e('Modifica bozza', 'dfn-theme'); ?>">
-                                                    <span class="dashicons dashicons-edit" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Modifica', 'dfn-theme'); ?>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #004b23; border-color: #004b23; font-weight: 600; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;" title="<?php esc_attr_e('Modifica bozza', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-edit" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Modifica', 'dfn-theme'); ?>
                                                 </a>
                                             <?php elseif ($promo->status === 'scheduled') : ?>
-                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #b45309; border-color: #f59e0b; font-weight: 600;" title="<?php esc_attr_e('Visualizza dettagli e pianificazione', 'dfn-theme'); ?>">
-                                                    <span class="dashicons dashicons-calendar-alt" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Dettagli', 'dfn-theme'); ?>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #b45309; border-color: #f59e0b; font-weight: 600; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;" title="<?php esc_attr_e('Visualizza dettagli e pianificazione', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-calendar-alt" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Dettagli', 'dfn-theme'); ?>
                                                 </a>
-                                                <button type="button" class="button button-small dfn-launch-now-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Avvia subito senza attendere la data programmata', 'dfn-theme'); ?>" style="color: #004b23; border-color: #004b23; font-weight: 600;">
-                                                    <span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Avvia ora', 'dfn-theme'); ?>
+                                                <button type="button" class="button button-small dfn-launch-now-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Avvia subito senza attendere la data programmata', 'dfn-theme'); ?>" style="color: #004b23; border-color: #004b23; font-weight: 600; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;">
+                                                    <span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Avvia ora', 'dfn-theme'); ?>
                                                 </button>
-                                                <button type="button" class="button button-small dfn-cancel-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;" title="<?php esc_attr_e('Annulla pianificazione', 'dfn-theme'); ?>">
-                                                    <span class="dashicons dashicons-dismiss" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Annulla', 'dfn-theme'); ?>
+                                                <button type="button" class="button button-small dfn-cancel-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" style="color: #dc2626; border-color: #fca5a5; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;" title="<?php esc_attr_e('Annulla pianificazione', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-dismiss" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Annulla', 'dfn-theme'); ?>
                                                 </button>
                                             <?php elseif ($promo->status === 'sending') : ?>
-                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #0284c7; border-color: #0284c7; font-weight: 600;" title="<?php esc_attr_e('Monitora avanzamento invii', 'dfn-theme'); ?>">
-                                                    <span class="dashicons dashicons-chart-bar" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Monitora', 'dfn-theme'); ?>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #0284c7; border-color: #0284c7; font-weight: 600; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;" title="<?php esc_attr_e('Monitora avanzamento invii', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-chart-bar" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Monitora', 'dfn-theme'); ?>
                                                 </a>
-                                                <button type="button" class="button button-small dfn-process-batch-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Invia subito il prossimo lotto di email senza attendere il cron', 'dfn-theme'); ?>" style="color: #0369a1; border-color: #0284c7; font-weight: 600;">
-                                                    <span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Invia lotto', 'dfn-theme'); ?>
+                                                <button type="button" class="button button-small dfn-process-batch-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Invia subito il prossimo lotto di email senza attendere il cron', 'dfn-theme'); ?>" style="color: #0369a1; border-color: #0284c7; font-weight: 600; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;">
+                                                    <span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Invia lotto', 'dfn-theme'); ?>
                                                 </button>
-                                                <button type="button" class="button button-small dfn-cancel-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;" title="<?php esc_attr_e('Ferma campagna', 'dfn-theme'); ?>">
-                                                    <span class="dashicons dashicons-controls-pause" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Ferma', 'dfn-theme'); ?>
+                                                <button type="button" class="button button-small dfn-cancel-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" style="color: #dc2626; border-color: #fca5a5; font-weight: 600; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;" title="<?php esc_attr_e('Ferma campagna', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-controls-pause" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Ferma', 'dfn-theme'); ?>
                                                 </button>
                                             <?php elseif ($promo->status === 'cancelled') : ?>
-                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #dc2626; border-color: #fca5a5; font-weight: 600;" title="<?php esc_attr_e('Visualizza report blocco', 'dfn-theme'); ?>">
-                                                    <span class="dashicons dashicons-visibility" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Report', 'dfn-theme'); ?>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #dc2626; border-color: #fca5a5; font-weight: 600; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;" title="<?php esc_attr_e('Visualizza report blocco', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-visibility" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Report', 'dfn-theme'); ?>
                                                 </a>
-                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #004b23; border-color: #004b23; font-weight: 600;" title="<?php esc_attr_e('Riapri come bozza per correggere errori e rilanciare', 'dfn-theme'); ?>">
-                                                    <span class="dashicons dashicons-edit" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Correggi', 'dfn-theme'); ?>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #004b23; border-color: #004b23; font-weight: 600; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;" title="<?php esc_attr_e('Riapri come bozza per correggere errori e rilanciare', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-edit" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Correggi', 'dfn-theme'); ?>
                                                 </a>
                                             <?php else : ?>
-                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #475569; border-color: #cbd5e1; font-weight: 600;" title="<?php esc_attr_e('Visualizza dettagli e report', 'dfn-theme'); ?>">
-                                                    <span class="dashicons dashicons-visibility" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Dettagli', 'dfn-theme'); ?>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #475569; border-color: #cbd5e1; font-weight: 600; padding: 0 8px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; gap: 3px;" title="<?php esc_attr_e('Visualizza dettagli e report', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-visibility" style="font-size: 13px; width: 13px; height: 13px;"></span> <?php esc_html_e('Dettagli', 'dfn-theme'); ?>
                                                 </a>
                                             <?php endif; ?>
 
-                                            <button type="button" class="button button-small dfn-delete-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Elimina campagna', 'dfn-theme'); ?>" style="color: #94a3b8; border-color: #cbd5e1;">
-                                                <span class="dashicons dashicons-trash" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom;"></span>
+                                            <button type="button" class="button button-small dfn-delete-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Elimina campagna', 'dfn-theme'); ?>" style="color: #94a3b8; border-color: #cbd5e1; padding: 0 6px; height: 28px; line-height: 26px; display: inline-flex; align-items: center; justify-content: center;">
+                                                <span class="dashicons dashicons-trash" style="font-size: 14px; width: 14px; height: 14px;"></span>
                                             </button>
                                         </div>
                                     </td>

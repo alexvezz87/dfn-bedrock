@@ -2394,6 +2394,59 @@ function dfn_promotions_get_eligible_events(bool $only_published = true): array
 }
 
 /**
+ * Verifica se un indirizzo email è valido per la ricezione di comunicazioni promozionali e newsletter.
+ * Esclude rigorosamente indirizzi segnaposto fittizi creati per i biglietti a botteghino o in cassa
+ * (es. no-email-*@dfn.local, cassa_*@fainovara.local, autorita_*@...), domini non instradabili (.local, .test)
+ * e domini di test/esempio (es. @example.com).
+ *
+ * @param string $email Indirizzo email da verificare.
+ * @return bool True se l'email è reale e valida per l'invio promozionale, false se fittizia o non valida.
+ */
+function dfn_is_valid_promotional_email(string $email): bool
+{
+    $email = strtolower(trim($email));
+
+    if (empty($email) || ! is_email($email)) {
+        return false;
+    }
+
+    $parts = explode('@', $email, 2);
+    if (count($parts) !== 2) {
+        return false;
+    }
+
+    $local_part = $parts[0];
+    $domain     = $parts[1];
+
+    // Domini non instradabili o locali (RFC o botteghino locale)
+    if (str_ends_with($domain, '.local') || str_ends_with($domain, '.test') || str_ends_with($domain, '.invalid') || str_ends_with($domain, '.localhost')) {
+        return false;
+    }
+
+    // Domini di esempio RFC e placeholder noti
+    if ($domain === 'example.com' || $domain === 'example.org' || $domain === 'example.net' || str_ends_with($domain, '.example.com')) {
+        return false;
+    }
+
+    // Indirizzi fittizi generati dal botteghino / PWA scanner e segnaposto DFN
+    if (str_contains($local_part, 'no-email') || $domain === 'dfn.local' || $domain === 'fainovara.local') {
+        return false;
+    }
+
+    // Prefissi botteghino cassa / autorità (es. cassa_9968@, autorita_1234@)
+    if (preg_match('/^(cassa|autorita)[_-]/i', $local_part)) {
+        return false;
+    }
+
+    // Indirizzi placeholder storici
+    if ($email === 'no-email@dfn.it') {
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * Calcola e restituisce il pubblico target per una campagna promozionale su un evento specifico.
  * Esclude rigorosamente tutti gli utenti che hanno già una prenotazione attiva (non cancellata) per tale evento.
  *
@@ -2443,7 +2496,7 @@ function dfn_promotions_get_target_audience(int $event_id): array
     if (is_array($booking_customers)) {
         foreach ($booking_customers as $row) {
             $email = sanitize_email(trim((string) $row->customer_email));
-            if (! is_email($email) || strtolower($email) === 'no-email@dfn.it') {
+            if (! dfn_is_valid_promotional_email($email)) {
                 continue;
             }
             $email_lower = strtolower($email);
@@ -2475,7 +2528,7 @@ function dfn_promotions_get_target_audience(int $event_id): array
         if (is_array($wc_orders)) {
             foreach ($wc_orders as $wc) {
                 $email = sanitize_email(trim((string) $wc->email));
-                if (! is_email($email) || strtolower($email) === 'no-email@dfn.it') {
+                if (! dfn_is_valid_promotional_email($email)) {
                     continue;
                 }
                 $email_lower = strtolower($email);
@@ -2503,7 +2556,7 @@ function dfn_promotions_get_target_audience(int $event_id): array
     if (is_array($fai_members)) {
         foreach ($fai_members as $fm) {
             $email = sanitize_email(trim((string) $fm->email));
-            if (! is_email($email) || strtolower($email) === 'no-email@dfn.it') {
+            if (! dfn_is_valid_promotional_email($email)) {
                 continue;
             }
             $email_lower = strtolower($email);
@@ -2523,7 +2576,7 @@ function dfn_promotions_get_target_audience(int $event_id): array
     if (is_array($wp_users)) {
         foreach ($wp_users as $u) {
             $email = sanitize_email(trim((string) $u->user_email));
-            if (! is_email($email) || strtolower($email) === 'no-email@dfn.it') {
+            if (! dfn_is_valid_promotional_email($email)) {
                 continue;
             }
             $email_lower = strtolower($email);
@@ -2551,10 +2604,10 @@ function dfn_promotions_get_audience_stats(int $event_id): array
     global $wpdb;
     $table_bookings = $wpdb->prefix . 'dfn_bookings';
 
-    // Email uniche già prenotate per questo evento
-    $already_booked_count = (int) $wpdb->get_var(
+    // Email uniche già prenotate per questo evento (escludendo segnaposto e dummy fittizi)
+    $already_booked_rows = $wpdb->get_col(
         $wpdb->prepare(
-            "SELECT COUNT(DISTINCT LOWER(TRIM(customer_email))) 
+            "SELECT customer_email 
              FROM {$table_bookings} 
              WHERE event_id = %d 
                AND status NOT IN ('cancelled', 'expired', 'rejected') 
@@ -2563,6 +2616,16 @@ function dfn_promotions_get_audience_stats(int $event_id): array
             $event_id
         )
     );
+    $already_booked_emails = [];
+    if (is_array($already_booked_rows)) {
+        foreach ($already_booked_rows as $raw_e) {
+            $e = sanitize_email(trim((string) $raw_e));
+            if (dfn_is_valid_promotional_email($e)) {
+                $already_booked_emails[strtolower($e)] = true;
+            }
+        }
+    }
+    $already_booked_count = count($already_booked_emails);
 
     $eligible_audience = dfn_promotions_get_target_audience($event_id);
     $eligible_count = count($eligible_audience);
@@ -2725,7 +2788,7 @@ function dfn_db_populate_promotion_queue(int $promotion_id, array $recipients): 
 
     foreach ($recipients as $item) {
         $email = sanitize_email($item['email'] ?? '');
-        if (! is_email($email)) {
+        if (! dfn_is_valid_promotional_email($email)) {
             continue;
         }
         $name = sanitize_text_field($item['name'] ?? '');
@@ -3030,10 +3093,10 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
 
         foreach ($items as $item) {
             $email = sanitize_email($item->recipient_email);
-            if (! is_email($email) || strtolower($email) === 'no-email@dfn.it') {
+            if (! dfn_is_valid_promotional_email($email)) {
                 $wpdb->update($table_queue, [
                     'status'        => 'failed',
-                    'error_message' => 'Indirizzo email non valido o riservato',
+                    'error_message' => 'Indirizzo email segnaposto o non valido (escluso dall\'invio)',
                     'sent_at'       => current_time('mysql'),
                 ], ['id' => $item->id]);
                 $wpdb->query($wpdb->prepare("UPDATE {$table_promotions} SET failed_count = failed_count + 1 WHERE id = %d", $promo->id));
