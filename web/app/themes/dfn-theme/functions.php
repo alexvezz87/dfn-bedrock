@@ -57,6 +57,7 @@ if (function_exists('dfn_is_module_active') && dfn_is_module_active('prenotazion
     require_once get_stylesheet_directory() . '/inc/admin/dfn-botteghino.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-accounting.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-reviews-admin.php';
+    require_once get_stylesheet_directory() . '/inc/admin/dfn-promotions-admin.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-roles-admin.php';
     require_once get_stylesheet_directory() . '/inc/admin/dfn-logs.php';
 
@@ -77,6 +78,7 @@ if (function_exists('dfn_is_module_active') && dfn_is_module_active('prenotazion
     require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-slot-manager.php';
     require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-scanner.php';
     require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-botteghino.php';
+    require_once get_stylesheet_directory() . '/inc/api/dfn-ajax-promotions.php';
 }
 
 /**
