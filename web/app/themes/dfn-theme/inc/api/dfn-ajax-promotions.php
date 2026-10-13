@@ -154,6 +154,8 @@ function dfn_ajax_promotions_save_campaign(): void
         wp_send_json_error(['message' => __('Inserisci l\'oggetto dell\'email.', 'dfn-theme')]);
     }
 
+    $existing_promo_id = isset($_POST['promo_id']) ? absint($_POST['promo_id']) : 0;
+
     $campaign_data = [
         'event_id'          => $event_id,
         'title'             => $title,
@@ -163,6 +165,10 @@ function dfn_ajax_promotions_save_campaign(): void
         'cta_text'          => $cta_text,
         'status'            => $is_launch ? 'sending' : 'draft',
     ];
+
+    if ($existing_promo_id > 0) {
+        $campaign_data['id'] = $existing_promo_id;
+    }
 
     $promo_id = dfn_db_save_promotion($campaign_data);
     if (! $promo_id) {

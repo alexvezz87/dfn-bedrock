@@ -27,6 +27,7 @@ require_once get_stylesheet_directory() . '/inc/core/dfn-security.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-logger.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-user-switch.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-notifications.php';
+require_once get_stylesheet_directory() . '/inc/core/dfn-email-sandbox.php';
 require_once get_stylesheet_directory() . '/inc/core/dfn-cron.php';
 
 // Frontend Core Condiviso
