@@ -2120,10 +2120,11 @@ function dfn_db_get_promotion_queue_counts(int $promotion_id): array
     $table_queue = $wpdb->prefix . 'dfn_promotion_queue';
 
     $counts = [
-        'total'   => 0,
-        'pending' => 0,
-        'sent'    => 0,
-        'failed'  => 0,
+        'total'     => 0,
+        'pending'   => 0,
+        'sent'      => 0,
+        'failed'    => 0,
+        'cancelled' => 0,
     ];
 
     $rows = $wpdb->get_results(

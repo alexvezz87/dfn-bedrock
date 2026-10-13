@@ -322,6 +322,9 @@ function dfn_render_promotions_admin_page(): void
                                                 <button type="button" class="button button-small dfn-launch-now-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Avvia subito senza attendere la data programmata', 'dfn-theme'); ?>" style="color: #004b23; border-color: #004b23; font-weight: 600;">
                                                     <span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Avvia ora', 'dfn-theme'); ?>
                                                 </button>
+                                                <button type="button" class="button button-small dfn-cancel-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;" title="<?php esc_attr_e('Annulla pianificazione', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-dismiss" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Annulla', 'dfn-theme'); ?>
+                                                </button>
                                             <?php elseif ($promo->status === 'sending') : ?>
                                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #0284c7; border-color: #0284c7; font-weight: 600;" title="<?php esc_attr_e('Monitora avanzamento invii', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-chart-bar" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Monitora', 'dfn-theme'); ?>
@@ -332,6 +335,13 @@ function dfn_render_promotions_admin_page(): void
                                                 <button type="button" class="button button-small dfn-cancel-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;" title="<?php esc_attr_e('Ferma campagna', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-controls-pause" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Ferma', 'dfn-theme'); ?>
                                                 </button>
+                                            <?php elseif ($promo->status === 'cancelled') : ?>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #dc2626; border-color: #fca5a5; font-weight: 600;" title="<?php esc_attr_e('Visualizza report blocco', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-visibility" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Report', 'dfn-theme'); ?>
+                                                </a>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #004b23; border-color: #004b23; font-weight: 600;" title="<?php esc_attr_e('Riapri come bozza per correggere errori e rilanciare', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-edit" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Correggi', 'dfn-theme'); ?>
+                                                </a>
                                             <?php else : ?>
                                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #475569; border-color: #cbd5e1; font-weight: 600;" title="<?php esc_attr_e('Visualizza dettagli e report', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-visibility" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Dettagli', 'dfn-theme'); ?>
@@ -370,14 +380,22 @@ function dfn_render_promotions_admin_page(): void
                     <!-- Colonna Sinistra: Modulo Configurazione Campagna -->
                     <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                         <?php if ($active_promo) : ?>
-                            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #166534; padding: 14px 18px; border-radius: 6px; margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div style="background: <?php echo ($active_promo->status === 'cancelled') ? '#fef2f2' : '#f0fdf4'; ?>; border: 1px solid <?php echo ($active_promo->status === 'cancelled') ? '#fecaca' : '#bbf7d0'; ?>; border-left: 4px solid <?php echo ($active_promo->status === 'cancelled') ? '#ef4444' : '#166534'; ?>; padding: 14px 18px; border-radius: 6px; margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                 <div>
-                                    <strong style="color: #166534; font-size: 14px; display: flex; align-items: center; gap: 6px;">
-                                        <span class="dashicons dashicons-edit" style="color: #166534;"></span> 
-                                        <?php printf(esc_html__('Modifica Bozza Campagna #%d', 'dfn-theme'), $active_promo->id); ?>
+                                    <strong style="color: <?php echo ($active_promo->status === 'cancelled') ? '#991b1b' : '#166534'; ?>; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                                        <span class="dashicons dashicons-edit"></span> 
+                                        <?php if ($active_promo->status === 'cancelled') : ?>
+                                            <?php printf(esc_html__('Correzione Bozza da Campagna Interrotta #%d', 'dfn-theme'), $active_promo->id); ?>
+                                        <?php else : ?>
+                                            <?php printf(esc_html__('Modifica Bozza Campagna #%d', 'dfn-theme'), $active_promo->id); ?>
+                                        <?php endif; ?>
                                     </strong>
-                                    <p style="margin: 3px 0 0 0; color: #14532d; font-size: 13px;">
-                                        <?php esc_html_e('Puoi aggiornare i parametri di questa campagna, inviare un\'email di prova o avviare l\'invio definitivo.', 'dfn-theme'); ?>
+                                    <p style="margin: 3px 0 0 0; color: <?php echo ($active_promo->status === 'cancelled') ? '#7f1d1d' : '#14532d'; ?>; font-size: 13px;">
+                                        <?php if ($active_promo->status === 'cancelled') : ?>
+                                            <?php esc_html_e('La campagna precedente era stata interrotta tempestivamente. Puoi correggere i testi, i parametri o l\'evento e salvare come nuova bozza o procedere ad un nuovo invio.', 'dfn-theme'); ?>
+                                        <?php else : ?>
+                                            <?php esc_html_e('Puoi aggiornare i parametri di questa campagna, inviare un\'email di prova o avviare l\'invio definitivo.', 'dfn-theme'); ?>
+                                        <?php endif; ?>
                                     </p>
                                 </div>
                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=campaigns')); ?>" class="button button-small" style="font-weight: 600;">
@@ -725,7 +743,7 @@ function dfn_render_promotions_admin_page(): void
                     </a>
                 </div>
             <?php else :
-                $queue_counts = function_exists('dfn_db_get_promotion_queue_counts') ? dfn_db_get_promotion_queue_counts($active_promo->id) : ['total' => 0, 'pending' => 0, 'sent' => 0, 'failed' => 0];
+                $queue_counts = function_exists('dfn_db_get_promotion_queue_counts') ? dfn_db_get_promotion_queue_counts($active_promo->id) : ['total' => 0, 'pending' => 0, 'sent' => 0, 'failed' => 0, 'cancelled' => 0];
                 $queue_filter = isset($_GET['queue_status']) ? sanitize_key($_GET['queue_status']) : '';
                 $queue_items  = function_exists('dfn_db_get_promotion_queue') ? dfn_db_get_promotion_queue($active_promo->id, 200, $queue_filter) : [];
                 
@@ -783,9 +801,13 @@ function dfn_render_promotions_admin_page(): void
                                 <button type="button" class="button button-primary dfn-process-batch-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="background: #0284c7; border-color: #0284c7; font-weight: 600;">
                                     <span class="dashicons dashicons-controls-play" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php printf(esc_html__('Invia Prossimo Lotto (%d email)', 'dfn-theme'), $active_promo->batch_size ?: 25); ?>
                                 </button>
-                                <button type="button" class="button dfn-cancel-promo-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;">
-                                    <span class="dashicons dashicons-controls-pause" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Ferma Campagna', 'dfn-theme'); ?>
+                                <button type="button" class="button dfn-cancel-promo-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;" title="<?php esc_attr_e('Interrompi immediatamente l\'invio delle email rimanenti', 'dfn-theme'); ?>">
+                                    <span class="dashicons dashicons-controls-pause" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Ferma Campagna Subito', 'dfn-theme'); ?>
                                 </button>
+                            <?php elseif ($active_promo->status === 'cancelled') : ?>
+                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new&promo_id=' . $active_promo->id)); ?>" class="button button-primary" style="background: #004b23; border-color: #004b23; font-weight: 600;" title="<?php esc_attr_e('Riapri come bozza per correggere errori e rilanciare', 'dfn-theme'); ?>">
+                                    <span class="dashicons dashicons-edit" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Riapri / Correggi Bozza', 'dfn-theme'); ?>
+                                </a>
                             <?php endif; ?>
 
                             <button type="button" class="button dfn-delete-promo-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="color: #94a3b8; border-color: #cbd5e1;">
@@ -806,6 +828,18 @@ function dfn_render_promotions_admin_page(): void
                                 </p>
                             </div>
                         </div>
+                    <?php elseif ($active_promo->status === 'cancelled') : ?>
+                        <div style="background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444; border-radius: 8px; padding: 14px 18px; margin-top: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <strong style="color: #991b1b; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="dashicons dashicons-controls-pause" style="font-size: 18px; width: 18px; height: 18px; color: #dc2626;"></span>
+                                    <?php esc_html_e('Campagna Interrotta Tempestivamente dall\'Amministratore', 'dfn-theme'); ?>
+                                </strong>
+                                <p style="margin: 4px 0 0 0; color: #7f1d1d; font-size: 13px;">
+                                    <?php esc_html_e('L\'invio è stato bloccato con successo: tutte le email in coda rimaste sono state congelate e nessun altro messaggio verrà spedito. Puoi cliccare su "Riapri / Correggi Bozza" per modificare i testi o correggere gli errori commessi.', 'dfn-theme'); ?>
+                                </p>
+                            </div>
+                        </div>
                     <?php endif; ?>
 
                     <!-- Avanzamento e metriche invii -->
@@ -823,6 +857,12 @@ function dfn_render_promotions_admin_page(): void
                                 <span style="font-size: 12px; color: #0369a1; font-weight: 600; text-transform: uppercase;"><?php esc_html_e('In Attesa in Coda', 'dfn-theme'); ?></span>
                                 <div style="font-size: 24px; font-weight: 700; color: #0284c7; margin-top: 4px;"><?php echo esc_html(number_format_i18n($pending_count)); ?></div>
                             </div>
+                            <?php if (! empty($queue_counts['cancelled']) && $queue_counts['cancelled'] > 0) : ?>
+                                <div style="background: #fef2f2; padding: 14px 18px; border-radius: 8px; border: 1px solid #fecaca;">
+                                    <span style="font-size: 12px; color: #991b1b; font-weight: 600; text-transform: uppercase;"><?php esc_html_e('Bloccate dallo Stop', 'dfn-theme'); ?></span>
+                                    <div style="font-size: 24px; font-weight: 700; color: #dc2626; margin-top: 4px;"><?php echo esc_html(number_format_i18n($queue_counts['cancelled'])); ?></div>
+                                </div>
+                            <?php endif; ?>
                             <div style="background: #fef2f2; padding: 14px 18px; border-radius: 8px; border: 1px solid #fee2e2;">
                                 <span style="font-size: 12px; color: #991b1b; font-weight: 600; text-transform: uppercase;"><?php esc_html_e('Non Riuscite / Errori', 'dfn-theme'); ?></span>
                                 <div style="font-size: 24px; font-weight: 700; color: #dc2626; margin-top: 4px;"><?php echo esc_html(number_format_i18n($failed_count)); ?></div>
@@ -881,7 +921,7 @@ function dfn_render_promotions_admin_page(): void
                             </h3>
                             
                             <!-- Filtri di stato coda -->
-                            <div style="display: flex; gap: 6px;">
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id)); ?>" class="button button-small <?php echo empty($queue_filter) ? 'button-primary' : ''; ?>" style="<?php echo empty($queue_filter) ? 'background: #004b23; border-color: #004b23;' : ''; ?>">
                                     Tutti (<?php echo esc_html($queue_counts['total']); ?>)
                                 </a>
@@ -891,6 +931,11 @@ function dfn_render_promotions_admin_page(): void
                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=sent')); ?>" class="button button-small <?php echo ($queue_filter === 'sent') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'sent') ? 'background: #166534; border-color: #166534;' : ''; ?>">
                                     Inviate (<?php echo esc_html($queue_counts['sent']); ?>)
                                 </a>
+                                <?php if (! empty($queue_counts['cancelled']) && $queue_counts['cancelled'] > 0) : ?>
+                                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=cancelled')); ?>" class="button button-small <?php echo ($queue_filter === 'cancelled') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'cancelled') ? 'background: #dc2626; border-color: #dc2626;' : 'color: #dc2626; border-color: #fca5a5;'; ?>">
+                                        Bloccate dallo Stop (<?php echo esc_html($queue_counts['cancelled']); ?>)
+                                    </a>
+                                <?php endif; ?>
                                 <?php if ($queue_counts['failed'] > 0) : ?>
                                     <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=failed')); ?>" class="button button-small <?php echo ($queue_filter === 'failed') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'failed') ? 'background: #dc2626; border-color: #dc2626;' : ''; ?>">
                                         Errori (<?php echo esc_html($queue_counts['failed']); ?>)
@@ -930,6 +975,10 @@ function dfn_render_promotions_admin_page(): void
                                                     <span style="display: inline-block; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;">
                                                         ✓ Inviata
                                                     </span>
+                                                <?php elseif ($q->status === 'cancelled') : ?>
+                                                    <span style="display: inline-block; background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;" title="<?php esc_attr_e('Bloccata tempestivamente dallo stop amministratore', 'dfn-theme'); ?>">
+                                                        ✕ Bloccata
+                                                    </span>
                                                 <?php elseif ($q->status === 'failed') : ?>
                                                     <span style="display: inline-block; background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;">
                                                         ✕ Errore
@@ -943,6 +992,8 @@ function dfn_render_promotions_admin_page(): void
                                             <td style="font-size: 13px; color: #64748b;">
                                                 <?php if ($q->status === 'sent' && ! empty($q->sent_at)) : ?>
                                                     <?php echo esc_html(date_i18n('d/m/Y H:i:s', strtotime($q->sent_at))); ?>
+                                                <?php elseif ($q->status === 'cancelled') : ?>
+                                                    <span style="color: #dc2626; font-size: 12px;"><?php echo esc_html($q->error_message ?: 'Invio bloccato tempestivamente dall\'amministratore'); ?></span>
                                                 <?php elseif ($q->status === 'failed') : ?>
                                                     <span style="color: #dc2626;"><?php echo esc_html($q->error_message ?: 'Invio fallito'); ?></span>
                                                 <?php else : ?>
@@ -1273,16 +1324,25 @@ function dfn_render_promotions_admin_page(): void
                 return;
             }
             var promoId = $(this).data('id');
+            var $btn = $(this);
+            $btn.prop('disabled', true);
             $.post(ajaxurl, {
                 action: 'dfn_promotions_cancel_campaign',
                 nonce: nonce,
                 promo_id: promoId
             }, function(res) {
                 if (res.success) {
+                    if (res.data && res.data.message) {
+                        alert(res.data.message);
+                    }
                     location.reload();
                 } else {
                     alert('Errore: ' + (res.data ? res.data.message : 'Impossibile annullare la campagna'));
+                    $btn.prop('disabled', false);
                 }
+            }).fail(function() {
+                alert('Errore di comunicazione con il server');
+                $btn.prop('disabled', false);
             });
         });
 

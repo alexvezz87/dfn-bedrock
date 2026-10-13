@@ -262,5 +262,35 @@ namespace DFN\Theme\Tests\Unit {
             $result = dfn_promotions_process_queue_batch(25);
             $this->assertEquals('idle', $result['status']);
         }
+
+        /**
+         * Test 6: dfn_db_get_promotion_queue_counts include il conteggio per lo stato 'cancelled'.
+         */
+        public function testPromotionQueueCountsIncludesCancelledStatus(): void
+        {
+            global $wpdb;
+            $wpdb = \Mockery::mock('wpdb');
+            $wpdb->prefix = 'wp_';
+
+            $wpdb->shouldReceive('prepare')
+                ->once()
+                ->with(\Mockery::any(), 42)
+                ->andReturn("SELECT status, COUNT(*) as cnt FROM wp_dfn_promotion_queue WHERE promotion_id = 42 GROUP BY status");
+
+            $wpdb->shouldReceive('get_results')
+                ->once()
+                ->andReturn([
+                    (object) ['status' => 'sent', 'cnt' => 15],
+                    (object) ['status' => 'pending', 'cnt' => 0],
+                    (object) ['status' => 'cancelled', 'cnt' => 35],
+                ]);
+
+            $counts = dfn_db_get_promotion_queue_counts(42);
+
+            $this->assertArrayHasKey('cancelled', $counts);
+            $this->assertEquals(35, $counts['cancelled']);
+            $this->assertEquals(15, $counts['sent']);
+            $this->assertEquals(50, $counts['total']);
+        }
     }
 }
