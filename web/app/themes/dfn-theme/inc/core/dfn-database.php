@@ -2059,6 +2059,74 @@ function dfn_db_populate_promotion_queue(int $promotion_id, array $recipients): 
 }
 
 /**
+ * Recupera i destinatari in coda per una specifica campagna promozionale.
+ *
+ * @param int    $promotion_id ID della promozione
+ * @param int    $limit        Limite di risultati (default 200)
+ * @param string $status       Filtro opzionale sullo stato ('pending', 'sent', 'failed' o '' per tutti)
+ * @return array
+ */
+function dfn_db_get_promotion_queue(int $promotion_id, int $limit = 200, string $status = ''): array
+{
+    global $wpdb;
+    $table_queue = $wpdb->prefix . 'dfn_promotion_queue';
+
+    $where = "promotion_id = %d";
+    $params = [$promotion_id];
+
+    if (! empty($status)) {
+        $where .= " AND status = %s";
+        $params[] = $status;
+    }
+
+    $params[] = $limit;
+
+    $sql = $wpdb->prepare("SELECT * FROM {$table_queue} WHERE {$where} ORDER BY id ASC LIMIT %d", ...$params);
+    $results = $wpdb->get_results($sql);
+
+    return is_array($results) ? $results : [];
+}
+
+/**
+ * Recupera i conteggi aggregati per stato della coda di una promozione.
+ *
+ * @param int $promotion_id
+ * @return array{total: int, pending: int, sent: int, failed: int}
+ */
+function dfn_db_get_promotion_queue_counts(int $promotion_id): array
+{
+    global $wpdb;
+    $table_queue = $wpdb->prefix . 'dfn_promotion_queue';
+
+    $counts = [
+        'total'   => 0,
+        'pending' => 0,
+        'sent'    => 0,
+        'failed'  => 0,
+    ];
+
+    $rows = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT status, COUNT(*) as cnt FROM {$table_queue} WHERE promotion_id = %d GROUP BY status",
+            $promotion_id
+        )
+    );
+
+    if (is_array($rows)) {
+        foreach ($rows as $r) {
+            $st = (string) $r->status;
+            $cnt = (int) $r->cnt;
+            $counts['total'] += $cnt;
+            if (isset($counts[$st])) {
+                $counts[$st] = $cnt;
+            }
+        }
+    }
+
+    return $counts;
+}
+
+/**
  * Costruisce l'HTML completo per una email promozionale brandizzata DFN.
  *
  * @param object $promotion      Oggetto promozione

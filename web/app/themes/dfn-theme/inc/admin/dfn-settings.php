@@ -59,6 +59,8 @@ function dfn_settings_save_fields(): void
         'default_placeholder_image_id'=> 'absint',
 
         // Tab Email & Notifiche
+        'email_sandbox_mode'          => 'sanitize_text_field',
+        'email_sandbox_redirect_to'   => 'sanitize_email',
         'email_new_booking'           => 'sanitize_email_list',
         'email_verify_fai'            => 'sanitize_email_list',
         'email_cc'                    => 'sanitize_email_list',
@@ -358,9 +360,66 @@ function dfn_render_settings_page(): void
 
                     <?php elseif ($active_tab === 'email') : ?>
                         <!-- TAB EMAIL & NOTIFICHE -->
-                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">📧 Destinatari & Stile Notifiche</h2>
-                        <p class="description" style="margin-bottom: 25px;">Gestisci i canali di ricezione delle e-mail di sistema e personalizza il layout grafico dei messaggi HTML.</p>
+                        <!-- SALVAGENTE EMAIL GLOBALE (SANDBOX) -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #004b23; border-radius: 8px; padding: 20px 24px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                                <h3 style="margin: 0; color: #0f172a; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                                    <span class="dashicons dashicons-shield" style="color: #004b23; font-size: 22px; width: 22px; height: 22px;"></span>
+                                    <?php esc_html_e('Salvagente Email Globale (Sandbox & Protezione Invii)', 'dfn-theme'); ?>
+                                </h3>
+                                <?php
+                                $current_sandbox_mode = dfn_get_setting('email_sandbox_mode', 'disabled');
+                                if ($current_sandbox_mode === 'redirect') : ?>
+                                    <span style="background: #fef3c7; color: #b45309; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid #fde68a;">
+                                        🟡 <?php esc_html_e('ATTIVO — Modalità Redirect', 'dfn-theme'); ?>
+                                    </span>
+                                <?php elseif ($current_sandbox_mode === 'mute') : ?>
+                                    <span style="background: #fee2e2; color: #b91c1c; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid #fca5a5;">
+                                        🔴 <?php esc_html_e('ATTIVO — Modalità Mute (Blocco Totale)', 'dfn-theme'); ?>
+                                    </span>
+                                <?php else : ?>
+                                    <span style="background: #f1f5f9; color: #64748b; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;">
+                                        <?php esc_html_e('Disattivato (Invio Reale)', 'dfn-theme'); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            <p style="color: #475569; font-size: 13px; margin: 0 0 18px 0; line-height: 1.5;">
+                                <?php esc_html_e('Protegge l\'intero sito web (prenotazioni, newsletter promozionali, volontari, ordini WooCommerce e notifiche di sistema) impedendo l\'invio accidentale di email verso indirizzi reali durante sessioni di test o collaudo.', 'dfn-theme'); ?>
+                            </p>
 
+                            <table class="form-table" role="presentation" style="margin-top: 0;">
+                                <tr>
+                                    <th scope="row" style="width: 240px; padding: 12px 0;"><label for="email_sandbox_mode"><?php esc_html_e('Modalità Salvagente', 'dfn-theme'); ?></label></th>
+                                    <td style="padding: 12px 0;">
+                                        <select name="dfn_settings[email_sandbox_mode]" id="email_sandbox_mode" style="min-width: 360px; font-size: 14px; padding: 6px 12px; border-radius: 6px;">
+                                            <option value="disabled" <?php selected($current_sandbox_mode, 'disabled'); ?>>
+                                                <?php esc_html_e('Disattivato (Le email partono regolarmente verso i destinatari reali)', 'dfn-theme'); ?>
+                                            </option>
+                                            <option value="redirect" <?php selected($current_sandbox_mode, 'redirect'); ?>>
+                                                <?php esc_html_e('🟡 Sandbox Redirect (Devia TUTTE le email a una casella di test)', 'dfn-theme'); ?>
+                                            </option>
+                                            <option value="mute" <?php selected($current_sandbox_mode, 'mute'); ?>>
+                                                <?php esc_html_e('🔴 Mute / Silenziosa (Blocca l\'invio reale e registra solo nei log)', 'dfn-theme'); ?>
+                                            </option>
+                                        </select>
+                                        <p class="description" style="margin-top: 6px;">
+                                            <strong><?php esc_html_e('Effetto globale:', 'dfn-theme'); ?></strong> <?php esc_html_e('Se attivo, intercetta wp_mail() a livello di core per l\'intero sito. Nessun destinatario reale riceverà messaggi.', 'dfn-theme'); ?>
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" style="width: 240px; padding: 12px 0;"><label for="email_sandbox_redirect_to"><?php esc_html_e('Casella Email di Test (Redirect)', 'dfn-theme'); ?></label></th>
+                                    <td style="padding: 12px 0;">
+                                        <input name="dfn_settings[email_sandbox_redirect_to]" type="email" id="email_sandbox_redirect_to" value="<?php echo esc_attr(dfn_get_setting('email_sandbox_redirect_to', get_option('admin_email'))); ?>" class="regular-text" style="font-size: 14px; padding: 6px 12px; border-radius: 6px;" />
+                                        <p class="description" style="margin-top: 6px;">
+                                            <strong><?php esc_html_e('Destinazione sicura:', 'dfn-theme'); ?></strong> <?php esc_html_e('In modalità Redirect, TUTTE le email del sito verranno inviate a questo indirizzo. L\'oggetto dell\'email indicherà chiaramente il destinatario originario (es. [SANDBOX TEST ➔ Originale: cliente@gmail.com]) e tutti i Cc/Bcc verso terzi verranno azzerati.', 'dfn-theme'); ?>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <h3 style="color: #0f172a; margin-top: 20px; font-size: 15px; font-weight: 600;"><?php esc_html_e('Notifiche Amministrative & Copie', 'dfn-theme'); ?></h3>
                         <table class="form-table" role="presentation">
                             <tr>
                                 <th scope="row"><label for="email_new_booking">Email Notifica Nuove Prenotazioni</label></th>
