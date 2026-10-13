@@ -274,6 +274,10 @@ function dfn_render_promotions_admin_page(): void
                                             <span style="display: inline-block; background: #dcfce7; color: #15803d; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;">
                                                 ✓ <?php esc_html_e('Completata', 'dfn-theme'); ?>
                                             </span>
+                                        <?php elseif ($promo->status === 'scheduled') : ?>
+                                            <span style="display: inline-block; background: #fef3c7; color: #b45309; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid #fde68a;" title="<?php echo esc_attr($promo->scheduled_at ? date_i18n('d/m/Y H:i', strtotime($promo->scheduled_at)) : ''); ?>">
+                                                📅 <?php esc_html_e('Pianificata', 'dfn-theme'); ?> <?php echo esc_html($promo->scheduled_at ? date_i18n('d/m H:i', strtotime($promo->scheduled_at)) : ''); ?>
+                                            </span>
                                         <?php elseif ($promo->status === 'sending') : ?>
                                             <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;">
                                                 <span class="dashicons dashicons-update" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('In invio...', 'dfn-theme'); ?>
@@ -311,11 +315,18 @@ function dfn_render_promotions_admin_page(): void
                                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #004b23; border-color: #004b23; font-weight: 600;" title="<?php esc_attr_e('Modifica bozza', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-edit" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Modifica', 'dfn-theme'); ?>
                                                 </a>
+                                            <?php elseif ($promo->status === 'scheduled') : ?>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #b45309; border-color: #f59e0b; font-weight: 600;" title="<?php esc_attr_e('Visualizza dettagli e pianificazione', 'dfn-theme'); ?>">
+                                                    <span class="dashicons dashicons-calendar-alt" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Dettagli', 'dfn-theme'); ?>
+                                                </a>
+                                                <button type="button" class="button button-small dfn-launch-now-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Avvia subito senza attendere la data programmata', 'dfn-theme'); ?>" style="color: #004b23; border-color: #004b23; font-weight: 600;">
+                                                    <span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Avvia ora', 'dfn-theme'); ?>
+                                                </button>
                                             <?php elseif ($promo->status === 'sending') : ?>
                                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $promo->id)); ?>" class="button button-small" style="color: #0284c7; border-color: #0284c7; font-weight: 600;" title="<?php esc_attr_e('Monitora avanzamento invii', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-chart-bar" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Monitora', 'dfn-theme'); ?>
                                                 </a>
-                                                <button type="button" class="button button-small dfn-process-batch-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Invia subito il prossimo lotto di 25 email senza attendere il cron', 'dfn-theme'); ?>" style="color: #0369a1; border-color: #0284c7; font-weight: 600;">
+                                                <button type="button" class="button button-small dfn-process-batch-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Invia subito il prossimo lotto di email senza attendere il cron', 'dfn-theme'); ?>" style="color: #0369a1; border-color: #0284c7; font-weight: 600;">
                                                     <span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Invia lotto', 'dfn-theme'); ?>
                                                 </button>
                                                 <button type="button" class="button button-small dfn-cancel-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;" title="<?php esc_attr_e('Ferma campagna', 'dfn-theme'); ?>">
@@ -482,11 +493,106 @@ function dfn_render_promotions_admin_page(): void
                                 </div>
                             </div>
 
-                            <!-- STEP 3: Invio Prova & Lancio Campagna -->
-                            <div>
+                            <!-- STEP 3: Pianificazione & Parametri di Invio Campagna -->
+                            <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 22px; margin-bottom: 22px;">
                                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                                     <span style="background: #004b23; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;">3</span>
-                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;"><?php esc_html_e('Test & Invio Campagna', 'dfn-theme'); ?></h3>
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;"><?php esc_html_e('Pianificazione & Parametri di Invio', 'dfn-theme'); ?></h3>
+                                </div>
+                                <p style="color: #64748b; font-size: 13px; margin: 0 0 16px 0;">
+                                    <?php esc_html_e('Configura quando e con quale cadenza recapitare le email. Tutti i valori consigliati sono già compilati e ottimizzati per evitare filtri antispam e sovraccarichi del server.', 'dfn-theme'); ?>
+                                </p>
+
+                                <?php
+                                $promo_send_mode = ($active_promo && $active_promo->status === 'scheduled') ? 'scheduled' : 'immediate';
+                                $promo_sched_val = ($active_promo && ! empty($active_promo->scheduled_at) && $active_promo->scheduled_at !== '0000-00-00 00:00:00')
+                                    ? date('Y-m-d\TH:i', strtotime($active_promo->scheduled_at))
+                                    : date('Y-m-d\TH:i', strtotime('+1 day 10:00'));
+                                $promo_init_batch = ($active_promo && ! empty($active_promo->initial_batch_size)) ? (int) $active_promo->initial_batch_size : 15;
+                                $promo_batch_sz   = ($active_promo && ! empty($active_promo->batch_size)) ? (int) $active_promo->batch_size : 25;
+                                $promo_interval   = ($active_promo && ! empty($active_promo->batch_interval_minutes)) ? (int) $active_promo->batch_interval_minutes : 5;
+                                ?>
+
+                                <!-- Tempistica di Partenza -->
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 18px;">
+                                    <label style="font-weight: 700; font-size: 14px; display: block; margin-bottom: 10px; color: #1e293b;">
+                                        <?php esc_html_e('Tempistica di Partenza:', 'dfn-theme'); ?>
+                                    </label>
+                                    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px;">
+                                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: #334155;">
+                                            <input type="radio" name="send_mode" value="immediate" <?php checked($promo_send_mode, 'immediate'); ?> id="dfn_mode_immediate" />
+                                            <span>⚡ <?php esc_html_e('Invio Immediato (Parte subito all\'avvio)', 'dfn-theme'); ?></span>
+                                        </label>
+                                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: #334155;">
+                                            <input type="radio" name="send_mode" value="scheduled" <?php checked($promo_send_mode, 'scheduled'); ?> id="dfn_mode_scheduled" />
+                                            <span>📅 <?php esc_html_e('Pianifica Invio Futuro (Data e ora prestabilite)', 'dfn-theme'); ?></span>
+                                        </label>
+                                    </div>
+
+                                    <!-- Box Pianificazione Data/Ora -->
+                                    <div id="dfn_scheduled_box" style="display: <?php echo ($promo_send_mode === 'scheduled') ? 'block' : 'none'; ?>; background: #fff; border: 1px solid #cbd5e1; border-left: 4px solid #004b23; border-radius: 6px; padding: 14px 16px; margin-top: 12px;">
+                                        <label for="promotion_scheduled_at" style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px; color: #0f172a;">
+                                            <?php esc_html_e('Giorno e ora di inizio campagna:', 'dfn-theme'); ?> <span style="color: #dc2626;">*</span>
+                                        </label>
+                                        <input type="datetime-local" id="promotion_scheduled_at" name="scheduled_at" value="<?php echo esc_attr($promo_sched_val); ?>" min="<?php echo esc_attr(date('Y-m-d\TH:i')); ?>" style="max-width: 260px; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: 600;" />
+                                        <p style="margin: 8px 0 0 0; font-size: 12px; color: #64748b; line-height: 1.4;">
+                                            💡 <strong><?php esc_html_e('Come funziona la pianificazione:', 'dfn-theme'); ?></strong> <?php esc_html_e('I destinatari idonei vengono congelati in coda al momento della conferma, ma nessuna email partirà fino al momento prestabilito. All\'orario programmato, il sistema avvierà automaticamente la spedizione a scaglioni.', 'dfn-theme'); ?>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Griglia Parametri Lotti -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                                    
+                                    <!-- 1. Primo Lotto Immediato -->
+                                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                        <label for="promotion_initial_batch_size" style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 4px; color: #0f172a;">
+                                            <?php esc_html_e('1° Lotto Immediato', 'dfn-theme'); ?>
+                                        </label>
+                                        <input type="number" id="promotion_initial_batch_size" name="initial_batch_size" min="1" max="100" value="<?php echo esc_attr($promo_init_batch); ?>" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: 700; color: #004b23;" />
+                                        <span style="display: block; font-size: 11px; color: #0284c7; font-weight: 600; margin-top: 4px;"><?php esc_html_e('Valore suggerito: 15 email', 'dfn-theme'); ?></span>
+                                        <p style="margin: 6px 0 0 0; font-size: 11px; color: #64748b; line-height: 1.35;">
+                                            <?php esc_html_e('Email inviate subito al click di avvio (solo per invio immediato) per verificare subito la ricezione.', 'dfn-theme'); ?>
+                                        </p>
+                                    </div>
+
+                                    <!-- 2. Lotto Successivo -->
+                                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                        <label for="promotion_batch_size" style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 4px; color: #0f172a;">
+                                            <?php esc_html_e('Email per Lotto', 'dfn-theme'); ?>
+                                        </label>
+                                        <input type="number" id="promotion_batch_size" name="batch_size" min="5" max="200" value="<?php echo esc_attr($promo_batch_sz); ?>" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: 700; color: #004b23;" />
+                                        <span style="display: block; font-size: 11px; color: #0284c7; font-weight: 600; margin-top: 4px;"><?php esc_html_e('Valore suggerito: 25 email', 'dfn-theme'); ?></span>
+                                        <p style="margin: 6px 0 0 0; font-size: 11px; color: #64748b; line-height: 1.35;">
+                                            <?php esc_html_e('Quantità di email spedite a ogni ciclo di background. Evita blocchi dell\'hosting e spam.', 'dfn-theme'); ?>
+                                        </p>
+                                    </div>
+
+                                    <!-- 3. Intervallo tra Lotti -->
+                                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                        <label for="promotion_batch_interval_minutes" style="font-weight: 700; font-size: 13px; display: block; margin-bottom: 4px; color: #0f172a;">
+                                            <?php esc_html_e('Intervallo Lotti', 'dfn-theme'); ?>
+                                        </label>
+                                        <select id="promotion_batch_interval_minutes" name="batch_interval_minutes" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600;">
+                                            <option value="5" <?php selected($promo_interval, 5); ?>>5 minuti (Suggerito)</option>
+                                            <option value="10" <?php selected($promo_interval, 10); ?>>10 minuti</option>
+                                            <option value="15" <?php selected($promo_interval, 15); ?>>15 minuti (Prudente)</option>
+                                            <option value="30" <?php selected($promo_interval, 30); ?>>30 minuti</option>
+                                            <option value="60" <?php selected($promo_interval, 60); ?>>60 minuti (1 ora)</option>
+                                        </select>
+                                        <span style="display: block; font-size: 11px; color: #0284c7; font-weight: 600; margin-top: 4px;"><?php esc_html_e('Valore suggerito: 5 minuti', 'dfn-theme'); ?></span>
+                                        <p style="margin: 6px 0 0 0; font-size: 11px; color: #64748b; line-height: 1.35;">
+                                            <?php esc_html_e('Pausa tra un blocco e il successivo per distribuire il carico nel tempo in background.', 'dfn-theme'); ?>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- STEP 4: Test & Invio Campagna -->
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <span style="background: #004b23; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;">4</span>
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;"><?php esc_html_e('Test Rapido & Conferma Campagna', 'dfn-theme'); ?></h3>
                                 </div>
 
                                 <!-- Box Invio Test Rapido -->
@@ -506,7 +612,11 @@ function dfn_render_promotions_admin_page(): void
                                 <!-- Pulsanti Finali -->
                                 <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                                     <button type="button" id="dfn-launch-campaign-btn" class="button button-primary" style="background: #004b23; border-color: #004b23; padding: 8px 24px; height: auto; font-size: 15px; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
-                                        <span class="dashicons dashicons-controls-play" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Avvia Invio Campagna', 'dfn-theme'); ?>
+                                        <?php if ($promo_send_mode === 'scheduled') : ?>
+                                            <span class="dashicons dashicons-calendar-alt" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Pianifica Campagna', 'dfn-theme'); ?>
+                                        <?php else : ?>
+                                            <span class="dashicons dashicons-controls-play" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Avvia Invio Campagna', 'dfn-theme'); ?>
+                                        <?php endif; ?>
                                     </button>
 
                                     <button type="button" id="dfn-save-draft-btn" class="button" style="padding: 8px 18px; height: auto; font-size: 14px; border-radius: 6px;">
@@ -634,6 +744,10 @@ function dfn_render_promotions_admin_page(): void
                                 <h2 style="margin: 0; font-size: 22px; font-weight: 700; color: #0f172a;"><?php echo esc_html($active_promo->title); ?></h2>
                                 <?php if ($active_promo->status === 'completed') : ?>
                                     <span style="background: #dcfce7; color: #15803d; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;">✓ <?php esc_html_e('Completata', 'dfn-theme'); ?></span>
+                                <?php elseif ($active_promo->status === 'scheduled') : ?>
+                                    <span style="background: #fef3c7; color: #b45309; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid #fde68a;">
+                                        📅 <?php esc_html_e('Pianificata', 'dfn-theme'); ?>
+                                    </span>
                                 <?php elseif ($active_promo->status === 'sending') : ?>
                                     <span style="background: #e0f2fe; color: #0369a1; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;">
                                         <span class="dashicons dashicons-update" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('In invio...', 'dfn-theme'); ?>
@@ -658,9 +772,16 @@ function dfn_render_promotions_admin_page(): void
                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new&promo_id=' . $active_promo->id)); ?>" class="button button-primary" style="background: #004b23; border-color: #004b23; font-weight: 600;">
                                     <span class="dashicons dashicons-edit" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Modifica Bozza', 'dfn-theme'); ?>
                                 </a>
+                            <?php elseif ($active_promo->status === 'scheduled') : ?>
+                                <button type="button" class="button button-primary dfn-launch-now-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="background: #004b23; border-color: #004b23; font-weight: 600;">
+                                    <span class="dashicons dashicons-controls-play" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Avvia Subito (Anticipa Partenza)', 'dfn-theme'); ?>
+                                </button>
+                                <button type="button" class="button dfn-cancel-promo-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;">
+                                    <span class="dashicons dashicons-dismiss" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Annulla Pianificazione', 'dfn-theme'); ?>
+                                </button>
                             <?php elseif ($active_promo->status === 'sending') : ?>
                                 <button type="button" class="button button-primary dfn-process-batch-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="background: #0284c7; border-color: #0284c7; font-weight: 600;">
-                                    <span class="dashicons dashicons-controls-play" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Invia Prossimo Lotto (25 email)', 'dfn-theme'); ?>
+                                    <span class="dashicons dashicons-controls-play" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php printf(esc_html__('Invia Prossimo Lotto (%d email)', 'dfn-theme'), $active_promo->batch_size ?: 25); ?>
                                 </button>
                                 <button type="button" class="button dfn-cancel-promo-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;">
                                     <span class="dashicons dashicons-controls-pause" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Ferma Campagna', 'dfn-theme'); ?>
@@ -672,6 +793,20 @@ function dfn_render_promotions_admin_page(): void
                             </button>
                         </div>
                     </div>
+
+                    <?php if ($active_promo->status === 'scheduled') : ?>
+                        <div style="background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px 18px; margin-top: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <strong style="color: #b45309; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="dashicons dashicons-calendar-alt" style="font-size: 18px; width: 18px; height: 18px;"></span>
+                                    <?php printf(esc_html__('Campagna Pianificata per il %s', 'dfn-theme'), date_i18n('d/m/Y \a\l\l\e H:i', strtotime($active_promo->scheduled_at))); ?>
+                                </strong>
+                                <p style="margin: 4px 0 0 0; color: #92400e; font-size: 13px;">
+                                    <?php printf(esc_html__('Parametri impostati: %d email per lotto ogni %d minuti. I destinatari sono congelati in coda; all\'orario stabilito la spedizione partirà automaticamente.', 'dfn-theme'), $active_promo->batch_size ?: 25, $active_promo->batch_interval_minutes ?: 5); ?>
+                                </p>
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
                     <!-- Avanzamento e metriche invii -->
                     <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
@@ -960,7 +1095,19 @@ function dfn_render_promotions_admin_page(): void
             });
         });
 
-        // 3. Salva Campagna (Bozza o Avvia Invio)
+        // Gestione cambio modalità di partenza (Immediato vs Pianificato)
+        $('input[name="send_mode"]').on('change', function() {
+            var mode = $('input[name="send_mode"]:checked').val();
+            if (mode === 'scheduled') {
+                $('#dfn_scheduled_box').slideDown(150);
+                $('#dfn-launch-campaign-btn').html('<span class="dashicons dashicons-calendar-alt" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Pianifica Campagna', 'dfn-theme'); ?>');
+            } else {
+                $('#dfn_scheduled_box').slideUp(150);
+                $('#dfn-launch-campaign-btn').html('<span class="dashicons dashicons-controls-play" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Avvia Invio Campagna', 'dfn-theme'); ?>');
+            }
+        });
+
+        // 3. Salva Campagna (Bozza o Avvia/Pianifica Invio)
         function submitCampaign(isLaunch) {
             var eventId = $('#promotion_event_id').val();
             var title = $('#promotion_title').val().trim();
@@ -968,6 +1115,12 @@ function dfn_render_promotions_admin_page(): void
             var intro = $('#promotion_email_intro').val().trim();
             var custom = $('#promotion_email_custom_text').val().trim();
             var cta = $('#promotion_cta_text').val().trim();
+
+            var sendMode     = $('input[name="send_mode"]:checked').val() || 'immediate';
+            var scheduledAt  = $('#promotion_scheduled_at').val() || '';
+            var initialBatch = $('#promotion_initial_batch_size').val() || 15;
+            var batchSize    = $('#promotion_batch_size').val() || 25;
+            var batchInterval= $('#promotion_batch_interval_minutes').val() || 5;
 
             if (!eventId) {
                 alert('Seleziona l\'evento da promuovere.');
@@ -986,10 +1139,24 @@ function dfn_render_promotions_admin_page(): void
             }
 
             if (isLaunch) {
+                if (sendMode === 'scheduled' && !scheduledAt) {
+                    alert('Inserisci il giorno e l\'ora previsti per la pianificazione della campagna.');
+                    $('#promotion_scheduled_at').focus();
+                    return;
+                }
+
                 var eligibleCount = $('#stat-eligible-recipients').text();
-                var msg = 'Sei sicuro di voler avviare questa campagna promozionale?\n';
-                if (eligibleCount && eligibleCount !== '...') {
-                    msg += 'Verranno inviate email a circa ' + eligibleCount + ' clienti unici del portale.';
+                var msg = '';
+                if (sendMode === 'scheduled') {
+                    msg = 'Vuoi pianificare l\'invio di questa campagna promozionale per la data/ora selezionata?\n';
+                    if (eligibleCount && eligibleCount !== '...') {
+                        msg += 'Destinatari stimati in coda: ' + eligibleCount + ' contatti.\nNessuna email partirà fino all\'orario stabilito.';
+                    }
+                } else {
+                    msg = 'Sei sicuro di voler avviare questa campagna promozionale ora?\n';
+                    if (eligibleCount && eligibleCount !== '...') {
+                        msg += 'Verranno inviate email a circa ' + eligibleCount + ' clienti unici del portale (primo lotto da ' + initialBatch + ' email subito).';
+                    }
                 }
                 if (!confirm(msg)) {
                     return;
@@ -1013,6 +1180,11 @@ function dfn_render_promotions_admin_page(): void
                 intro: intro,
                 custom_text: custom,
                 cta_text: cta,
+                send_mode: sendMode,
+                scheduled_at: scheduledAt,
+                initial_batch_size: initialBatch,
+                batch_size: batchSize,
+                batch_interval_minutes: batchInterval,
                 is_launch: isLaunch ? 1 : 0
             }, function(res) {
                 $('#dfn-submit-spinner').removeClass('is-active');
@@ -1042,7 +1214,34 @@ function dfn_render_promotions_admin_page(): void
             submitCampaign(false);
         });
 
-        // 4. Azione: Elabora Lotto Manuale (Batch)
+        // 4. Azione: Avvia Subito Campagna Pianificata (Anticipa Partenza)
+        $('.dfn-launch-now-btn').on('click', function(e) {
+            e.preventDefault();
+            if (!confirm('Vuoi avviare subito questa campagna pianificata senza attendere l\'orario programmato?')) {
+                return;
+            }
+            var promoId = $(this).data('id');
+            var $btn = $(this);
+            $btn.prop('disabled', true).text('Avvio in corso...');
+            $.post(ajaxurl, {
+                action: 'dfn_promotions_launch_scheduled_now',
+                nonce: nonce,
+                promo_id: promoId
+            }, function(res) {
+                if (res.success) {
+                    alert(res.data.message);
+                    location.reload();
+                } else {
+                    alert('Errore: ' + (res.data ? res.data.message : 'Impossibile avviare la campagna'));
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> Avvia ora');
+                }
+            }).fail(function() {
+                alert('Errore di comunicazione con il server');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> Avvia ora');
+            });
+        });
+
+        // 5. Azione: Elabora Lotto Manuale (Batch)
         $('.dfn-process-batch-btn').on('click', function(e) {
             e.preventDefault();
             var $btn = $(this);
@@ -1067,7 +1266,7 @@ function dfn_render_promotions_admin_page(): void
             });
         });
 
-        // 5. Azione: Annulla Campagna
+        // 6. Azione: Annulla Campagna
         $('.dfn-cancel-promo-btn').on('click', function(e) {
             e.preventDefault();
             if (!confirm('Vuoi interrompere l\'invio di questa campagna? I destinatari rimanenti non riceveranno l\'email.')) {
@@ -1087,7 +1286,7 @@ function dfn_render_promotions_admin_page(): void
             });
         });
 
-        // 6. Azione: Elimina Campagna
+        // 7. Azione: Elimina Campagna
         $('.dfn-delete-promo-btn').on('click', function(e) {
             e.preventDefault();
             if (!confirm('Sei sicuro di voler eliminare questa campagna e il relativo storico? Questa azione non può essere annullata.')) {

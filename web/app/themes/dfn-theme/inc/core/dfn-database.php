@@ -525,6 +525,10 @@ function dfn_db_install(): void
         total_recipients int(10) unsigned NOT NULL DEFAULT 0,
         sent_count int(10) unsigned NOT NULL DEFAULT 0,
         failed_count int(10) unsigned NOT NULL DEFAULT 0,
+        batch_size int(10) unsigned NOT NULL DEFAULT 25,
+        initial_batch_size int(10) unsigned NOT NULL DEFAULT 15,
+        batch_interval_minutes int(10) unsigned NOT NULL DEFAULT 5,
+        last_batch_at datetime DEFAULT NULL,
         scheduled_at datetime DEFAULT NULL,
         completed_at datetime DEFAULT NULL,
         created_by bigint(20) unsigned DEFAULT NULL,
@@ -740,6 +744,23 @@ function dfn_db_install(): void
 
     // Migra eventi in_loco esistenti → auto_cancel_hours = 0 (one-shot)
     dfn_migrate_in_loco_auto_cancel();
+
+    // Aggiornamento colonne Tabella 19 (dfn_promotions)
+    $promo_cols = $wpdb->get_col("SHOW COLUMNS FROM {$table_promotions}");
+    if (! empty($promo_cols)) {
+        if (! in_array('batch_size', $promo_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotions} ADD COLUMN batch_size int(10) unsigned NOT NULL DEFAULT 25 AFTER failed_count");
+        }
+        if (! in_array('initial_batch_size', $promo_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotions} ADD COLUMN initial_batch_size int(10) unsigned NOT NULL DEFAULT 15 AFTER batch_size");
+        }
+        if (! in_array('batch_interval_minutes', $promo_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotions} ADD COLUMN batch_interval_minutes int(10) unsigned NOT NULL DEFAULT 5 AFTER initial_batch_size");
+        }
+        if (! in_array('last_batch_at', $promo_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotions} ADD COLUMN last_batch_at datetime DEFAULT NULL AFTER batch_interval_minutes");
+        }
+    }
 
     // Aggiorna la versione per evitare re-esecuzioni
     update_option('dfn_db_version', DFN_DB_VERSION);
@@ -2937,6 +2958,16 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
             $promo->status = 'sending';
         }
 
+        // Verifica intervallo di invio specifico della campagna
+        $promo_interval = ! empty($promo->batch_interval_minutes) ? absint($promo->batch_interval_minutes) : 5;
+        if (! empty($promo->last_batch_at)) {
+            $last_ts = strtotime($promo->last_batch_at);
+            // Tolleranza di 30 secondi per jitter dell'esecuzione cron
+            if ($last_ts > 0 && (time() - $last_ts) < (($promo_interval * 60) - 30)) {
+                continue;
+            }
+        }
+
         // Recupera info evento
         $events = dfn_promotions_get_eligible_events(false);
         $event = null;
@@ -2952,6 +2983,9 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
             continue;
         }
 
+        $promo_batch_size = ! empty($promo->batch_size) ? absint($promo->batch_size) : $batch_size;
+        $limit_promo = min($promo_batch_size, max(1, $batch_size - $total_processed));
+
         $items = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$table_queue} 
@@ -2959,7 +2993,7 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
                  ORDER BY id ASC 
                  LIMIT %d",
                 $promo->id,
-                $batch_size - $total_processed
+                $limit_promo
             )
         );
 
@@ -3014,6 +3048,10 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
             if ($total_processed >= $batch_size) {
                 break 2;
             }
+        }
+
+        if (! empty($items)) {
+            $wpdb->update($table_promotions, ['last_batch_at' => current_time('mysql')], ['id' => $promo->id]);
         }
 
         // Controlla se sono rimasti altri elementi pendenti
