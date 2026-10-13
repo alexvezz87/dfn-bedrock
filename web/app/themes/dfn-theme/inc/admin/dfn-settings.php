@@ -194,6 +194,24 @@ function dfn_settings_save_fields(): void
         }
     }
 
+    // Se ci troviamo nel tab moduli, aggiorna i toggle dei moduli FAI Prenotazioni
+    if ($active_tab === 'moduli') {
+        $module_keys = [
+            'promozioni' => 'enable_event_promotions',
+            'waitlist'   => 'enable_auto_waitlist',
+            'accounting' => 'enable_event_accounting',
+            'reviews'    => 'enable_event_reviews',
+            'botteghino' => 'enable_live_boxoffice',
+        ];
+        foreach ($module_keys as $m_id => $s_key) {
+            $is_on = isset($_POST['dfn_settings'][$s_key]) && 'yes' === $_POST['dfn_settings'][$s_key];
+            $merged_settings[$s_key] = $is_on ? 'yes' : 'no';
+            if (function_exists('dfn_set_module_status')) {
+                dfn_set_module_status($m_id, $is_on);
+            }
+        }
+    }
+
     // Se ci troviamo nel tab avanzate, aggiorna anche i toggle non spuntati
     if ($active_tab === 'avanzate') {
         $toggle_keys = [
@@ -205,10 +223,6 @@ function dfn_settings_save_fields(): void
             'enable_auto_waitlist',
             'enable_auto_complete_paid',
             'enable_auto_verify_fai',
-            'enable_event_promotions',
-            'enable_event_accounting',
-            'enable_event_reviews',
-            'enable_live_boxoffice',
         ];
         foreach ($toggle_keys as $t_key) {
             if (! isset($_POST['dfn_settings'][$t_key])) {
@@ -267,6 +281,7 @@ function dfn_render_settings_page(): void
 
     $tabs = [
         'generale'   => '&#127970; Generale',
+        'moduli'     => '&#129513; Moduli',
         'email'      => '&#128231; Email &amp; Notifiche',
         'testi_email'=> '&#128221; Testi E-mail',
         'cron'       => '&#9200; Automazioni &amp; Cron',
@@ -363,6 +378,277 @@ function dfn_render_settings_page(): void
                                 </td>
                             </tr>
                         </table>
+
+                    <?php elseif ($active_tab === 'moduli') : ?>
+                        <!-- TAB MODULI FAI PRENOTAZIONI -->
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 25px;">
+                            <div>
+                                <h2 style="color: #004b23; margin: 0 0 6px 0; font-size: 22px;">🧩 Moduli Funzionali FAI Prenotazioni</h2>
+                                <p class="description" style="margin: 0; font-size: 14px; color: #64748b;">
+                                    <?php esc_html_e('Attiva o disattiva i moduli opzionali del sistema di prenotazione. Disattivando un modulo, tutte le relative voci di menu in WP Admin e le funzionalità sul sito verranno rimosse all\'istante.', 'dfn-theme'); ?>
+                                </p>
+                            </div>
+                            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 20px; font-size: 13px; font-weight: 700; color: #065f46; flex-shrink: 0;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+                                <?php esc_html_e('FAI Prenotazioni v2.0', 'dfn-theme'); ?>
+                            </span>
+                        </div>
+
+                        <?php
+                        $booking_modules = [
+                            'promozioni' => [
+                                'id'            => 'promozioni',
+                                'name'          => __('Promozioni & Newsletter', 'dfn-theme'),
+                                'version'       => '2.0.1',
+                                'icon'          => 'dashicons-megaphone',
+                                'emoji'         => '📢',
+                                'badge'         => __('Marketing & Comunicazione', 'dfn-theme'),
+                                'description'   => __('Campagne email promozionali per eventi futuri inviate agli iscritti passati, gestione batch in background, statistiche di invio e annullamento campagne.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Campagne promozionali mirate su eventi attivi', 'dfn-theme'),
+                                    __('Invio asincrono in background a lotti anti-spam', 'dfn-theme'),
+                                    __('Esclusione automatica placeholder e ordini duplicati', 'dfn-theme'),
+                                    __('Tracciamento percentuale avanzamento e pulsante annulla', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_event_promotions',
+                                'menu_selector' => '#adminmenu a[href*="page=dfn-promotions"]',
+                            ],
+                            'waitlist' => [
+                                'id'            => 'waitlist',
+                                'name'          => __('Lista d\'Attesa', 'dfn-theme'),
+                                'version'       => '2.0',
+                                'icon'          => 'dashicons-clock',
+                                'emoji'         => '⏳',
+                                'badge'         => __('Gestione Posti Esauriti', 'dfn-theme'),
+                                'description'   => __('Consente agli utenti di iscriversi a una lista d\'attesa quando uno slot orario è esaurito, con bacheca dedicata e ripescaggio manuale o automatico.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Iscrizione lista d\'attesa per fasce orarie sold out', 'dfn-theme'),
+                                    __('Bacheca dedicata con visualizzazione partecipanti in coda', 'dfn-theme'),
+                                    __('Ripescaggio partecipanti e conversione rapida in prenotazione', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_auto_waitlist',
+                                'menu_selector' => '#adminmenu a[href*="page=dfn-waitlist"]',
+                            ],
+                            'accounting' => [
+                                'id'            => 'accounting',
+                                'name'          => __('Bilancio Eventi', 'dfn-theme'),
+                                'version'       => '2.0',
+                                'icon'          => 'dashicons-chart-pie',
+                                'emoji'         => '📊',
+                                'badge'         => __('Rendicontazione Economica', 'dfn-theme'),
+                                'description'   => __('Rendicontazione economica dettagliata degli incassi per evento: spaccato pagamenti online, contanti in cassa, donazioni e quote soci FAI.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Riepilogo entrate online vs contanti in cassa', 'dfn-theme'),
+                                    __('Dettaglio quote soci FAI ed erogazioni liberali', 'dfn-theme'),
+                                    __('Esportazione e rendiconto per tesoreria di Delegazione', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_event_accounting',
+                                'menu_selector' => '#adminmenu a[href*="page=cv-bilancio-eventi"]',
+                            ],
+                            'reviews' => [
+                                'id'            => 'reviews',
+                                'name'          => __('Recensione Eventi', 'dfn-theme'),
+                                'version'       => '2.0',
+                                'icon'          => 'dashicons-star-filled',
+                                'emoji'         => '⭐',
+                                'badge'         => __('Feedback & Valutazioni', 'dfn-theme'),
+                                'description'   => __('Raccolta delle valutazioni e recensioni a 5 stelle dai partecipanti agli eventi conclusi, scorecard statistica e carosello testimonianze nel frontend.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Invio richieste feedback a partecipanti convalidati', 'dfn-theme'),
+                                    __('Scorecard di gradimento e punteggio medio in stelle', 'dfn-theme'),
+                                    __('Carosello testimonianze con privacy nomi sul frontend', 'dfn-theme'),
+                                    __('Moderazione e bacheca recensioni in WP Admin', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_event_reviews',
+                                'menu_selector' => '#adminmenu a[href*="page=cv-recensioni-eventi"]',
+                            ],
+                            'botteghino' => [
+                                'id'            => 'botteghino',
+                                'name'          => __('Botteghino Live', 'dfn-theme'),
+                                'version'       => '2.0',
+                                'icon'          => 'dashicons-store',
+                                'emoji'         => '🎟️',
+                                'badge'         => __('Cassa POS in Sede', 'dfn-theme'),
+                                'description'   => __('Interfaccia di vendita diretta in sede per i volontari: incasso in contanti rapido, invio link di pagamento digitale, riserva posti autorità e convalidazioni istantanee.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Creazione rapida ordini al desk di accoglienza', 'dfn-theme'),
+                                    __('Gestione contanti, POS, link pagamento e posti riservati', 'dfn-theme'),
+                                    __('Integrazione mobile PWA e scanner per operatori in loco', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_live_boxoffice',
+                                'menu_selector' => '#adminmenu a[href*="page=cv-generatore-fai"]',
+                            ],
+                        ];
+                        ?>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 22px; margin-bottom: 30px;">
+                            <?php foreach ($booking_modules as $mod_key => $mod) : 
+                                $is_active = function_exists('dfn_is_module_active') ? dfn_is_module_active($mod_key) : ('yes' === dfn_get_setting($mod['setting_key'], 'yes'));
+                            ?>
+                                <div class="dfn-module-card" id="module-card-<?php echo esc_attr($mod_key); ?>" style="background: #fff; border-radius: 12px; border: 2px solid <?php echo $is_active ? '#004b23' : '#e2e8f0'; ?>; box-shadow: 0 3px 12px rgba(0,0,0,0.04); display: flex; flex-direction: column; overflow: hidden; transition: all 0.25s ease;">
+                                    
+                                    <!-- Card Header -->
+                                    <div style="padding: 18px 20px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; background: <?php echo $is_active ? '#fcfdfc' : '#f8fafc'; ?>;">
+                                        <div style="display: flex; gap: 12px; align-items: center;">
+                                            <div style="width: 44px; height: 44px; border-radius: 10px; background: <?php echo $is_active ? '#e6f3eb' : '#f1f5f9'; ?>; color: <?php echo $is_active ? '#004b23' : '#94a3b8'; ?>; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
+                                                <?php echo esc_html($mod['emoji']); ?>
+                                            </div>
+                                            <div>
+                                                <div style="display: flex; align-items: center; gap: 8px;">
+                                                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;"><?php echo esc_html($mod['name']); ?></h3>
+                                                    <span style="font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 5px; background: #f1f5f9; color: #475569;">v<?php echo esc_html($mod['version']); ?></span>
+                                                </div>
+                                                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: <?php echo $is_active ? '#004b23' : '#64748b'; ?>; margin-top: 2px;">
+                                                    <?php echo esc_html($mod['badge']); ?>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Toggle Switch -->
+                                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0;">
+                                            <label class="dfn-toggle-switch" style="position: relative; display: inline-block; width: 50px; height: 26px; margin: 0; cursor: pointer;">
+                                                <input type="checkbox" 
+                                                       name="dfn_settings[<?php echo esc_attr($mod['setting_key']); ?>]" 
+                                                       value="yes" 
+                                                       class="dfn-module-checkbox" 
+                                                       data-module="<?php echo esc_attr($mod_key); ?>"
+                                                       data-selector="<?php echo esc_attr($mod['menu_selector'] ?? ''); ?>"
+                                                       <?php checked($is_active, true); ?>
+                                                       style="opacity: 0; width: 0; height: 0;">
+                                                <span class="dfn-toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: <?php echo $is_active ? '#004b23' : '#cbd5e1'; ?>; transition: .3s; border-radius: 34px;">
+                                                    <span class="dfn-toggle-circle" style="position: absolute; content: ''; height: 18px; width: 18px; left: <?php echo $is_active ? '28px' : '4px'; ?>; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
+                                                </span>
+                                            </label>
+                                            <span class="dfn-module-status-badge" id="badge-<?php echo esc_attr($mod_key); ?>" style="font-size: 10.5px; font-weight: 800; color: <?php echo $is_active ? '#004b23' : '#64748b'; ?>;">
+                                                <?php echo $is_active ? '● ATTIVO' : '○ DISATTIVATO'; ?>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Card Body -->
+                                    <div style="padding: 18px 20px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                                        <div>
+                                            <p style="font-size: 13px; line-height: 1.55; color: #334155; margin: 0 0 14px 0;">
+                                                <?php echo esc_html($mod['description']); ?>
+                                            </p>
+
+                                            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 6px;">
+                                                <?php esc_html_e('Funzionalità Incluse:', 'dfn-theme'); ?>
+                                            </div>
+                                            <ul style="margin: 0 0 16px 0; padding-left: 0; list-style: none;">
+                                                <?php foreach ($mod['features'] as $feat) : ?>
+                                                    <li style="font-size: 12px; color: #475569; margin-bottom: 4px; display: flex; align-items: center; gap: 7px;">
+                                                        <span style="color: <?php echo $is_active ? '#004b23' : '#94a3b8'; ?>; font-size: 12px;">✓</span>
+                                                        <span><?php echo esc_html($feat); ?></span>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        </div>
+
+                                        <div style="background: #f8fafc; border-left: 3px solid #3b82f6; border-radius: 6px; padding: 9px 12px; font-size: 11.5px; color: #475569;">
+                                            ⚡ <strong>Impatto:</strong> <?php esc_html_e('Disattivando il modulo, la voce di menu e tutti i componenti correlati nel backend e frontend vengono nascosti.', 'dfn-theme'); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <!-- Script AJAX per Switch Istantaneo & Aggiornamento Dinamico del Menu DOM -->
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const checkboxes = document.querySelectorAll('.dfn-module-checkbox');
+                            let toast = document.getElementById('dfn-toast');
+                            if (!toast) {
+                                toast = document.createElement('div');
+                                toast.id = 'dfn-toast';
+                                toast.style.cssText = 'position:fixed;bottom:30px;right:30px;background:#0f172a;color:#fff;padding:14px 22px;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.25);display:none;z-index:99999;align-items:center;gap:10px;border-left:4px solid #10b981;';
+                                toast.innerHTML = '<span id="dfn-toast-msg"></span>';
+                                document.body.appendChild(toast);
+                            }
+                            const toastMsg = document.getElementById('dfn-toast-msg');
+                            let toastTimeout = null;
+
+                            function showToast(message, isSuccess = true) {
+                                if (toastTimeout) clearTimeout(toastTimeout);
+                                toastMsg.innerText = message;
+                                toast.style.borderLeftColor = isSuccess ? '#10b981' : '#ef4444';
+                                toast.style.display = 'flex';
+                                toastTimeout = setTimeout(() => {
+                                    toast.style.display = 'none';
+                                }, 3500);
+                            }
+
+                            checkboxes.forEach(function(cb) {
+                                cb.addEventListener('change', function() {
+                                    const moduleId = this.getAttribute('data-module');
+                                    const selector = this.getAttribute('data-selector');
+                                    const isChecked = this.checked;
+                                    const card = document.getElementById('module-card-' + moduleId);
+                                    const badge = document.getElementById('badge-' + moduleId);
+                                    const slider = this.nextElementSibling;
+                                    const circle = slider ? slider.querySelector('.dfn-toggle-circle') : null;
+
+                                    // 1. Aggiornamento Visivo Istantaneo della Card
+                                    if (isChecked) {
+                                        if (slider) slider.style.backgroundColor = '#004b23';
+                                        if (circle) circle.style.left = '28px';
+                                        if (card) card.style.borderColor = '#004b23';
+                                        if (badge) {
+                                            badge.innerText = '● ATTIVO';
+                                            badge.style.color = '#004b23';
+                                        }
+                                    } else {
+                                        if (slider) slider.style.backgroundColor = '#cbd5e1';
+                                        if (circle) circle.style.left = '4px';
+                                        if (card) card.style.borderColor = '#e2e8f0';
+                                        if (badge) {
+                                            badge.innerText = '○ DISATTIVATO';
+                                            badge.style.color = '#64748b';
+                                        }
+                                    }
+
+                                    // 2. Aggiornamento Dinamico del Menu WP nel DOM (Regola 6.3 AGENTS.md)
+                                    if (selector) {
+                                        try {
+                                            const targetElements = document.querySelectorAll(selector);
+                                            targetElements.forEach(function(el) {
+                                                if (el.tagName.toLowerCase() === 'a' && el.parentElement && el.parentElement.tagName.toLowerCase() === 'li') {
+                                                    el.parentElement.style.display = isChecked ? '' : 'none';
+                                                } else {
+                                                    el.style.display = isChecked ? '' : 'none';
+                                                }
+                                            });
+                                        } catch (e) {
+                                            console.warn('Errore selettore menu:', e);
+                                        }
+                                    }
+
+                                    // 3. Chiamata AJAX
+                                    const data = new FormData();
+                                    data.append('action', 'dfn_toggle_module');
+                                    data.append('module_id', moduleId);
+                                    data.append('status', isChecked ? '1' : '0');
+                                    data.append('nonce', '<?php echo esc_js(wp_create_nonce('dfn_modules_nonce')); ?>');
+
+                                    fetch(ajaxurl, {
+                                        method: 'POST',
+                                        body: data
+                                    })
+                                    .then(response => response.json())
+                                    .then(res => {
+                                        if (res.success) {
+                                            showToast(res.data.message || 'Stato modulo aggiornato!', true);
+                                        } else {
+                                            showToast(res.data.message || 'Errore durante l\'aggiornamento.', false);
+                                        }
+                                    })
+                                    .catch(err => {
+                                        showToast('Errore di rete durante il salvataggio.', false);
+                                    });
+                                });
+                            });
+                        });
+                        </script>
 
                     <?php elseif ($active_tab === 'email') : ?>
                         <!-- TAB EMAIL & NOTIFICHE -->
@@ -1511,53 +1797,14 @@ function dfn_render_settings_page(): void
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Abilitare modulo Promozioni &amp; Newsletter Eventi</th>
-                                <td>
-                                    <label for="enable_event_promotions">
-                                        <input name="dfn_settings[enable_event_promotions]" type="checkbox" id="enable_event_promotions" value="yes" <?php checked(dfn_get_setting('enable_event_promotions', 'yes'), 'yes'); ?> />
-                                        Sì, abilita il modulo promozioni per inviare newsletter e comunicazioni ai clienti sui nuovi eventi.
-                                    </label>
-                                    <p class="description"><strong>Comportamento:</strong> Se disattivato, nasconde la voce di menu "Promozioni &amp; Newsletter" e sospende l'invio asincrono delle campagne promozionali in coda.</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Abilitare modulo Bilancio Eventi</th>
-                                <td>
-                                    <label for="enable_event_accounting">
-                                        <input name="dfn_settings[enable_event_accounting]" type="checkbox" id="enable_event_accounting" value="yes" <?php checked(dfn_get_setting('enable_event_accounting', 'yes'), 'yes'); ?> />
-                                        Sì, abilita la schermata di bilancio e consuntivi finanziari degli eventi.
-                                    </label>
-                                    <p class="description"><strong>Comportamento:</strong> Se disattivato, nasconde la voce di menu "Bilancio Eventi" e impedisce l'accesso ai report contabili.</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Abilitare modulo Recensioni Eventi</th>
-                                <td>
-                                    <label for="enable_event_reviews">
-                                        <input name="dfn_settings[enable_event_reviews]" type="checkbox" id="enable_event_reviews" value="yes" <?php checked(dfn_get_setting('enable_event_reviews', 'yes'), 'yes'); ?> />
-                                        Sì, abilita la bacheca feedback e la visualizzazione di recensioni, scorecard e stelle nel front-end.
-                                    </label>
-                                    <p class="description"><strong>Comportamento:</strong> Se disattivato, nasconde la voce "Recensioni Eventi" e disattiva completamente carosello e scorecard nella scheda evento e archivio.</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Abilitare modulo Botteghino Live</th>
-                                <td>
-                                    <label for="enable_live_boxoffice">
-                                        <input name="dfn_settings[enable_live_boxoffice]" type="checkbox" id="enable_live_boxoffice" value="yes" <?php checked(dfn_get_setting('enable_live_boxoffice', 'yes'), 'yes'); ?> />
-                                        Sì, abilita il pannello Botteghino Live e la relativa tab operativa nella PWA scanner/mobile.
-                                    </label>
-                                    <p class="description"><strong>Comportamento:</strong> Se disattivato, nasconde la voce "Botteghino Live" nel menu admin e rimuove la tab Botteghino dall'app mobile sul campo.</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colspan="2" style="padding: 12px 0;">
-                                    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;">
-                                        <span style="color: #065f46; font-size: 13px;">
-                                            🧩 <strong>Pannello Moduli Centralizzato:</strong> puoi gestire tutti questi interruttori e consultare la scheda dettagliata di ogni modulo anche dalla nuova sezione dedicata.
-                                        </span>
-                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-modules')); ?>" class="button button-secondary" style="border-color: #059669; color: #047857; font-weight: 700;">
-                                            Apri Moduli FAI &rarr;
+                                <td colspan="2" style="padding: 16px 0;">
+                                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;">
+                                        <div>
+                                            <strong style="color: #166534; font-size: 15px;">🧩 Moduli Funzionali FAI Prenotazioni</strong>
+                                            <p style="margin: 4px 0 0; color: #15803d; font-size: 13.5px;">I moduli opzionali (Promozioni &amp; Newsletter, Lista d'Attesa, Bilancio Eventi, Recensioni, Botteghino Live) sono configurabili nella tab dedicata <strong>Moduli</strong>.</p>
+                                        </div>
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-settings&tab=moduli')); ?>" class="button button-primary" style="background: #004b23; border-color: #004b23; font-weight: 700; padding: 0 18px; height: 36px; line-height: 34px;">
+                                            Gestisci Moduli &rarr;
                                         </a>
                                     </div>
                                 </td>
