@@ -295,7 +295,23 @@ function dfn_ajax_promotions_cancel_campaign(): void
     global $wpdb;
     $wpdb->update($wpdb->prefix . 'dfn_promotions', ['status' => 'cancelled', 'completed_at' => current_time('mysql')], ['id' => $promo_id]);
 
-    wp_send_json_success(['message' => __('Campagna interrotta con successo.', 'dfn-theme')]);
+    // Blocca immediatamente tutti i record ancora in attesa in coda
+    $blocked_count = (int) $wpdb->query(
+        $wpdb->prepare(
+            "UPDATE {$wpdb->prefix}dfn_promotion_queue 
+             SET status = 'cancelled', error_message = 'Invio bloccato tempestivamente dall\'amministratore'
+             WHERE promotion_id = %d AND status = 'pending'",
+            $promo_id
+        )
+    );
+
+    wp_send_json_success([
+        'message'       => sprintf(
+            __('Campagna interrotta immediatamente! %d email ancora in coda sono state bloccate e non partiranno.', 'dfn-theme'),
+            $blocked_count
+        ),
+        'blocked_count' => $blocked_count,
+    ]);
 }
 
 /**
