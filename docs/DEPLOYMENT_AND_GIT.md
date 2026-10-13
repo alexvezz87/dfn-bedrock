@@ -2,6 +2,8 @@
 
 Il progetto adotta un modello di branching strutturato per garantire stabilità, isolamento delle feature e rilasci controllati tra ambienti di sviluppo, staging e produzione.
 
+> 📖 **Linee Guida Complete & Iter di Sviluppo**: Consulta anche il file [`AGENTS.md`](file:///c:/Users/Alex/Desktop/web-server/dfn-bedrock/AGENTS.md) alla radice del repository per le policy operative vincolanti (Issue tracking, modularità ON/OFF e policy di deploy).
+
 ---
 
 ## 1. Struttura dei Rami Git
