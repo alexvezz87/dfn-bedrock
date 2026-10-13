@@ -106,6 +106,11 @@ function dfn_get_activities_catalog(): array
                 'icon'        => '📜',
                 'description' => __('Visualizzazione storico operazioni, audit log ed errori di sistema.', 'dfn-theme'),
             ],
+            'dfn_act_promotions'      => [
+                'label'       => __('Promozioni & Newsletter', 'dfn-theme'),
+                'icon'        => '📢',
+                'description' => __('Creazione campagne promozionali per nuovi eventi e invio email ai clienti.', 'dfn-theme'),
+            ],
             'dfn_act_settings'        => [
                 'label'       => __('Impostazioni Prenotazioni', 'dfn-theme'),
                 'icon'        => '⚙️',
@@ -251,6 +256,7 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_financials'      => true,
             'dfn_act_reviews'         => true,
             'dfn_act_system_logs'     => true,
+            'dfn_act_promotions'      => true,
             'dfn_act_settings'        => true,
             'dfn_act_vol_roster'      => true,
             'dfn_act_vol_logistics'   => true,
@@ -273,6 +279,7 @@ function dfn_get_default_roles_matrix(): array
             'dfn_act_financials'      => false,
             'dfn_act_reviews'         => false,
             'dfn_act_system_logs'     => false,
+            'dfn_act_promotions'      => true,
             'dfn_act_settings'        => false,
             'dfn_act_vol_roster'      => false,
             'dfn_act_vol_logistics'   => false,

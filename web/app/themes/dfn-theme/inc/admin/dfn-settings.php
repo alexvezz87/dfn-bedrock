@@ -159,6 +159,7 @@ function dfn_settings_save_fields(): void
         'enable_auto_waitlist'                => 'sanitize_text_field', // 'yes' o 'no'
         'enable_auto_complete_paid'           => 'sanitize_text_field', // 'yes' o 'no'
         'enable_auto_verify_fai'              => 'sanitize_text_field', // 'yes' o 'no' — default 'no'
+        'enable_event_promotions'             => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
     ];
 
     $merged_settings = $existing_settings;
@@ -199,6 +200,7 @@ function dfn_settings_save_fields(): void
             'enable_auto_waitlist',
             'enable_auto_complete_paid',
             'enable_auto_verify_fai',
+            'enable_event_promotions',
         ];
         foreach ($toggle_keys as $t_key) {
             if (! isset($_POST['dfn_settings'][$t_key])) {
@@ -1441,6 +1443,16 @@ function dfn_render_settings_page(): void
                                         Sì, marca automaticamente le tessere FAI come verificate quando approvo una prenotazione dalla sezione "Verifica Prenotazioni FAI".
                                     </label>
                                     <p class="description"><strong>Comportamento:</strong> Se attivato, cliccando <em>Approva</em> su una prenotazione pendente, tutte le tessere FAI associate vengono marcate come <code>verified = 1</code> nel database, evitando la ri-verifica manuale alle prenotazioni future degli stessi soci. <br><strong style="color:#e53e3e;">⚠️ Attualmente DISATTIVATO (default consigliato)</strong>: le tessere si verificano manualmente dalla sezione Soci FAI.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Abilitare modulo Promozioni &amp; Newsletter Eventi</th>
+                                <td>
+                                    <label for="enable_event_promotions">
+                                        <input name="dfn_settings[enable_event_promotions]" type="checkbox" id="enable_event_promotions" value="yes" <?php checked(dfn_get_setting('enable_event_promotions', 'yes'), 'yes'); ?> />
+                                        Sì, abilita il modulo promozioni per inviare newsletter e comunicazioni ai clienti sui nuovi eventi.
+                                    </label>
+                                    <p class="description"><strong>Comportamento:</strong> Se disattivato, nasconde la voce di menu "Promozioni &amp; Newsletter" e sospende l'invio asincrono delle campagne promozionali in coda.</p>
                                 </td>
                             </tr>
                             <tr>
