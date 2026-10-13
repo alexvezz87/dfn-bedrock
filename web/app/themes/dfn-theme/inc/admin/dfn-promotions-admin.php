@@ -15,6 +15,14 @@ if (! defined('ABSPATH')) {
 
 add_action('admin_menu', 'dfn_promotions_register_menu', 60);
 
+// Disattiva il caricamento di Twemoji esterno sulla schermata promozioni per prevenire icone rotte
+add_action('admin_enqueue_scripts', function($hook) {
+    if (strpos($hook, 'dfn-promotions') !== false) {
+        remove_action('admin_print_scripts', 'print_emoji_detection_script');
+        remove_action('admin_print_styles', 'print_emoji_styles');
+    }
+});
+
 /**
  * Registra la voce di menu sotto "FAI Prenotazioni" se il modulo è attivo.
  */
@@ -76,7 +84,7 @@ function dfn_render_promotions_admin_page(): void
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
             <div>
                 <h1 style="color: #004b23; font-weight: 700; font-size: 26px; margin: 0 0 6px 0; display: flex; align-items: center; gap: 10px;">
-                    <span>📢</span> <?php esc_html_e('Promozioni & Newsletter Eventi', 'dfn-theme'); ?>
+                    <span class="dashicons dashicons-megaphone" style="font-size: 26px; width: 26px; height: 26px; color: #004b23; vertical-align: middle;"></span> <?php esc_html_e('Promozioni & Newsletter Eventi', 'dfn-theme'); ?>
                     <span style="font-size: 12px; background: #e0f2fe; color: #0284c7; padding: 2px 10px; border-radius: 999px; font-weight: 600; text-transform: uppercase;">Modulo 2.0.1</span>
                 </h1>
                 <p style="color: #64748b; font-size: 14px; margin: 0;">
@@ -86,7 +94,7 @@ function dfn_render_promotions_admin_page(): void
             <div>
                 <?php if ($active_tab === 'campaigns') : ?>
                     <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new')); ?>" class="button button-primary" style="background: #004b23; border-color: #004b23; padding: 6px 18px; height: auto; font-size: 14px; font-weight: 600; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,75,35,0.2);">
-                        <span>✨</span> <?php esc_html_e('Nuova Campagna Promozionale', 'dfn-theme'); ?>
+                        <span class="dashicons dashicons-plus-alt2" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-top; margin-right: 2px;"></span> <?php esc_html_e('Nuova Campagna Promozionale', 'dfn-theme'); ?>
                     </a>
                 <?php else : ?>
                     <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=campaigns')); ?>" class="button" style="padding: 6px 18px; height: auto; font-size: 14px; border-radius: 6px;">
@@ -126,10 +134,10 @@ function dfn_render_promotions_admin_page(): void
         <!-- Navigation Tabs -->
         <h2 class="nav-tab-wrapper" style="margin-bottom: 25px; border-bottom: 1px solid #cbd5e1;">
             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=campaigns')); ?>" class="nav-tab <?php echo ($active_tab === 'campaigns') ? 'nav-tab-active' : ''; ?>" style="<?php echo ($active_tab === 'campaigns') ? 'border-top: 3px solid #004b23; color: #004b23; font-weight: 600;' : ''; ?>">
-                📋 <?php esc_html_e('Tutte le Campagne', 'dfn-theme'); ?> (<?php echo esc_html($total_campaigns); ?>)
+                <span class="dashicons dashicons-list-view" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 4px;"></span> <?php esc_html_e('Tutte le Campagne', 'dfn-theme'); ?> (<?php echo esc_html($total_campaigns); ?>)
             </a>
             <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new')); ?>" class="nav-tab <?php echo ($active_tab === 'new') ? 'nav-tab-active' : ''; ?>" style="<?php echo ($active_tab === 'new') ? 'border-top: 3px solid #004b23; color: #004b23; font-weight: 600;' : ''; ?>">
-                ✨ <?php esc_html_e('Crea Nuova Campagna', 'dfn-theme'); ?>
+                <span class="dashicons dashicons-plus-alt2" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 4px;"></span> <?php esc_html_e('Crea Nuova Campagna', 'dfn-theme'); ?>
             </a>
         </h2>
 
@@ -138,7 +146,9 @@ function dfn_render_promotions_admin_page(): void
             <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                 <?php if (empty($promotions)) : ?>
                     <div style="padding: 60px 20px; text-align: center; color: #64748b;">
-                        <span style="font-size: 48px; display: block; margin-bottom: 12px;">📭</span>
+                        <div style="width: 72px; height: 72px; margin: 0 auto 16px auto; background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                            <span class="dashicons dashicons-email-alt" style="font-size: 38px; width: 38px; height: 38px; color: #004b23;"></span>
+                        </div>
                         <h3 style="font-size: 18px; font-weight: 600; color: #1e293b; margin: 0 0 8px 0;"><?php esc_html_e('Nessuna campagna promozionale creata', 'dfn-theme'); ?></h3>
                         <p style="margin: 0 0 20px 0; font-size: 14px;"><?php esc_html_e('Crea la tua prima newsletter promozionale per presentare un evento in arrivo a tutti i tuoi clienti.', 'dfn-theme'); ?></p>
                         <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new')); ?>" class="button button-primary" style="background: #004b23; border-color: #004b23; font-weight: 600; padding: 6px 18px; height: auto;">
@@ -170,7 +180,7 @@ function dfn_render_promotions_admin_page(): void
                                     <td>
                                         <strong style="color: #0f172a; font-size: 14px;"><?php echo esc_html($promo->title); ?></strong>
                                         <div style="color: #64748b; font-size: 12px; margin-top: 3px;">
-                                            ✉️ <?php echo esc_html($promo->email_subject); ?>
+                                            <span class="dashicons dashicons-email-alt" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; color: #94a3b8; margin-right: 2px;"></span> <?php echo esc_html($promo->email_subject); ?>
                                         </div>
                                     </td>
                                     <td>
@@ -178,8 +188,8 @@ function dfn_render_promotions_admin_page(): void
                                             <?php echo esc_html($promo->event_title); ?>
                                         </div>
                                         <div style="color: #64748b; font-size: 12px; margin-top: 2px;">
-                                            📅 <?php echo esc_html($promo->event_date_start ? date_i18n('d/m/Y', strtotime($promo->event_date_start)) : '-'); ?>
-                                            <?php if (! empty($promo->city)) : ?> • 📍 <?php echo esc_html($promo->city); ?><?php endif; ?>
+                                            <span class="dashicons dashicons-calendar-alt" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; color: #94a3b8; margin-right: 2px;"></span> <?php echo esc_html($promo->event_date_start ? date_i18n('d/m/Y', strtotime($promo->event_date_start)) : '-'); ?>
+                                            <?php if (! empty($promo->city)) : ?> • <span class="dashicons dashicons-location" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; color: #94a3b8; margin-right: 2px;"></span> <?php echo esc_html($promo->city); ?><?php endif; ?>
                                         </div>
                                     </td>
                                     <td>
@@ -189,7 +199,7 @@ function dfn_render_promotions_admin_page(): void
                                             </span>
                                         <?php elseif ($promo->status === 'sending') : ?>
                                             <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;">
-                                                ⏳ <?php esc_html_e('In invio...', 'dfn-theme'); ?>
+                                                <span class="dashicons dashicons-update" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('In invio...', 'dfn-theme'); ?>
                                             </span>
                                         <?php elseif ($promo->status === 'cancelled') : ?>
                                             <span style="display: inline-block; background: #fee2e2; color: #b91c1c; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;">
@@ -197,7 +207,7 @@ function dfn_render_promotions_admin_page(): void
                                             </span>
                                         <?php else : ?>
                                             <span style="display: inline-block; background: #f1f5f9; color: #475569; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;">
-                                                📝 <?php esc_html_e('Bozza', 'dfn-theme'); ?>
+                                                <span class="dashicons dashicons-edit" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Bozza', 'dfn-theme'); ?>
                                             </span>
                                         <?php endif; ?>
                                     </td>
@@ -211,7 +221,7 @@ function dfn_render_promotions_admin_page(): void
                                         </div>
                                         <?php if ($fail > 0) : ?>
                                             <div style="color: #dc2626; font-size: 11px; margin-top: 3px;">
-                                                ⚠️ <?php echo esc_html($fail); ?> invii non riusciti
+                                                <span class="dashicons dashicons-warning" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; color: #dc2626; margin-right: 2px;"></span> <?php echo esc_html($fail); ?> <?php esc_html_e('invii non riusciti', 'dfn-theme'); ?>
                                             </div>
                                         <?php endif; ?>
                                     </td>
@@ -222,15 +232,15 @@ function dfn_render_promotions_admin_page(): void
                                         <div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
                                             <?php if ($promo->status === 'sending') : ?>
                                                 <button type="button" class="button button-small dfn-process-batch-btn" data-id="<?php echo esc_attr($promo->id); ?>" title="<?php esc_attr_e('Invia subito il prossimo lotto di 25 email senza attendere il cron', 'dfn-theme'); ?>" style="color: #0369a1; border-color: #0284c7; font-weight: 600;">
-                                                    ▶️ <?php esc_html_e('Invia lotto', 'dfn-theme'); ?>
+                                                    <span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Invia lotto', 'dfn-theme'); ?>
                                                 </button>
                                                 <button type="button" class="button button-small dfn-cancel-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" style="color: #dc2626; border-color: #fca5a5;">
-                                                    ⏹️ <?php esc_html_e('Ferma', 'dfn-theme'); ?>
+                                                    <span class="dashicons dashicons-controls-pause" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Ferma', 'dfn-theme'); ?>
                                                 </button>
                                             <?php endif; ?>
 
                                             <button type="button" class="button button-small dfn-delete-promo-btn" data-id="<?php echo esc_attr($promo->id); ?>" style="color: #94a3b8; border-color: #cbd5e1;">
-                                                🗑️
+                                                <span class="dashicons dashicons-trash" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom;"></span>
                                             </button>
                                         </div>
                                     </td>
@@ -246,7 +256,7 @@ function dfn_render_promotions_admin_page(): void
             
             <?php if (empty($future_events)) : ?>
                 <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 6px; margin-bottom: 25px;">
-                    <h3 style="color: #92400e; margin: 0 0 6px 0; font-size: 16px;">⚠️ <?php esc_html_e('Nessun evento futuro disponibile per la promozione', 'dfn-theme'); ?></h3>
+                    <h3 style="color: #92400e; margin: 0 0 6px 0; font-size: 16px; display: flex; align-items: center; gap: 6px;"><span class="dashicons dashicons-warning" style="color: #d97706; font-size: 20px; width: 20px; height: 20px;"></span> <?php esc_html_e('Nessun evento futuro disponibile per la promozione', 'dfn-theme'); ?></h3>
                     <p style="color: #78350f; margin: 0 0 12px 0; font-size: 14px;">
                         <?php esc_html_e('Per creare una campagna promozionale devi avere almeno un evento programmato con data pari o successiva ad oggi. Tutti gli eventi passati sono stati esclusi automaticamente per preservare la pertinenza della comunicazione.', 'dfn-theme'); ?>
                     </p>
@@ -297,7 +307,7 @@ function dfn_render_promotions_admin_page(): void
                                 <!-- Audience Intelligence Stats Card (Aggiornata via AJAX) -->
                                 <div id="dfn-audience-box" style="margin-top: 14px; display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px;">
                                     <div style="font-weight: 700; color: #166534; font-size: 13px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                                        <span>🎯</span> <?php esc_html_e('Segmentazione Intelligente del Pubblico', 'dfn-theme'); ?>
+                                        <span class="dashicons dashicons-filter" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom;"></span> <?php esc_html_e('Segmentazione Intelligente del Pubblico', 'dfn-theme'); ?>
                                     </div>
                                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 12px;">
                                         <div style="background: #fff; padding: 8px 10px; border-radius: 6px; border: 1px solid #dcfce7; text-align: center;">
@@ -374,12 +384,12 @@ function dfn_render_promotions_admin_page(): void
                                 <!-- Box Invio Test Rapido -->
                                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
                                     <div style="font-weight: 600; color: #334155; font-size: 13px; margin-bottom: 6px;">
-                                        🧪 <?php esc_html_e('Invia un\'email di prova alla tua casella:', 'dfn-theme'); ?>
+                                        <span class="dashicons dashicons-email-alt" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 4px;"></span> <?php esc_html_e('Invia un\'email di prova alla tua casella:', 'dfn-theme'); ?>
                                     </div>
                                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                         <input type="email" id="dfn_test_email_address" value="<?php echo esc_attr($admin_email); ?>" style="flex-grow: 1; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
                                         <button type="button" id="dfn-send-test-btn" class="button" style="padding: 5px 14px; height: auto; font-size: 13px; font-weight: 600;">
-                                            ✉️ <?php esc_html_e('Invia Prova', 'dfn-theme'); ?>
+                                            <span class="dashicons dashicons-email-alt" style="font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom; margin-right: 4px;"></span> <?php esc_html_e('Invia Prova', 'dfn-theme'); ?>
                                         </button>
                                     </div>
                                     <div id="dfn-test-status" style="font-size: 12px; margin-top: 6px; display: none;"></div>
@@ -388,11 +398,11 @@ function dfn_render_promotions_admin_page(): void
                                 <!-- Pulsanti Finali -->
                                 <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                                     <button type="button" id="dfn-launch-campaign-btn" class="button button-primary" style="background: #004b23; border-color: #004b23; padding: 8px 24px; height: auto; font-size: 15px; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
-                                        <span>🚀</span> <?php esc_html_e('Avvia Invio Campagna', 'dfn-theme'); ?>
+                                        <span class="dashicons dashicons-controls-play" style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Avvia Invio Campagna', 'dfn-theme'); ?>
                                     </button>
 
                                     <button type="button" id="dfn-save-draft-btn" class="button" style="padding: 8px 18px; height: auto; font-size: 14px; border-radius: 6px;">
-                                        💾 <?php esc_html_e('Salva come Bozza', 'dfn-theme'); ?>
+                                        <span class="dashicons dashicons-saved" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 4px;"></span> <?php esc_html_e('Salva come Bozza', 'dfn-theme'); ?>
                                     </button>
 
                                     <span id="dfn-submit-spinner" class="spinner" style="float: none; margin: 0;"></span>
@@ -406,7 +416,7 @@ function dfn_render_promotions_admin_page(): void
                     <div>
                         <div style="position: sticky; top: 50px;">
                             <div style="background: #1e293b; color: #fff; padding: 12px 18px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                                <strong style="font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase;">📱 <?php esc_html_e('Anteprima Email in Tempo Reale', 'dfn-theme'); ?></strong>
+                                <strong style="font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 6px;"><span class="dashicons dashicons-smartphone" style="font-size: 16px; width: 16px; height: 16px;"></span> <?php esc_html_e('Anteprima Email in Tempo Reale', 'dfn-theme'); ?></strong>
                                 <span style="font-size: 11px; color: #94a3b8;">Client Responsive</span>
                             </div>
                             
@@ -453,8 +463,8 @@ function dfn_render_promotions_admin_page(): void
                                                 </h4>
 
                                                 <div style="font-size: 12px; color: #475569; margin-bottom: 12px;">
-                                                    <div id="preview-event-date" style="margin-bottom: 4px;">📅 Data da definire</div>
-                                                    <div id="preview-event-loc">📍 Luogo da definire</div>
+                                                    <div id="preview-event-date" style="margin-bottom: 4px;"><span class="dashicons dashicons-calendar-alt" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 3px; color: #64748b;"></span> Data da definire</div>
+                                                    <div id="preview-event-loc"><span class="dashicons dashicons-location" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 3px; color: #64748b;"></span> Luogo da definire</div>
                                                 </div>
 
                                                 <div id="preview-event-desc" style="font-size: 12px; color: #64748b; margin-bottom: 14px; line-height: 1.4; border-top: 1px dashed #e2e8f0; padding-top: 10px;">
@@ -463,7 +473,7 @@ function dfn_render_promotions_admin_page(): void
 
                                                 <div style="text-align: center;">
                                                     <span id="preview-cta-btn" style="display: inline-block; background: #004b23; color: #fff; padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: 700; text-decoration: none;">
-                                                        🎟️ Prenota il tuo posto
+                                                        <span class="dashicons dashicons-tickets-alt" style="font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom; margin-right: 4px;"></span> Prenota il tuo posto
                                                     </span>
                                                 </div>
                                             </div>
@@ -505,7 +515,7 @@ function dfn_render_promotions_admin_page(): void
             $('#preview-subject-text').text(subj);
             $('#preview-intro-text').text(intro);
             $('#preview-custom-text').text(custom);
-            $('#preview-cta-btn').html('🎟️ ' + cta);
+            $('#preview-cta-btn').html('<span class="dashicons dashicons-tickets-alt" style="font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom; margin-right: 4px;"></span> ' + cta);
 
             if (selectedEv.val()) {
                 var title = selectedEv.data('title');
@@ -515,8 +525,8 @@ function dfn_render_promotions_admin_page(): void
                 var desc = selectedEv.data('desc');
 
                 $('#preview-event-title').text(title);
-                $('#preview-event-date').text('📅 ' + date);
-                $('#preview-event-loc').text('📍 ' + loc);
+                $('#preview-event-date').html('<span class="dashicons dashicons-calendar-alt" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 3px; color: #64748b;"></span> ' + date);
+                $('#preview-event-loc').html('<span class="dashicons dashicons-location" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 3px; color: #64748b;"></span> ' + loc);
                 $('#preview-event-desc').text(desc ? (desc.substring(0, 160) + '...') : '');
 
                 if (img) {
@@ -528,8 +538,8 @@ function dfn_render_promotions_admin_page(): void
                 }
             } else {
                 $('#preview-event-title').text('Titolo dell\'Evento Selezionato');
-                $('#preview-event-date').text('📅 Data da definire');
-                $('#preview-event-loc').text('📍 Luogo da definire');
+                $('#preview-event-date').html('<span class="dashicons dashicons-calendar-alt" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 3px; color: #64748b;"></span> Data da definire');
+                $('#preview-event-loc').html('<span class="dashicons dashicons-location" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 3px; color: #64748b;"></span> Luogo da definire');
                 $('#preview-event-desc').text('Descrizione dell\'evento...');
                 $('#preview-event-img').hide();
                 $('#preview-event-placeholder').show();
@@ -611,14 +621,14 @@ function dfn_render_promotions_admin_page(): void
                 custom_text: custom,
                 cta_text: cta
             }, function(res) {
-                $btn.prop('disabled', false).html('✉️ Invia Prova');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-email-alt" style="font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom; margin-right: 4px;"></span> Invia Prova');
                 if (res.success) {
                     $status.html('<span style="color: #166534; font-weight: 600;">✓ ' + res.data.message + '</span>').show();
                 } else {
                     $status.html('<span style="color: #dc2626; font-weight: 600;">✕ ' + (res.data ? res.data.message : 'Errore durante l\'invio di test') + '</span>').show();
                 }
             }).fail(function() {
-                $btn.prop('disabled', false).html('✉️ Invia Prova');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-email-alt" style="font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom; margin-right: 4px;"></span> Invia Prova');
                 $status.html('<span style="color: #dc2626;">✕ Errore di connessione al server</span>').show();
             });
         });
@@ -719,11 +729,11 @@ function dfn_render_promotions_admin_page(): void
                     location.reload();
                 } else {
                     alert('Errore: ' + (res.data ? res.data.message : 'Impossibile elaborare il lotto'));
-                    $btn.prop('disabled', false).html('▶️ Invia lotto');
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> Invia lotto');
                 }
             }).fail(function() {
                 alert('Errore di comunicazione con il server');
-                $btn.prop('disabled', false).html('▶️ Invia lotto');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-controls-play" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; margin-right: 2px;"></span> Invia lotto');
             });
         });
 
