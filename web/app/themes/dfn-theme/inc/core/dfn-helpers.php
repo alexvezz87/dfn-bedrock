@@ -13,6 +13,10 @@ if (!defined('ABSPATH')) {
 function dfn_get_setting($key, $default = null)
 {
     static $settings = null;
+    if ($key === '__reset__') {
+        $settings = is_array($default) ? $default : null;
+        return null;
+    }
     if ($settings === null) {
         $settings = get_option('dfn_settings', []);
         if (! is_array($settings)) {
@@ -61,6 +65,10 @@ function dfn_get_setting($key, $default = null)
         'enable_auto_cancel_unverified_fai'      => 'yes',
         'enable_auto_waitlist'        => 'yes',
         'enable_auto_complete_paid'   => 'yes',
+        'enable_event_promotions'     => 'yes',
+        'enable_event_accounting'     => 'yes',
+        'enable_event_reviews'        => 'yes',
+        'enable_live_boxoffice'       => 'yes',
         'setup_roles_version'         => '2.0',
         'setup_fai_discount'          => 5,
 
@@ -133,6 +141,25 @@ function dfn_get_setting($key, $default = null)
     }
 
     return isset($defaults[ $key ]) ? $defaults[ $key ] : null;
+}
+
+/**
+ * Aggiorna una singola chiave nelle impostazioni dfn_settings e invalida la cache statica.
+ *
+ * @param string $key   Chiave dell'impostazione.
+ * @param mixed  $value Valore da salvare.
+ * @return bool True se aggiornato con successo.
+ */
+function dfn_update_setting(string $key, $value): bool
+{
+    $settings = get_option('dfn_settings', []);
+    if (! is_array($settings)) {
+        $settings = [];
+    }
+    $settings[$key] = $value;
+    $res = update_option('dfn_settings', $settings);
+    dfn_get_setting('__reset__', $settings);
+    return (bool) $res;
 }
 
 /**

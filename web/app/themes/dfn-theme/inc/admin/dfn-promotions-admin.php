@@ -29,7 +29,7 @@ add_action('admin_enqueue_scripts', function($hook) {
 function dfn_promotions_register_menu(): void
 {
     // Verifica il toggle modulare nelle impostazioni
-    if (function_exists('dfn_get_setting') && dfn_get_setting('enable_event_promotions', 'yes') !== 'yes') {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('promozioni')) {
         return;
     }
 
@@ -53,6 +53,10 @@ function dfn_promotions_register_menu(): void
  */
 function dfn_render_promotions_admin_page(): void
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('promozioni')) {
+        wp_die(__('Il modulo Promozioni & Newsletter non è attualmente attivo.', 'dfn'), __('Modulo Disattivato', 'dfn'), ['response' => 403]);
+    }
+
     if (! current_user_can('dfn_act_promotions') && ! current_user_can('manage_options')) {
         wp_die(esc_html__('Non hai i permessi per accedere a questa sezione.', 'dfn-theme'));
     }
