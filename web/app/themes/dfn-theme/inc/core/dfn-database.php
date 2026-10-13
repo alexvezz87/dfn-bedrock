@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.6.0');
+define('DFN_DB_VERSION', '2.6.1');
 
 /**
  * ========================================================================
@@ -1990,6 +1990,27 @@ function dfn_db_save_promotion(array $data)
 {
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_promotions';
+
+    // Auto-healing difensivo per assicurare la presenza delle colonne batch
+    static $cols_checked = false;
+    if (! $cols_checked) {
+        $promo_cols = $wpdb->get_col("SHOW COLUMNS FROM {$table}");
+        if (! empty($promo_cols)) {
+            if (! in_array('batch_size', $promo_cols, true)) {
+                $wpdb->query("ALTER TABLE {$table} ADD COLUMN batch_size int(10) unsigned NOT NULL DEFAULT 25 AFTER failed_count");
+            }
+            if (! in_array('initial_batch_size', $promo_cols, true)) {
+                $wpdb->query("ALTER TABLE {$table} ADD COLUMN initial_batch_size int(10) unsigned NOT NULL DEFAULT 15 AFTER batch_size");
+            }
+            if (! in_array('batch_interval_minutes', $promo_cols, true)) {
+                $wpdb->query("ALTER TABLE {$table} ADD COLUMN batch_interval_minutes int(10) unsigned NOT NULL DEFAULT 5 AFTER initial_batch_size");
+            }
+            if (! in_array('last_batch_at', $promo_cols, true)) {
+                $wpdb->query("ALTER TABLE {$table} ADD COLUMN last_batch_at datetime DEFAULT NULL AFTER batch_interval_minutes");
+            }
+        }
+        $cols_checked = true;
+    }
 
     $id = ! empty($data['id']) ? absint($data['id']) : 0;
     unset($data['id']);
