@@ -93,34 +93,35 @@
 }
 
 .dfn-qty-box .dfn-qty-label {
-    font-size: 12px;
-    font-weight: 800;
+    font-size: 11.5px;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.8px;
     margin: 0;
     line-height: 1.3;
     text-align: center;
+    opacity: 0.92;
 }
 
 .dfn-qty-box .dfn-qty-price {
     font-size: 26px;
-    font-weight: 900;
+    font-weight: 600;
     line-height: 1.1;
     display: flex;
     align-items: baseline;
     justify-content: center;
-    gap: 5px;
+    gap: 4px;
     text-align: center;
 }
 
 .dfn-qty-box .dfn-qty-price .woocommerce-Price-amount {
-    font-weight: 900;
+    font-weight: 600;
 }
 
 .dfn-qty-box .dfn-qty-unit {
-    font-size: 13px;
-    font-weight: 600;
-    opacity: 0.85;
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0.8;
 }
 
 /* Controllo Stepper Numerico */
@@ -138,19 +139,19 @@
     width: 42px;
     flex: 0 0 42px;
     font-size: 20px;
-    font-weight: 800;
+    font-weight: 600;
 }
 
 .dfn-qty-box input[type="number"] {
     height: 42px;
     font-size: 18px;
-    font-weight: 800;
+    font-weight: 600;
 }
 
 /* Badge descrittivo a piè di box */
 .dfn-qty-badge {
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.3;
     padding: 5px 12px;
     border-radius: 999px;
