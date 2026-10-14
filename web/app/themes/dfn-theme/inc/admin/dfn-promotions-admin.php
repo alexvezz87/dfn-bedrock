@@ -231,12 +231,13 @@ function dfn_render_promotions_admin_page(): void
                         <thead>
                             <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
                                 <th style="font-weight: 600; color: #475569; width: 50px;">ID</th>
-                                <th style="font-weight: 600; color: #475569; min-width: 220px;"><?php esc_html_e('Campagna & Oggetto', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569; min-width: 180px;"><?php esc_html_e('Evento Promosso', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569; width: 120px; white-space: nowrap;"><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569; width: 180px;"><?php esc_html_e('Avanzamento Invii', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569; width: 130px; white-space: nowrap;"><?php esc_html_e('Data Creazione', 'dfn-theme'); ?></th>
-                                <th style="font-weight: 600; color: #475569; width: 330px; min-width: 310px; text-align: right; white-space: nowrap;"><?php esc_html_e('Azioni', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; min-width: 200px;"><?php esc_html_e('Campagna & Oggetto', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; min-width: 170px;"><?php esc_html_e('Evento Promosso', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 110px; white-space: nowrap;"><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 160px;"><?php esc_html_e('Avanzamento', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 180px; white-space: nowrap;"><?php esc_html_e('Funnel & Risultati', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 120px; white-space: nowrap;"><?php esc_html_e('Data Creazione', 'dfn-theme'); ?></th>
+                                <th style="font-weight: 600; color: #475569; width: 310px; min-width: 290px; text-align: right; white-space: nowrap;"><?php esc_html_e('Azioni', 'dfn-theme'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -308,6 +309,36 @@ function dfn_render_promotions_admin_page(): void
                                             <div style="color: #dc2626; font-size: 11px; margin-top: 3px;">
                                                 <span class="dashicons dashicons-warning" style="font-size: 13px; width: 13px; height: 13px; vertical-align: text-bottom; color: #dc2626; margin-right: 2px;"></span> <?php echo esc_html($fail); ?> <?php esc_html_e('invii non riusciti', 'dfn-theme'); ?>
                                             </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $opened_c    = (int) ($promo->opened_count ?? 0);
+                                        $clicked_c   = (int) ($promo->clicked_count ?? 0);
+                                        $converted_c = (int) ($promo->converted_count ?? 0);
+                                        $rev_c       = (float) ($promo->revenue_generated ?? 0.0);
+                                        $open_rate   = ($sent > 0) ? round(($opened_c / $sent) * 100, 1) : 0;
+                                        $ctr_rate    = ($opened_c > 0) ? round(($clicked_c / $opened_c) * 100, 1) : (($sent > 0) ? round(($clicked_c / $sent) * 100, 1) : 0);
+                                        ?>
+                                        <?php if ($sent > 0) : ?>
+                                            <div style="font-size: 11px; line-height: 1.5; color: #334155;">
+                                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 2px;">
+                                                    <span>👁️ <?php esc_html_e('Open:', 'dfn-theme'); ?></span>
+                                                    <strong style="color: #0369a1;"><?php echo esc_html($open_rate); ?>% <span style="font-weight: normal; color: #64748b;">(<?php echo esc_html($opened_c); ?>)</span></strong>
+                                                </div>
+                                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 2px;">
+                                                    <span>🖱️ <?php esc_html_e('CTR:', 'dfn-theme'); ?></span>
+                                                    <strong style="color: #15803d;"><?php echo esc_html($ctr_rate); ?>% <span style="font-weight: normal; color: #64748b;">(<?php echo esc_html($clicked_c); ?>)</span></strong>
+                                                </div>
+                                                <?php if ($converted_c > 0 || $rev_c > 0) : ?>
+                                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 3px; padding-top: 3px; border-top: 1px dashed #e2e8f0;">
+                                                        <span style="color: #004b23; font-weight: 700;">🎟️ <?php printf(esc_html__('%d ord.', 'dfn-theme'), $converted_c); ?></span>
+                                                        <strong style="color: #004b23;"><?php echo esc_html(number_format($rev_c, 2, ',', '.') . ' €'); ?></strong>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php else : ?>
+                                            <span style="color: #94a3b8; font-size: 12px;">—</span>
                                         <?php endif; ?>
                                     </td>
                                     <td style="color: #64748b; font-size: 13px; white-space: nowrap;">
@@ -747,7 +778,8 @@ function dfn_render_promotions_admin_page(): void
                     </a>
                 </div>
             <?php else :
-                $queue_counts = function_exists('dfn_db_get_promotion_queue_counts') ? dfn_db_get_promotion_queue_counts($active_promo->id) : ['total' => 0, 'pending' => 0, 'sent' => 0, 'failed' => 0, 'cancelled' => 0];
+                $queue_counts = function_exists('dfn_db_get_promotion_queue_counts') ? dfn_db_get_promotion_queue_counts($active_promo->id) : ['total' => 0, 'pending' => 0, 'sent' => 0, 'failed' => 0, 'cancelled' => 0, 'opened' => 0, 'clicked' => 0, 'converted' => 0, 'revenue' => 0.0];
+                $analytics    = function_exists('dfn_db_get_promotion_analytics') ? dfn_db_get_promotion_analytics((int) $active_promo->id) : [];
                 $queue_filter = isset($_GET['queue_status']) ? sanitize_key($_GET['queue_status']) : '';
                 $queue_items  = function_exists('dfn_db_get_promotion_queue') ? dfn_db_get_promotion_queue($active_promo->id, 200, $queue_filter) : [];
                 
@@ -885,6 +917,106 @@ function dfn_render_promotions_admin_page(): void
                     </div>
                 </div>
 
+                <!-- Scheda Performance & Funnel Marketing (Issue #60) -->
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px 28px; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h3 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 700; color: #004b23; display: flex; align-items: center; gap: 8px;">
+                                <span class="dashicons dashicons-chart-area" style="font-size: 20px; width: 20px; height: 20px; color: #004b23;"></span>
+                                <?php esc_html_e('Performance Funnel & Attribuzione Vendite Biglietti', 'dfn-theme'); ?>
+                            </h3>
+                            <p style="margin: 0; color: #64748b; font-size: 13px;">
+                                <?php esc_html_e('Tracciamento in tempo reale dall\'apertura dell\'email, al click sui link fino all\'acquisto del biglietto sul portale.', 'dfn-theme'); ?>
+                            </p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="font-size: 11px; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 10px; border-radius: 999px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                <span class="dashicons dashicons-yes" style="font-size: 14px; width: 14px; height: 14px;"></span> <?php esc_html_e('Pixel 1x1 & Cookie 30gg', 'dfn-theme'); ?>
+                            </span>
+                            <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 3px 10px; border-radius: 999px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                <span class="dashicons dashicons-google" style="font-size: 14px; width: 14px; height: 14px;"></span> <?php esc_html_e('Tag UTM Google Analytics 4', 'dfn-theme'); ?>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 4 KPI Cards Funnel -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+                        <!-- KPI 1: Aperture -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; border-top: 3px solid #0284c7;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <span style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;"><?php esc_html_e('Aperture Uniche', 'dfn-theme'); ?></span>
+                                <span style="font-size: 12px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 999px;">
+                                    <?php echo esc_html($analytics['open_rate'] ?? 0); ?>%
+                                </span>
+                            </div>
+                            <div style="font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 6px;">
+                                <?php echo esc_html(number_format_i18n($analytics['opened_count'] ?? 0)); ?>
+                            </div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                <?php printf(esc_html__('su %s email inviate', 'dfn-theme'), number_format_i18n($analytics['sent_count'] ?? 0)); ?>
+                            </div>
+                        </div>
+
+                        <!-- KPI 2: Click CTA -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; border-top: 3px solid #f59e0b;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <span style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;"><?php esc_html_e('Click sui Link / CTA', 'dfn-theme'); ?></span>
+                                <span style="font-size: 12px; font-weight: 700; color: #b45309; background: #fef3c7; padding: 2px 8px; border-radius: 999px;">
+                                    CTR <?php echo esc_html($analytics['ctr'] ?? 0); ?>%
+                                </span>
+                            </div>
+                            <div style="font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 6px;">
+                                <?php echo esc_html(number_format_i18n($analytics['clicked_count'] ?? 0)); ?>
+                            </div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                <?php esc_html_e('Visitatori arrivati alla pagina evento', 'dfn-theme'); ?>
+                            </div>
+                        </div>
+
+                        <!-- KPI 3: Conversioni Biglietti -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; border-top: 3px solid #166534;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <span style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;"><?php esc_html_e('Ordini / Biglietti Acquistati', 'dfn-theme'); ?></span>
+                                <span style="font-size: 12px; font-weight: 700; color: #166534; background: #dcfce7; padding: 2px 8px; border-radius: 999px;">
+                                    CR <?php echo esc_html($analytics['conversion_rate'] ?? 0); ?>%
+                                </span>
+                            </div>
+                            <div style="font-size: 26px; font-weight: 700; color: #004b23; margin-top: 6px;">
+                                <?php echo esc_html(number_format_i18n($analytics['converted_count'] ?? 0)); ?>
+                            </div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                <?php esc_html_e('Acquisti completati post-email', 'dfn-theme'); ?>
+                            </div>
+                        </div>
+
+                        <!-- KPI 4: Incasso Totale -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; border-top: 3px solid #004b23;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <span style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;"><?php esc_html_e('Incasso Generato Attribuito', 'dfn-theme'); ?></span>
+                                <span style="font-size: 14px;">💶</span>
+                            </div>
+                            <div style="font-size: 26px; font-weight: 700; color: #004b23; margin-top: 6px;">
+                                <?php echo esc_html(number_format((float) ($analytics['revenue_generated'] ?? 0.0), 2, ',', '.') . ' €'); ?>
+                            </div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                <?php esc_html_e('Valore ordini WooCommerce attribuiti', 'dfn-theme'); ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Info Box Parametri UTM & Metodologia Attribuzione -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 18px; font-size: 12px; color: #475569; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="dashicons dashicons-info" style="color: #0284c7; font-size: 18px; width: 18px; height: 18px;"></span>
+                            <span>
+                                <strong><?php esc_html_e('Come funziona il tracciamento:', 'dfn-theme'); ?></strong>
+                                <?php esc_html_e('Le aperture vengono registrate via pixel invisibile; i click sulla copertina o sulla Call To Action impostano un cookie sicuro di 30 giorni ed inseriscono i tag UTM standard per Google Analytics 4 (campagna:', 'dfn-theme'); ?>
+                                <code>utm_campaign=<?php echo esc_html(sanitize_title($active_promo->title ?: ('promo_' . $active_promo->id))); ?></code>).
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Dettagli Evento & Coda Spedizione -->
                 <div style="display: grid; grid-template-columns: 380px 1fr; gap: 25px; align-items: start;">
                     <!-- Colonna Sinistra: Scheda Evento Promosso -->
@@ -935,6 +1067,15 @@ function dfn_render_promotions_admin_page(): void
                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=sent')); ?>" class="button button-small <?php echo ($queue_filter === 'sent') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'sent') ? 'background: #166534; border-color: #166534;' : ''; ?>">
                                     Inviate (<?php echo esc_html($queue_counts['sent']); ?>)
                                 </a>
+                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=opened')); ?>" class="button button-small <?php echo ($queue_filter === 'opened') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'opened') ? 'background: #0284c7; border-color: #0284c7;' : 'color: #0284c7; border-color: #bae6fd;'; ?>">
+                                    👁️ Aperte (<?php echo esc_html($queue_counts['opened'] ?? 0); ?>)
+                                </a>
+                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=clicked')); ?>" class="button button-small <?php echo ($queue_filter === 'clicked') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'clicked') ? 'background: #b45309; border-color: #b45309;' : 'color: #b45309; border-color: #fde68a;'; ?>">
+                                    🖱️ Cliccate (<?php echo esc_html($queue_counts['clicked'] ?? 0); ?>)
+                                </a>
+                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=converted')); ?>" class="button button-small <?php echo ($queue_filter === 'converted') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'converted') ? 'background: #166534; border-color: #166534;' : 'color: #166534; border-color: #bbf7d0;'; ?>">
+                                    🎟️ Convertite (<?php echo esc_html($queue_counts['converted'] ?? 0); ?>)
+                                </a>
                                 <?php if (! empty($queue_counts['cancelled']) && $queue_counts['cancelled'] > 0) : ?>
                                     <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=cancelled')); ?>" class="button button-small <?php echo ($queue_filter === 'cancelled') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'cancelled') ? 'background: #dc2626; border-color: #dc2626;' : 'color: #dc2626; border-color: #fca5a5;'; ?>">
                                         Bloccate dallo Stop (<?php echo esc_html($queue_counts['cancelled']); ?>)
@@ -957,12 +1098,14 @@ function dfn_render_promotions_admin_page(): void
                                 <?php endif; ?>
                             </div>
                         <?php else : ?>
-                            <table class="wp-list-table widefat fixed striped table-view-list" style="border: none;">
+                            <table class="wp-list-table widefat striped table-view-list" style="border: none; table-layout: auto;">
                                 <thead>
                                     <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                        <th style="font-weight: 600; color: #475569; width: 45%;"><?php esc_html_e('Destinatario', 'dfn-theme'); ?></th>
-                                        <th style="font-weight: 600; color: #475569; width: 140px;"><?php esc_html_e('Stato', 'dfn-theme'); ?></th>
-                                        <th style="font-weight: 600; color: #475569;"><?php esc_html_e('Data Invio / Esito', 'dfn-theme'); ?></th>
+                                        <th style="font-weight: 600; color: #475569; min-width: 220px;"><?php esc_html_e('Destinatario', 'dfn-theme'); ?></th>
+                                        <th style="font-weight: 600; color: #475569; width: 100px; white-space: nowrap;"><?php esc_html_e('Spedizione', 'dfn-theme'); ?></th>
+                                        <th style="font-weight: 600; color: #475569; width: 200px; white-space: nowrap;"><?php esc_html_e('Attività Email', 'dfn-theme'); ?></th>
+                                        <th style="font-weight: 600; color: #475569; width: 180px; white-space: nowrap;"><?php esc_html_e('Conversione Ordine', 'dfn-theme'); ?></th>
+                                        <th style="font-weight: 600; color: #475569; min-width: 150px;"><?php esc_html_e('Data Invio / Note', 'dfn-theme'); ?></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -993,11 +1136,62 @@ function dfn_render_promotions_admin_page(): void
                                                     </span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td style="font-size: 13px; color: #64748b;">
+                                            <td>
+                                                <?php if (! empty($q->opened_at)) : ?>
+                                                    <div style="font-size: 11px; color: #0369a1; margin-bottom: 2px;">
+                                                        <strong>👁️ <?php esc_html_e('Aperta', 'dfn-theme'); ?></strong>
+                                                        <?php if ((int) $q->open_count > 1) : ?>
+                                                            <span style="background: #e0f2fe; padding: 1px 5px; border-radius: 999px; font-weight: 600;"><?php echo (int) $q->open_count; ?>x</span>
+                                                        <?php endif; ?>
+                                                        <span style="color: #64748b;">(<?php echo esc_html(date_i18n('d/m H:i', strtotime($q->opened_at))); ?>)</span>
+                                                    </div>
+                                                <?php endif; ?>
+                                                <?php if (! empty($q->clicked_at)) : ?>
+                                                    <div style="font-size: 11px; color: #b45309;">
+                                                        <strong>🖱️ <?php esc_html_e('Click Link', 'dfn-theme'); ?></strong>
+                                                        <?php if ((int) $q->click_count > 1) : ?>
+                                                            <span style="background: #fef3c7; padding: 1px 5px; border-radius: 999px; font-weight: 600;"><?php echo (int) $q->click_count; ?>x</span>
+                                                        <?php endif; ?>
+                                                        <span style="color: #64748b;">(<?php echo esc_html(date_i18n('d/m H:i', strtotime($q->clicked_at))); ?>)</span>
+                                                    </div>
+                                                <?php endif; ?>
+                                                <?php if (empty($q->opened_at) && empty($q->clicked_at)) : ?>
+                                                    <span style="color: #94a3b8; font-size: 12px;">—</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?php if (! empty($q->converted_at)) : ?>
+                                                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 4px 8px; font-size: 11px;">
+                                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                            <strong style="color: #166534;">
+                                                                <?php if (! empty($q->order_id)) : ?>
+                                                                    <a href="<?php echo esc_url(admin_url('post.php?post=' . (int) $q->order_id . '&action=edit')); ?>" target="_blank" style="color: #166534; text-decoration: underline;">
+                                                                        🎟️ Ordine #<?php echo esc_html($q->order_id); ?>
+                                                                    </a>
+                                                                <?php else : ?>
+                                                                    🎟️ Ordine
+                                                                <?php endif; ?>
+                                                            </strong>
+                                                            <span style="color: #004b23; font-weight: 700;">
+                                                                <?php echo esc_html(number_format((float) $q->order_total, 2, ',', '.') . ' €'); ?>
+                                                            </span>
+                                                        </div>
+                                                        <div style="color: #64748b; font-size: 10px; margin-top: 2px;">
+                                                            <?php echo esc_html(date_i18n('d/m/Y H:i', strtotime($q->converted_at))); ?>
+                                                            <?php if (! empty($q->booking_id)) : ?>
+                                                                • Prenot. #<?php echo esc_html($q->booking_id); ?>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    </div>
+                                                <?php else : ?>
+                                                    <span style="color: #94a3b8; font-size: 12px;">—</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td style="font-size: 12px; color: #64748b;">
                                                 <?php if ($q->status === 'sent' && ! empty($q->sent_at)) : ?>
                                                     <?php echo esc_html(date_i18n('d/m/Y H:i:s', strtotime($q->sent_at))); ?>
                                                 <?php elseif ($q->status === 'cancelled') : ?>
-                                                    <span style="color: #dc2626; font-size: 12px;"><?php echo esc_html($q->error_message ?: 'Invio bloccato tempestivamente dall\'amministratore'); ?></span>
+                                                    <span style="color: #dc2626;"><?php echo esc_html($q->error_message ?: 'Invio bloccato tempestivamente dall\'amministratore'); ?></span>
                                                 <?php elseif ($q->status === 'failed') : ?>
                                                     <span style="color: #dc2626;"><?php echo esc_html($q->error_message ?: 'Invio fallito'); ?></span>
                                                 <?php else : ?>

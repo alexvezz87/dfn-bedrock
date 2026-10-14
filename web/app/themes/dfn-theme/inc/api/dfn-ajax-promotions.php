@@ -383,3 +383,95 @@ function dfn_ajax_promotions_launch_scheduled_now(): void
     ]);
 }
 
+/**
+ * ========================================================================
+ * SEZIONE TRACKING FUNNEL & CONVERSIONI
+ * ========================================================================
+ */
+
+add_action('init', 'dfn_promotions_handle_tracking_request');
+
+/**
+ * Intercetta le richieste di tracking aperture (pixel 1x1) e click (redirect CTA con UTM).
+ */
+function dfn_promotions_handle_tracking_request(): void
+{
+    $action = isset($_GET['dfn_action']) ? sanitize_key($_GET['dfn_action']) : '';
+    if (! in_array($action, ['promo_open', 'promo_click'], true)) {
+        return;
+    }
+
+    $token = isset($_GET['dfn_token']) ? sanitize_text_field($_GET['dfn_token']) : '';
+    if (empty($token) && isset($_GET['token'])) {
+        $token = sanitize_text_field($_GET['token']);
+    }
+
+    // 1. Pixel Tracciamento Apertura
+    if ($action === 'promo_open') {
+        if (! empty($token) && function_exists('dfn_promotions_record_open')) {
+            dfn_promotions_record_open($token);
+        }
+
+        // Restituisce GIF trasparente 1x1 (43 bytes) non cachabile
+        header('Content-Type: image/gif');
+        header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: Wed, 11 Jan 1984 05:00:00 GMT');
+        echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+        exit;
+    }
+
+    // 2. Redirect Tracciamento Click CTA & Rilascio Cookie di Attribuzione
+    if ($action === 'promo_click') {
+        $dest_url = home_url('/eventi/');
+        if (! empty($token) && function_exists('dfn_promotions_record_click')) {
+            $record = dfn_promotions_record_click($token);
+            if ($record && ! empty($record['target_url'])) {
+                $dest_url = $record['target_url'];
+            }
+        }
+
+        // Rilascia cookie di prima parte per attribuzione conversione (durata 30 giorni)
+        if (! empty($token)) {
+            $cookie_path   = defined('COOKIEPATH') && COOKIEPATH ? COOKIEPATH : '/';
+            $cookie_domain = defined('COOKIE_DOMAIN') && COOKIE_DOMAIN ? COOKIE_DOMAIN : '';
+            setcookie('dfn_promo_att', $token, [
+                'expires'  => time() + (30 * DAY_IN_SECONDS),
+                'path'     => $cookie_path,
+                'domain'   => $cookie_domain,
+                'secure'   => is_ssl(),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
+
+        wp_safe_redirect($dest_url);
+        exit;
+    }
+}
+
+/**
+ * Salva il token di attribuzione della promozione nei metadati dell'ordine al momento del checkout.
+ */
+add_action('woocommerce_checkout_order_processed', 'dfn_promotions_attach_cookie_to_order', 10, 3);
+function dfn_promotions_attach_cookie_to_order(int $order_id, array $posted_data, $order): void
+{
+    if (! empty($_COOKIE['dfn_promo_att'])) {
+        $token = sanitize_text_field($_COOKIE['dfn_promo_att']);
+        update_post_meta($order_id, '_dfn_promo_att_token', $token);
+    }
+}
+
+/**
+ * Intercetta il completamento dell'ordine / pagamento per registrare la conversione.
+ */
+add_action('woocommerce_payment_complete', 'dfn_promotions_handle_order_completed', 20, 1);
+add_action('woocommerce_order_status_processing', 'dfn_promotions_handle_order_completed', 20, 1);
+add_action('woocommerce_order_status_completed', 'dfn_promotions_handle_order_completed', 20, 1);
+function dfn_promotions_handle_order_completed(int $order_id): void
+{
+    if (function_exists('dfn_promotions_attribute_order')) {
+        dfn_promotions_attribute_order($order_id);
+    }
+}
+
