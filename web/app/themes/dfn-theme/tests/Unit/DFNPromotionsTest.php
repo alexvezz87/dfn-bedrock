@@ -43,6 +43,11 @@ namespace DFN\Theme\Tests\Unit {
                 'wp_strip_all_tags'    => fn($text) => strip_tags((string)$text),
                 'date_i18n'            => fn($format, $timestamp) => date($format, $timestamp),
                 'get_current_user_id'  => fn() => 1,
+                'sanitize_title'       => fn($text) => preg_replace('/[^a-zA-Z0-9_-]/', '_', strtolower((string)$text)),
+                'add_query_arg'        => function ($args, $url = '') {
+                    $sep = strpos($url, '?') !== false ? '&' : '?';
+                    return $url . $sep . http_build_query($args);
+                },
             ]);
         }
 
@@ -264,7 +269,7 @@ namespace DFN\Theme\Tests\Unit {
         }
 
         /**
-         * Test 6: dfn_db_get_promotion_queue_counts include il conteggio per lo stato 'cancelled'.
+         * Test 6: dfn_db_get_promotion_queue_counts include il conteggio per lo stato 'cancelled' e le interazioni.
          */
         public function testPromotionQueueCountsIncludesCancelledStatus(): void
         {
@@ -273,9 +278,10 @@ namespace DFN\Theme\Tests\Unit {
             $wpdb->prefix = 'wp_';
 
             $wpdb->shouldReceive('prepare')
-                ->once()
-                ->with(\Mockery::any(), 42)
-                ->andReturn("SELECT status, COUNT(*) as cnt FROM wp_dfn_promotion_queue WHERE promotion_id = 42 GROUP BY status");
+                ->andReturnUsing(function () {
+                    $args = func_get_args();
+                    return vsprintf(str_replace('%d', '%s', $args[0]), array_slice($args, 1));
+                });
 
             $wpdb->shouldReceive('get_results')
                 ->once()
@@ -285,12 +291,25 @@ namespace DFN\Theme\Tests\Unit {
                     (object) ['status' => 'cancelled', 'cnt' => 35],
                 ]);
 
+            $wpdb->shouldReceive('get_row')
+                ->once()
+                ->andReturn((object) [
+                    'opens'         => 8,
+                    'clicks'        => 4,
+                    'conversions'   => 2,
+                    'total_revenue' => 50.0,
+                ]);
+
             $counts = dfn_db_get_promotion_queue_counts(42);
 
             $this->assertArrayHasKey('cancelled', $counts);
             $this->assertEquals(35, $counts['cancelled']);
             $this->assertEquals(15, $counts['sent']);
             $this->assertEquals(50, $counts['total']);
+            $this->assertEquals(8, $counts['opened']);
+            $this->assertEquals(4, $counts['clicked']);
+            $this->assertEquals(2, $counts['converted']);
+            $this->assertEquals(50.0, $counts['revenue']);
         }
 
         /**
@@ -315,6 +334,239 @@ namespace DFN\Theme\Tests\Unit {
             $this->assertTrue(dfn_is_valid_promotional_email('mario.rossi@libero.it'));
             $this->assertTrue(dfn_is_valid_promotional_email('volontario@fondoambiente.it'));
             $this->assertTrue(dfn_is_valid_promotional_email('prenotazioni@fai.novara.it'));
+        }
+
+        /**
+         * Test 8: Iniezione del token di tracciamento e pixel 1x1 nell'HTML dell'email.
+         */
+        public function testBuildEmailHtmlInjectsTrackingTokenAndPixel(): void
+        {
+            Functions\when('dfn_get_setting')->alias(function ($key, $default = '') {
+                if ($key === 'email_primary_color') return '#004b23';
+                if ($key === 'delegation_name') return 'FAI Delegazione Novara';
+                return $default;
+            });
+
+            $promotion = (object) [
+                'email_subject'     => 'Anteprima Speciale',
+                'email_intro'       => 'Ti invitiamo a questo evento.',
+                'email_custom_text' => 'Posti limitati.',
+                'cta_text'          => 'Prenota Subito',
+            ];
+
+            $event = (object) [
+                'id'               => 15,
+                'title'            => 'Visita al Broletto',
+                'permalink'        => 'https://example.com/evento/broletto',
+                'event_date_start' => '2026-10-30',
+                'location'         => 'Broletto',
+                'city'             => 'Novara',
+                'image_url'        => 'https://example.com/broletto.jpg',
+                'description'      => 'Descrizione',
+            ];
+
+            $token = 'tok_test1234567890abcdef12345678';
+            $html = dfn_promotions_build_email_html($promotion, 'Mario Rossi', $event, $token);
+
+            // Verifica che il link CTA sia il tracking URL con il token
+            $this->assertStringContainsString('dfn_action=promo_click', $html);
+            $this->assertStringContainsString('token=' . $token, $html);
+
+            // Verifica presenza del tracking pixel 1x1
+            $this->assertStringContainsString('dfn_action=promo_open', $html);
+            $this->assertStringContainsString('width="1" height="1"', $html);
+        }
+
+        /**
+         * Test 9: Registrazione apertura (record open) incrementa il contatore coda e campagna.
+         */
+        public function testRecordOpenUpdatesQueueAndPromotion(): void
+        {
+            global $wpdb;
+            $wpdb = \Mockery::mock('wpdb');
+            $wpdb->prefix = 'wp_';
+
+            $wpdb->shouldReceive('prepare')
+                ->andReturnUsing(function () {
+                    $args = func_get_args();
+                    return vsprintf(str_replace(['%s', '%d'], ["'%s'", '%s'], $args[0]), array_slice($args, 1));
+                });
+
+            // Prima apertura per questo destinatario
+            $wpdb->shouldReceive('get_row')
+                ->once()
+                ->andReturn((object) [
+                    'id'           => 101,
+                    'promotion_id' => 5,
+                    'opened_at'    => null,
+                    'open_count'   => 0,
+                ]);
+
+            // Query di update coda e update promozione
+            $wpdb->shouldReceive('query')
+                ->twice()
+                ->andReturn(1);
+
+            $result = dfn_promotions_record_open('valid_token_123');
+            $this->assertTrue($result);
+        }
+
+        /**
+         * Test 10: Registrazione click CTA restituisce URL evento arricchito di tag UTM per Google Analytics 4.
+         */
+        public function testRecordClickReturnsUtmEnrichedDestinationUrl(): void
+        {
+            global $wpdb;
+            $wpdb = \Mockery::mock('wpdb');
+            $wpdb->prefix = 'wp_';
+
+            $wpdb->shouldReceive('prepare')
+                ->andReturnUsing(function () {
+                    $args = func_get_args();
+                    return vsprintf(str_replace(['%s', '%d'], ["'%s'", '%s'], $args[0]), array_slice($args, 1));
+                });
+
+            Functions\when('get_permalink')->justReturn('https://example.com/evento/autunno');
+
+            $wpdb->shouldReceive('get_row')
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'tracking_token') !== false))
+                ->once()
+                ->andReturn((object) [
+                    'id'           => 202,
+                    'promotion_id' => 8,
+                    'clicked_at'   => null,
+                    'click_count'  => 0,
+                    'opened_at'    => null,
+                    'promo_title'  => 'Giornate FAI Autunno',
+                    'product_id'   => 500,
+                ]);
+
+            $wpdb->shouldReceive('query')
+                ->times(3)
+                ->andReturn(1);
+
+            $click_data = dfn_promotions_record_click('click_token_xyz');
+
+            $this->assertNotNull($click_data);
+            $this->assertEquals(8, $click_data['promotion_id']);
+            $this->assertStringContainsString('https://example.com/evento/autunno', $click_data['target_url']);
+            $this->assertStringContainsString('utm_source=dfn_newsletter', $click_data['target_url']);
+            $this->assertStringContainsString('utm_medium=email', $click_data['target_url']);
+            $this->assertStringContainsString('utm_campaign=giornate_fai_autunno', $click_data['target_url']);
+        }
+
+        /**
+         * Test 11: Calcolo metriche analytics promozionali (Open Rate, CTR, Conversion Rate).
+         */
+        public function testPromotionAnalyticsCalculatesRatesAccurately(): void
+        {
+            global $wpdb;
+            $wpdb = \Mockery::mock('wpdb');
+            $wpdb->prefix = 'wp_';
+
+            $wpdb->shouldReceive('prepare')
+                ->andReturnUsing(function () {
+                    $args = func_get_args();
+                    return vsprintf(str_replace('%d', '%s', $args[0]), array_slice($args, 1));
+                });
+
+            $wpdb->shouldReceive('get_row')
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'FROM wp_dfn_promotions') !== false))
+                ->once()
+                ->andReturn((object) [
+                    'id'                => 12,
+                    'sent_count'        => 100,
+                    'opened_count'      => 40,
+                    'clicked_count'     => 20,
+                    'converted_count'   => 5,
+                    'revenue_generated' => 150.50,
+                ]);
+
+            $wpdb->shouldReceive('get_row')
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'FROM wp_dfn_promotion_queue') !== false))
+                ->once()
+                ->andReturn((object) [
+                    'opens'         => 40,
+                    'clicks'        => 20,
+                    'conversions'   => 5,
+                    'total_revenue' => 150.50,
+                ]);
+
+            $analytics = dfn_db_get_promotion_analytics(12);
+
+            $this->assertEquals(100, $analytics['sent_count']);
+            $this->assertEquals(40, $analytics['opened_count']);
+            $this->assertEquals(20, $analytics['clicked_count']);
+            $this->assertEquals(5, $analytics['converted_count']);
+            $this->assertEquals(150.50, $analytics['revenue_generated']);
+            $this->assertEquals(40.0, $analytics['open_rate']); // 40 / 100 = 40%
+            $this->assertEquals(50.0, $analytics['ctr']);       // 20 / 40 = 50%
+            $this->assertEquals(5.0, $analytics['conversion_rate']); // 5 / 100 = 5%
+        }
+
+        /**
+         * Test 12: Attribuzione ordine WooCommerce alla campagna via token di tracciamento.
+         */
+        public function testAttributeOrderDirectTokenAttribution(): void
+        {
+            global $wpdb;
+            $wpdb = \Mockery::mock('wpdb');
+            $wpdb->prefix = 'wp_';
+
+            $wpdb->shouldReceive('prepare')
+                ->andReturnUsing(function () {
+                    $args = func_get_args();
+                    return vsprintf(str_replace(['%s', '%d', '%f'], ["'%s'", '%s', '%s'], $args[0]), array_slice($args, 1));
+                });
+
+            $order_id = 999;
+            $order = \Mockery::mock('WC_Order');
+            $order->shouldReceive('get_items')->andReturn([]);
+            $order->shouldReceive('get_billing_email')->andReturn('acquirente@example.com');
+            $order->shouldReceive('get_total')->andReturn(45.0);
+            $order->shouldReceive('add_order_note')->once();
+
+            Functions\when('wc_get_order')->justReturn($order);
+            Functions\when('get_post_meta')->alias(function ($pid, $key, $single = false) {
+                if ($key === '_dfn_promo_attributed') return false;
+                if ($key === '_dfn_promo_att_token') return 'test_att_token_999';
+                return '';
+            });
+            Functions\when('update_post_meta')->justReturn(true);
+
+            $wpdb->shouldReceive('get_row')
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'test_att_token_999') !== false))
+                ->once()
+                ->andReturn((object) [
+                    'id'           => 303,
+                    'promotion_id' => 15,
+                    'event_id'     => 10,
+                    'converted_at' => null,
+                ]);
+
+            $wpdb->shouldReceive('get_var')
+                ->once()
+                ->andReturn(123); // booking_id
+
+            $wpdb->shouldReceive('update')
+                ->once()
+                ->with('wp_dfn_promotion_queue', \Mockery::on(function ($data) use ($order_id) {
+                    return $data['order_id'] === $order_id && $data['booking_id'] === 123 && $data['order_total'] == 45.0;
+                }), ['id' => 303])
+                ->andReturn(1);
+
+            $wpdb->shouldReceive('query')
+                ->once()
+                ->with(\Mockery::on(function ($sql) {
+                    return strpos($sql, 'UPDATE wp_dfn_promotions') !== false
+                        && strpos($sql, 'converted_count = converted_count + 1') !== false;
+                }))
+                ->andReturn(1);
+
+            dfn_promotions_attribute_order($order_id);
+
+            // Verifichiamo che la funzione termini senza errori e abbia invocato le query attese
+            $this->assertTrue(true);
         }
     }
 }
