@@ -49,6 +49,9 @@ namespace DFN\Theme\Tests\Unit {
                 'get_the_title'        => fn($pid = 0) => 'Evento Test',
                 'get_permalink'        => fn($pid = 0) => 'https://example.com/evento-test/',
                 'get_the_post_thumbnail_url' => fn($pid = 0, $size = '') => '',
+                'get_post_meta'        => fn($post_id, $key = '', $single = false) => '',
+                'update_post_meta'     => fn($post_id, $key, $value, $prev_value = '') => true,
+                'dfn_get_setting'      => fn($key, $default = null) => $default,
                 'add_query_arg'        => function ($args, $url = '') {
                     $sep = strpos($url, '?') !== false ? '&' : '?';
                     return $url . $sep . http_build_query($args);
@@ -539,6 +542,18 @@ namespace DFN\Theme\Tests\Unit {
             });
             Functions\when('update_post_meta')->justReturn(true);
 
+            $wpdb->shouldReceive('get_var')
+                ->once()
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'SELECT event_id FROM wp_dfn_bookings') !== false))
+                ->andReturn(10); // event_id
+
+            // Priorità 1: ricerca per email acquirente@example.com non trova nulla (email diversa da quella registrata)
+            $wpdb->shouldReceive('get_row')
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'acquirente@example.com') !== false))
+                ->once()
+                ->andReturn(null);
+
+            // Priorità 2: fallback su token 'test_att_token_999' trova la riga in coda
             $wpdb->shouldReceive('get_row')
                 ->with(\Mockery::on(fn($sql) => strpos($sql, 'test_att_token_999') !== false))
                 ->once()
@@ -551,6 +566,7 @@ namespace DFN\Theme\Tests\Unit {
 
             $wpdb->shouldReceive('get_var')
                 ->once()
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'SELECT id FROM wp_dfn_bookings') !== false))
                 ->andReturn(123); // booking_id
 
             $wpdb->shouldReceive('update')
@@ -626,6 +642,150 @@ namespace DFN\Theme\Tests\Unit {
             $this->assertEquals(0, $result['processed']);
             $this->assertEquals(0, $result['sent']);
             $this->assertEquals('idle', $result['status']);
+        }
+
+        /**
+         * Test 14: dfn_db_get_promotion_queue e dfn_db_count_promotion_queue con ricerca e paginazione.
+         */
+        public function test_get_promotion_queue_and_count_with_search_and_pagination(): void
+        {
+            global $wpdb;
+            $wpdb = \Mockery::mock('wpdb');
+            $wpdb->prefix = 'wp_';
+            $wpdb->shouldReceive('esc_like')->with('rossi')->andReturn('rossi');
+
+            // Test count con ricerca
+            $wpdb->shouldReceive('prepare')
+                ->once()
+                ->with(
+                    \Mockery::on(fn($sql) => strpos($sql, 'COUNT(*)') !== false && strpos($sql, 'recipient_email LIKE') !== false),
+                    42,
+                    '%rossi%',
+                    '%rossi%'
+                )
+                ->andReturn('SQL_COUNT');
+
+            $wpdb->shouldReceive('get_var')->once()->with('SQL_COUNT')->andReturn(15);
+
+            $count = dfn_db_count_promotion_queue(42, '', 'rossi');
+            $this->assertEquals(15, $count);
+
+            // Test get queue con offset e limit
+            $dummyItem = (object) [
+                'id' => 10,
+                'recipient_email' => 'mario.rossi@example.com',
+                'recipient_name'  => 'Mario Rossi',
+                'status' => 'sent',
+            ];
+
+            $wpdb->shouldReceive('prepare')
+                ->once()
+                ->with(
+                    \Mockery::on(fn($sql) => strpos($sql, 'LIMIT %d OFFSET %d') !== false),
+                    42,
+                    '%rossi%',
+                    '%rossi%',
+                    20,
+                    40
+                )
+                ->andReturn('SQL_GET_PAGED');
+
+            $wpdb->shouldReceive('get_results')->once()->with('SQL_GET_PAGED')->andReturn([$dummyItem]);
+
+            $results = dfn_db_get_promotion_queue(42, 20, '', 'rossi', 40);
+            $this->assertCount(1, $results);
+            $this->assertEquals('mario.rossi@example.com', $results[0]->recipient_email);
+        }
+
+        /**
+         * Test 15: dfn_promotions_attribute_order dà priorità all'email di fatturazione del destinatario
+         * rispetto al cookie token residuo (fix condivisione PC o link inoltrati).
+         */
+        public function test_promotions_attribute_order_prioritizes_billing_email(): void
+        {
+            global $wpdb;
+            $wpdb = \Mockery::mock('wpdb');
+            $wpdb->prefix = 'wp_';
+
+            $order = \Mockery::mock('WC_Order');
+            $order->shouldReceive('get_items')->andReturn([]);
+            $order->shouldReceive('get_billing_email')->andReturn('stefano@example.com');
+            $order->shouldReceive('get_total')->andReturn(30.0);
+            $order->shouldReceive('add_order_note')->andReturn(true);
+
+            Functions\when('wc_get_order')->alias(fn($id) => $id === 2446 ? $order : null);
+            Functions\when('sanitize_email')->alias(fn($e) => trim($e));
+            Functions\when('current_time')->alias(fn($type) => '2026-10-14 22:00:00');
+
+            // Simula cookie token appartenente a un altro utente
+            $_COOKIE['dfn_promo_att'] = 'TOKEN_DI_ALTRO_UTENTE';
+
+            // 1. Trova l'evento collegato all'ordine tramite prenotazione nel DB
+            $wpdb->shouldReceive('prepare')
+                ->once()
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'SELECT event_id FROM wp_dfn_bookings') !== false), 2446)
+                ->andReturn('SQL_FIND_EVENT');
+            $wpdb->shouldReceive('get_var')->once()->with('SQL_FIND_EVENT')->andReturn(5);
+
+            // 2. Query Priorità 1: ricerca per billing_email stefano@example.com e event_id 5
+            $matchedQueueItem = (object) [
+                'id'            => 470,
+                'promotion_id'  => 2,
+                'event_id'      => 5,
+                'tracking_token'=> 'TOKEN_DI_STEFANO',
+                'recipient_email' => 'stefano@example.com',
+                'status'        => 'sent',
+                'converted_at'  => null,
+                'order_total'   => 0.0,
+            ];
+
+            $wpdb->shouldReceive('prepare')
+                ->once()
+                ->with(
+                    \Mockery::on(fn($sql) => strpos($sql, 'LOWER(q.recipient_email)') !== false),
+                    'stefano@example.com',
+                    5
+                )
+                ->andReturn('SQL_FIND_QUEUE_BY_EMAIL');
+
+            $wpdb->shouldReceive('get_row')->once()->with('SQL_FIND_QUEUE_BY_EMAIL')->andReturn($matchedQueueItem);
+
+            // Trova booking_id se presente
+            $wpdb->shouldReceive('prepare')
+                ->once()
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'SELECT id FROM wp_dfn_bookings') !== false), 2446)
+                ->andReturn('SQL_FIND_BOOKING_ID');
+            $wpdb->shouldReceive('get_var')->once()->with('SQL_FIND_BOOKING_ID')->andReturn(77);
+
+            // 3. Update su wp_dfn_promotion_queue
+            $wpdb->shouldReceive('update')
+                ->once()
+                ->with(
+                    'wp_dfn_promotion_queue',
+                    \Mockery::on(function ($data) {
+                        return $data['order_id'] === 2446 && $data['order_total'] == 30.0 && $data['booking_id'] === 77;
+                    }),
+                    ['id' => 470]
+                );
+
+            // 4. Update su wp_dfn_promotions (incrementa converted_count e revenue)
+            $wpdb->shouldReceive('prepare')
+                ->once()
+                ->with(
+                    \Mockery::on(fn($sql) => strpos($sql, 'converted_count = converted_count + 1') !== false),
+                    30.0,
+                    2
+                )
+                ->andReturn('SQL_UPDATE_PROMO_TOTALS');
+
+            $wpdb->shouldReceive('query')->once()->with('SQL_UPDATE_PROMO_TOTALS')->andReturn(1);
+
+            dfn_promotions_attribute_order(2446);
+
+            $this->assertTrue(true);
+
+            // Pulizia cookie
+            unset($_COOKIE['dfn_promo_att']);
         }
     }
 }

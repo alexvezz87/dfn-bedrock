@@ -49,6 +49,180 @@ function dfn_promotions_register_menu(): void
 }
 
 /**
+ * Renderizza la tabella dei destinatari in coda e la relativa barra di paginazione.
+ *
+ * @param array  $queue_items
+ * @param int    $total_items
+ * @param int    $current_page
+ * @param int    $per_page
+ * @param int    $total_pages
+ * @param string $search
+ * @param string $campaign_status
+ * @return void
+ */
+function dfn_promotions_render_queue_table_contents(array $queue_items, int $total_items, int $current_page, int $per_page, int $total_pages, string $search = '', string $campaign_status = ''): void
+{
+    if (empty($queue_items)) : ?>
+        <div style="padding: 40px; text-align: center; color: #64748b; font-size: 14px;">
+            <?php if ($campaign_status === 'draft') : ?>
+                <?php esc_html_e('La campagna è attualmente in bozza: i destinatari verranno accodati automaticamente al momento del lancio.', 'dfn-theme'); ?>
+            <?php elseif (! empty($search)) : ?>
+                <?php printf(esc_html__('Nessun destinatario trovato per la ricerca «%s».', 'dfn-theme'), esc_html($search)); ?>
+            <?php else : ?>
+                <?php esc_html_e('Nessun destinatario trovato con il filtro selezionato.', 'dfn-theme'); ?>
+            <?php endif; ?>
+        </div>
+    <?php else : ?>
+        <table class="wp-list-table widefat striped table-view-list" style="border: none; table-layout: auto;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                    <th style="font-weight: 600; color: #475569; min-width: 220px;"><?php esc_html_e('Destinatario', 'dfn-theme'); ?></th>
+                    <th style="font-weight: 600; color: #475569; width: 100px; white-space: nowrap;"><?php esc_html_e('Spedizione', 'dfn-theme'); ?></th>
+                    <th style="font-weight: 600; color: #475569; width: 200px; white-space: nowrap;"><?php esc_html_e('Attività Email', 'dfn-theme'); ?></th>
+                    <th style="font-weight: 600; color: #475569; width: 180px; white-space: nowrap;"><?php esc_html_e('Conversione Ordine', 'dfn-theme'); ?></th>
+                    <th style="font-weight: 600; color: #475569; min-width: 150px;"><?php esc_html_e('Data Invio / Note', 'dfn-theme'); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($queue_items as $q) : ?>
+                    <tr>
+                        <td>
+                            <strong style="color: #0f172a;"><?php echo esc_html($q->recipient_email); ?></strong>
+                            <?php if (! empty($q->recipient_name)) : ?>
+                                <div style="color: #64748b; font-size: 12px; margin-top: 2px;"><?php echo esc_html($q->recipient_name); ?></div>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($q->status === 'sent') : ?>
+                                <span style="display: inline-block; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;">
+                                    ✓ Inviata
+                                </span>
+                            <?php elseif ($q->status === 'cancelled') : ?>
+                                <span style="display: inline-block; background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;" title="<?php esc_attr_e('Bloccata tempestivamente dallo stop amministratore', 'dfn-theme'); ?>">
+                                    ✕ Bloccata
+                                </span>
+                            <?php elseif ($q->status === 'failed') : ?>
+                                <span style="display: inline-block; background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;">
+                                    ✕ Errore
+                                </span>
+                            <?php else : ?>
+                                <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;">
+                                    In coda
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (! empty($q->opened_at)) : ?>
+                                <div style="font-size: 11px; color: #0369a1; margin-bottom: 2px;">
+                                    <strong>👁️ <?php esc_html_e('Aperta', 'dfn-theme'); ?></strong>
+                                    <?php if ((int) $q->open_count > 1) : ?>
+                                        <span style="background: #e0f2fe; padding: 1px 5px; border-radius: 999px; font-weight: 600;"><?php echo (int) $q->open_count; ?>x</span>
+                                    <?php endif; ?>
+                                    <span style="color: #64748b;">(<?php echo esc_html(date_i18n('d/m H:i', strtotime($q->opened_at))); ?>)</span>
+                                </div>
+                            <?php endif; ?>
+                            <?php if (! empty($q->clicked_at)) : ?>
+                                <div style="font-size: 11px; color: #b45309;">
+                                    <strong>🖱️ <?php esc_html_e('Click Link', 'dfn-theme'); ?></strong>
+                                    <?php if ((int) $q->click_count > 1) : ?>
+                                        <span style="background: #fef3c7; padding: 1px 5px; border-radius: 999px; font-weight: 600;"><?php echo (int) $q->click_count; ?>x</span>
+                                    <?php endif; ?>
+                                    <span style="color: #64748b;">(<?php echo esc_html(date_i18n('d/m H:i', strtotime($q->clicked_at))); ?>)</span>
+                                </div>
+                            <?php endif; ?>
+                            <?php if (empty($q->opened_at) && empty($q->clicked_at)) : ?>
+                                <span style="color: #94a3b8; font-size: 12px;">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (! empty($q->converted_at)) : ?>
+                                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 4px 8px; font-size: 11px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <strong style="color: #166534;">
+                                            <?php if (! empty($q->order_id)) : ?>
+                                                <a href="<?php echo esc_url(admin_url('post.php?post=' . (int) $q->order_id . '&action=edit')); ?>" target="_blank" style="color: #166534; text-decoration: underline;">
+                                                    🎟️ Ordine #<?php echo esc_html($q->order_id); ?>
+                                                </a>
+                                            <?php else : ?>
+                                                🎟️ Ordine
+                                            <?php endif; ?>
+                                        </strong>
+                                        <span style="color: #004b23; font-weight: 700;">
+                                            <?php echo esc_html(number_format((float) $q->order_total, 2, ',', '.') . ' €'); ?>
+                                        </span>
+                                    </div>
+                                    <div style="color: #64748b; font-size: 10px; margin-top: 2px;">
+                                        <?php echo esc_html(date_i18n('d/m/Y H:i', strtotime($q->converted_at))); ?>
+                                        <?php if (! empty($q->booking_id)) : ?>
+                                            • Prenot. #<?php echo esc_html($q->booking_id); ?>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php else : ?>
+                                <span style="color: #94a3b8; font-size: 12px;">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="font-size: 12px; color: #64748b;">
+                            <?php if ($q->status === 'sent' && ! empty($q->sent_at)) : ?>
+                                <?php echo esc_html(date_i18n('d/m/Y H:i:s', strtotime($q->sent_at))); ?>
+                            <?php elseif ($q->status === 'cancelled') : ?>
+                                <span style="color: #dc2626;"><?php echo esc_html($q->error_message ?: 'Invio bloccato tempestivamente dall\'amministratore'); ?></span>
+                            <?php elseif ($q->status === 'failed') : ?>
+                                <span style="color: #dc2626;"><?php echo esc_html($q->error_message ?: 'Invio fallito'); ?></span>
+                            <?php else : ?>
+                                <span style="color: #94a3b8;">In attesa di spedizione</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+
+        <?php
+        $from_idx = ($current_page - 1) * $per_page + 1;
+        $to_idx   = min($total_items, $current_page * $per_page);
+        ?>
+        <div class="dfn-queue-pagination" style="padding: 14px 22px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 13px;">
+            <div style="color: #64748b;">
+                <?php printf(esc_html__('Visualizzati %d-%d di %d destinatari', 'dfn-theme'), $from_idx, $to_idx, $total_items); ?>
+            </div>
+            <?php if ($total_pages > 1) : ?>
+                <div style="display: flex; gap: 4px; align-items: center;">
+                    <button type="button" class="button button-small dfn-queue-page-btn" data-page="<?php echo $current_page - 1; ?>" <?php disabled($current_page <= 1); ?>>
+                        &laquo; <?php esc_html_e('Prec', 'dfn-theme'); ?>
+                    </button>
+                    <?php
+                    $range = 2;
+                    $start = max(1, $current_page - $range);
+                    $end   = min($total_pages, $current_page + $range);
+                    if ($start > 1) {
+                        echo '<button type="button" class="button button-small dfn-queue-page-btn" data-page="1">1</button>';
+                        if ($start > 2) {
+                            echo '<span style="color: #94a3b8; padding: 0 4px;">...</span>';
+                        }
+                    }
+                    for ($p = $start; $p <= $end; $p++) {
+                        $is_current = ($p === $current_page);
+                        $btn_style = $is_current ? 'background: #004b23; border-color: #004b23; color: #ffffff; font-weight: 700;' : '';
+                        echo '<button type="button" class="button button-small dfn-queue-page-btn ' . ($is_current ? 'button-primary' : '') . '" data-page="' . $p . '" style="' . $btn_style . '">' . $p . '</button>';
+                    }
+                    if ($end < $total_pages) {
+                        if ($end < $total_pages - 1) {
+                            echo '<span style="color: #94a3b8; padding: 0 4px;">...</span>';
+                        }
+                        echo '<button type="button" class="button button-small dfn-queue-page-btn" data-page="' . $total_pages . '">' . $total_pages . '</button>';
+                    }
+                    ?>
+                    <button type="button" class="button button-small dfn-queue-page-btn" data-page="<?php echo $current_page + 1; ?>" <?php disabled($current_page >= $total_pages); ?>>
+                        <?php esc_html_e('Succ', 'dfn-theme'); ?> &raquo;
+                    </button>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endif;
+}
+
+/**
  * Renderizza la schermata principale del pannello promozioni.
  */
 function dfn_render_promotions_admin_page(): void
@@ -778,10 +952,20 @@ function dfn_render_promotions_admin_page(): void
                     </a>
                 </div>
             <?php else :
-                $queue_counts = function_exists('dfn_db_get_promotion_queue_counts') ? dfn_db_get_promotion_queue_counts($active_promo->id) : ['total' => 0, 'pending' => 0, 'sent' => 0, 'failed' => 0, 'cancelled' => 0, 'opened' => 0, 'clicked' => 0, 'converted' => 0, 'revenue' => 0.0];
-                $analytics    = function_exists('dfn_db_get_promotion_analytics') ? dfn_db_get_promotion_analytics((int) $active_promo->id) : [];
-                $queue_filter = isset($_GET['queue_status']) ? sanitize_key($_GET['queue_status']) : '';
-                $queue_items  = function_exists('dfn_db_get_promotion_queue') ? dfn_db_get_promotion_queue($active_promo->id, 200, $queue_filter) : [];
+                $queue_counts     = function_exists('dfn_db_get_promotion_queue_counts') ? dfn_db_get_promotion_queue_counts($active_promo->id) : ['total' => 0, 'pending' => 0, 'sent' => 0, 'failed' => 0, 'cancelled' => 0, 'opened' => 0, 'clicked' => 0, 'converted' => 0, 'revenue' => 0.0];
+                $analytics        = function_exists('dfn_db_get_promotion_analytics') ? dfn_db_get_promotion_analytics((int) $active_promo->id) : [];
+                $queue_filter     = isset($_GET['queue_status']) ? sanitize_key($_GET['queue_status']) : '';
+                $queue_search     = isset($_GET['queue_search']) ? sanitize_text_field(wp_unslash($_GET['queue_search'])) : '';
+                $queue_per_page   = isset($_GET['per_page']) && in_array((int) $_GET['per_page'], [20, 50, 100], true) ? (int) $_GET['per_page'] : 20;
+                $queue_page       = isset($_GET['paged']) ? max(1, absint($_GET['paged'])) : 1;
+
+                $total_queue_items = function_exists('dfn_db_count_promotion_queue') ? dfn_db_count_promotion_queue($active_promo->id, $queue_filter, $queue_search) : 0;
+                $total_queue_pages = max(1, (int) ceil($total_queue_items / $queue_per_page));
+                if ($queue_page > $total_queue_pages) {
+                    $queue_page = $total_queue_pages;
+                }
+                $queue_offset     = ($queue_page - 1) * $queue_per_page;
+                $queue_items      = function_exists('dfn_db_get_promotion_queue') ? dfn_db_get_promotion_queue($active_promo->id, $queue_per_page, $queue_filter, $queue_search, $queue_offset) : [];
                 
                 $total_recipients = (int) $active_promo->total_recipients;
                 $sent_count       = (int) $active_promo->sent_count;
@@ -1070,158 +1254,66 @@ function dfn_render_promotions_admin_page(): void
 
                     <!-- Colonna Destra: Tabella Destinatari in Coda -->
                     <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <div style="padding: 18px 22px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div style="padding: 18px 22px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                             <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-                                <span class="dashicons dashicons-groups" style="color: #004b23;"></span> <?php esc_html_e('Destinatari & Stato Consegna', 'dfn-theme'); ?> (<?php echo esc_html(count($queue_items)); ?>)
+                                <span class="dashicons dashicons-groups" style="color: #004b23;"></span> <?php esc_html_e('Destinatari & Stato Consegna', 'dfn-theme'); ?> (<span id="dfn-queue-total-count"><?php echo esc_html($total_queue_items); ?></span>)
                             </h3>
                             
-                            <!-- Filtri di stato coda -->
-                            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id)); ?>" class="button button-small <?php echo empty($queue_filter) ? 'button-primary' : ''; ?>" style="<?php echo empty($queue_filter) ? 'background: #004b23; border-color: #004b23;' : ''; ?>">
-                                    Tutti (<?php echo esc_html($queue_counts['total']); ?>)
-                                </a>
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=pending')); ?>" class="button button-small <?php echo ($queue_filter === 'pending') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'pending') ? 'background: #0284c7; border-color: #0284c7;' : ''; ?>">
-                                    In Coda (<?php echo esc_html($queue_counts['pending']); ?>)
-                                </a>
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=sent')); ?>" class="button button-small <?php echo ($queue_filter === 'sent') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'sent') ? 'background: #166534; border-color: #166534;' : ''; ?>">
-                                    Inviate (<?php echo esc_html($queue_counts['sent']); ?>)
-                                </a>
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=opened')); ?>" class="button button-small <?php echo ($queue_filter === 'opened') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'opened') ? 'background: #0284c7; border-color: #0284c7;' : 'color: #0284c7; border-color: #bae6fd;'; ?>">
-                                    👁️ Aperte (<?php echo esc_html($queue_counts['opened'] ?? 0); ?>)
-                                </a>
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=clicked')); ?>" class="button button-small <?php echo ($queue_filter === 'clicked') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'clicked') ? 'background: #b45309; border-color: #b45309;' : 'color: #b45309; border-color: #fde68a;'; ?>">
-                                    🖱️ Cliccate (<?php echo esc_html($queue_counts['clicked'] ?? 0); ?>)
-                                </a>
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=converted')); ?>" class="button button-small <?php echo ($queue_filter === 'converted') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'converted') ? 'background: #166534; border-color: #166534;' : 'color: #166534; border-color: #bbf7d0;'; ?>">
-                                    🎟️ Convertite (<?php echo esc_html($queue_counts['converted'] ?? 0); ?>)
-                                </a>
-                                <?php if (! empty($queue_counts['cancelled']) && $queue_counts['cancelled'] > 0) : ?>
-                                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=cancelled')); ?>" class="button button-small <?php echo ($queue_filter === 'cancelled') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'cancelled') ? 'background: #dc2626; border-color: #dc2626;' : 'color: #dc2626; border-color: #fca5a5;'; ?>">
-                                        Bloccate dallo Stop (<?php echo esc_html($queue_counts['cancelled']); ?>)
-                                    </a>
-                                <?php endif; ?>
-                                <?php if ($queue_counts['failed'] > 0) : ?>
-                                    <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=view&promo_id=' . $active_promo->id . '&queue_status=failed')); ?>" class="button button-small <?php echo ($queue_filter === 'failed') ? 'button-primary' : ''; ?>" style="<?php echo ($queue_filter === 'failed') ? 'background: #dc2626; border-color: #dc2626;' : ''; ?>">
-                                        Errori (<?php echo esc_html($queue_counts['failed']); ?>)
-                                    </a>
-                                <?php endif; ?>
+                            <!-- Box di Ricerca & Selettore Righe per Pagina -->
+                            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <div style="position: relative; display: inline-flex; align-items: center;">
+                                    <span class="dashicons dashicons-search" style="position: absolute; left: 8px; color: #94a3b8; font-size: 16px; width: 16px; height: 16px; pointer-events: none;"></span>
+                                    <input type="text" id="dfn-queue-search" placeholder="<?php esc_attr_e('Cerca per email o nome...', 'dfn-theme'); ?>" value="<?php echo esc_attr($queue_search); ?>" style="padding-left: 28px; padding-right: 26px; height: 32px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12.5px; width: 220px; box-sizing: border-box;">
+                                    <button type="button" id="dfn-queue-search-clear" style="position: absolute; right: 6px; background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 14px; padding: 2px 4px; line-height: 1; <?php echo empty($queue_search) ? 'display: none;' : ''; ?>" title="<?php esc_attr_e('Cancella ricerca', 'dfn-theme'); ?>">&times;</button>
+                                </div>
+                                <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #64748b;">
+                                    <span><?php esc_html_e('Righe:', 'dfn-theme'); ?></span>
+                                    <select id="dfn-queue-per-page" style="height: 32px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12.5px; padding: 0 8px;">
+                                        <option value="20" <?php selected($queue_per_page, 20); ?>>20 per pag.</option>
+                                        <option value="50" <?php selected($queue_per_page, 50); ?>>50 per pag.</option>
+                                        <option value="100" <?php selected($queue_per_page, 100); ?>>100 per pag.</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
-                        <?php if (empty($queue_items)) : ?>
-                            <div style="padding: 40px; text-align: center; color: #64748b; font-size: 14px;">
-                                <?php if ($active_promo->status === 'draft') : ?>
-                                    <?php esc_html_e('La campagna è attualmente in bozza: i destinatari verranno accodati automaticamente al momento del lancio.', 'dfn-theme'); ?>
-                                <?php else : ?>
-                                    <?php esc_html_e('Nessun destinatario trovato con il filtro selezionato.', 'dfn-theme'); ?>
-                                <?php endif; ?>
-                            </div>
-                        <?php else : ?>
-                            <table class="wp-list-table widefat striped table-view-list" style="border: none; table-layout: auto;">
-                                <thead>
-                                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                        <th style="font-weight: 600; color: #475569; min-width: 220px;"><?php esc_html_e('Destinatario', 'dfn-theme'); ?></th>
-                                        <th style="font-weight: 600; color: #475569; width: 100px; white-space: nowrap;"><?php esc_html_e('Spedizione', 'dfn-theme'); ?></th>
-                                        <th style="font-weight: 600; color: #475569; width: 200px; white-space: nowrap;"><?php esc_html_e('Attività Email', 'dfn-theme'); ?></th>
-                                        <th style="font-weight: 600; color: #475569; width: 180px; white-space: nowrap;"><?php esc_html_e('Conversione Ordine', 'dfn-theme'); ?></th>
-                                        <th style="font-weight: 600; color: #475569; min-width: 150px;"><?php esc_html_e('Data Invio / Note', 'dfn-theme'); ?></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($queue_items as $q) : ?>
-                                        <tr>
-                                            <td>
-                                                <strong style="color: #0f172a;"><?php echo esc_html($q->recipient_email); ?></strong>
-                                                <?php if (! empty($q->recipient_name)) : ?>
-                                                    <div style="color: #64748b; font-size: 12px; margin-top: 2px;"><?php echo esc_html($q->recipient_name); ?></div>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <?php if ($q->status === 'sent') : ?>
-                                                    <span style="display: inline-block; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;">
-                                                        ✓ Inviata
-                                                    </span>
-                                                <?php elseif ($q->status === 'cancelled') : ?>
-                                                    <span style="display: inline-block; background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;" title="<?php esc_attr_e('Bloccata tempestivamente dallo stop amministratore', 'dfn-theme'); ?>">
-                                                        ✕ Bloccata
-                                                    </span>
-                                                <?php elseif ($q->status === 'failed') : ?>
-                                                    <span style="display: inline-block; background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;">
-                                                        ✕ Errore
-                                                    </span>
-                                                <?php else : ?>
-                                                    <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;">
-                                                        In coda
-                                                    </span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <?php if (! empty($q->opened_at)) : ?>
-                                                    <div style="font-size: 11px; color: #0369a1; margin-bottom: 2px;">
-                                                        <strong>👁️ <?php esc_html_e('Aperta', 'dfn-theme'); ?></strong>
-                                                        <?php if ((int) $q->open_count > 1) : ?>
-                                                            <span style="background: #e0f2fe; padding: 1px 5px; border-radius: 999px; font-weight: 600;"><?php echo (int) $q->open_count; ?>x</span>
-                                                        <?php endif; ?>
-                                                        <span style="color: #64748b;">(<?php echo esc_html(date_i18n('d/m H:i', strtotime($q->opened_at))); ?>)</span>
-                                                    </div>
-                                                <?php endif; ?>
-                                                <?php if (! empty($q->clicked_at)) : ?>
-                                                    <div style="font-size: 11px; color: #b45309;">
-                                                        <strong>🖱️ <?php esc_html_e('Click Link', 'dfn-theme'); ?></strong>
-                                                        <?php if ((int) $q->click_count > 1) : ?>
-                                                            <span style="background: #fef3c7; padding: 1px 5px; border-radius: 999px; font-weight: 600;"><?php echo (int) $q->click_count; ?>x</span>
-                                                        <?php endif; ?>
-                                                        <span style="color: #64748b;">(<?php echo esc_html(date_i18n('d/m H:i', strtotime($q->clicked_at))); ?>)</span>
-                                                    </div>
-                                                <?php endif; ?>
-                                                <?php if (empty($q->opened_at) && empty($q->clicked_at)) : ?>
-                                                    <span style="color: #94a3b8; font-size: 12px;">—</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <?php if (! empty($q->converted_at)) : ?>
-                                                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 4px 8px; font-size: 11px;">
-                                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                                            <strong style="color: #166534;">
-                                                                <?php if (! empty($q->order_id)) : ?>
-                                                                    <a href="<?php echo esc_url(admin_url('post.php?post=' . (int) $q->order_id . '&action=edit')); ?>" target="_blank" style="color: #166534; text-decoration: underline;">
-                                                                        🎟️ Ordine #<?php echo esc_html($q->order_id); ?>
-                                                                    </a>
-                                                                <?php else : ?>
-                                                                    🎟️ Ordine
-                                                                <?php endif; ?>
-                                                            </strong>
-                                                            <span style="color: #004b23; font-weight: 700;">
-                                                                <?php echo esc_html(number_format((float) $q->order_total, 2, ',', '.') . ' €'); ?>
-                                                            </span>
-                                                        </div>
-                                                        <div style="color: #64748b; font-size: 10px; margin-top: 2px;">
-                                                            <?php echo esc_html(date_i18n('d/m/Y H:i', strtotime($q->converted_at))); ?>
-                                                            <?php if (! empty($q->booking_id)) : ?>
-                                                                • Prenot. #<?php echo esc_html($q->booking_id); ?>
-                                                            <?php endif; ?>
-                                                        </div>
-                                                    </div>
-                                                <?php else : ?>
-                                                    <span style="color: #94a3b8; font-size: 12px;">—</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td style="font-size: 12px; color: #64748b;">
-                                                <?php if ($q->status === 'sent' && ! empty($q->sent_at)) : ?>
-                                                    <?php echo esc_html(date_i18n('d/m/Y H:i:s', strtotime($q->sent_at))); ?>
-                                                <?php elseif ($q->status === 'cancelled') : ?>
-                                                    <span style="color: #dc2626;"><?php echo esc_html($q->error_message ?: 'Invio bloccato tempestivamente dall\'amministratore'); ?></span>
-                                                <?php elseif ($q->status === 'failed') : ?>
-                                                    <span style="color: #dc2626;"><?php echo esc_html($q->error_message ?: 'Invio fallito'); ?></span>
-                                                <?php else : ?>
-                                                    <span style="color: #94a3b8;">In attesa di spedizione</span>
-                                                <?php endif; ?>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        <?php endif; ?>
+                        <!-- Barra Filtri di Stato Coda (Asincroni AJAX) -->
+                        <div style="padding: 12px 22px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                            <button type="button" class="button button-small dfn-queue-filter-btn <?php echo empty($queue_filter) ? 'button-primary' : ''; ?>" data-status="" style="<?php echo empty($queue_filter) ? 'background: #004b23; border-color: #004b23;' : ''; ?>">
+                                <?php esc_html_e('Tutti', 'dfn-theme'); ?> (<?php echo esc_html($queue_counts['total']); ?>)
+                            </button>
+                            <button type="button" class="button button-small dfn-queue-filter-btn <?php echo ($queue_filter === 'pending') ? 'button-primary' : ''; ?>" data-status="pending" style="<?php echo ($queue_filter === 'pending') ? 'background: #0284c7; border-color: #0284c7;' : ''; ?>">
+                                <?php esc_html_e('In Coda', 'dfn-theme'); ?> (<?php echo esc_html($queue_counts['pending']); ?>)
+                            </button>
+                            <button type="button" class="button button-small dfn-queue-filter-btn <?php echo ($queue_filter === 'sent') ? 'button-primary' : ''; ?>" data-status="sent" style="<?php echo ($queue_filter === 'sent') ? 'background: #166534; border-color: #166534;' : ''; ?>">
+                                <?php esc_html_e('Inviate', 'dfn-theme'); ?> (<?php echo esc_html($queue_counts['sent']); ?>)
+                            </button>
+                            <button type="button" class="button button-small dfn-queue-filter-btn <?php echo ($queue_filter === 'opened') ? 'button-primary' : ''; ?>" data-status="opened" style="<?php echo ($queue_filter === 'opened') ? 'background: #0284c7; border-color: #0284c7;' : 'color: #0284c7; border-color: #bae6fd;'; ?>">
+                                👁️ <?php esc_html_e('Aperte', 'dfn-theme'); ?> (<?php echo esc_html($queue_counts['opened'] ?? 0); ?>)
+                            </button>
+                            <button type="button" class="button button-small dfn-queue-filter-btn <?php echo ($queue_filter === 'clicked') ? 'button-primary' : ''; ?>" data-status="clicked" style="<?php echo ($queue_filter === 'clicked') ? 'background: #b45309; border-color: #b45309;' : 'color: #b45309; border-color: #fde68a;'; ?>">
+                                🖱️ <?php esc_html_e('Cliccate', 'dfn-theme'); ?> (<?php echo esc_html($queue_counts['clicked'] ?? 0); ?>)
+                            </button>
+                            <button type="button" class="button button-small dfn-queue-filter-btn <?php echo ($queue_filter === 'converted') ? 'button-primary' : ''; ?>" data-status="converted" style="<?php echo ($queue_filter === 'converted') ? 'background: #166534; border-color: #166534;' : 'color: #166534; border-color: #bbf7d0;'; ?>">
+                                🎟️ <?php esc_html_e('Convertite', 'dfn-theme'); ?> (<?php echo esc_html($queue_counts['converted'] ?? 0); ?>)
+                            </button>
+                            <?php if (! empty($queue_counts['cancelled']) && $queue_counts['cancelled'] > 0) : ?>
+                                <button type="button" class="button button-small dfn-queue-filter-btn <?php echo ($queue_filter === 'cancelled') ? 'button-primary' : ''; ?>" data-status="cancelled" style="<?php echo ($queue_filter === 'cancelled') ? 'background: #dc2626; border-color: #dc2626;' : 'color: #dc2626; border-color: #fca5a5;'; ?>">
+                                    <?php esc_html_e('Bloccate dallo Stop', 'dfn-theme'); ?> (<?php echo esc_html($queue_counts['cancelled']); ?>)
+                                </button>
+                            <?php endif; ?>
+                            <?php if ($queue_counts['failed'] > 0) : ?>
+                                <button type="button" class="button button-small dfn-queue-filter-btn <?php echo ($queue_filter === 'failed') ? 'button-primary' : ''; ?>" data-status="failed" style="<?php echo ($queue_filter === 'failed') ? 'background: #dc2626; border-color: #dc2626;' : ''; ?>">
+                                    <?php esc_html_e('Errori', 'dfn-theme'); ?> (<?php echo esc_html($queue_counts['failed']); ?>)
+                                </button>
+                            <?php endif; ?>
+                            <span id="dfn-queue-spinner" class="spinner" style="float: none; margin: 0 0 0 8px;"></span>
+                        </div>
+
+                        <!-- Contenitore Tabella & Paginazione Caricato via AJAX -->
+                        <div id="dfn-queue-table-container" style="transition: opacity 0.2s ease;">
+                            <?php dfn_promotions_render_queue_table_contents($queue_items, $total_queue_items, $queue_page, $queue_per_page, $total_queue_pages, $queue_search, $active_promo->status); ?>
+                        </div>
                     </div>
                 </div>
             <?php endif; ?>
@@ -1611,6 +1703,139 @@ function dfn_render_promotions_admin_page(): void
                 alert('Errore di comunicazione con il server');
                 $btn.prop('disabled', false).html('<span class="dashicons dashicons-controls-play"></span> Riprendi Invio Coda');
             });
+        });
+
+        // 9. Gestione Asincrona Coda Destinatari (Filtri Stato, Ricerca Live e Paginazione)
+        var currentPromoId = <?php echo json_encode($active_promo ? (int) $active_promo->id : 0); ?>;
+        var currentStatus  = <?php echo json_encode($queue_filter ?? ''); ?>;
+        var currentSearch  = <?php echo json_encode($queue_search ?? ''); ?>;
+        var currentPage    = <?php echo json_encode((int) ($queue_page ?? 1)); ?>;
+        var currentPerPage = <?php echo json_encode((int) ($queue_per_page ?? 20)); ?>;
+        var searchTimer    = null;
+
+        function loadQueue(page, status, search, perPage) {
+            if (typeof page !== 'undefined') currentPage = page;
+            if (typeof status !== 'undefined') currentStatus = status;
+            if (typeof search !== 'undefined') currentSearch = search;
+            if (typeof perPage !== 'undefined') currentPerPage = perPage;
+
+            $('#dfn-queue-spinner').addClass('is-active');
+            $('#dfn-queue-table-container').css('opacity', '0.45');
+
+            $.post(ajaxurl, {
+                action: 'dfn_promotions_get_queue',
+                nonce: nonce,
+                promo_id: currentPromoId,
+                status: currentStatus,
+                search: currentSearch,
+                page: currentPage,
+                per_page: currentPerPage
+            }, function(res) {
+                $('#dfn-queue-spinner').removeClass('is-active');
+                $('#dfn-queue-table-container').css('opacity', '1');
+
+                if (res.success) {
+                    $('#dfn-queue-table-container').html(res.data.html);
+                    $('#dfn-queue-total-count').text(res.data.total_items);
+
+                    // Aggiorna lo stile dei bottoni di filtro stato
+                    $('.dfn-queue-filter-btn').removeClass('button-primary').each(function() {
+                        var btnStatus = $(this).data('status');
+                        if (btnStatus === currentStatus) {
+                            $(this).addClass('button-primary');
+                            if (btnStatus === 'sent') $(this).css({'background': '#166534', 'border-color': '#166534', 'color': '#ffffff'});
+                            else if (btnStatus === 'opened') $(this).css({'background': '#0284c7', 'border-color': '#0284c7', 'color': '#ffffff'});
+                            else if (btnStatus === 'clicked') $(this).css({'background': '#b45309', 'border-color': '#b45309', 'color': '#ffffff'});
+                            else if (btnStatus === 'converted') $(this).css({'background': '#166534', 'border-color': '#166534', 'color': '#ffffff'});
+                            else if (btnStatus === 'cancelled' || btnStatus === 'failed') $(this).css({'background': '#dc2626', 'border-color': '#dc2626', 'color': '#ffffff'});
+                            else $(this).css({'background': '#004b23', 'border-color': '#004b23', 'color': '#ffffff'});
+                        } else {
+                            if (btnStatus === 'opened') $(this).css({'background': '', 'border-color': '#bae6fd', 'color': '#0284c7'});
+                            else if (btnStatus === 'clicked') $(this).css({'background': '', 'border-color': '#fde68a', 'color': '#b45309'});
+                            else if (btnStatus === 'converted') $(this).css({'background': '', 'border-color': '#bbf7d0', 'color': '#166534'});
+                            else if (btnStatus === 'cancelled') $(this).css({'background': '', 'border-color': '#fca5a5', 'color': '#dc2626'});
+                            else $(this).css({'background': '', 'border-color': '', 'color': ''});
+                        }
+                    });
+
+                    // Aggiorna l'URL senza ricaricare la pagina
+                    var newUrl = new URL(window.location.href);
+                    if (currentStatus) newUrl.searchParams.set('queue_status', currentStatus);
+                    else newUrl.searchParams.delete('queue_status');
+
+                    if (currentSearch) newUrl.searchParams.set('queue_search', currentSearch);
+                    else newUrl.searchParams.delete('queue_search');
+
+                    if (currentPage > 1) newUrl.searchParams.set('paged', currentPage);
+                    else newUrl.searchParams.delete('paged');
+
+                    if (currentPerPage !== 20) newUrl.searchParams.set('per_page', currentPerPage);
+                    else newUrl.searchParams.delete('per_page');
+
+                    window.history.replaceState({}, '', newUrl.toString());
+                } else {
+                    alert('Errore nel caricamento dei dati: ' + (res.data ? res.data.message : ''));
+                }
+            }).fail(function() {
+                $('#dfn-queue-spinner').removeClass('is-active');
+                $('#dfn-queue-table-container').css('opacity', '1');
+                alert('Errore di connessione al server.');
+            });
+        }
+
+        // Filtro stato al click (senza refresh)
+        $(document).on('click', '.dfn-queue-filter-btn', function(e) {
+            e.preventDefault();
+            var status = $(this).data('status');
+            loadQueue(1, status, undefined, undefined);
+        });
+
+        // Ricerca live con debounce a 280ms
+        $('#dfn-queue-search').on('input', function() {
+            var val = $(this).val();
+            if (val.length > 0) $('#dfn-queue-search-clear').show();
+            else $('#dfn-queue-search-clear').hide();
+
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(function() {
+                loadQueue(1, undefined, val, undefined);
+            }, 280);
+        });
+
+        // Invio immediato su tasto Invio nel campo di ricerca
+        $('#dfn-queue-search').on('keypress', function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                clearTimeout(searchTimer);
+                loadQueue(1, undefined, $(this).val(), undefined);
+            }
+        });
+
+        // Pulsante reset rapido ricerca
+        $('#dfn-queue-search-clear').on('click', function(e) {
+            e.preventDefault();
+            $('#dfn-queue-search').val('');
+            $(this).hide();
+            clearTimeout(searchTimer);
+            loadQueue(1, undefined, '', undefined);
+        });
+
+        // Cambio selettore righe per pagina (20 / 50 / 100)
+        $('#dfn-queue-per-page').on('change', function() {
+            var perPage = parseInt($(this).val(), 10) || 20;
+            loadQueue(1, undefined, undefined, perPage);
+        });
+
+        // Paginazione Previous / Next / Pagine numeriche
+        $(document).on('click', '.dfn-queue-page-btn', function(e) {
+            e.preventDefault();
+            var page = parseInt($(this).data('page'), 10);
+            if (page && page !== currentPage) {
+                loadQueue(page, undefined, undefined, undefined);
+                $('html, body').animate({
+                    scrollTop: $('#dfn-queue-table-container').offset().top - 100
+                }, 180);
+            }
         });
 
         // Inizializza live preview se un evento è già selezionato (es. in modifica bozza)
