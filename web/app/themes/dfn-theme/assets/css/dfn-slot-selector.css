@@ -148,19 +148,16 @@
     font-weight: 600;
 }
 
-/* Badge descrittivo a piè di box */
-.dfn-qty-badge {
-    font-size: 11px;
+/* Dicitura descrittiva sotto lo stepper (es. Intero / Ridotto) */
+.dfn-qty-box .dfn-qty-subtext {
+    font-size: 13px;
     font-weight: 500;
-    line-height: 1.3;
-    padding: 5px 12px;
-    border-radius: 999px;
+    line-height: 1.2;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
     text-align: center;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    margin-top: 2px;
+    margin-top: -2px;
 }
 
 /* Variante Standard (Non Iscritto) - Verde FAI #054238 */
@@ -195,12 +192,6 @@
     color: #054238;
 }
 
-.dfn-qty-box-standard .dfn-qty-badge-standard {
-    background: rgba(255, 255, 255, 0.18);
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.28);
-}
-
 /* Variante FAI (Socio FAI) - Arancio FAI #e74f30 */
 .dfn-qty-box-fai {
     background: #e74f30;
@@ -231,12 +222,6 @@
 
 .dfn-qty-box-fai input[type="number"] {
     color: #e74f30;
-}
-
-.dfn-qty-box-fai .dfn-qty-badge-fai {
-    background: rgba(255, 255, 255, 0.22);
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
 .dfn-qty-control {
