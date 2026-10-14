@@ -288,7 +288,7 @@ function dfn_render_evento_shortcode($atts): string
                                         <div class="dfn-qty-grid">
                                             <div class="dfn-qty-box dfn-qty-box-standard">
                                                 <div class="dfn-qty-header">
-                                                    <label for="quantity" class="dfn-qty-label"><?php esc_html_e('Non Iscritto (Intero)', 'dfn-theme'); ?></label>
+                                                    <label for="quantity" class="dfn-qty-label"><?php esc_html_e('Non Iscritto', 'dfn-theme'); ?></label>
                                                     <div class="dfn-qty-price"><?php echo wp_kses_post($price_standard_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
                                                 </div>
                                                 <div class="dfn-qty-control">
@@ -296,10 +296,11 @@ function dfn_render_evento_shortcode($atts): string
                                                     <input type="number" name="quantity" id="quantity" min="0" value="1">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
+                                                <div class="dfn-qty-subtext"><?php esc_html_e('Intero', 'dfn-theme'); ?></div>
                                             </div>
                                             <div class="dfn-qty-box dfn-qty-box-fai">
                                                 <div class="dfn-qty-header">
-                                                    <label for="dfn_qty_fai" class="dfn-qty-label"><?php esc_html_e('Socio FAI (Ridotto)', 'dfn-theme'); ?></label>
+                                                    <label for="dfn_qty_fai" class="dfn-qty-label"><?php esc_html_e('Socio FAI', 'dfn-theme'); ?></label>
                                                     <div class="dfn-qty-price"><?php echo wp_kses_post($price_fai_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
                                                 </div>
                                                 <div class="dfn-qty-control">
@@ -307,6 +308,7 @@ function dfn_render_evento_shortcode($atts): string
                                                     <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
+                                                <div class="dfn-qty-subtext"><?php esc_html_e('Ridotto', 'dfn-theme'); ?></div>
                                             </div>
                                         </div>
                                         <div style="font-size:11.5px; color:#64748b; margin-top:8px; line-height:1.45; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">
@@ -617,7 +619,7 @@ function dfn_render_evento_shortcode($atts): string
                                         <div class="dfn-qty-grid">
                                             <div class="dfn-qty-box dfn-qty-box-standard">
                                                 <div class="dfn-qty-header">
-                                                    <label for="quantity" class="dfn-qty-label"><?php esc_html_e('Non Iscritto (Intero)', 'dfn-theme'); ?></label>
+                                                    <label for="quantity" class="dfn-qty-label"><?php esc_html_e('Non Iscritto', 'dfn-theme'); ?></label>
                                                     <div class="dfn-qty-price"><?php echo wp_kses_post($price_standard_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
                                                 </div>
                                                 <div class="dfn-qty-control">
@@ -625,10 +627,11 @@ function dfn_render_evento_shortcode($atts): string
                                                     <input type="number" name="quantity" id="quantity" min="0" value="1">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
+                                                <div class="dfn-qty-subtext"><?php esc_html_e('Intero', 'dfn-theme'); ?></div>
                                             </div>
                                             <div class="dfn-qty-box dfn-qty-box-fai">
                                                 <div class="dfn-qty-header">
-                                                    <label for="dfn_qty_fai" class="dfn-qty-label"><?php esc_html_e('Socio FAI (Ridotto)', 'dfn-theme'); ?></label>
+                                                    <label for="dfn_qty_fai" class="dfn-qty-label"><?php esc_html_e('Socio FAI', 'dfn-theme'); ?></label>
                                                     <div class="dfn-qty-price"><?php echo wp_kses_post($price_fai_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
                                                 </div>
                                                 <div class="dfn-qty-control">
@@ -636,6 +639,7 @@ function dfn_render_evento_shortcode($atts): string
                                                     <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
+                                                <div class="dfn-qty-subtext"><?php esc_html_e('Ridotto', 'dfn-theme'); ?></div>
                                             </div>
                                         </div>
                                         <div style="font-size:11.5px; color:#64748b; margin-top:8px; line-height:1.45; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">
