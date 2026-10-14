@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 }
 
 /** Versione dello schema DB — incrementare per forzare aggiornamento */
-define('DFN_DB_VERSION', '2.6.1');
+define('DFN_DB_VERSION', '2.7.0');
 
 /**
  * ========================================================================
@@ -279,7 +279,6 @@ function dfn_db_install(): void
     $table_meetings = $wpdb->prefix . 'dfn_volunteer_meetings';
     $sql_meetings = "CREATE TABLE {$table_meetings} (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-        team_id bigint(20) unsigned NOT NULL DEFAULT 0,
         title varchar(255) NOT NULL,
         meeting_date date NOT NULL,
         meeting_time_start time NOT NULL,
@@ -289,12 +288,9 @@ function dfn_db_install(): void
         agenda text DEFAULT NULL,
         notes text DEFAULT NULL,
         status varchar(20) NOT NULL DEFAULT 'scheduled',
-        reminder_7d_sent tinyint(1) NOT NULL DEFAULT 0,
-        reminder_1d_sent tinyint(1) NOT NULL DEFAULT 0,
         created_by bigint(20) unsigned DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
-        KEY idx_team (team_id),
         KEY idx_date (meeting_date),
         KEY idx_status (status)
     ) {$charset_collate};";
@@ -467,50 +463,7 @@ function dfn_db_install(): void
     ) {$charset_collate};";
 
     // -------------------------------------------------------------------
-    // -------------------------------------------------------------------
-    // TABELLA 19: Squadre & Team di Delegazione (Modulo 2.1.1)
-    // -------------------------------------------------------------------
-    $table_teams = $wpdb->prefix . 'dfn_teams';
-    $sql_teams = "CREATE TABLE {$table_teams} (
-        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-        name varchar(100) NOT NULL,
-        slug varchar(50) NOT NULL,
-        description text DEFAULT NULL,
-        icon varchar(20) NOT NULL DEFAULT '👥',
-        color varchar(20) NOT NULL DEFAULT '#004b23',
-        badge_bg varchar(20) NOT NULL DEFAULT '#f0fdf4',
-        whatsapp_url varchar(255) DEFAULT NULL,
-        drive_url varchar(255) DEFAULT NULL,
-        supervisor_roles text DEFAULT NULL,
-        supervisor_user_id bigint(20) unsigned DEFAULT NULL,
-        is_active tinyint(1) NOT NULL DEFAULT 1,
-        order_num int(10) unsigned NOT NULL DEFAULT 0,
-        created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY  (id),
-        UNIQUE KEY uk_slug (slug),
-        KEY idx_active (is_active),
-        KEY idx_supervisor_user (supervisor_user_id)
-    ) {$charset_collate};";
-
-    // -------------------------------------------------------------------
-    // TABELLA 20: Componenti Squadre & Team (Modulo 2.1.1)
-    // -------------------------------------------------------------------
-    $table_team_members = $wpdb->prefix . 'dfn_team_members';
-    $sql_team_members = "CREATE TABLE {$table_team_members} (
-        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-        team_id bigint(20) unsigned NOT NULL,
-        member_id bigint(20) unsigned NOT NULL,
-        user_id bigint(20) unsigned DEFAULT NULL,
-        joined_at datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY  (id),
-        UNIQUE KEY uk_team_member (team_id, member_id),
-        KEY idx_team (team_id),
-        KEY idx_member (member_id),
-        KEY idx_user (user_id)
-    ) {$charset_collate};";
-
-    // -------------------------------------------------------------------
-    // TABELLA 21: Campagne Promozionali Eventi
+    // TABELLA 19: Campagne Promozionali Eventi
     // -------------------------------------------------------------------
     $table_promotions = $wpdb->prefix . 'dfn_promotions';
     $sql_promotions = "CREATE TABLE {$table_promotions} (
@@ -525,6 +478,10 @@ function dfn_db_install(): void
         total_recipients int(10) unsigned NOT NULL DEFAULT 0,
         sent_count int(10) unsigned NOT NULL DEFAULT 0,
         failed_count int(10) unsigned NOT NULL DEFAULT 0,
+        opened_count int(10) unsigned NOT NULL DEFAULT 0,
+        clicked_count int(10) unsigned NOT NULL DEFAULT 0,
+        converted_count int(10) unsigned NOT NULL DEFAULT 0,
+        revenue_generated decimal(10,2) NOT NULL DEFAULT 0.00,
         batch_size int(10) unsigned NOT NULL DEFAULT 25,
         initial_batch_size int(10) unsigned NOT NULL DEFAULT 15,
         batch_interval_minutes int(10) unsigned NOT NULL DEFAULT 5,
@@ -540,7 +497,7 @@ function dfn_db_install(): void
     ) {$charset_collate};";
 
     // -------------------------------------------------------------------
-    // TABELLA 22: Coda Invio Email Promozionali (Queue)
+    // TABELLA 20: Coda Invio Email Promozionali (Queue)
     // -------------------------------------------------------------------
     $table_promotion_queue = $wpdb->prefix . 'dfn_promotion_queue';
     $sql_promotion_queue = "CREATE TABLE {$table_promotion_queue} (
@@ -549,13 +506,24 @@ function dfn_db_install(): void
         recipient_email varchar(255) NOT NULL,
         recipient_name varchar(255) DEFAULT NULL,
         status varchar(20) NOT NULL DEFAULT 'pending',
+        tracking_token varchar(64) DEFAULT NULL,
         error_message text DEFAULT NULL,
+        opened_at datetime DEFAULT NULL,
+        open_count int(10) unsigned NOT NULL DEFAULT 0,
+        clicked_at datetime DEFAULT NULL,
+        click_count int(10) unsigned NOT NULL DEFAULT 0,
+        converted_at datetime DEFAULT NULL,
+        booking_id bigint(20) unsigned DEFAULT NULL,
+        order_id bigint(20) unsigned DEFAULT NULL,
+        order_total decimal(10,2) DEFAULT NULL,
         sent_at datetime DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY idx_promotion (promotion_id),
         KEY idx_status (status),
-        KEY idx_email (recipient_email)
+        KEY idx_email (recipient_email),
+        KEY idx_token (tracking_token),
+        KEY idx_converted (converted_at)
     ) {$charset_collate};";
 
 
@@ -579,8 +547,6 @@ function dfn_db_install(): void
     dbDelta($sql_vol_survey_responses);
     dbDelta($sql_roles);
     dbDelta($sql_event_roles);
-    dbDelta($sql_teams);
-    dbDelta($sql_team_members);
     dbDelta($sql_promotions);
     dbDelta($sql_promotion_queue);
 
@@ -606,67 +572,6 @@ function dfn_db_install(): void
                 'requires_guide'        => $dr[6],
                 'is_default'            => $dr[7],
             ]);
-        }
-    }
-
-    // Popolamento squadre predefinite se la tabella è vuota
-    $table_teams = $wpdb->prefix . 'dfn_teams';
-    $teams_count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_teams}");
-    if ($teams_count === 0) {
-        $default_teams = [
-            [
-                'name'             => 'Team Ambiente',
-                'slug'             => 'team-ambiente',
-                'description'      => 'Progetti di tutela e valorizzazione ambientale, percorsi natura, beni paesaggistici e sentieri.',
-                'icon'             => '🌱',
-                'color'            => '#16a34a',
-                'badge_bg'         => '#f0fdf4',
-                'supervisor_roles' => json_encode(['dfn_delegato_ambiente', 'dfn_coord_volontari']),
-                'order_num'        => 1,
-            ],
-            [
-                'name'             => 'Team Eventi',
-                'slug'             => 'team-eventi',
-                'description'      => 'Organizzazione eventi culturali, concerti, mostre, visite esclusive e manifestazioni territoriali.',
-                'icon'             => '🎭',
-                'color'            => '#e11d48',
-                'badge_bg'         => '#ffe4e6',
-                'supervisor_roles' => json_encode(['dfn_delegato_eventi', 'dfn_coord_volontari']),
-                'order_num'        => 2,
-            ],
-            [
-                'name'             => 'Team Scuola',
-                'slug'             => 'team-scuola',
-                'description'      => 'Rapporti con gli istituti scolastici, formazione Apprendisti Ciceroni e visite guidate didattiche.',
-                'icon'             => '🎓',
-                'color'            => '#2563eb',
-                'badge_bg'         => '#eff6ff',
-                'supervisor_roles' => json_encode(['dfn_delegato_scuola', 'dfn_coord_volontari']),
-                'order_num'        => 3,
-            ],
-            [
-                'name'             => 'Team Comunicazione',
-                'slug'             => 'team-comunicazione',
-                'description'      => 'Gestione canali social, ufficio stampa, newsletter, rassegna stampa e promozione attività di Delegazione.',
-                'icon'             => '📢',
-                'color'            => '#8b5cf6',
-                'badge_bg'         => '#f5f3ff',
-                'supervisor_roles' => json_encode(['dfn_delegato_comunicazione', 'dfn_coord_volontari']),
-                'order_num'        => 4,
-            ],
-            [
-                'name'             => 'Gruppo Guide & Narrazione',
-                'slug'             => 'gruppo-guide-narrazione',
-                'description'      => 'Volontari abilitati alle visite narrate, approfondimenti storici, artistici e culturali del territorio.',
-                'icon'             => '🏛️',
-                'color'            => '#0891b2',
-                'badge_bg'         => '#ecfeff',
-                'supervisor_roles' => json_encode(['dfn_delegato_cultura', 'dfn_coord_volontari']),
-                'order_num'        => 5,
-            ],
-        ];
-        foreach ($default_teams as $dt) {
-            $wpdb->insert($table_teams, $dt);
         }
     }
 
@@ -716,12 +621,6 @@ function dfn_db_install(): void
         $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_registry (fai_registry_id)");
     }
 
-    // Colonne canali WhatsApp e Drive nella tabella Squadre
-    $row_teams_wa = $wpdb->get_results("SHOW COLUMNS FROM {$table_teams} LIKE 'whatsapp_url'");
-    if (empty($row_teams_wa)) {
-        $wpdb->query("ALTER TABLE {$table_teams} ADD COLUMN whatsapp_url varchar(255) DEFAULT NULL AFTER badge_bg, ADD COLUMN drive_url varchar(255) DEFAULT NULL AFTER whatsapp_url");
-    }
-
     // Forza la creazione della colonna preferred_place_id in dfn_volunteer_survey_responses se manca
     $table_vol_survey_responses = $wpdb->prefix . 'dfn_volunteer_survey_responses';
     $row_pref = $wpdb->get_results("SHOW COLUMNS FROM {$table_vol_survey_responses} LIKE 'preferred_place_id'");
@@ -757,6 +656,50 @@ function dfn_db_install(): void
         }
         if (! in_array('last_batch_at', $promo_cols, true)) {
             $wpdb->query("ALTER TABLE {$table_promotions} ADD COLUMN last_batch_at datetime DEFAULT NULL AFTER batch_interval_minutes");
+        }
+        if (! in_array('opened_count', $promo_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotions} ADD COLUMN opened_count int(10) unsigned NOT NULL DEFAULT 0 AFTER failed_count");
+        }
+        if (! in_array('clicked_count', $promo_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotions} ADD COLUMN clicked_count int(10) unsigned NOT NULL DEFAULT 0 AFTER opened_count");
+        }
+        if (! in_array('converted_count', $promo_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotions} ADD COLUMN converted_count int(10) unsigned NOT NULL DEFAULT 0 AFTER clicked_count");
+        }
+        if (! in_array('revenue_generated', $promo_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotions} ADD COLUMN revenue_generated decimal(10,2) NOT NULL DEFAULT 0.00 AFTER converted_count");
+        }
+    }
+
+    // Aggiornamento colonne Tabella 20 (dfn_promotion_queue)
+    $queue_cols = $wpdb->get_col("SHOW COLUMNS FROM {$table_promotion_queue}");
+    if (! empty($queue_cols)) {
+        if (! in_array('tracking_token', $queue_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotion_queue} ADD COLUMN tracking_token varchar(64) DEFAULT NULL AFTER status, ADD INDEX idx_token (tracking_token)");
+        }
+        if (! in_array('opened_at', $queue_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotion_queue} ADD COLUMN opened_at datetime DEFAULT NULL AFTER error_message");
+        }
+        if (! in_array('open_count', $queue_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotion_queue} ADD COLUMN open_count int(10) unsigned NOT NULL DEFAULT 0 AFTER opened_at");
+        }
+        if (! in_array('clicked_at', $queue_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotion_queue} ADD COLUMN clicked_at datetime DEFAULT NULL AFTER open_count");
+        }
+        if (! in_array('click_count', $queue_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotion_queue} ADD COLUMN click_count int(10) unsigned NOT NULL DEFAULT 0 AFTER clicked_at");
+        }
+        if (! in_array('converted_at', $queue_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotion_queue} ADD COLUMN converted_at datetime DEFAULT NULL AFTER click_count, ADD INDEX idx_converted (converted_at)");
+        }
+        if (! in_array('booking_id', $queue_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotion_queue} ADD COLUMN booking_id bigint(20) unsigned DEFAULT NULL AFTER converted_at");
+        }
+        if (! in_array('order_id', $queue_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotion_queue} ADD COLUMN order_id bigint(20) unsigned DEFAULT NULL AFTER booking_id");
+        }
+        if (! in_array('order_total', $queue_cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_promotion_queue} ADD COLUMN order_total decimal(10,2) DEFAULT NULL AFTER order_id");
         }
     }
 
@@ -1376,45 +1319,13 @@ function dfn_get_volunteer_by_user(int $user_id)
 }
 
 /**
- * Assicura che le colonne necessarie per le riunioni di team (team_id, reminder) esistano nella tabella.
+ * Recupera l'elenco delle prossime riunioni di delegazione programmate.
  *
- * @return void
- */
-function dfn_ensure_meetings_table_columns(): void
-{
-    global $wpdb;
-    $table = $wpdb->prefix . 'dfn_volunteer_meetings';
-    if ($wpdb->get_var("SHOW TABLES LIKE '{$table}'") !== $table) {
-        return;
-    }
-
-    $columns = $wpdb->get_col("DESCRIBE {$table}", 0);
-    if (! is_array($columns) || empty($columns)) {
-        return;
-    }
-
-    if (! in_array('team_id', $columns, true)) {
-        $wpdb->query("ALTER TABLE {$table} ADD COLUMN team_id bigint(20) unsigned NOT NULL DEFAULT 0 AFTER id, ADD INDEX idx_team (team_id)");
-    }
-    if (! in_array('reminder_7d_sent', $columns, true)) {
-        $wpdb->query("ALTER TABLE {$table} ADD COLUMN reminder_7d_sent tinyint(1) NOT NULL DEFAULT 0 AFTER status");
-    }
-    if (! in_array('reminder_1d_sent', $columns, true)) {
-        $wpdb->query("ALTER TABLE {$table} ADD COLUMN reminder_1d_sent tinyint(1) NOT NULL DEFAULT 0 AFTER reminder_7d_sent");
-    }
-}
-add_action('admin_init', 'dfn_ensure_meetings_table_columns');
-
-/**
- * Recupera l'elenco delle prossime riunioni di delegazione o di team.
- *
- * @param bool     $upcoming_only Se true, restituisce solo le riunioni da oggi in poi.
- * @param int      $limit         Numero massimo di riunioni da restituire.
- * @param int|null $user_id       Filtra per permessi e squadre di appartenenza di uno specifico utente.
- * @param int|null $team_id       Filtra direttamente per uno specifico ID di team (0 = Plenaria).
+ * @param bool $upcoming_only Se true, restituisce solo le riunioni da oggi in poi.
+ * @param int  $limit         Numero massimo di riunioni da restituire.
  * @return array<object>
  */
-function dfn_get_volunteer_meetings(bool $upcoming_only = true, int $limit = 20, ?int $user_id = null, ?int $team_id = null): array
+function dfn_get_volunteer_meetings(bool $upcoming_only = true, int $limit = 20): array
 {
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_volunteer_meetings';
@@ -1422,31 +1333,6 @@ function dfn_get_volunteer_meetings(bool $upcoming_only = true, int $limit = 20,
     $where = "status != 'cancelled'";
     if ($upcoming_only) {
         $where .= " AND meeting_date >= CURDATE()";
-    }
-
-    if ($team_id !== null && $team_id >= 0) {
-        $where .= $wpdb->prepare(" AND team_id = %d", $team_id);
-    } elseif ($user_id && $user_id > 0) {
-        $is_admin = user_can($user_id, 'manage_options') || user_can($user_id, 'dfn_act_fai_members') || (function_exists('dfn_user_has_module_access') && dfn_user_has_module_access('volontari', $user_id));
-        if (! $is_admin) {
-            // Recupera gli ID delle squadre di appartenenza o supervisione dell'utente
-            $user_teams = function_exists('dfn_get_user_teams') ? dfn_get_user_teams($user_id) : [];
-            $sup_teams  = function_exists('dfn_get_user_supervised_teams') ? dfn_get_user_supervised_teams($user_id) : [];
-            $allowed_team_ids = [0]; // Plenaria sempre visibile a tutti i volontari
-            foreach ($user_teams as $ut) {
-                if (! empty($ut->id)) {
-                    $allowed_team_ids[] = (int) $ut->id;
-                }
-            }
-            foreach ($sup_teams as $st) {
-                if (! empty($st->id)) {
-                    $allowed_team_ids[] = (int) $st->id;
-                }
-            }
-            $allowed_team_ids = array_unique($allowed_team_ids);
-            $in_clause = implode(',', array_map('intval', $allowed_team_ids));
-            $where .= " AND team_id IN ({$in_clause})";
-        }
     }
 
     $sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY meeting_date ASC, meeting_time_start ASC LIMIT %d";
@@ -2322,10 +2208,14 @@ function dfn_db_populate_promotion_queue(int $promotion_id, array $recipients): 
         }
         $name = sanitize_text_field($item['name'] ?? '');
 
+        // Genera token di tracking univoco a 32 caratteri
+        $token = function_exists('wp_generate_password') ? wp_generate_password(32, false, false) : bin2hex(random_bytes(16));
+
         $ins = $wpdb->insert($table_queue, [
             'promotion_id'    => $promotion_id,
             'recipient_email' => $email,
             'recipient_name'  => $name,
+            'tracking_token'  => $token,
             'status'          => 'pending',
             'created_at'      => $now,
         ]);
@@ -2339,6 +2229,10 @@ function dfn_db_populate_promotion_queue(int $promotion_id, array $recipients): 
         'total_recipients' => $inserted_count,
         'sent_count'       => 0,
         'failed_count'     => 0,
+        'opened_count'     => 0,
+        'clicked_count'    => 0,
+        'converted_count'  => 0,
+        'revenue_generated'=> 0.00,
         'updated_at'       => $now,
     ], ['id' => $promotion_id]);
 
@@ -2350,7 +2244,7 @@ function dfn_db_populate_promotion_queue(int $promotion_id, array $recipients): 
  *
  * @param int    $promotion_id ID della promozione
  * @param int    $limit        Limite di risultati (default 200)
- * @param string $status       Filtro opzionale sullo stato ('pending', 'sent', 'failed' o '' per tutti)
+ * @param string $status       Filtro opzionale sullo stato ('pending', 'sent', 'failed', 'opened', 'clicked', 'converted' o '' per tutti)
  * @return array
  */
 function dfn_db_get_promotion_queue(int $promotion_id, int $limit = 200, string $status = ''): array
@@ -2362,8 +2256,16 @@ function dfn_db_get_promotion_queue(int $promotion_id, int $limit = 200, string 
     $params = [$promotion_id];
 
     if (! empty($status)) {
-        $where .= " AND status = %s";
-        $params[] = $status;
+        if ($status === 'opened') {
+            $where .= " AND opened_at IS NOT NULL";
+        } elseif ($status === 'clicked') {
+            $where .= " AND clicked_at IS NOT NULL";
+        } elseif ($status === 'converted') {
+            $where .= " AND converted_at IS NOT NULL";
+        } else {
+            $where .= " AND status = %s";
+            $params[] = $status;
+        }
     }
 
     $params[] = $limit;
@@ -2375,10 +2277,10 @@ function dfn_db_get_promotion_queue(int $promotion_id, int $limit = 200, string 
 }
 
 /**
- * Recupera i conteggi aggregati per stato della coda di una promozione.
+ * Recupera i conteggi aggregati per stato della coda e interazioni di una promozione.
  *
  * @param int $promotion_id
- * @return array{total: int, pending: int, sent: int, failed: int}
+ * @return array{total: int, pending: int, sent: int, failed: int, cancelled: int, opened: int, clicked: int, converted: int, revenue: float}
  */
 function dfn_db_get_promotion_queue_counts(int $promotion_id): array
 {
@@ -2391,6 +2293,10 @@ function dfn_db_get_promotion_queue_counts(int $promotion_id): array
         'sent'      => 0,
         'failed'    => 0,
         'cancelled' => 0,
+        'opened'    => 0,
+        'clicked'   => 0,
+        'converted' => 0,
+        'revenue'   => 0.0,
     ];
 
     $rows = $wpdb->get_results(
@@ -2411,18 +2317,102 @@ function dfn_db_get_promotion_queue_counts(int $promotion_id): array
         }
     }
 
+    // Conteggi aggregati interazioni (aperture, click, conversioni e incasso euro)
+    $interactions = $wpdb->get_row($wpdb->prepare(
+        "SELECT 
+            COUNT(DISTINCT CASE WHEN opened_at IS NOT NULL THEN id END) as opens,
+            COUNT(DISTINCT CASE WHEN clicked_at IS NOT NULL THEN id END) as clicks,
+            COUNT(DISTINCT CASE WHEN converted_at IS NOT NULL THEN id END) as conversions,
+            COALESCE(SUM(order_total), 0) as total_revenue
+         FROM {$table_queue} WHERE promotion_id = %d",
+        $promotion_id
+    ));
+
+    if ($interactions) {
+        $counts['opened']    = (int) $interactions->opens;
+        $counts['clicked']   = (int) $interactions->clicks;
+        $counts['converted'] = (int) $interactions->conversions;
+        $counts['revenue']   = (float) $interactions->total_revenue;
+    }
+
     return $counts;
 }
 
 /**
- * Costruisce l'HTML completo per una email promozionale brandizzata DFN.
+ * Recupera le metriche aggregate di performance e funnel per una specifica campagna.
  *
- * @param object $promotion      Oggetto promozione
- * @param string $recipient_name Nome destinatario
- * @param object $event          Oggetto evento arricchito
+ * @param int $promotion_id ID della promozione
+ * @return array
+ */
+function dfn_db_get_promotion_analytics(int $promotion_id): array
+{
+    global $wpdb;
+    $table_queue = $wpdb->prefix . 'dfn_promotion_queue';
+    $table_promo = $wpdb->prefix . 'dfn_promotions';
+
+    $promo = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_promo} WHERE id = %d", $promotion_id));
+    if (! $promo) {
+        return [
+            'sent_count'         => 0,
+            'opened_count'       => 0,
+            'open_rate'          => 0.0,
+            'clicked_count'      => 0,
+            'click_rate'         => 0.0,
+            'click_to_open_rate' => 0.0,
+            'ctr'                => 0.0,
+            'converted_count'    => 0,
+            'conversion_rate'    => 0.0,
+            'revenue_generated'  => 0.0,
+        ];
+    }
+
+    $sent = (int) $promo->sent_count;
+
+    $stats = $wpdb->get_row($wpdb->prepare(
+        "SELECT 
+            COUNT(DISTINCT CASE WHEN opened_at IS NOT NULL THEN id END) as opens,
+            COUNT(DISTINCT CASE WHEN clicked_at IS NOT NULL THEN id END) as clicks,
+            COUNT(DISTINCT CASE WHEN converted_at IS NOT NULL THEN id END) as conversions,
+            COALESCE(SUM(order_total), 0) as total_revenue
+         FROM {$table_queue}
+         WHERE promotion_id = %d",
+        $promotion_id
+    ));
+
+    $opens       = $stats ? (int) $stats->opens : (int) ($promo->opened_count ?? 0);
+    $clicks      = $stats ? (int) $stats->clicks : (int) ($promo->clicked_count ?? 0);
+    $conversions = $stats ? (int) $stats->conversions : (int) ($promo->converted_count ?? 0);
+    $revenue     = $stats ? (float) $stats->total_revenue : (float) ($promo->revenue_generated ?? 0.0);
+
+    $open_rate          = ($sent > 0) ? round(($opens / $sent) * 100, 1) : 0.0;
+    $click_rate         = ($sent > 0) ? round(($clicks / $sent) * 100, 1) : 0.0;
+    $click_to_open_rate = ($opens > 0) ? round(($clicks / $opens) * 100, 1) : 0.0;
+    $conversion_rate    = ($sent > 0) ? round(($conversions / $sent) * 100, 1) : 0.0;
+
+    return [
+        'sent_count'         => $sent,
+        'opened_count'       => $opens,
+        'open_rate'          => $open_rate,
+        'clicked_count'      => $clicks,
+        'click_rate'         => $click_rate,
+        'click_to_open_rate' => $click_to_open_rate,
+        'ctr'                => $click_to_open_rate,
+        'converted_count'    => $conversions,
+        'conversion_rate'    => $conversion_rate,
+        'revenue_generated'  => $revenue,
+    ];
+}
+
+/**
+ * Costruisce l'HTML completo per una email promozionale brandizzata DFN con supporto tracking.
+ *
+ * @param object $promotion       Oggetto promozione
+ * @param string $recipient_name  Nome destinatario
+ * @param object $event           Oggetto evento arricchito
+ * @param string $tracking_token  Token univoco di tracking per il destinatario (opzionale)
  * @return string HTML completo
  */
-function dfn_promotions_build_email_html(object $promotion, string $recipient_name, object $event): string
+function dfn_promotions_build_email_html(object $promotion, string $recipient_name, object $event, string $tracking_token = ''): string
 {
     $primary_color = dfn_get_setting('email_primary_color', '#004b23');
     $accent_color  = dfn_get_setting('email_accent_color', '#e74f30');
@@ -2449,7 +2439,13 @@ function dfn_promotions_build_email_html(object $promotion, string $recipient_na
 
     $location_text = trim(($event->location ?? '') . ($event->city ? ', ' . $event->city : ''));
     $cta_text = ! empty($promotion->cta_text) ? esc_html($promotion->cta_text) : 'Prenota il tuo posto';
-    $cta_url  = ! empty($event->permalink) ? esc_url($event->permalink) : home_url('/eventi/');
+
+    // Se è presente il token di tracking, il link passa per il tracker locale
+    if (! empty($tracking_token)) {
+        $cta_url = home_url('/?dfn_action=promo_click&dfn_token=' . urlencode($tracking_token));
+    } else {
+        $cta_url = ! empty($event->permalink) ? esc_url($event->permalink) : home_url('/eventi/');
+    }
 
     ob_start();
     ?>
@@ -2468,7 +2464,9 @@ function dfn_promotions_build_email_html(object $promotion, string $recipient_na
         <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff; margin-bottom: 26px; box-shadow: 0 4px 6px rgba(0,0,0,0.04);">
             <?php if (! empty($event->image_url)) : ?>
                 <div style="width: 100%; background-color: #f7fafc; text-align: center; line-height: 0;">
-                    <img src="<?php echo esc_url($event->image_url); ?>" alt="<?php echo esc_attr($event->title); ?>" style="width: 100%; max-width: 600px; height: auto; display: block; margin: 0 auto; border: 0;" />
+                    <a href="<?php echo esc_url($cta_url); ?>" style="display: block; text-decoration: none;" target="_blank">
+                        <img src="<?php echo esc_url($event->image_url); ?>" alt="<?php echo esc_attr($event->title); ?>" style="width: 100%; max-width: 600px; height: auto; display: block; margin: 0 auto; border: 0;" />
+                    </a>
                 </div>
             <?php endif; ?>
 
@@ -2502,7 +2500,7 @@ function dfn_promotions_build_email_html(object $promotion, string $recipient_na
                 <?php endif; ?>
 
                 <div style="text-align: center; margin-top: 20px;">
-                    <a href="<?php echo $cta_url; ?>" style="display: inline-block; background-color: <?php echo esc_attr($primary_color); ?>; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background-color 0.2s;">
+                    <a href="<?php echo esc_url($cta_url); ?>" style="display: inline-block; background-color: <?php echo esc_attr($primary_color); ?>; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background-color 0.2s;" target="_blank">
                         🎟️ <?php echo $cta_text; ?>
                     </a>
                 </div>
@@ -2519,6 +2517,11 @@ function dfn_promotions_build_email_html(object $promotion, string $recipient_na
             Ti aspettiamo per vivere insieme una nuova esperienza alla scoperta del nostro patrimonio.<br>
             <strong><?php echo esc_html($site_name); ?></strong>
         </p>
+
+        <?php if (! empty($tracking_token)) : ?>
+            <!-- Pixel di tracciamento apertura 1x1 trasparente -->
+            <img src="<?php echo esc_url(home_url('/?dfn_action=promo_open&dfn_token=' . urlencode($tracking_token))); ?>" width="1" height="1" alt="" style="display:none;width:1px;height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;border:none;" />
+        <?php endif; ?>
     </div>
     <?php
     $content_html = ob_get_clean();
@@ -2625,7 +2628,7 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
             if (! dfn_is_valid_promotional_email($email)) {
                 $wpdb->update($table_queue, [
                     'status'        => 'failed',
-                    'error_message' => 'Indirizzo email segnaposto o non valido (escluso dall\'invio)',
+                    'error_message' => "Indirizzo email segnaposto o non valido (escluso dall'invio)",
                     'sent_at'       => current_time('mysql'),
                 ], ['id' => $item->id]);
                 $wpdb->query($wpdb->prepare("UPDATE {$table_promotions} SET failed_count = failed_count + 1 WHERE id = %d", $promo->id));
@@ -2634,8 +2637,15 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
                 continue;
             }
 
-            // Genera l'HTML personalizzato
-            $email_html = dfn_promotions_build_email_html($promo, (string) $item->recipient_name, $event);
+            // Assicura che tracking_token esista
+            if (empty($item->tracking_token)) {
+                $item_token = function_exists('wp_generate_password') ? wp_generate_password(32, false, false) : bin2hex(random_bytes(16));
+                $wpdb->update($table_queue, ['tracking_token' => $item_token], ['id' => $item->id]);
+                $item->tracking_token = $item_token;
+            }
+
+            // Genera l'HTML personalizzato con il token di tracking
+            $email_html = dfn_promotions_build_email_html($promo, (string) $item->recipient_name, $event, (string) $item->tracking_token);
             $headers = ['Content-Type: text/html; charset=UTF-8'];
 
             // Invio via wp_mail
@@ -2687,6 +2697,265 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
         'failed'    => $total_failed,
         'status'    => ($total_processed > 0) ? 'running' : 'idle',
     ];
+}
+
+/**
+ * Registra l'apertura di un'email promozionale via tracking pixel.
+ *
+ * @param string $token Token univoco di tracking
+ * @return bool True se il record è stato aggiornato con successo
+ */
+function dfn_promotions_record_open(string $token): bool
+{
+    if (empty($token)) {
+        return false;
+    }
+
+    global $wpdb;
+    $table_queue = $wpdb->prefix . 'dfn_promotion_queue';
+    $table_promo = $wpdb->prefix . 'dfn_promotions';
+
+    $item = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_queue} WHERE tracking_token = %s", $token));
+    if (! $item) {
+        return false;
+    }
+
+    $is_first_open = empty($item->opened_at);
+    $now = current_time('mysql');
+
+    $wpdb->query($wpdb->prepare(
+        "UPDATE {$table_queue} 
+         SET opened_at = COALESCE(opened_at, %s),
+             open_count = open_count + 1 
+         WHERE id = %d",
+        $now,
+        $item->id
+    ));
+
+    if ($is_first_open) {
+        $wpdb->query($wpdb->prepare(
+            "UPDATE {$table_promo} 
+             SET opened_count = opened_count + 1 
+             WHERE id = %d",
+            $item->promotion_id
+        ));
+    }
+
+    return true;
+}
+
+/**
+ * Registra il click sulla Call to Action e restituisce l'URL di destinazione evento arricchito con UTM.
+ *
+ * @param string $token Token univoco di tracking
+ * @return array{promotion_id: int, target_url: string}|null
+ */
+function dfn_promotions_record_click(string $token): ?array
+{
+    if (empty($token)) {
+        return null;
+    }
+
+    global $wpdb;
+    $table_queue  = $wpdb->prefix . 'dfn_promotion_queue';
+    $table_promo  = $wpdb->prefix . 'dfn_promotions';
+    $table_events = $wpdb->prefix . 'dfn_events';
+
+    $item = $wpdb->get_row($wpdb->prepare(
+        "SELECT q.*, p.event_id, p.title as promo_title, e.product_id 
+         FROM {$table_queue} q
+         INNER JOIN {$table_promo} p ON p.id = q.promotion_id
+         LEFT JOIN {$table_events} e ON e.id = p.event_id
+         WHERE q.tracking_token = %s",
+        $token
+    ));
+
+    if (! $item) {
+        return null;
+    }
+
+    $is_first_click = empty($item->clicked_at);
+    $is_first_open  = empty($item->opened_at);
+    $now = current_time('mysql');
+
+    // Se l'utente clicca, l'email è sicuramente stata aperta (anche se le immagini erano bloccate)
+    $wpdb->query($wpdb->prepare(
+        "UPDATE {$table_queue} 
+         SET clicked_at = COALESCE(clicked_at, %s),
+             click_count = click_count + 1,
+             opened_at = COALESCE(opened_at, %s),
+             open_count = IF(open_count = 0, 1, open_count) 
+         WHERE id = %d",
+        $now,
+        $now,
+        $item->id
+    ));
+
+    if ($is_first_click) {
+        $wpdb->query($wpdb->prepare(
+            "UPDATE {$table_promo} 
+             SET clicked_count = clicked_count + 1 
+             WHERE id = %d",
+            $item->promotion_id
+        ));
+    }
+
+    if ($is_first_open) {
+        $wpdb->query($wpdb->prepare(
+            "UPDATE {$table_promo} 
+             SET opened_count = opened_count + 1 
+             WHERE id = %d",
+            $item->promotion_id
+        ));
+    }
+
+    // Costruzione URL di destinazione evento
+    $dest_url = home_url('/eventi/');
+    if (! empty($item->product_id)) {
+        $perm = get_permalink($item->product_id);
+        if ($perm) {
+            $dest_url = $perm;
+        }
+    }
+
+    // Integrazione trasparente con Google Analytics 4 (G-KGQF5BKEJY)
+    $campaign_slug = ! empty($item->promo_title) ? sanitize_title($item->promo_title) : ('promo-' . $item->promotion_id);
+    $dest_url = add_query_arg([
+        'utm_source'   => 'dfn_newsletter',
+        'utm_medium'   => 'email',
+        'utm_campaign' => $campaign_slug,
+        'utm_content'  => 'cta_button',
+    ], $dest_url);
+
+    return [
+        'promotion_id' => (int) $item->promotion_id,
+        'target_url'   => $dest_url,
+    ];
+}
+
+/**
+ * Attribuisce un ordine o una prenotazione completata alla campagna promozionale di provenienza.
+ *
+ * @param int $order_id ID dell'ordine WooCommerce
+ * @return void
+ */
+function dfn_promotions_attribute_order(int $order_id): void
+{
+    if (! $order_id) {
+        return;
+    }
+
+    // Evita rielaborazioni se già attribuito
+    if (get_post_meta($order_id, '_dfn_promo_attributed', true)) {
+        return;
+    }
+
+    $order = function_exists('wc_get_order') ? wc_get_order($order_id) : null;
+    if (! $order) {
+        return;
+    }
+
+    global $wpdb;
+    $table_queue    = $wpdb->prefix . 'dfn_promotion_queue';
+    $table_promo    = $wpdb->prefix . 'dfn_promotions';
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+
+    // 1. Trova l'evento acquistato in questo ordine
+    $target_event_id = 0;
+    foreach ($order->get_items() as $item) {
+        if (is_a($item, 'WC_Order_Item_Product')) {
+            $evt = function_exists('dfn_db_get_event_by_product') ? dfn_db_get_event_by_product($item->get_product_id()) : null;
+            if ($evt) {
+                $target_event_id = (int) $evt->id;
+                break;
+            }
+        }
+    }
+
+    $token = get_post_meta($order_id, '_dfn_promo_att_token', true);
+    if (empty($token) && ! empty($_COOKIE['dfn_promo_att'])) {
+        $token = sanitize_text_field($_COOKIE['dfn_promo_att']);
+    }
+
+    $billing_email = sanitize_email($order->get_billing_email());
+    $queue_item = null;
+
+    // Metodo A: Attribuzione diretta via Token da cookie
+    if (! empty($token)) {
+        $queue_item = $wpdb->get_row($wpdb->prepare(
+            "SELECT q.*, p.event_id 
+             FROM {$table_queue} q
+             INNER JOIN {$table_promo} p ON p.id = q.promotion_id
+             WHERE q.tracking_token = %s",
+            $token
+        ));
+    }
+
+    // Metodo B: Fallback via Email e Event ID (se l'utente ha aperto da un altro dispositivo o browser)
+    if (! $queue_item && ! empty($billing_email) && $target_event_id > 0) {
+        $queue_item = $wpdb->get_row($wpdb->prepare(
+            "SELECT q.*, p.event_id 
+             FROM {$table_queue} q
+             INNER JOIN {$table_promo} p ON p.id = q.promotion_id
+             WHERE q.recipient_email = %s 
+               AND p.event_id = %d 
+               AND q.status = 'sent'
+             ORDER BY q.id DESC LIMIT 1",
+            $billing_email,
+            $target_event_id
+        ));
+    }
+
+    if (! $queue_item) {
+        return;
+    }
+
+    // Se l'ordine era per un altro evento, non attribuiamo a questa campagna specifica
+    if ($target_event_id > 0 && (int) $queue_item->event_id !== $target_event_id) {
+        return;
+    }
+
+    // Trova booking_id se presente
+    $booking_id = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM {$table_bookings} WHERE order_id = %d ORDER BY id DESC LIMIT 1",
+        $order_id
+    ));
+
+    $order_total = (float) $order->get_total();
+    $now = current_time('mysql');
+
+    // Aggiorna queue item
+    $is_first_conversion = empty($queue_item->converted_at);
+    $wpdb->update($table_queue, [
+        'converted_at' => $now,
+        'order_id'     => $order_id,
+        'booking_id'   => ($booking_id > 0) ? $booking_id : null,
+        'order_total'  => $order_total,
+    ], ['id' => $queue_item->id]);
+
+    // Aggiorna totali promozione
+    if ($is_first_conversion) {
+        $wpdb->query($wpdb->prepare(
+            "UPDATE {$table_promo} 
+             SET converted_count = converted_count + 1,
+                 revenue_generated = revenue_generated + %f 
+             WHERE id = %d",
+            $order_total,
+            $queue_item->promotion_id
+        ));
+    }
+
+    // Flag sull'ordine per evitare rielaborazioni
+    update_post_meta($order_id, '_dfn_promo_attributed', 1);
+    update_post_meta($order_id, '_dfn_promo_campaign_id', $queue_item->promotion_id);
+
+    // Nota ordine per lo staff amministrativo
+    if (is_callable([$order, 'add_order_note']) || method_exists($order, 'add_order_note')) {
+        $order->add_order_note(sprintf(
+            __('🎯 Conversione attribuita alla Campagna Promozionale #%d via Newsletter DFN.', 'dfn-theme'),
+            $queue_item->promotion_id
+        ));
+    }
 }
 
 /**
