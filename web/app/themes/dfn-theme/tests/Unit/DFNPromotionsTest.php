@@ -44,6 +44,11 @@ namespace DFN\Theme\Tests\Unit {
                 'date_i18n'            => fn($format, $timestamp) => date($format, $timestamp),
                 'get_current_user_id'  => fn() => 1,
                 'sanitize_title'       => fn($text) => preg_replace('/[^a-zA-Z0-9_-]/', '_', strtolower((string)$text)),
+                'get_option'           => fn($opt, $default = false) => $default,
+                'current_user_can'     => fn($cap) => true,
+                'get_the_title'        => fn($pid = 0) => 'Evento Test',
+                'get_permalink'        => fn($pid = 0) => 'https://example.com/evento-test/',
+                'get_the_post_thumbnail_url' => fn($pid = 0, $size = '') => '',
                 'add_query_arg'        => function ($args, $url = '') {
                     $sep = strpos($url, '?') !== false ? '&' : '?';
                     return $url . $sep . http_build_query($args);
@@ -567,6 +572,60 @@ namespace DFN\Theme\Tests\Unit {
 
             // Verifichiamo che la funzione termini senza errori e abbia invocato le query attese
             $this->assertTrue(true);
+        }
+
+        /**
+         * Verifica che dfn_promotions_process_queue_batch non segni la campagna come completata
+         * se rimangono ancora elementi con status 'pending' (evita race condition con wp-cron).
+         */
+        public function test_process_queue_batch_does_not_complete_if_pending_items_exist(): void
+        {
+            global $wpdb;
+            $wpdb = \Mockery::mock('wpdb');
+            $wpdb->prefix = 'wp_';
+
+            $promo = (object) [
+                'id'                     => 1,
+                'event_id'               => 3,
+                'status'                 => 'sending',
+                'batch_size'             => 25,
+                'batch_interval_minutes' => 5,
+                'last_batch_at'          => null,
+            ];
+
+            // 1. Trova promozioni in sending
+            $wpdb->shouldReceive('get_results')
+                ->once()
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'wp_dfn_promotions') !== false))
+                ->andReturn([$promo]);
+
+            // 1b. Mock eventi idonei
+            $wpdb->shouldReceive('get_results')
+                ->with(\Mockery::on(fn($sql) => strpos($sql, 'wp_dfn_events') !== false))
+                ->andReturn([(object) ['id' => 3, 'product_id' => 100]]);
+
+            // 2. Query items in coda restituisce array vuoto (simula race condition)
+            $wpdb->shouldReceive('prepare')
+                ->andReturn('SQL_QUERY');
+            $wpdb->shouldReceive('get_results')
+                ->once()
+                ->with('SQL_QUERY')
+                ->andReturn([]);
+
+            // 3. Verifica pendenti rimanenti: supponiamo ce ne siano 100 ancora in coda
+            $wpdb->shouldReceive('get_var')
+                ->once()
+                ->with('SQL_QUERY')
+                ->andReturn(100);
+
+            // 4. NON deve chiamare update con status = completed!
+            $wpdb->shouldNotReceive('update');
+
+            $result = dfn_promotions_process_queue_batch(25);
+
+            $this->assertEquals(0, $result['processed']);
+            $this->assertEquals(0, $result['sent']);
+            $this->assertEquals('idle', $result['status']);
         }
     }
 }
