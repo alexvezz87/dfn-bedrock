@@ -1,24 +1,37 @@
 # 📖 DFN Prenotazioni & Gestione Eventi - Wiki Ufficiale
 
-Benvenuto nella Wiki tecnica del repository **DFN Prenotazioni** (`dfn-bedrock`).
+Benvenuto nella Wiki tecnica e operativa del repository **DFN Prenotazioni** (`dfn-bedrock`).
 
-Questa base di conoscenza descrive l'architettura tecnica, il modello dati, i ruoli utente, il motore di prenotazione, la Web App PWA di scansione e i flussi di deployment.
+Questa base di conoscenza contiene sia la documentazione tecnica per sviluppatori, sia i **manuali pratici e guide passo-passo** per la Segreteria di Delegazione, i Delegati e i Volontari.
 
 ---
 
-## 🧭 Navigazione Rapida
+## 📘 Manuali Utente & Guide Operative (Non Tecniche)
 
-- [📐 Architettura del Sistema](ARCHITECTURE)
+- [📘 **Manuale v2.0: Gestione Eventi, Prenotazioni, Soci FAI & Check-in**](MANUAL_V20_PRENOTAZIONI)
+- [📢 **Manuale Promozioni: Campagne, Newsletter, Invio a Lotti & Tracking**](PROMOTIONS_AND_MARKETING)
+- [📙 **Manuale v2.1: Gestione Volontari FAI, Anagrafiche & Area Riservata**](MANUAL_V21_VOLONTARI) *(in aggiornamento continuo)*
+- 📗 *Manuale v2.2: Gestione Convenzioni FAI* (Pianificato)
+
+---
+
+## 🧭 Documentazione Tecnica & Architettura
+
+- [📐 Architettura del Sistema & Moduli ON/OFF](ARCHITECTURE)
 - [🗄️ Schema Database & Tabelle Personalizzate](DATABASE_SCHEMA)
+- [📢 Motore Promozioni, Batch Engine & Attribuzione Conversioni](PROMOTIONS_AND_MARKETING)
 - [🔐 Matrice Ruoli, Permessi & Sicurezza](ROLES_AND_PERMISSIONS)
+- [👥 Struttura Delegazione, Volontari & Team](VOLUNTEERS_AND_TEAMS)
 - [🎟️ Motore di Prenotazione & Flussi](BOOKING_ENGINE)
 - [📱 Web App PWA Scanner & Check-in](PWA_SCANNER)
-- [🚀 Git Workflow, Branching & Deployment](DEPLOYMENT_AND_GIT)
+- [🤝 Gestione Avanzata Convenzioni FAI](CONVENTIONS)
+- [🚀 Git Workflow, Ambienti & Deployment](DEPLOYMENT_AND_GIT)
 
 ---
 
 ## 📌 Milestones del Progetto
 - **v1.0**: Core Booking & Event Engine (Completato)
-- **v2.0**: Advanced Booking Engine & Scanner PWA (Completato)
-- **v2.1**: Gestione Volontari FAI & Turni (In corso)
-- **v2.2**: Reporting Avanzato, Analytics & Botteghino Live (Pianificato)
+- **v2.0**: Advanced Booking Engine, Nuovo Widget Tariffe FAI, Reporting Contabile, Botteghino Live, Scanner PWA e Modulo Promozioni/Newsletter con tracking conversioni (Completato)
+- **v2.1**: Gestione Volontari FAI, Squadre di Lavoro (Team) & Notifiche Schedulate (Completato / In collaudo)
+- **v2.2**: Gestione Avanzata & Strutturata Convenzioni FAI (Pianificato)
+
