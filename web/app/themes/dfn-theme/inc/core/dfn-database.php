@@ -2538,10 +2538,11 @@ function dfn_promotions_build_email_html(object $promotion, string $recipient_na
  * Elabora un lotto (batch) di invio della coda promozionale.
  * Rispetta la deliverability e i limiti orari dell'host.
  *
- * @param int $batch_size Numero massimo di email da elaborare per singola esecuzione (default 25).
+ * @param int  $batch_size      Numero massimo di email da elaborare per singola esecuzione (default 25).
+ * @param bool $ignore_interval Se true, ignora il controllo dell'intervallo temporale (es. invio manuale da admin).
  * @return array Statistiche di elaborazione ['processed' => int, 'sent' => int, 'failed' => int, 'status' => string]
  */
-function dfn_promotions_process_queue_batch(int $batch_size = 25): array
+function dfn_promotions_process_queue_batch(int $batch_size = 25, bool $ignore_interval = false): array
 {
     global $wpdb;
 
@@ -2575,12 +2576,13 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
             $promo->status = 'sending';
         }
 
-        // Verifica intervallo di invio specifico della campagna
+        // Verifica intervallo di invio specifico della campagna (allineato alla timezone locale del sito)
         $promo_interval = ! empty($promo->batch_interval_minutes) ? absint($promo->batch_interval_minutes) : 5;
-        if (! empty($promo->last_batch_at)) {
+        if (! $ignore_interval && ! empty($promo->last_batch_at)) {
             $last_ts = strtotime($promo->last_batch_at);
+            $now_ts  = current_time('timestamp');
             // Tolleranza di 30 secondi per jitter dell'esecuzione cron
-            if ($last_ts > 0 && (time() - $last_ts) < (($promo_interval * 60) - 30)) {
+            if ($last_ts > 0 && ($now_ts - $last_ts) < (($promo_interval * 60) - 30)) {
                 continue;
             }
         }
