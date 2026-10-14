@@ -844,6 +844,10 @@ function dfn_render_promotions_admin_page(): void
                                 <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-promotions&tab=new&promo_id=' . $active_promo->id)); ?>" class="button button-primary" style="background: #004b23; border-color: #004b23; font-weight: 600;" title="<?php esc_attr_e('Riapri come bozza per correggere errori e rilanciare', 'dfn-theme'); ?>">
                                     <span class="dashicons dashicons-edit" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Riapri / Correggi Bozza', 'dfn-theme'); ?>
                                 </a>
+                            <?php elseif ($active_promo->status === 'completed' && ! empty($queue_counts['pending']) && $queue_counts['pending'] > 0) : ?>
+                                <button type="button" class="button button-primary dfn-resume-promo-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="background: #0284c7; border-color: #0284c7; font-weight: 600;" title="<?php esc_attr_e('La campagna risulta completata ma sono rimaste email in coda: clicca per riavviare l\'invio.', 'dfn-theme'); ?>">
+                                    <span class="dashicons dashicons-controls-play" style="font-size: 15px; width: 15px; height: 15px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php printf(esc_html__('Riprendi Invio Coda (%d in attesa)', 'dfn-theme'), $queue_counts['pending']); ?>
+                                </button>
                             <?php endif; ?>
 
                             <button type="button" class="button dfn-delete-promo-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="color: #94a3b8; border-color: #cbd5e1;">
@@ -852,7 +856,22 @@ function dfn_render_promotions_admin_page(): void
                         </div>
                     </div>
 
-                    <?php if ($active_promo->status === 'scheduled') : ?>
+                    <?php if ($active_promo->status === 'completed' && ! empty($queue_counts['pending']) && $queue_counts['pending'] > 0) : ?>
+                        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-left: 4px solid #0284c7; border-radius: 8px; padding: 14px 18px; margin-top: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <strong style="color: #0369a1; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="dashicons dashicons-info" style="font-size: 18px; width: 18px; height: 18px; color: #0284c7;"></span>
+                                    <?php printf(esc_html__('Coda Incompleta: %d destinatari ancora in attesa di spedizione', 'dfn-theme'), $queue_counts['pending']); ?>
+                                </strong>
+                                <p style="margin: 4px 0 0 0; color: #0c4a6e; font-size: 13px;">
+                                    <?php esc_html_e('La campagna risulta contrassegnata come completata, ma sono ancora presenti contatti in coda. Clicca su "Riprendi Invio Coda" per inviare subito un lotto e far proseguire i cron automatici in background.', 'dfn-theme'); ?>
+                                </p>
+                            </div>
+                            <button type="button" class="button button-primary dfn-resume-promo-btn" data-id="<?php echo esc_attr($active_promo->id); ?>" style="background: #0284c7; border-color: #0284c7; font-weight: 600;">
+                                <span class="dashicons dashicons-controls-play" style="font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Riprendi Invio Coda', 'dfn-theme'); ?>
+                            </button>
+                        </div>
+                    <?php elseif ($active_promo->status === 'scheduled') : ?>
                         <div style="background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px 18px; margin-top: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                             <div>
                                 <strong style="color: #b45309; font-size: 14px; display: flex; align-items: center; gap: 6px;">
@@ -1561,6 +1580,36 @@ function dfn_render_promotions_admin_page(): void
                 } else {
                     alert('Errore: ' + (res.data ? res.data.message : 'Impossibile eliminare la campagna'));
                 }
+            });
+        });
+
+        // 8. Azione: Riprendi Invio Campagna (per campagne con coda incompleta)
+        $(document).on('click', '.dfn-resume-promo-btn', function(e) {
+            e.preventDefault();
+            var $btn = $(this);
+            var promoId = $btn.data('id');
+
+            if (!confirm('Vuoi riprendere l\'invio delle email per questa campagna? Verrà spedito un primo lotto subito e i successivi in background ogni 5 minuti.')) {
+                return;
+            }
+
+            $btn.prop('disabled', true).text('Riavvio in corso...');
+
+            $.post(ajaxurl, {
+                action: 'dfn_promotions_resume_campaign',
+                nonce: nonce,
+                promo_id: promoId
+            }, function(res) {
+                if (res.success) {
+                    alert(res.data.message);
+                    location.reload();
+                } else {
+                    alert('Errore: ' + (res.data ? res.data.message : 'Impossibile riprendere la campagna'));
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-controls-play"></span> Riprendi Invio Coda');
+                }
+            }).fail(function() {
+                alert('Errore di comunicazione con il server');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-controls-play"></span> Riprendi Invio Coda');
             });
         });
 

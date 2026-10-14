@@ -3259,11 +3259,19 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
         );
 
         if (empty($items)) {
-            // Nessun elemento pendente rimasto per questa promozione: contrassegna come completata
-            $wpdb->update($table_promotions, [
-                'status'       => 'completed',
-                'completed_at' => current_time('mysql'),
-            ], ['id' => $promo->id]);
+            // Verifica di sicurezza prima di dichiarare completata la campagna:
+            // Controlla se esistono davvero zero elementi pending per questa promozione
+            $pending_count = (int) $wpdb->get_var(
+                $wpdb->prepare("SELECT COUNT(*) FROM {$table_queue} WHERE promotion_id = %d AND status = 'pending'", $promo->id)
+            );
+
+            if ($pending_count === 0) {
+                // Nessun elemento pendente rimasto per questa promozione: contrassegna come completata
+                $wpdb->update($table_promotions, [
+                    'status'       => 'completed',
+                    'completed_at' => current_time('mysql'),
+                ], ['id' => $promo->id]);
+            }
             continue;
         }
 
@@ -3314,7 +3322,7 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
 
             $total_processed++;
             if ($total_processed >= $batch_size) {
-                break 2;
+                break;
             }
         }
 
@@ -3332,6 +3340,10 @@ function dfn_promotions_process_queue_batch(int $batch_size = 25): array
                 'status'       => 'completed',
                 'completed_at' => current_time('mysql'),
             ], ['id' => $promo->id]);
+        }
+
+        if ($total_processed >= $batch_size) {
+            break;
         }
     }
 
