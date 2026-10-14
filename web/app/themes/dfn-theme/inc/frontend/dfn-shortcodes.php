@@ -296,9 +296,6 @@ function dfn_render_evento_shortcode($atts): string
                                                     <input type="number" name="quantity" id="quantity" min="0" value="1">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
-                                                <div class="dfn-qty-badge dfn-qty-badge-standard">
-                                                    🎟️ <?php esc_html_e('Tariffa ordinaria', 'dfn-theme'); ?>
-                                                </div>
                                             </div>
                                             <div class="dfn-qty-box dfn-qty-box-fai">
                                                 <div class="dfn-qty-header">
@@ -309,9 +306,6 @@ function dfn_render_evento_shortcode($atts): string
                                                     <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
                                                     <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
-                                                </div>
-                                                <div class="dfn-qty-badge dfn-qty-badge-fai">
-                                                    🪪 <?php esc_html_e('Richiede tessera FAI', 'dfn-theme'); ?>
                                                 </div>
                                             </div>
                                         </div>
@@ -631,9 +625,6 @@ function dfn_render_evento_shortcode($atts): string
                                                     <input type="number" name="quantity" id="quantity" min="0" value="1">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
-                                                <div class="dfn-qty-badge dfn-qty-badge-standard">
-                                                    🎟️ <?php esc_html_e('Tariffa ordinaria', 'dfn-theme'); ?>
-                                                </div>
                                             </div>
                                             <div class="dfn-qty-box dfn-qty-box-fai">
                                                 <div class="dfn-qty-header">
@@ -644,9 +635,6 @@ function dfn_render_evento_shortcode($atts): string
                                                     <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
                                                     <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
-                                                </div>
-                                                <div class="dfn-qty-badge dfn-qty-badge-fai">
-                                                    🪪 <?php esc_html_e('Richiede tessera FAI', 'dfn-theme'); ?>
                                                 </div>
                                             </div>
                                         </div>
