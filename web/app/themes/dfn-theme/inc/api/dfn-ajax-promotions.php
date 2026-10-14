@@ -167,7 +167,7 @@ function dfn_ajax_promotions_save_campaign(): void
     $scheduled_mysql = null;
     if ($send_mode === 'scheduled' && ! empty($scheduled_at_raw)) {
         $ts = strtotime(str_replace('T', ' ', $scheduled_at_raw));
-        if ($ts && $ts > time()) {
+        if ($ts && $ts > current_time('timestamp')) {
             $scheduled_mysql = date('Y-m-d H:i:s', $ts);
         } else {
             wp_send_json_error(['message' => __('La data e l\'ora di pianificazione devono essere successive al momento attuale.', 'dfn-theme')]);
@@ -250,8 +250,8 @@ function dfn_ajax_promotions_save_campaign(): void
                 'promo_id' => $promo_id,
             ]);
         } else {
-            // Invio immediato: avvia il primo lotto personalizzato
-            $batch_result = dfn_promotions_process_queue_batch($initial_batch_sz);
+            // Invio immediato: avvia il primo lotto personalizzato (ignora intervallo perché è il primo lotto di lancio)
+            $batch_result = dfn_promotions_process_queue_batch($initial_batch_sz, true);
 
             wp_send_json_success([
                 'message' => sprintf(
@@ -283,7 +283,8 @@ function dfn_ajax_promotions_process_batch(): void
         wp_send_json_error(['message' => __('Permessi non sufficienti.', 'dfn-theme')]);
     }
 
-    $result = dfn_promotions_process_queue_batch(25);
+    // Esecuzione manuale da parte dell'amministratore: ignora intervallo temporale
+    $result = dfn_promotions_process_queue_batch(25, true);
 
     wp_send_json_success([
         'message'   => sprintf(__('Lotto elaborato: %d email inviate con successo, %d fallite.', 'dfn-theme'), $result['sent'], $result['failed']),
@@ -532,9 +533,9 @@ function dfn_ajax_promotions_resume_campaign(): void
         wp_schedule_event(time() + 60, 'every_five_minutes', 'dfn_cron_process_promotions');
     }
 
-    // Elabora subito un lotto
+    // Elabora subito un lotto manuale riprendendo la campagna
     $batch_size = ! empty($promo->batch_size) ? absint($promo->batch_size) : 25;
-    $batch_result = dfn_promotions_process_queue_batch($batch_size);
+    $batch_result = dfn_promotions_process_queue_batch($batch_size, true);
 
     wp_send_json_success([
         'message' => sprintf(
