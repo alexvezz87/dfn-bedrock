@@ -21,6 +21,10 @@ add_action('admin_menu', 'dfn_waitlist_register_menu');
  */
 function dfn_waitlist_register_menu(): void
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('waitlist')) {
+        return;
+    }
+
     add_submenu_page(
         'dfn-events',
         esc_html__('Lista d\'Attesa Eventi', 'dfn-theme'),
@@ -36,6 +40,10 @@ function dfn_waitlist_register_menu(): void
  */
 function dfn_render_waitlist_page(): void
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('waitlist')) {
+        wp_die(esc_html__('Il modulo Lista d\'Attesa è attualmente disattivato.', 'dfn-theme'));
+    }
+
     if (! current_user_can('dfn_manage_events')) {
         wp_die(esc_html__('Non hai i permessi per accedere a questa pagina.', 'dfn-theme'));
     }

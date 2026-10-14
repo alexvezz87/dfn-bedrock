@@ -12,6 +12,10 @@ if (!defined('ABSPATH')) {
 add_action('admin_menu', 'cv_aggiungi_pagina_bilancio');
 function cv_aggiungi_pagina_bilancio()
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('accounting')) {
+        return;
+    }
+
     $hook = add_submenu_page(
         'dfn-events',
         'Bilancio Eventi',
@@ -37,6 +41,10 @@ function cv_enqueue_accounting_assets($hook)
 
 function cv_render_pagina_bilancio()
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('accounting')) {
+        wp_die(esc_html__('Il modulo Bilancio Eventi è attualmente disattivato.', 'dfn-theme'));
+    }
+
     if (! current_user_can('manage_woocommerce')) {
         return;
     }

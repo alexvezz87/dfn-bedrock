@@ -291,7 +291,7 @@ function dfn_render_lista_eventi_shortcode(array $atts = []): string
                     $permalink     = get_permalink($product_id);
                     $city_name     = ! empty($event->city) ? $event->city : '';
                     $location_text = ! empty($city_name) ? $city_name . ' — ' . $event->location : $event->location;
-                    $is_reviews_enabled = (get_post_meta($product_id, '_dfn_show_reviews_frontend', true) !== 'no');
+                    $is_reviews_enabled = (! function_exists('dfn_is_module_active') || dfn_is_module_active('reviews')) && (get_post_meta($product_id, '_dfn_show_reviews_frontend', true) !== 'no');
                     $rating_data        = $product_ratings[$product_id] ?? null;
                     ?>
                     <div class="dfn-past-card">

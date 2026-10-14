@@ -59,6 +59,8 @@ function dfn_settings_save_fields(): void
         'default_placeholder_image_id'=> 'absint',
 
         // Tab Email & Notifiche
+        'email_sandbox_mode'          => 'sanitize_text_field',
+        'email_sandbox_redirect_to'   => 'sanitize_email',
         'email_new_booking'           => 'sanitize_email_list',
         'email_verify_fai'            => 'sanitize_email_list',
         'email_cc'                    => 'sanitize_email_list',
@@ -159,6 +161,10 @@ function dfn_settings_save_fields(): void
         'enable_auto_waitlist'                => 'sanitize_text_field', // 'yes' o 'no'
         'enable_auto_complete_paid'           => 'sanitize_text_field', // 'yes' o 'no'
         'enable_auto_verify_fai'              => 'sanitize_text_field', // 'yes' o 'no' — default 'no'
+        'enable_event_promotions'             => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
+        'enable_event_accounting'             => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
+        'enable_event_reviews'                => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
+        'enable_live_boxoffice'               => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
     ];
 
     $merged_settings = $existing_settings;
@@ -184,6 +190,24 @@ function dfn_settings_save_fields(): void
                 $merged_settings[$key] = sanitize_textarea_field($val);
             } else {
                 $merged_settings[$key] = sanitize_text_field($val);
+            }
+        }
+    }
+
+    // Se ci troviamo nel tab moduli, aggiorna i toggle dei moduli FAI Prenotazioni
+    if ($active_tab === 'moduli') {
+        $module_keys = [
+            'promozioni' => 'enable_event_promotions',
+            'waitlist'   => 'enable_auto_waitlist',
+            'accounting' => 'enable_event_accounting',
+            'reviews'    => 'enable_event_reviews',
+            'botteghino' => 'enable_live_boxoffice',
+        ];
+        foreach ($module_keys as $m_id => $s_key) {
+            $is_on = isset($_POST['dfn_settings'][$s_key]) && 'yes' === $_POST['dfn_settings'][$s_key];
+            $merged_settings[$s_key] = $is_on ? 'yes' : 'no';
+            if (function_exists('dfn_set_module_status')) {
+                dfn_set_module_status($m_id, $is_on);
             }
         }
     }
@@ -257,6 +281,7 @@ function dfn_render_settings_page(): void
 
     $tabs = [
         'generale'   => '&#127970; Generale',
+        'moduli'     => '&#129513; Moduli',
         'email'      => '&#128231; Email &amp; Notifiche',
         'testi_email'=> '&#128221; Testi E-mail',
         'cron'       => '&#9200; Automazioni &amp; Cron',
@@ -354,11 +379,339 @@ function dfn_render_settings_page(): void
                             </tr>
                         </table>
 
+                    <?php elseif ($active_tab === 'moduli') : ?>
+                        <!-- TAB MODULI FAI PRENOTAZIONI -->
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 25px;">
+                            <div>
+                                <h2 style="color: #004b23; margin: 0 0 6px 0; font-size: 22px;">🧩 Moduli Funzionali FAI Prenotazioni</h2>
+                                <p class="description" style="margin: 0; font-size: 14px; color: #64748b;">
+                                    <?php esc_html_e('Attiva o disattiva i moduli opzionali del sistema di prenotazione. Disattivando un modulo, tutte le relative voci di menu in WP Admin e le funzionalità sul sito verranno rimosse all\'istante.', 'dfn-theme'); ?>
+                                </p>
+                            </div>
+                            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 20px; font-size: 13px; font-weight: 700; color: #065f46; flex-shrink: 0;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+                                <?php esc_html_e('FAI Prenotazioni v2.0', 'dfn-theme'); ?>
+                            </span>
+                        </div>
+
+                        <?php
+                        $booking_modules = [
+                            'promozioni' => [
+                                'id'            => 'promozioni',
+                                'name'          => __('Promozioni & Newsletter', 'dfn-theme'),
+                                'version'       => '2.0.1',
+                                'icon'          => 'dashicons-megaphone',
+                                'emoji'         => '📢',
+                                'badge'         => __('Marketing & Comunicazione', 'dfn-theme'),
+                                'description'   => __('Campagne email promozionali per eventi futuri inviate agli iscritti passati, gestione batch in background, statistiche di invio e annullamento campagne.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Campagne promozionali mirate su eventi attivi', 'dfn-theme'),
+                                    __('Invio asincrono in background a lotti anti-spam', 'dfn-theme'),
+                                    __('Esclusione automatica placeholder e ordini duplicati', 'dfn-theme'),
+                                    __('Tracciamento percentuale avanzamento e pulsante annulla', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_event_promotions',
+                                'menu_selector' => '#adminmenu a[href*="page=dfn-promotions"]',
+                            ],
+                            'waitlist' => [
+                                'id'            => 'waitlist',
+                                'name'          => __('Lista d\'Attesa', 'dfn-theme'),
+                                'version'       => '2.0',
+                                'icon'          => 'dashicons-clock',
+                                'emoji'         => '⏳',
+                                'badge'         => __('Gestione Posti Esauriti', 'dfn-theme'),
+                                'description'   => __('Consente agli utenti di iscriversi a una lista d\'attesa quando uno slot orario è esaurito, con bacheca dedicata e ripescaggio manuale o automatico.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Iscrizione lista d\'attesa per fasce orarie sold out', 'dfn-theme'),
+                                    __('Bacheca dedicata con visualizzazione partecipanti in coda', 'dfn-theme'),
+                                    __('Ripescaggio partecipanti e conversione rapida in prenotazione', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_auto_waitlist',
+                                'menu_selector' => '#adminmenu a[href*="page=dfn-waitlist"]',
+                            ],
+                            'accounting' => [
+                                'id'            => 'accounting',
+                                'name'          => __('Bilancio Eventi', 'dfn-theme'),
+                                'version'       => '2.0',
+                                'icon'          => 'dashicons-chart-pie',
+                                'emoji'         => '📊',
+                                'badge'         => __('Rendicontazione Economica', 'dfn-theme'),
+                                'description'   => __('Rendicontazione economica dettagliata degli incassi per evento: spaccato pagamenti online, contanti in cassa, donazioni e quote soci FAI.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Riepilogo entrate online vs contanti in cassa', 'dfn-theme'),
+                                    __('Dettaglio quote soci FAI ed erogazioni liberali', 'dfn-theme'),
+                                    __('Esportazione e rendiconto per tesoreria di Delegazione', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_event_accounting',
+                                'menu_selector' => '#adminmenu a[href*="page=cv-bilancio-eventi"]',
+                            ],
+                            'reviews' => [
+                                'id'            => 'reviews',
+                                'name'          => __('Recensione Eventi', 'dfn-theme'),
+                                'version'       => '2.0',
+                                'icon'          => 'dashicons-star-filled',
+                                'emoji'         => '⭐',
+                                'badge'         => __('Feedback & Valutazioni', 'dfn-theme'),
+                                'description'   => __('Raccolta delle valutazioni e recensioni a 5 stelle dai partecipanti agli eventi conclusi, scorecard statistica e carosello testimonianze nel frontend.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Invio richieste feedback a partecipanti convalidati', 'dfn-theme'),
+                                    __('Scorecard di gradimento e punteggio medio in stelle', 'dfn-theme'),
+                                    __('Carosello testimonianze con privacy nomi sul frontend', 'dfn-theme'),
+                                    __('Moderazione e bacheca recensioni in WP Admin', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_event_reviews',
+                                'menu_selector' => '#adminmenu a[href*="page=cv-recensioni-eventi"]',
+                            ],
+                            'botteghino' => [
+                                'id'            => 'botteghino',
+                                'name'          => __('Botteghino Live', 'dfn-theme'),
+                                'version'       => '2.0',
+                                'icon'          => 'dashicons-store',
+                                'emoji'         => '🎟️',
+                                'badge'         => __('Cassa POS in Sede', 'dfn-theme'),
+                                'description'   => __('Interfaccia di vendita diretta in sede per i volontari: incasso in contanti rapido, invio link di pagamento digitale, riserva posti autorità e convalidazioni istantanee.', 'dfn-theme'),
+                                'features'      => [
+                                    __('Creazione rapida ordini al desk di accoglienza', 'dfn-theme'),
+                                    __('Gestione contanti, POS, link pagamento e posti riservati', 'dfn-theme'),
+                                    __('Integrazione mobile PWA e scanner per operatori in loco', 'dfn-theme'),
+                                ],
+                                'setting_key'   => 'enable_live_boxoffice',
+                                'menu_selector' => '#adminmenu a[href*="page=cv-generatore-fai"]',
+                            ],
+                        ];
+                        ?>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 22px; margin-bottom: 30px;">
+                            <?php foreach ($booking_modules as $mod_key => $mod) : 
+                                $is_active = function_exists('dfn_is_module_active') ? dfn_is_module_active($mod_key) : ('yes' === dfn_get_setting($mod['setting_key'], 'yes'));
+                            ?>
+                                <div class="dfn-module-card" id="module-card-<?php echo esc_attr($mod_key); ?>" style="background: #fff; border-radius: 12px; border: 2px solid <?php echo $is_active ? '#004b23' : '#e2e8f0'; ?>; box-shadow: 0 3px 12px rgba(0,0,0,0.04); display: flex; flex-direction: column; overflow: hidden; transition: all 0.25s ease;">
+                                    
+                                    <!-- Card Header -->
+                                    <div style="padding: 18px 20px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; background: <?php echo $is_active ? '#fcfdfc' : '#f8fafc'; ?>;">
+                                        <div style="display: flex; gap: 12px; align-items: center;">
+                                            <div style="width: 44px; height: 44px; border-radius: 10px; background: <?php echo $is_active ? '#e6f3eb' : '#f1f5f9'; ?>; color: <?php echo $is_active ? '#004b23' : '#94a3b8'; ?>; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
+                                                <?php echo esc_html($mod['emoji']); ?>
+                                            </div>
+                                            <div>
+                                                <div style="display: flex; align-items: center; gap: 8px;">
+                                                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;"><?php echo esc_html($mod['name']); ?></h3>
+                                                    <span style="font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 5px; background: #f1f5f9; color: #475569;">v<?php echo esc_html($mod['version']); ?></span>
+                                                </div>
+                                                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: <?php echo $is_active ? '#004b23' : '#64748b'; ?>; margin-top: 2px;">
+                                                    <?php echo esc_html($mod['badge']); ?>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Toggle Switch -->
+                                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0;">
+                                            <label class="dfn-toggle-switch" style="position: relative; display: inline-block; width: 50px; height: 26px; margin: 0; cursor: pointer;">
+                                                <input type="checkbox" 
+                                                       name="dfn_settings[<?php echo esc_attr($mod['setting_key']); ?>]" 
+                                                       value="yes" 
+                                                       class="dfn-module-checkbox" 
+                                                       data-module="<?php echo esc_attr($mod_key); ?>"
+                                                       data-selector="<?php echo esc_attr($mod['menu_selector'] ?? ''); ?>"
+                                                       <?php checked($is_active, true); ?>
+                                                       style="opacity: 0; width: 0; height: 0;">
+                                                <span class="dfn-toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: <?php echo $is_active ? '#004b23' : '#cbd5e1'; ?>; transition: .3s; border-radius: 34px;">
+                                                    <span class="dfn-toggle-circle" style="position: absolute; content: ''; height: 18px; width: 18px; left: <?php echo $is_active ? '28px' : '4px'; ?>; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
+                                                </span>
+                                            </label>
+                                            <span class="dfn-module-status-badge" id="badge-<?php echo esc_attr($mod_key); ?>" style="font-size: 10.5px; font-weight: 800; color: <?php echo $is_active ? '#004b23' : '#64748b'; ?>;">
+                                                <?php echo $is_active ? '● ATTIVO' : '○ DISATTIVATO'; ?>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Card Body -->
+                                    <div style="padding: 18px 20px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                                        <div>
+                                            <p style="font-size: 13px; line-height: 1.55; color: #334155; margin: 0 0 14px 0;">
+                                                <?php echo esc_html($mod['description']); ?>
+                                            </p>
+
+                                            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 6px;">
+                                                <?php esc_html_e('Funzionalità Incluse:', 'dfn-theme'); ?>
+                                            </div>
+                                            <ul style="margin: 0 0 16px 0; padding-left: 0; list-style: none;">
+                                                <?php foreach ($mod['features'] as $feat) : ?>
+                                                    <li style="font-size: 12px; color: #475569; margin-bottom: 4px; display: flex; align-items: center; gap: 7px;">
+                                                        <span style="color: <?php echo $is_active ? '#004b23' : '#94a3b8'; ?>; font-size: 12px;">✓</span>
+                                                        <span><?php echo esc_html($feat); ?></span>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        </div>
+
+                                        <div style="background: #f8fafc; border-left: 3px solid #3b82f6; border-radius: 6px; padding: 9px 12px; font-size: 11.5px; color: #475569;">
+                                            ⚡ <strong>Impatto:</strong> <?php esc_html_e('Disattivando il modulo, la voce di menu e tutti i componenti correlati nel backend e frontend vengono nascosti.', 'dfn-theme'); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <!-- Script AJAX per Switch Istantaneo & Aggiornamento Dinamico del Menu DOM -->
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const checkboxes = document.querySelectorAll('.dfn-module-checkbox');
+                            let toast = document.getElementById('dfn-toast');
+                            if (!toast) {
+                                toast = document.createElement('div');
+                                toast.id = 'dfn-toast';
+                                toast.style.cssText = 'position:fixed;bottom:30px;right:30px;background:#0f172a;color:#fff;padding:14px 22px;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.25);display:none;z-index:99999;align-items:center;gap:10px;border-left:4px solid #10b981;';
+                                toast.innerHTML = '<span id="dfn-toast-msg"></span>';
+                                document.body.appendChild(toast);
+                            }
+                            const toastMsg = document.getElementById('dfn-toast-msg');
+                            let toastTimeout = null;
+
+                            function showToast(message, isSuccess = true) {
+                                if (toastTimeout) clearTimeout(toastTimeout);
+                                toastMsg.innerText = message;
+                                toast.style.borderLeftColor = isSuccess ? '#10b981' : '#ef4444';
+                                toast.style.display = 'flex';
+                                toastTimeout = setTimeout(() => {
+                                    toast.style.display = 'none';
+                                }, 3500);
+                            }
+
+                            checkboxes.forEach(function(cb) {
+                                cb.addEventListener('change', function() {
+                                    const moduleId = this.getAttribute('data-module');
+                                    const selector = this.getAttribute('data-selector');
+                                    const isChecked = this.checked;
+                                    const card = document.getElementById('module-card-' + moduleId);
+                                    const badge = document.getElementById('badge-' + moduleId);
+                                    const slider = this.nextElementSibling;
+                                    const circle = slider ? slider.querySelector('.dfn-toggle-circle') : null;
+
+                                    // 1. Aggiornamento Visivo Istantaneo della Card
+                                    if (isChecked) {
+                                        if (slider) slider.style.backgroundColor = '#004b23';
+                                        if (circle) circle.style.left = '28px';
+                                        if (card) card.style.borderColor = '#004b23';
+                                        if (badge) {
+                                            badge.innerText = '● ATTIVO';
+                                            badge.style.color = '#004b23';
+                                        }
+                                    } else {
+                                        if (slider) slider.style.backgroundColor = '#cbd5e1';
+                                        if (circle) circle.style.left = '4px';
+                                        if (card) card.style.borderColor = '#e2e8f0';
+                                        if (badge) {
+                                            badge.innerText = '○ DISATTIVATO';
+                                            badge.style.color = '#64748b';
+                                        }
+                                    }
+
+                                    // 2. Aggiornamento Dinamico del Menu WP nel DOM (Regola 6.3 AGENTS.md)
+                                    if (selector) {
+                                        try {
+                                            const targetElements = document.querySelectorAll(selector);
+                                            targetElements.forEach(function(el) {
+                                                if (el.tagName.toLowerCase() === 'a' && el.parentElement && el.parentElement.tagName.toLowerCase() === 'li') {
+                                                    el.parentElement.style.display = isChecked ? '' : 'none';
+                                                } else {
+                                                    el.style.display = isChecked ? '' : 'none';
+                                                }
+                                            });
+                                        } catch (e) {
+                                            console.warn('Errore selettore menu:', e);
+                                        }
+                                    }
+
+                                    // 3. Chiamata AJAX
+                                    const data = new FormData();
+                                    data.append('action', 'dfn_toggle_module');
+                                    data.append('module_id', moduleId);
+                                    data.append('status', isChecked ? '1' : '0');
+                                    data.append('nonce', '<?php echo esc_js(wp_create_nonce('dfn_modules_nonce')); ?>');
+
+                                    fetch(ajaxurl, {
+                                        method: 'POST',
+                                        body: data
+                                    })
+                                    .then(response => response.json())
+                                    .then(res => {
+                                        if (res.success) {
+                                            showToast(res.data.message || 'Stato modulo aggiornato!', true);
+                                        } else {
+                                            showToast(res.data.message || 'Errore durante l\'aggiornamento.', false);
+                                        }
+                                    })
+                                    .catch(err => {
+                                        showToast('Errore di rete durante il salvataggio.', false);
+                                    });
+                                });
+                            });
+                        });
+                        </script>
+
                     <?php elseif ($active_tab === 'email') : ?>
                         <!-- TAB EMAIL & NOTIFICHE -->
-                        <h2 style="color: #004b23; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">📧 Destinatari & Stile Notifiche</h2>
-                        <p class="description" style="margin-bottom: 25px;">Gestisci i canali di ricezione delle e-mail di sistema e personalizza il layout grafico dei messaggi HTML.</p>
+                        <!-- SALVAGENTE EMAIL GLOBALE (SANDBOX) -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #004b23; border-radius: 8px; padding: 20px 24px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                                <h3 style="margin: 0; color: #0f172a; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                                    <span class="dashicons dashicons-shield" style="color: #004b23; font-size: 22px; width: 22px; height: 22px;"></span>
+                                    <?php esc_html_e('Salvagente Email Globale (Sandbox & Protezione Invii)', 'dfn-theme'); ?>
+                                </h3>
+                                <?php
+                                $current_sandbox_mode = dfn_get_setting('email_sandbox_mode', 'disabled');
+                                if ($current_sandbox_mode === 'redirect') : ?>
+                                    <span style="background: #fef3c7; color: #b45309; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid #fde68a;">
+                                        🟡 <?php esc_html_e('ATTIVO — Modalità Redirect', 'dfn-theme'); ?>
+                                    </span>
+                                <?php elseif ($current_sandbox_mode === 'mute') : ?>
+                                    <span style="background: #fee2e2; color: #b91c1c; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid #fca5a5;">
+                                        🔴 <?php esc_html_e('ATTIVO — Modalità Mute (Blocco Totale)', 'dfn-theme'); ?>
+                                    </span>
+                                <?php else : ?>
+                                    <span style="background: #f1f5f9; color: #64748b; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;">
+                                        <?php esc_html_e('Disattivato (Invio Reale)', 'dfn-theme'); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            <p style="color: #475569; font-size: 13px; margin: 0 0 18px 0; line-height: 1.5;">
+                                <?php esc_html_e('Protegge l\'intero sito web (prenotazioni, newsletter promozionali, volontari, ordini WooCommerce e notifiche di sistema) impedendo l\'invio accidentale di email verso indirizzi reali durante sessioni di test o collaudo.', 'dfn-theme'); ?>
+                            </p>
 
+                            <table class="form-table" role="presentation" style="margin-top: 0;">
+                                <tr>
+                                    <th scope="row" style="width: 240px; padding: 12px 0;"><label for="email_sandbox_mode"><?php esc_html_e('Modalità Salvagente', 'dfn-theme'); ?></label></th>
+                                    <td style="padding: 12px 0;">
+                                        <select name="dfn_settings[email_sandbox_mode]" id="email_sandbox_mode" style="min-width: 360px; font-size: 14px; padding: 6px 12px; border-radius: 6px;">
+                                            <option value="disabled" <?php selected($current_sandbox_mode, 'disabled'); ?>>
+                                                <?php esc_html_e('Disattivato (Le email partono regolarmente verso i destinatari reali)', 'dfn-theme'); ?>
+                                            </option>
+                                            <option value="redirect" <?php selected($current_sandbox_mode, 'redirect'); ?>>
+                                                <?php esc_html_e('🟡 Sandbox Redirect (Devia TUTTE le email a una casella di test)', 'dfn-theme'); ?>
+                                            </option>
+                                            <option value="mute" <?php selected($current_sandbox_mode, 'mute'); ?>>
+                                                <?php esc_html_e('🔴 Mute / Silenziosa (Blocca l\'invio reale e registra solo nei log)', 'dfn-theme'); ?>
+                                            </option>
+                                        </select>
+                                        <p class="description" style="margin-top: 6px;">
+                                            <strong><?php esc_html_e('Effetto globale:', 'dfn-theme'); ?></strong> <?php esc_html_e('Se attivo, intercetta wp_mail() a livello di core per l\'intero sito. Nessun destinatario reale riceverà messaggi.', 'dfn-theme'); ?>
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" style="width: 240px; padding: 12px 0;"><label for="email_sandbox_redirect_to"><?php esc_html_e('Casella Email di Test (Redirect)', 'dfn-theme'); ?></label></th>
+                                    <td style="padding: 12px 0;">
+                                        <input name="dfn_settings[email_sandbox_redirect_to]" type="email" id="email_sandbox_redirect_to" value="<?php echo esc_attr(dfn_get_setting('email_sandbox_redirect_to', get_option('admin_email'))); ?>" class="regular-text" style="font-size: 14px; padding: 6px 12px; border-radius: 6px;" />
+                                        <p class="description" style="margin-top: 6px;">
+                                            <strong><?php esc_html_e('Destinazione sicura:', 'dfn-theme'); ?></strong> <?php esc_html_e('In modalità Redirect, TUTTE le email del sito verranno inviate a questo indirizzo. L\'oggetto dell\'email indicherà chiaramente il destinatario originario (es. [SANDBOX TEST ➔ Originale: cliente@gmail.com]) e tutti i Cc/Bcc verso terzi verranno azzerati.', 'dfn-theme'); ?>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <h3 style="color: #0f172a; margin-top: 20px; font-size: 15px; font-weight: 600;"><?php esc_html_e('Notifiche Amministrative & Copie', 'dfn-theme'); ?></h3>
                         <table class="form-table" role="presentation">
                             <tr>
                                 <th scope="row"><label for="email_new_booking">Email Notifica Nuove Prenotazioni</label></th>
@@ -1441,6 +1794,19 @@ function dfn_render_settings_page(): void
                                         Sì, marca automaticamente le tessere FAI come verificate quando approvo una prenotazione dalla sezione "Verifica Prenotazioni FAI".
                                     </label>
                                     <p class="description"><strong>Comportamento:</strong> Se attivato, cliccando <em>Approva</em> su una prenotazione pendente, tutte le tessere FAI associate vengono marcate come <code>verified = 1</code> nel database, evitando la ri-verifica manuale alle prenotazioni future degli stessi soci. <br><strong style="color:#e53e3e;">⚠️ Attualmente DISATTIVATO (default consigliato)</strong>: le tessere si verificano manualmente dalla sezione Soci FAI.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="padding: 16px 0;">
+                                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;">
+                                        <div>
+                                            <strong style="color: #166534; font-size: 15px;">🧩 Moduli Funzionali FAI Prenotazioni</strong>
+                                            <p style="margin: 4px 0 0; color: #15803d; font-size: 13.5px;">I moduli opzionali (Promozioni &amp; Newsletter, Lista d'Attesa, Bilancio Eventi, Recensioni, Botteghino Live) sono configurabili nella tab dedicata <strong>Moduli</strong>.</p>
+                                        </div>
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=dfn-settings&tab=moduli')); ?>" class="button button-primary" style="background: #004b23; border-color: #004b23; font-weight: 700; padding: 0 18px; height: 36px; line-height: 34px;">
+                                            Gestisci Moduli &rarr;
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                             <tr>

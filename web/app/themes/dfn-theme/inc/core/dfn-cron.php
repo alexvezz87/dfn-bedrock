@@ -16,22 +16,40 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-// Registrazione degli eventi cron orari su WordPress
+// Registrazione degli eventi cron su WordPress
+add_filter('cron_schedules', 'dfn_promotions_add_cron_schedules');
 add_action('init', 'dfn_registra_cron_jobs');
 add_action('switch_theme', 'dfn_rimuovi_cron_jobs');
 
 /**
- * Registra il cron job orario per le attività di manutenzione in background.
+ * Aggiunge l'intervallo ogni 5 minuti per lo smistamento della coda email promozionali.
+ */
+function dfn_promotions_add_cron_schedules(array $schedules): array
+{
+    if (! isset($schedules['every_five_minutes'])) {
+        $schedules['every_five_minutes'] = [
+            'interval' => 300,
+            'display'  => __('Ogni 5 minuti', 'dfn-theme'),
+        ];
+    }
+    return $schedules;
+}
+
+/**
+ * Registra i cron job in background per manutenzione e coda promozioni.
  */
 function dfn_registra_cron_jobs(): void
 {
     if (! wp_next_scheduled('dfn_cron_hourly_maintenance')) {
         wp_schedule_event(time(), 'hourly', 'dfn_cron_hourly_maintenance');
     }
+    if (! wp_next_scheduled('dfn_cron_process_promotions')) {
+        wp_schedule_event(time() + 120, 'every_five_minutes', 'dfn_cron_process_promotions');
+    }
 }
 
 /**
- * Rimuove il cron job alla disattivazione del tema per evitare orfani nel DB.
+ * Rimuove i cron job alla disattivazione del tema per evitare orfani nel DB.
  */
 function dfn_rimuovi_cron_jobs(): void
 {
@@ -39,10 +57,25 @@ function dfn_rimuovi_cron_jobs(): void
     if ($timestamp) {
         wp_unschedule_event($timestamp, 'dfn_cron_hourly_maintenance');
     }
+    $promo_ts = wp_next_scheduled('dfn_cron_process_promotions');
+    if ($promo_ts) {
+        wp_unschedule_event($promo_ts, 'dfn_cron_process_promotions');
+    }
 }
 
-// Collega l'azione di manutenzione oraria del cron
+// Collega le azioni di manutenzione periodica del cron
 add_action('dfn_cron_hourly_maintenance', 'dfn_run_hourly_maintenance');
+add_action('dfn_cron_process_promotions', 'dfn_cron_elabora_coda_promozioni');
+
+/**
+ * Hook dedicato per l'elaborazione a scaglioni della coda newsletter/promozioni.
+ */
+function dfn_cron_elabora_coda_promozioni(): void
+{
+    if (function_exists('dfn_promotions_process_queue_batch')) {
+        dfn_promotions_process_queue_batch(25);
+    }
+}
 
 /**
  * BLOCCO CANCELLAZIONE NATIVA WOOCOMMERCE
@@ -86,6 +119,10 @@ function dfn_run_hourly_maintenance(): void
     dfn_cron_invia_alert_approvazione_staff();
     dfn_cron_invia_promemoria_24h();
     dfn_cron_gestisci_scadenza_waitlist();
+
+    if (function_exists('dfn_promotions_process_queue_batch')) {
+        dfn_promotions_process_queue_batch(25);
+    }
 }
 
 /**

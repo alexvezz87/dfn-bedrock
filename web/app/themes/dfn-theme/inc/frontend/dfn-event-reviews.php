@@ -50,6 +50,16 @@ function dfn_format_reviewer_name(string $first_name, string $last_name = ''): s
  */
 function dfn_get_event_reviews_data(int $product_id): array
 {
+    if (function_exists('dfn_is_module_active') && ! dfn_is_module_active('reviews')) {
+        return [
+            'count'        => 0,
+            'avg_rating'   => 0.0,
+            'breakdown'    => [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0],
+            'text_reviews' => [],
+            'all_reviews'  => [],
+        ];
+    }
+
     global $wpdb;
     if ($product_id <= 0) {
         return [
@@ -189,10 +199,14 @@ function dfn_render_star_rating_svg($rating, $size = 18): string
  */
 function dfn_render_event_concluded_reviews_card(int $product_id, $event): string
 {
-    // Assicura l'enqueue condizionale del JS del carosello
-    wp_enqueue_script('dfn-reviews-carousel-js');
+    $module_active = ! function_exists('dfn_is_module_active') || dfn_is_module_active('reviews');
 
-    $is_reviews_enabled = (get_post_meta($product_id, '_dfn_show_reviews_frontend', true) !== 'no');
+    // Assicura l'enqueue condizionale del JS del carosello solo se il modulo recensioni è attivo
+    if ($module_active) {
+        wp_enqueue_script('dfn-reviews-carousel-js');
+    }
+
+    $is_reviews_enabled = $module_active && (get_post_meta($product_id, '_dfn_show_reviews_frontend', true) !== 'no');
     $reviews_data       = dfn_get_event_reviews_data($product_id);
     $event_date_str     = date_i18n('d F Y', strtotime($event->event_date_start));
 
