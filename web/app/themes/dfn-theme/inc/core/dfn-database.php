@@ -2884,14 +2884,16 @@ function dfn_db_populate_promotion_queue(int $promotion_id, array $recipients): 
 }
 
 /**
- * Recupera i destinatari in coda per una specifica campagna promozionale.
+ * Recupera i destinatari in coda per una specifica campagna promozionale con supporto paginazione e ricerca.
  *
  * @param int    $promotion_id ID della promozione
- * @param int    $limit        Limite di risultati (default 200)
- * @param string $status       Filtro opzionale sullo stato ('pending', 'sent', 'failed', 'opened', 'clicked', 'converted' o '' per tutti)
+ * @param int    $limit        Limite di risultati (default 20)
+ * @param string $status       Filtro opzionale sullo stato ('pending', 'sent', 'failed', 'opened', 'clicked', 'converted', 'cancelled' o '' per tutti)
+ * @param string $search       Termine di ricerca opzionale per email o nome
+ * @param int    $offset       Offset per paginazione (default 0)
  * @return array
  */
-function dfn_db_get_promotion_queue(int $promotion_id, int $limit = 200, string $status = ''): array
+function dfn_db_get_promotion_queue(int $promotion_id, int $limit = 20, string $status = '', string $search = '', int $offset = 0): array
 {
     global $wpdb;
     $table_queue = $wpdb->prefix . 'dfn_promotion_queue';
@@ -2912,12 +2914,60 @@ function dfn_db_get_promotion_queue(int $promotion_id, int $limit = 200, string 
         }
     }
 
-    $params[] = $limit;
+    if (! empty($search)) {
+        $like = '%' . $wpdb->esc_like(trim($search)) . '%';
+        $where .= " AND (recipient_email LIKE %s OR recipient_name LIKE %s)";
+        $params[] = $like;
+        $params[] = $like;
+    }
 
-    $sql = $wpdb->prepare("SELECT * FROM {$table_queue} WHERE {$where} ORDER BY id ASC LIMIT %d", ...$params);
+    $params[] = max(1, $limit);
+    $params[] = max(0, $offset);
+
+    $sql = $wpdb->prepare("SELECT * FROM {$table_queue} WHERE {$where} ORDER BY id ASC LIMIT %d OFFSET %d", ...$params);
     $results = $wpdb->get_results($sql);
 
     return is_array($results) ? $results : [];
+}
+
+/**
+ * Conta il numero totale di destinatari in coda per una specifica campagna filtrati per stato e ricerca.
+ *
+ * @param int    $promotion_id ID della promozione
+ * @param string $status       Filtro opzionale sullo stato
+ * @param string $search       Termine di ricerca opzionale
+ * @return int
+ */
+function dfn_db_count_promotion_queue(int $promotion_id, string $status = '', string $search = ''): int
+{
+    global $wpdb;
+    $table_queue = $wpdb->prefix . 'dfn_promotion_queue';
+
+    $where = "promotion_id = %d";
+    $params = [$promotion_id];
+
+    if (! empty($status)) {
+        if ($status === 'opened') {
+            $where .= " AND opened_at IS NOT NULL";
+        } elseif ($status === 'clicked') {
+            $where .= " AND clicked_at IS NOT NULL";
+        } elseif ($status === 'converted') {
+            $where .= " AND converted_at IS NOT NULL";
+        } else {
+            $where .= " AND status = %s";
+            $params[] = $status;
+        }
+    }
+
+    if (! empty($search)) {
+        $like = '%' . $wpdb->esc_like(trim($search)) . '%';
+        $where .= " AND (recipient_email LIKE %s OR recipient_name LIKE %s)";
+        $params[] = $like;
+        $params[] = $like;
+    }
+
+    $sql = $wpdb->prepare("SELECT COUNT(*) FROM {$table_queue} WHERE {$where}", ...$params);
+    return (int) $wpdb->get_var($sql);
 }
 
 /**
@@ -3520,13 +3570,27 @@ function dfn_promotions_attribute_order(int $order_id): void
 
     // 1. Trova l'evento acquistato in questo ordine
     $target_event_id = 0;
-    foreach ($order->get_items() as $item) {
-        if (is_a($item, 'WC_Order_Item_Product')) {
-            $evt = function_exists('dfn_db_get_event_by_product') ? dfn_db_get_event_by_product($item->get_product_id()) : null;
-            if ($evt) {
-                $target_event_id = (int) $evt->id;
-                break;
+    $items = method_exists($order, 'get_items') ? $order->get_items() : [];
+    if (is_iterable($items)) {
+        foreach ($items as $item) {
+            if (is_a($item, 'WC_Order_Item_Product')) {
+                $evt = function_exists('dfn_db_get_event_by_product') ? dfn_db_get_event_by_product($item->get_product_id()) : null;
+                if ($evt) {
+                    $target_event_id = (int) $evt->id;
+                    break;
+                }
             }
+        }
+    }
+
+    // Fallback: se l'ordine ha una prenotazione registrata nel database, recuperiamo l'event_id da lì
+    if ($target_event_id === 0) {
+        $booking_event_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT event_id FROM {$table_bookings} WHERE order_id = %d ORDER BY id DESC LIMIT 1",
+            $order_id
+        ));
+        if ($booking_event_id) {
+            $target_event_id = (int) $booking_event_id;
         }
     }
 
@@ -3538,29 +3602,31 @@ function dfn_promotions_attribute_order(int $order_id): void
     $billing_email = sanitize_email($order->get_billing_email());
     $queue_item = null;
 
-    // Metodo A: Attribuzione diretta via Token da cookie
-    if (! empty($token)) {
+    // Priorità 1: Se l'email di fatturazione dell'ordine corrisponde direttamente a un destinatario inviato
+    // in questa campagna, attribuiamo direttamente a lui (risolve casi di PC/browser condivisi o link inoltrati).
+    if (! empty($billing_email) && $target_event_id > 0) {
+        $queue_item = $wpdb->get_row($wpdb->prepare(
+            "SELECT q.*, p.event_id 
+             FROM {$table_queue} q
+             INNER JOIN {$table_promo} p ON p.id = q.promotion_id
+             WHERE LOWER(q.recipient_email) = %s 
+               AND p.event_id = %d 
+               AND q.status = 'sent'
+             ORDER BY q.id DESC LIMIT 1",
+            strtolower($billing_email),
+            $target_event_id
+        ));
+    }
+
+    // Priorità 2: Attribuzione via Token da cookie se l'acquirente ha usato un'altra email
+    // (es. acquisto con email aziendale o di un familiare dopo aver cliccato la newsletter)
+    if (! $queue_item && ! empty($token)) {
         $queue_item = $wpdb->get_row($wpdb->prepare(
             "SELECT q.*, p.event_id 
              FROM {$table_queue} q
              INNER JOIN {$table_promo} p ON p.id = q.promotion_id
              WHERE q.tracking_token = %s",
             $token
-        ));
-    }
-
-    // Metodo B: Fallback via Email e Event ID (se l'utente ha aperto da un altro dispositivo o browser)
-    if (! $queue_item && ! empty($billing_email) && $target_event_id > 0) {
-        $queue_item = $wpdb->get_row($wpdb->prepare(
-            "SELECT q.*, p.event_id 
-             FROM {$table_queue} q
-             INNER JOIN {$table_promo} p ON p.id = q.promotion_id
-             WHERE q.recipient_email = %s 
-               AND p.event_id = %d 
-               AND q.status = 'sent'
-             ORDER BY q.id DESC LIMIT 1",
-            $billing_email,
-            $target_event_id
         ));
     }
 
@@ -3582,21 +3648,32 @@ function dfn_promotions_attribute_order(int $order_id): void
     $order_total = (float) $order->get_total();
     $now = current_time('mysql');
 
-    // Aggiorna queue item
+    // Aggiorna queue item: accumula il totale speso
     $is_first_conversion = empty($queue_item->converted_at);
+    $prev_total = (float) ($queue_item->order_total ?? 0.0);
+    $accumulated_total = $prev_total + $order_total;
+
     $wpdb->update($table_queue, [
         'converted_at' => $now,
         'order_id'     => $order_id,
         'booking_id'   => ($booking_id > 0) ? $booking_id : null,
-        'order_total'  => $order_total,
+        'order_total'  => $accumulated_total,
     ], ['id' => $queue_item->id]);
 
-    // Aggiorna totali promozione
+    // Aggiorna totali promozione: incrementa sempre il revenue generato, conteggio ordini univoci solo alla prima conversione
     if ($is_first_conversion) {
         $wpdb->query($wpdb->prepare(
             "UPDATE {$table_promo} 
              SET converted_count = converted_count + 1,
                  revenue_generated = revenue_generated + %f 
+             WHERE id = %d",
+            $order_total,
+            $queue_item->promotion_id
+        ));
+    } else {
+        $wpdb->query($wpdb->prepare(
+            "UPDATE {$table_promo} 
+             SET revenue_generated = revenue_generated + %f 
              WHERE id = %d",
             $order_total,
             $queue_item->promotion_id

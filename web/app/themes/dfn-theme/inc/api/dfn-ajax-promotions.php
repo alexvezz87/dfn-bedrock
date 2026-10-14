@@ -547,4 +547,66 @@ function dfn_ajax_promotions_resume_campaign(): void
     ]);
 }
 
+/**
+ * Endpoint AJAX: Recupera una pagina di destinatari in coda con filtri di stato, ricerca e paginazione.
+ */
+add_action('wp_ajax_dfn_promotions_get_queue', 'dfn_ajax_promotions_get_queue');
+function dfn_ajax_promotions_get_queue(): void
+{
+    check_ajax_referer('dfn_promotions_ajax_nonce', 'nonce');
+
+    if (! current_user_can('dfn_act_promotions') && ! current_user_can('manage_options')) {
+        wp_send_json_error(['message' => __('Permessi non sufficienti.', 'dfn-theme')]);
+    }
+
+    $promo_id = isset($_POST['promo_id']) ? absint($_POST['promo_id']) : 0;
+    if ($promo_id <= 0) {
+        wp_send_json_error(['message' => __('ID campagna non valido.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $promo = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}dfn_promotions WHERE id = %d", $promo_id));
+    $campaign_status = $promo ? $promo->status : '';
+
+    $status   = isset($_POST['status']) ? sanitize_key($_POST['status']) : '';
+    $search   = isset($_POST['search']) ? sanitize_text_field(wp_unslash($_POST['search'])) : '';
+    $page     = isset($_POST['page']) ? max(1, absint($_POST['page'])) : 1;
+    $per_page = isset($_POST['per_page']) ? absint($_POST['per_page']) : 20;
+
+    if (! in_array($per_page, [20, 50, 100], true)) {
+        $per_page = 20;
+    }
+
+    $total_items = function_exists('dfn_db_count_promotion_queue')
+        ? dfn_db_count_promotion_queue($promo_id, $status, $search)
+        : 0;
+
+    $total_pages = max(1, (int) ceil($total_items / $per_page));
+    if ($page > $total_pages) {
+        $page = $total_pages;
+    }
+    $offset = ($page - 1) * $per_page;
+
+    $items = function_exists('dfn_db_get_promotion_queue')
+        ? dfn_db_get_promotion_queue($promo_id, $per_page, $status, $search, $offset)
+        : [];
+
+    ob_start();
+    if (function_exists('dfn_promotions_render_queue_table_contents')) {
+        dfn_promotions_render_queue_table_contents($items, $total_items, $page, $per_page, $total_pages, $search, $campaign_status);
+    }
+    $html = ob_get_clean();
+
+    wp_send_json_success([
+        'html'         => $html,
+        'total_items'  => $total_items,
+        'total_pages'  => $total_pages,
+        'current_page' => $page,
+        'per_page'     => $per_page,
+        'status'       => $status,
+        'search'       => $search,
+    ]);
+}
+
+
 
