@@ -24,6 +24,7 @@ add_action('wp_ajax_dfn_promotions_process_batch',      'dfn_ajax_promotions_pro
 add_action('wp_ajax_dfn_promotions_cancel_campaign',    'dfn_ajax_promotions_cancel_campaign');
 add_action('wp_ajax_dfn_promotions_delete_campaign',    'dfn_ajax_promotions_delete_campaign');
 add_action('wp_ajax_dfn_promotions_launch_scheduled_now', 'dfn_ajax_promotions_launch_scheduled_now');
+add_action('wp_ajax_dfn_promotions_resume_campaign',   'dfn_ajax_promotions_resume_campaign');
 
 /**
  * Endpoint AJAX: Calcola le statistiche del pubblico target per l'evento selezionato.
@@ -183,7 +184,9 @@ function dfn_ajax_promotions_save_campaign(): void
         'initial_batch_size'     => $initial_batch_sz,
         'batch_size'             => $batch_size,
         'batch_interval_minutes' => $batch_interval,
-        'status'                 => $is_launch ? ($send_mode === 'scheduled' ? 'scheduled' : 'sending') : 'draft',
+        // Imposta inizialmente come 'draft' per evitare che WP-Cron intercetti la campagna
+        // prima che la coda dei destinatari sia stata interamente inserita (race condition)
+        'status'                 => 'draft',
     ];
 
     if ($scheduled_mysql) {
@@ -209,15 +212,27 @@ function dfn_ajax_promotions_save_campaign(): void
         $queued_count = dfn_db_populate_promotion_queue($promo_id, $audience);
 
         if ($queued_count === 0) {
-            // Nessun destinatario idoneo disponibile
+            // Nessun destinatario idoneo disponibile: contrassegna come completata
             global $wpdb;
-            $wpdb->update($wpdb->prefix . 'dfn_promotions', ['status' => 'completed'], ['id' => $promo_id]);
+            $wpdb->update($wpdb->prefix . 'dfn_promotions', [
+                'status'       => 'completed',
+                'completed_at' => current_time('mysql'),
+            ], ['id' => $promo_id]);
 
             wp_send_json_success([
                 'message' => __('Campagna creata! Tutti i clienti del portale risultano già prenotati per questo evento o non ci sono contatti in archivio.', 'dfn-theme'),
                 'promo_id' => $promo_id,
             ]);
         }
+
+        // Ora che tutti i destinatari sono stati inseriti in coda con successo,
+        // aggiorna lo stato su 'scheduled' o 'sending' per sbloccare l'invio
+        $target_status = ($send_mode === 'scheduled') ? 'scheduled' : 'sending';
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'dfn_promotions', [
+            'status'       => $target_status,
+            'completed_at' => null,
+        ], ['id' => $promo_id]);
 
         // Assicura che l'evento cron per la coda sia schedulato
         if (! wp_next_scheduled('dfn_cron_process_promotions')) {
@@ -474,4 +489,61 @@ function dfn_promotions_handle_order_completed(int $order_id): void
         dfn_promotions_attribute_order($order_id);
     }
 }
+
+/**
+ * Endpoint AJAX: Riprende l'invio di una campagna congelata o prematuramente chiusa con destinatari pendenti.
+ */
+function dfn_ajax_promotions_resume_campaign(): void
+{
+    check_ajax_referer('dfn_promotions_ajax_nonce', 'nonce');
+
+    if (! current_user_can('dfn_act_promotions') && ! current_user_can('manage_options')) {
+        wp_send_json_error(['message' => __('Permessi non sufficienti.', 'dfn-theme')]);
+    }
+
+    $promo_id = isset($_POST['promo_id']) ? absint($_POST['promo_id']) : 0;
+    if ($promo_id <= 0) {
+        wp_send_json_error(['message' => __('ID campagna non valido.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $table_promotions = $wpdb->prefix . 'dfn_promotions';
+    $table_queue      = $wpdb->prefix . 'dfn_promotion_queue';
+
+    $promo = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_promotions} WHERE id = %d", $promo_id));
+    if (! $promo) {
+        wp_send_json_error(['message' => __('Campagna non trovata.', 'dfn-theme')]);
+    }
+
+    $pending = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_queue} WHERE promotion_id = %d AND status = 'pending'", $promo_id));
+    if ($pending === 0) {
+        wp_send_json_error(['message' => __('Non ci sono destinatari in attesa di invio per questa campagna.', 'dfn-theme')]);
+    }
+
+    // Riattiva lo stato sending rimuovendo completed_at e azzerando last_batch_at per invio immediato
+    $wpdb->update($table_promotions, [
+        'status'        => 'sending',
+        'completed_at'  => null,
+        'last_batch_at' => null,
+    ], ['id' => $promo_id]);
+
+    // Assicura che l'evento cron per la coda sia schedulato
+    if (! wp_next_scheduled('dfn_cron_process_promotions')) {
+        wp_schedule_event(time() + 60, 'every_five_minutes', 'dfn_cron_process_promotions');
+    }
+
+    // Elabora subito un lotto
+    $batch_size = ! empty($promo->batch_size) ? absint($promo->batch_size) : 25;
+    $batch_result = dfn_promotions_process_queue_batch($batch_size);
+
+    wp_send_json_success([
+        'message' => sprintf(
+            __('Invio ripreso con successo! Inviate %d email subito, le restanti verranno spedite a lotti ogni %d min in background.', 'dfn-theme'),
+            $batch_result['sent'],
+            ! empty($promo->batch_interval_minutes) ? $promo->batch_interval_minutes : 5
+        ),
+        'batch_result' => $batch_result,
+    ]);
+}
+
 
