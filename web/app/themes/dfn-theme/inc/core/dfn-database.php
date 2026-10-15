@@ -288,11 +288,16 @@ function dfn_db_install(): void
         agenda text DEFAULT NULL,
         notes text DEFAULT NULL,
         status varchar(20) NOT NULL DEFAULT 'scheduled',
+        team_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        reminder_7d_sent tinyint(1) NOT NULL DEFAULT 0,
+        reminder_1d_sent tinyint(1) NOT NULL DEFAULT 0,
+        reminders_sent text DEFAULT NULL,
         created_by bigint(20) unsigned DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY idx_date (meeting_date),
-        KEY idx_status (status)
+        KEY idx_status (status),
+        KEY idx_team (team_id)
     ) {$charset_collate};";
 
     // -------------------------------------------------------------------
@@ -526,6 +531,49 @@ function dfn_db_install(): void
         KEY idx_converted (converted_at)
     ) {$charset_collate};";
 
+    // -------------------------------------------------------------------
+    // TABELLA 21: Squadre & Team di Delegazione (Modulo 2.1.1)
+    // -------------------------------------------------------------------
+    $table_teams = $wpdb->prefix . 'dfn_teams';
+    $sql_teams = "CREATE TABLE {$table_teams} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        name varchar(100) NOT NULL,
+        slug varchar(50) NOT NULL,
+        description text DEFAULT NULL,
+        icon varchar(20) NOT NULL DEFAULT '👥',
+        color varchar(20) NOT NULL DEFAULT '#004b23',
+        badge_bg varchar(20) NOT NULL DEFAULT '#f0fdf4',
+        whatsapp_url varchar(500) DEFAULT NULL,
+        drive_url varchar(500) DEFAULT NULL,
+        supervisor_roles text DEFAULT NULL,
+        supervisor_user_id bigint(20) unsigned DEFAULT NULL,
+        is_active tinyint(1) NOT NULL DEFAULT 1,
+        reminder_cadence_mode varchar(20) NOT NULL DEFAULT 'inherit',
+        reminder_days varchar(255) DEFAULT NULL,
+        order_num int(10) unsigned NOT NULL DEFAULT 0,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY uk_slug (slug),
+        KEY idx_active (is_active),
+        KEY idx_order (order_num)
+    ) {$charset_collate};";
+
+    // -------------------------------------------------------------------
+    // TABELLA 22: Componenti dei Team di Lavoro (Modulo 2.1.1)
+    // -------------------------------------------------------------------
+    $table_team_members = $wpdb->prefix . 'dfn_team_members';
+    $sql_team_members = "CREATE TABLE {$table_team_members} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        team_id bigint(20) unsigned NOT NULL,
+        member_id bigint(20) unsigned NOT NULL,
+        user_id bigint(20) unsigned DEFAULT NULL,
+        joined_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY uk_team_member (team_id, member_id),
+        KEY idx_team (team_id),
+        KEY idx_member (member_id),
+        KEY idx_user (user_id)
+    ) {$charset_collate};";
 
     // Esecuzione idempotente di tutte le tabelle
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -549,6 +597,11 @@ function dfn_db_install(): void
     dbDelta($sql_event_roles);
     dbDelta($sql_promotions);
     dbDelta($sql_promotion_queue);
+    dbDelta($sql_teams);
+    dbDelta($sql_team_members);
+
+    // Auto-migrazione difensiva colonne
+    dfn_ensure_meetings_reminder_columns();
 
     // Popolamento ruoli predefiniti se la tabella è vuota
     $table_roles = $wpdb->prefix . 'dfn_volunteer_roles';
@@ -703,9 +756,55 @@ function dfn_db_install(): void
         }
     }
 
+    // Aggiornamento colonne per Riunioni e Team (Issue #65)
+    dfn_ensure_meetings_reminder_columns();
+
     // Aggiorna la versione per evitare re-esecuzioni
     update_option('dfn_db_version', DFN_DB_VERSION);
 }
+
+/**
+ * Verifica e aggiunge dinamicamente le colonne per i promemoria dinamici e team (Modulo 2.1.1 - Issue #65).
+ */
+function dfn_ensure_meetings_reminder_columns(): void
+{
+    global $wpdb;
+    $table_meetings = $wpdb->prefix . 'dfn_volunteer_meetings';
+    $table_teams    = $wpdb->prefix . 'dfn_teams';
+
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$table_meetings}'") === $table_meetings) {
+        $cols = $wpdb->get_col("DESCRIBE {$table_meetings}", 0);
+        if (! in_array('team_id', (array) $cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_meetings} ADD COLUMN team_id bigint(20) unsigned NOT NULL DEFAULT 0 AFTER status, ADD INDEX idx_team (team_id)");
+        }
+        if (! in_array('reminder_7d_sent', (array) $cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_meetings} ADD COLUMN reminder_7d_sent tinyint(1) NOT NULL DEFAULT 0 AFTER team_id");
+        }
+        if (! in_array('reminder_1d_sent', (array) $cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_meetings} ADD COLUMN reminder_1d_sent tinyint(1) NOT NULL DEFAULT 0 AFTER reminder_7d_sent");
+        }
+        if (! in_array('reminders_sent', (array) $cols, true)) {
+            $wpdb->query("ALTER TABLE {$table_meetings} ADD COLUMN reminders_sent text DEFAULT NULL AFTER reminder_1d_sent");
+        }
+    }
+
+    if ($wpdb->get_var("SHOW TABLES LIKE '{$table_teams}'") === $table_teams) {
+        $cols_teams = $wpdb->get_col("DESCRIBE {$table_teams}", 0);
+        if (! in_array('whatsapp_url', (array) $cols_teams, true)) {
+            $wpdb->query("ALTER TABLE {$table_teams} ADD COLUMN whatsapp_url varchar(500) DEFAULT NULL AFTER badge_bg");
+        }
+        if (! in_array('drive_url', (array) $cols_teams, true)) {
+            $wpdb->query("ALTER TABLE {$table_teams} ADD COLUMN drive_url varchar(500) DEFAULT NULL AFTER whatsapp_url");
+        }
+        if (! in_array('reminder_cadence_mode', (array) $cols_teams, true)) {
+            $wpdb->query("ALTER TABLE {$table_teams} ADD COLUMN reminder_cadence_mode varchar(20) NOT NULL DEFAULT 'inherit' AFTER is_active");
+        }
+        if (! in_array('reminder_days', (array) $cols_teams, true)) {
+            $wpdb->query("ALTER TABLE {$table_teams} ADD COLUMN reminder_days varchar(255) DEFAULT NULL AFTER reminder_cadence_mode");
+        }
+    }
+}
+add_action('admin_init', 'dfn_ensure_meetings_reminder_columns');
 
 /**
  * ========================================================================
@@ -3159,20 +3258,24 @@ function dfn_save_team(array $data, ?int $team_id = null)
 
     $whatsapp_url = ! empty($data['whatsapp_url']) ? esc_url_raw(trim($data['whatsapp_url'])) : null;
     $drive_url    = ! empty($data['drive_url']) ? esc_url_raw(trim($data['drive_url'])) : null;
+    $reminder_cadence_mode = in_array($data['reminder_cadence_mode'] ?? 'inherit', ['inherit', 'custom'], true) ? $data['reminder_cadence_mode'] : 'inherit';
+    $reminder_days = ! empty($data['reminder_days']) ? sanitize_text_field($data['reminder_days']) : null;
 
     $payload = [
-        'name'               => $name,
-        'slug'               => $slug,
-        'description'        => $description,
-        'icon'               => $icon,
-        'color'              => $color,
-        'badge_bg'           => $badge_bg,
-        'whatsapp_url'       => $whatsapp_url,
-        'drive_url'          => $drive_url,
-        'supervisor_roles'   => $supervisor_roles,
-        'supervisor_user_id' => $supervisor_user_id,
-        'is_active'          => $is_active,
-        'order_num'          => $order_num,
+        'name'                  => $name,
+        'slug'                  => $slug,
+        'description'           => $description,
+        'icon'                  => $icon,
+        'color'                 => $color,
+        'badge_bg'              => $badge_bg,
+        'whatsapp_url'          => $whatsapp_url,
+        'drive_url'             => $drive_url,
+        'supervisor_roles'      => $supervisor_roles,
+        'supervisor_user_id'    => $supervisor_user_id,
+        'is_active'             => $is_active,
+        'reminder_cadence_mode' => $reminder_cadence_mode,
+        'reminder_days'         => $reminder_days,
+        'order_num'             => $order_num,
     ];
 
     if ($team_id && $team_id > 0) {

@@ -749,12 +749,13 @@ function dfn_track_payment_page_visit(): void
 }
 
 /**
- * 6. PROMEMORIA RIUNIONI VOLONTARI (PLENARIE E DI TEAM) — ISSUE #26
+ * 6. PROMEMORIA RIUNIONI VOLONTARI (PLENARIE E DI TEAM) — ISSUE #26 & #65
  *
- * Controlla se vi sono riunioni programmate:
- * - A 7 giorni da oggi (se reminder_7d_sent = 0)
- * - A 1 giorno da oggi (se reminder_1d_sent = 0)
- * Invia l'email di promemoria a tutti i volontari/membri del gruppo abilitati.
+ * Controlla dinamicamente le riunioni programmate e invia i promemoria
+ * in base alle cadenze configurate (in giorni prima) a livello di Delegazione (Plenaria)
+ * o personalizzate per singolo Team di lavoro.
+ * Utilizza la timezone locale di WordPress (current_time) per garantire che i giorni
+ * siano calcolati correttamente senza disallineamenti UTC.
  */
 function dfn_cron_invia_promemoria_riunioni_volontari(): void
 {
@@ -778,34 +779,57 @@ function dfn_cron_invia_promemoria_riunioni_volontari(): void
     $teams_enabled = function_exists('dfn_get_volunteer_setting') ? (dfn_get_volunteer_setting('vol_enable_teams', 'yes') === 'yes') : true;
     $team_scope_sql = (! $teams_enabled) ? " AND (team_id IS NULL OR team_id = 0) " : "";
 
-    // 1. Riunioni a 7 giorni (tra 6 e 7 giorni)
-    $meetings_7d = $wpdb->get_results(
-        "SELECT id, title, meeting_date, team_id FROM {$table_meetings} 
-         WHERE status = 'scheduled' 
-           AND meeting_date = CURDATE() + INTERVAL 7 DAY 
-           AND reminder_7d_sent = 0 {$team_scope_sql}"
-    );
+    // Timezone locale di WordPress (Europe/Rome)
+    $today_local_str = current_time('Y-m-d');
+    $today_local_ts  = strtotime($today_local_str);
 
-    if (! empty($meetings_7d)) {
-        foreach ($meetings_7d as $m7) {
-            if (function_exists('dfn_send_volunteer_meeting_notification')) {
-                dfn_send_volunteer_meeting_notification((int) $m7->id, true, '7d');
-            }
-        }
+    // Recupera tutte le riunioni programmate future
+    $sql = "SELECT id, title, meeting_date, team_id, reminders_sent, reminder_7d_sent, reminder_1d_sent 
+            FROM {$table_meetings} 
+            WHERE status = 'scheduled' 
+              AND meeting_date >= %s {$team_scope_sql}";
+    $meetings = $wpdb->get_results($wpdb->prepare($sql, $today_local_str));
+
+    if (empty($meetings)) {
+        return;
     }
 
-    // 2. Riunioni a 1 giorno (domani)
-    $meetings_1d = $wpdb->get_results(
-        "SELECT id, title, meeting_date, team_id FROM {$table_meetings} 
-         WHERE status = 'scheduled' 
-           AND meeting_date = CURDATE() + INTERVAL 1 DAY 
-           AND reminder_1d_sent = 0 {$team_scope_sql}"
-    );
+    foreach ($meetings as $m) {
+        $meeting_ts = strtotime($m->meeting_date);
+        $days_diff = (int) round(($meeting_ts - $today_local_ts) / DAY_IN_SECONDS);
 
-    if (! empty($meetings_1d)) {
-        foreach ($meetings_1d as $m1) {
-            if (function_exists('dfn_send_volunteer_meeting_notification')) {
-                dfn_send_volunteer_meeting_notification((int) $m1->id, true, '1d');
+        if ($days_diff <= 0) {
+            continue; // Riunione oggi o passata
+        }
+
+        // Risolvi cadenze target configurate (Plenaria vs Team)
+        $target_days = function_exists('dfn_get_meeting_reminder_days') 
+            ? dfn_get_meeting_reminder_days($m) 
+            : [30, 7, 1];
+
+        // Mappa dei reminder già inviati
+        $already_sent = [];
+        if (! empty($m->reminders_sent)) {
+            $decoded = json_decode($m->reminders_sent, true);
+            if (is_array($decoded)) {
+                $already_sent = $decoded;
+            }
+        }
+        // Retrocompatibilità colonne 7d e 1d
+        if (! empty($m->reminder_7d_sent)) {
+            $already_sent['7'] = $already_sent['7'] ?? true;
+        }
+        if (! empty($m->reminder_1d_sent)) {
+            $already_sent['1'] = $already_sent['1'] ?? true;
+        }
+
+        // Se oggi corrisponde a uno dei giorni previsti per il sollecito
+        if (in_array($days_diff, $target_days, true)) {
+            $day_key = (string) $days_diff;
+            if (empty($already_sent[$day_key])) {
+                if (function_exists('dfn_send_volunteer_meeting_notification')) {
+                    dfn_send_volunteer_meeting_notification((int) $m->id, true, "{$days_diff}d");
+                }
             }
         }
     }
