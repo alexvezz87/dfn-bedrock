@@ -60,27 +60,168 @@
 @media (max-width: 480px) {
     .dfn-qty-grid {
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: 14px;
     }
 }
 
 .dfn-qty-box {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 12px 14px;
+    border-radius: 12px;
+    padding: 20px 16px 20px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 2px solid transparent;
 }
 
-.dfn-qty-box label {
-    font-size: 12px;
+.dfn-qty-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Header interno al box quantità (Label + Prezzo) */
+.dfn-qty-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.dfn-qty-box .dfn-qty-label {
+    font-size: 11.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 0;
+    line-height: 1.3;
+    text-align: center;
+    opacity: 0.92;
+}
+
+.dfn-qty-box .dfn-qty-price {
+    font-size: 26px;
     font-weight: 600;
-    color: #64748b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.1;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 4px;
+    text-align: center;
+}
+
+.dfn-qty-box .dfn-qty-price .woocommerce-Price-amount {
+    font-weight: 600;
+}
+
+.dfn-qty-box .dfn-qty-unit {
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0.8;
+}
+
+/* Controllo Stepper Numerico */
+.dfn-qty-box .dfn-qty-control {
+    width: 100%;
+    max-width: 170px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.dfn-qty-box .dfn-qty-btn {
+    height: 42px;
+    width: 42px;
+    flex: 0 0 42px;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.dfn-qty-box input[type="number"] {
+    height: 42px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Dicitura descrittiva sotto lo stepper (es. Intero / Ridotto) */
+.dfn-qty-box .dfn-qty-subtext {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    text-align: center;
+    margin-top: -2px;
+}
+
+/* Variante Standard (Non Iscritto) - Verde FAI #054238 */
+.dfn-qty-box-standard {
+    background: #054238;
+    border-color: #054238;
+}
+
+.dfn-qty-box-standard .dfn-qty-label {
+    color: #ffffff;
+}
+
+.dfn-qty-box-standard .dfn-qty-price {
+    color: #ffffff;
+}
+
+.dfn-qty-box-standard .dfn-qty-unit {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.dfn-qty-box-standard .dfn-qty-btn {
+    background: #f8fafc;
+    color: #054238;
+}
+
+.dfn-qty-box-standard .dfn-qty-btn:hover {
+    background: #e2e8f0;
+    color: #054238;
+}
+
+.dfn-qty-box-standard input[type="number"] {
+    color: #054238;
+}
+
+/* Variante FAI (Socio FAI) - Arancio FAI #e74f30 */
+.dfn-qty-box-fai {
+    background: #e74f30;
+    border-color: #e74f30;
+}
+
+.dfn-qty-box-fai .dfn-qty-label {
+    color: #ffffff;
+}
+
+.dfn-qty-box-fai .dfn-qty-price {
+    color: #ffffff;
+}
+
+.dfn-qty-box-fai .dfn-qty-unit {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.dfn-qty-box-fai .dfn-qty-btn {
+    background: #f8fafc;
+    color: #e74f30;
+}
+
+.dfn-qty-box-fai .dfn-qty-btn:hover {
+    background: #e2e8f0;
+    color: #e74f30;
+}
+
+.dfn-qty-box-fai input[type="number"] {
+    color: #e74f30;
 }
 
 .dfn-qty-control {

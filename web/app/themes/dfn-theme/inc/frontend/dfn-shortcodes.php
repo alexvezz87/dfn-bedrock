@@ -283,54 +283,43 @@ function dfn_render_evento_shortcode($atts): string
                                 </div>
                             <?php else : ?>
                                 <div class="dfn-booking-section">
-                                    <span class="dfn-widget-label"><?php esc_html_e('Tariffe Contributo', 'dfn-theme'); ?></span>
-                                    <?php if ($has_fai_price) : ?>
-                                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                                <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Non Iscritto FAI (Intero)', 'dfn-theme'); ?></div>
-                                                <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
-                                            </div>
-                                            <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                                <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Socio FAI (Ridotto)', 'dfn-theme'); ?></div>
-                                                <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
-                                                <div style="font-size:10px; color:#b45309; margin-top:4px; font-weight:600; line-height:1.2;">⚠️ <?php esc_html_e('Richiede tessera FAI', 'dfn-theme'); ?></div>
-                                            </div>
-                                        </div>
-                                    <?php else : ?>
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                            <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Intero', 'dfn-theme'); ?></div>
-                                            <div style="font-size:20px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-
-                                <div class="dfn-booking-section">
                                     <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
                                     <?php if ($has_fai_price) : ?>
                                         <div class="dfn-qty-grid">
-                                            <div class="dfn-qty-box">
-                                                <label for="quantity"><?php esc_html_e('Non Iscritti FAI (Intero)', 'dfn-theme'); ?></label>
+                                            <div class="dfn-qty-box dfn-qty-box-standard">
+                                                <div class="dfn-qty-header">
+                                                    <label for="quantity" class="dfn-qty-label"><?php esc_html_e('Non Iscritto', 'dfn-theme'); ?></label>
+                                                    <div class="dfn-qty-price"><?php echo wp_kses_post($price_standard_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
+                                                </div>
                                                 <div class="dfn-qty-control">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
                                                     <input type="number" name="quantity" id="quantity" min="0" value="1">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
+                                                <div class="dfn-qty-subtext"><?php esc_html_e('Intero', 'dfn-theme'); ?></div>
                                             </div>
-                                            <div class="dfn-qty-box">
-                                                <label for="dfn_qty_fai"><?php esc_html_e('Soci FAI (Ridotto)', 'dfn-theme'); ?></label>
+                                            <div class="dfn-qty-box dfn-qty-box-fai">
+                                                <div class="dfn-qty-header">
+                                                    <label for="dfn_qty_fai" class="dfn-qty-label"><?php esc_html_e('Socio FAI', 'dfn-theme'); ?></label>
+                                                    <div class="dfn-qty-price"><?php echo wp_kses_post($price_fai_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
+                                                </div>
                                                 <div class="dfn-qty-control">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
                                                     <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
+                                                <div class="dfn-qty-subtext"><?php esc_html_e('Ridotto', 'dfn-theme'); ?></div>
                                             </div>
                                         </div>
                                         <div style="font-size:11.5px; color:#64748b; margin-top:8px; line-height:1.45; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">
                                             ℹ️ <?php esc_html_e('La tariffa Socio FAI è riservata ai soli possessori di tessera FAI in corso di validità. Il numero di tessera verrà richiesto al passaggio successivo.', 'dfn-theme'); ?>
                                         </div>
                                     <?php else : ?>
-                                        <div class="dfn-qty-box">
-                                            <label for="quantity"><?php esc_html_e('Numero di Biglietti', 'dfn-theme'); ?></label>
+                                        <div class="dfn-qty-box dfn-qty-box-standard">
+                                            <div class="dfn-qty-header">
+                                                <label for="quantity" class="dfn-qty-label"><?php esc_html_e('Biglietto Intero', 'dfn-theme'); ?></label>
+                                                <div class="dfn-qty-price"><?php echo wp_kses_post($price_standard_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
+                                            </div>
                                             <div class="dfn-qty-control">
                                                 <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
                                                 <input type="number" name="quantity" id="quantity" min="1" value="1">
@@ -625,54 +614,43 @@ function dfn_render_evento_shortcode($atts): string
                                 </div>
                             <?php else : ?>
                                 <div class="dfn-booking-section">
-                                    <span class="dfn-widget-label"><?php esc_html_e('Tariffe Contributo', 'dfn-theme'); ?></span>
-                                    <?php if ($has_fai_price) : ?>
-                                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                                <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Non Iscritto FAI (Intero)', 'dfn-theme'); ?></div>
-                                                <div style="font-size:18px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
-                                            </div>
-                                            <div style="background:#fffdf5; border:1px solid #e74f30; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                                <div style="font-size:10px; font-weight:700; color:#e74f30; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Socio FAI (Ridotto)', 'dfn-theme'); ?></div>
-                                                <div style="font-size:18px; font-weight:800; color:#004b23;"><?php echo wp_kses_post($price_fai_html); ?></div>
-                                                <div style="font-size:10px; color:#b45309; margin-top:4px; font-weight:600; line-height:1.2;">⚠️ <?php esc_html_e('Richiede tessera FAI', 'dfn-theme'); ?></div>
-                                            </div>
-                                        </div>
-                                    <?php else : ?>
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                                            <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;"><?php esc_html_e('Intero', 'dfn-theme'); ?></div>
-                                            <div style="font-size:20px; font-weight:800; color:#1e293b;"><?php echo wp_kses_post($price_standard_html); ?></div>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-
-                                <div class="dfn-booking-section">
                                     <span class="dfn-widget-label"><?php esc_html_e('Seleziona Partecipanti', 'dfn-theme'); ?></span>
                                     <?php if ($has_fai_price) : ?>
                                         <div class="dfn-qty-grid">
-                                            <div class="dfn-qty-box">
-                                                <label for="quantity"><?php esc_html_e('Non Iscritti FAI (Intero)', 'dfn-theme'); ?></label>
+                                            <div class="dfn-qty-box dfn-qty-box-standard">
+                                                <div class="dfn-qty-header">
+                                                    <label for="quantity" class="dfn-qty-label"><?php esc_html_e('Non Iscritto', 'dfn-theme'); ?></label>
+                                                    <div class="dfn-qty-price"><?php echo wp_kses_post($price_standard_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
+                                                </div>
                                                 <div class="dfn-qty-control">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
                                                     <input type="number" name="quantity" id="quantity" min="0" value="1">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
+                                                <div class="dfn-qty-subtext"><?php esc_html_e('Intero', 'dfn-theme'); ?></div>
                                             </div>
-                                            <div class="dfn-qty-box">
-                                                <label for="dfn_qty_fai"><?php esc_html_e('Soci FAI (Ridotto)', 'dfn-theme'); ?></label>
+                                            <div class="dfn-qty-box dfn-qty-box-fai">
+                                                <div class="dfn-qty-header">
+                                                    <label for="dfn_qty_fai" class="dfn-qty-label"><?php esc_html_e('Socio FAI', 'dfn-theme'); ?></label>
+                                                    <div class="dfn-qty-price"><?php echo wp_kses_post($price_fai_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
+                                                </div>
                                                 <div class="dfn-qty-control">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
                                                     <input type="number" name="dfn_qty_fai" id="dfn_qty_fai" min="0" value="0">
                                                     <button type="button" class="dfn-qty-btn dfn-qty-plus" data-action="plus" aria-label="<?php esc_attr_e('Aumenta', 'dfn-theme'); ?>" tabindex="-1">+</button>
                                                 </div>
+                                                <div class="dfn-qty-subtext"><?php esc_html_e('Ridotto', 'dfn-theme'); ?></div>
                                             </div>
                                         </div>
                                         <div style="font-size:11.5px; color:#64748b; margin-top:8px; line-height:1.45; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">
                                             ℹ️ <?php esc_html_e('La tariffa Socio FAI è riservata ai soli possessori di tessera FAI in corso di validità. Il numero di tessera verrà richiesto al passaggio successivo.', 'dfn-theme'); ?>
                                         </div>
                                     <?php else : ?>
-                                        <div class="dfn-qty-box">
-                                            <label for="quantity"><?php esc_html_e('Numero di Biglietti', 'dfn-theme'); ?></label>
+                                        <div class="dfn-qty-box dfn-qty-box-standard">
+                                            <div class="dfn-qty-header">
+                                                <label for="quantity" class="dfn-qty-label"><?php esc_html_e('Biglietto Intero', 'dfn-theme'); ?></label>
+                                                <div class="dfn-qty-price"><?php echo wp_kses_post($price_standard_html); ?> <span class="dfn-qty-unit"><?php esc_html_e('/ cad.', 'dfn-theme'); ?></span></div>
+                                            </div>
                                             <div class="dfn-qty-control">
                                                 <button type="button" class="dfn-qty-btn dfn-qty-minus" data-action="minus" aria-label="<?php esc_attr_e('Diminuisci', 'dfn-theme'); ?>" tabindex="-1">−</button>
                                                 <input type="number" name="quantity" id="quantity" min="1" value="1">
