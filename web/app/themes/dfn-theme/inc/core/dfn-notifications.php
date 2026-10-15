@@ -2405,9 +2405,18 @@ function dfn_build_volunteer_meeting_email_html(object $meeting, ?object $team =
     $scope_color = $is_team ? ($team->color ?: '#004b23') : '#1e293b';
     $scope_border= $is_team ? ($team->color ? $team->color . '40' : '#86efac') : '#cbd5e1';
 
-    $intro_text = $is_reminder 
-        ? ($reminder_type === '1d' ? 'Ti ricordiamo che <strong>domani</strong> si terrà la seguente riunione programmata.' : 'Ti ricordiamo che tra una settimana si terrà la seguente riunione programmata.')
-        : 'Sei invitato a partecipare alla seguente riunione di delegazione/squadra:';
+    if ($is_reminder) {
+        $days_num = (int) str_replace('d', '', $reminder_type);
+        if ($days_num === 1) {
+            $intro_text = 'Ti ricordiamo che <strong>domani</strong> si terrà la seguente riunione programmata:';
+        } elseif ($days_num > 1) {
+            $intro_text = sprintf('Ti ricordiamo che tra <strong>%d giorni</strong> si terrà la seguente riunione programmata:', $days_num);
+        } else {
+            $intro_text = 'Ti ricordiamo la seguente riunione programmata:';
+        }
+    } else {
+        $intro_text = 'Sei invitato a partecipare alla seguente riunione di delegazione/squadra:';
+    }
 
     $hub_url = function_exists('wc_get_page_permalink') ? wc_get_endpoint_url('riunioni-fai', '', wc_get_page_permalink('myaccount')) : home_url('/mio-account/riunioni-fai/');
 
@@ -2588,9 +2597,20 @@ function dfn_send_volunteer_meeting_notification(int $meeting_id, bool $is_remin
     $m_date_str = date_i18n('d/m/Y', strtotime($meeting->meeting_date));
 
     if ($is_reminder) {
-        $rem_label = ($reminder_type === '1d') ? 'Domani' : 'Promemoria';
-        $subject = sprintf('[%s] %s Riunione: %s - %s', $rem_label, $scope_tag, $meeting->title, $m_date_str);
-        $title_header = sprintf('⏰ %s Riunione %s', $rem_label, $is_team && $team ? $team->name : 'Plenaria');
+        $days_num = (int) str_replace('d', '', $reminder_type);
+        if ($days_num === 1) {
+            $rem_label = 'Domani';
+            $subject = sprintf('[Promemoria Domani] %s Riunione: %s - %s', $scope_tag, $meeting->title, $m_date_str);
+            $title_header = sprintf('⏰ Promemoria Riunione (Domani) %s', $is_team && $team ? $team->name : 'Plenaria');
+        } elseif ($days_num > 1) {
+            $rem_label = sprintf('Tra %d giorni', $days_num);
+            $subject = sprintf('[Promemoria -%dgg] %s Riunione: %s - %s', $days_num, $scope_tag, $meeting->title, $m_date_str);
+            $title_header = sprintf('⏰ Promemoria Riunione (-%d giorni) %s', $days_num, $is_team && $team ? $team->name : 'Plenaria');
+        } else {
+            $rem_label = 'Promemoria';
+            $subject = sprintf('[Promemoria] %s Riunione: %s - %s', $scope_tag, $meeting->title, $m_date_str);
+            $title_header = sprintf('⏰ Promemoria Riunione %s', $is_team && $team ? $team->name : 'Plenaria');
+        }
     } else {
         $subject = sprintf('Convocazione Riunione %s: %s - %s', $scope_tag, $meeting->title, $m_date_str);
         $title_header = sprintf('📅 Convocazione Riunione %s', $is_team && $team ? $team->name : 'Plenaria');
@@ -2624,13 +2644,28 @@ function dfn_send_volunteer_meeting_notification(int $meeting_id, bool $is_remin
         }
     }
 
-    // Aggiornamento stato reminder nel DB
+    // Aggiornamento stato reminder nel DB (Issue #65)
     if ($is_reminder) {
-        if ($reminder_type === '7d') {
-            $wpdb->update($table_meetings, ['reminder_7d_sent' => 1], ['id' => $meeting_id], ['%d'], ['%d']);
-        } elseif ($reminder_type === '1d') {
-            $wpdb->update($table_meetings, ['reminder_1d_sent' => 1], ['id' => $meeting_id], ['%d'], ['%d']);
+        $day_key = (string) (int) str_replace('d', '', $reminder_type);
+        $curr_sent = [];
+        if (! empty($meeting->reminders_sent)) {
+            $decoded = json_decode($meeting->reminders_sent, true);
+            if (is_array($decoded)) {
+                $curr_sent = $decoded;
+            }
         }
+        $curr_sent[$day_key] = current_time('mysql');
+
+        $update_payload = [
+            'reminders_sent' => json_encode($curr_sent)
+        ];
+        if ($day_key === '7') {
+            $update_payload['reminder_7d_sent'] = 1;
+        } elseif ($day_key === '1') {
+            $update_payload['reminder_1d_sent'] = 1;
+        }
+
+        $wpdb->update($table_meetings, $update_payload, ['id' => $meeting_id]);
     }
 
     // Logging

@@ -186,6 +186,24 @@ function dfn_render_teams_admin_page(): void
                                 </div>
                             <?php endif; ?>
 
+                            <!-- CADENZA PROMEMORIA RIUNIONI (ISSUE #65) -->
+                            <?php 
+                                $is_custom_cadence = isset($t->reminder_cadence_mode) && $t->reminder_cadence_mode === 'custom' && ! empty($t->reminder_days);
+                                $cadence_days = function_exists('dfn_get_team_meeting_reminder_days') ? dfn_get_team_meeting_reminder_days((int) $t->id) : [30, 7, 1];
+                            ?>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#475569; margin-bottom:12px; background:#f8fafc; border:1px solid #f1f5f9; padding:6px 10px; border-radius:6px;">
+                                <span>🔔 Promemoria riunioni:</span>
+                                <?php if ($is_custom_cadence) : ?>
+                                    <span style="font-weight:700; color:#0369a1; background:#e0f2fe; padding:2px 8px; border-radius:6px; font-size:11px;">
+                                        Personalizzati (<?php echo esc_html(implode(', ', $cadence_days)); ?>gg)
+                                    </span>
+                                <?php else : ?>
+                                    <span style="font-weight:600; color:#64748b; background:#f1f5f9; padding:2px 8px; border-radius:6px; font-size:11px;">
+                                        Ereditati (<?php echo esc_html(implode(', ', $cadence_days)); ?>gg)
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+
                             <!-- COMPONENTI CONTEGGIO -->
                             <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#334155; font-weight:600;">
                                 <span>👥 Componenti assegnati:</span>
@@ -223,6 +241,8 @@ function dfn_render_teams_admin_page(): void
                                         data-team-sup-user="<?php echo esc_attr($t->supervisor_user_id ?: '0'); ?>"
                                         data-team-active="<?php echo esc_attr($t->is_active); ?>"
                                         data-team-order="<?php echo esc_attr($t->order_num); ?>"
+                                        data-team-cadence-mode="<?php echo esc_attr($t->reminder_cadence_mode ?? 'inherit'); ?>"
+                                        data-team-reminder-days="<?php echo esc_attr($t->reminder_days ?? ''); ?>"
                                         title="Modifica squadra">
                                     ✏️ Modifica
                                 </button>
@@ -371,6 +391,53 @@ function dfn_render_teams_admin_page(): void
                         </div>
                     </div>
 
+                    <!-- CADENZE PROMEMORIA RIUNIONI DI TEAM (ISSUE #65) -->
+                    <div style="background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; padding:16px; margin-bottom:18px;">
+                        <label style="display:block; font-size:13px; font-weight:800; color:#0f172a; margin-bottom:4px;">
+                            🔔 Cadenze Promemoria Riunioni di Team
+                        </label>
+                        <p style="font-size:12px; color:#64748b; margin:0 0 12px 0;">
+                            Definisci quando inviare i promemoria automatici ai membri di questo team.
+                        </p>
+
+                        <?php 
+                            $plenary_cadence = function_exists('dfn_get_plenary_meeting_reminder_days') ? dfn_get_plenary_meeting_reminder_days() : [30, 7, 1];
+                            $plenary_cadence_str = implode(', ', $plenary_cadence);
+                        ?>
+
+                        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+                            <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-size:12.5px; color:#1e293b;">
+                                <input type="radio" name="reminder_cadence_mode" value="inherit" id="dfn-team-cadence-mode-inherit" checked style="accent-color:#004b23; margin-top:2px;">
+                                <div>
+                                    <strong>Eredita cadenze di Delegazione</strong>
+                                    <div style="font-size:11.5px; color:#64748b; margin-top:2px;">
+                                        Utilizza la regola generale (attualmente: <code><?php echo esc_html($plenary_cadence_str); ?></code> giorni prima)
+                                    </div>
+                                </div>
+                            </label>
+
+                            <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-size:12.5px; color:#1e293b;">
+                                <input type="radio" name="reminder_cadence_mode" value="custom" id="dfn-team-cadence-mode-custom" style="accent-color:#004b23; margin-top:2px;">
+                                <div>
+                                    <strong>Personalizza cadenze per questo Team</strong>
+                                    <div style="font-size:11.5px; color:#64748b; margin-top:2px;">
+                                        Definisci giorni specifici di sollecito solo per le riunioni di questa squadra
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div id="dfn-team-custom-cadence-wrap" style="display:none; padding-top:10px; border-top:1px dashed #cbd5e1;">
+                            <label for="dfn-field-team-reminder-days" style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">
+                                Giorni di preavviso per questo Team (separati da virgola):
+                            </label>
+                            <input type="text" name="reminder_days" id="dfn-field-team-reminder-days" placeholder="es. 15, 7, 3, 1" style="width:100%; border-radius:6px; border:1px solid #cbd5e1; height:36px; padding:0 10px; font-family:monospace; font-weight:700; font-size:13px;">
+                            <span style="font-size:11px; color:#64748b; display:block; margin-top:4px;">
+                                Esempio: <code>15, 7, 3, 1</code> invierà un promemoria a 15, 7, 3 giorni e il giorno prima dell'incontro.
+                            </span>
+                        </div>
+                    </div>
+
                     <!-- Stato Attivo -->
                     <div style="margin-bottom:20px;">
                         <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -490,6 +557,10 @@ function dfn_render_teams_admin_page(): void
             $('#dfn-field-team-order').val('0');
             $('#dfn-field-team-sup-user').val('0');
             $('#dfn-field-team-active').prop('checked', true);
+            $('#dfn-team-cadence-mode-inherit').prop('checked', true);
+            $('#dfn-team-cadence-mode-custom').prop('checked', false);
+            $('#dfn-field-team-reminder-days').val('');
+            $('#dfn-team-custom-cadence-wrap').hide();
             $('.dfn-cb-sup-role').prop('checked', false);
             $('#dfn-team-form-error').hide().text('');
             $('#dfn-team-modal-overlay').css('display', 'flex');
@@ -512,6 +583,18 @@ function dfn_render_teams_admin_page(): void
             $('#dfn-field-team-sup-user').val(btn.data('team-sup-user'));
             $('#dfn-field-team-active').prop('checked', parseInt(btn.data('team-active'), 10) === 1);
 
+            // Popola cadenza promemoria riunioni
+            var cadenceMode = btn.data('team-cadence-mode') || 'inherit';
+            var reminderDays = btn.data('team-reminder-days') || '';
+            if (cadenceMode === 'custom') {
+                $('#dfn-team-cadence-mode-custom').prop('checked', true);
+                $('#dfn-team-custom-cadence-wrap').show();
+            } else {
+                $('#dfn-team-cadence-mode-inherit').prop('checked', true);
+                $('#dfn-team-custom-cadence-wrap').hide();
+            }
+            $('#dfn-field-team-reminder-days').val(reminderDays);
+
             // Popola checkbox supervisor roles
             $('.dfn-cb-sup-role').prop('checked', false);
             var roles = btn.data('team-sup-roles');
@@ -530,6 +613,15 @@ function dfn_render_teams_admin_page(): void
 
             $('#dfn-team-form-error').hide().text('');
             $('#dfn-team-modal-overlay').css('display', 'flex');
+        });
+
+        // Toggle custom cadence wrap in modal
+        $('input[name="reminder_cadence_mode"]').on('change', function() {
+            if ($('#dfn-team-cadence-mode-custom').is(':checked')) {
+                $('#dfn-team-custom-cadence-wrap').slideDown(150);
+            } else {
+                $('#dfn-team-custom-cadence-wrap').slideUp(150);
+            }
         });
 
         // Chiudi Modal Squadra
@@ -762,8 +854,10 @@ function dfn_ajax_save_team_handler(): void
         'description'        => sanitize_textarea_field($_POST['description'] ?? ''),
         'supervisor_roles'   => $sup_roles,
         'supervisor_user_id' => ! empty($_POST['supervisor_user_id']) ? (int) $_POST['supervisor_user_id'] : null,
-        'is_active'          => isset($_POST['is_active']) ? 1 : 0,
-        'order_num'          => isset($_POST['order_num']) ? (int) $_POST['order_num'] : 0,
+        'is_active'             => isset($_POST['is_active']) ? 1 : 0,
+        'reminder_cadence_mode' => in_array($_POST['reminder_cadence_mode'] ?? 'inherit', ['inherit', 'custom'], true) ? sanitize_text_field($_POST['reminder_cadence_mode']) : 'inherit',
+        'reminder_days'         => sanitize_text_field($_POST['reminder_days'] ?? ''),
+        'order_num'             => isset($_POST['order_num']) ? (int) $_POST['order_num'] : 0,
     ];
 
     $saved_id = dfn_save_team($data, $team_id);

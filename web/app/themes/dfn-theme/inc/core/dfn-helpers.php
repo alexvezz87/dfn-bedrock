@@ -562,3 +562,91 @@ function dfn_user_wants_shifts_notification(int $user_id): bool
     $meta = get_user_meta($user_id, '_dfn_notify_shifts', true);
     return ($meta !== '0');
 }
+
+/**
+ * ========================================================================
+ * GESTIONE CADENZE DINAMICHE PROMEMORIA RIUNIONI (ISSUE #65)
+ * ========================================================================
+ */
+
+/**
+ * Normalizza e ordina una lista di giorni preavviso (in ordine decrescente).
+ *
+ * @param string|array<int|string> $raw_days Stringa separata da virgole o array di giorni.
+ * @return array<int> Array di giorni unici, interi positivi, ordinati dal più lontano al più vicino (es. [30, 7, 1]).
+ */
+function dfn_sanitize_reminder_days($raw_days): array
+{
+    if (is_string($raw_days)) {
+        $parts = explode(',', $raw_days);
+    } elseif (is_array($raw_days)) {
+        $parts = $raw_days;
+    } else {
+        $parts = [];
+    }
+
+    $days = [];
+    foreach ($parts as $p) {
+        $int_val = (int) trim((string) $p);
+        if ($int_val > 0) {
+            $days[] = $int_val;
+        }
+    }
+
+    $days = array_values(array_unique($days));
+    rsort($days, SORT_NUMERIC);
+
+    return ! empty($days) ? $days : [30, 7, 1];
+}
+
+/**
+ * Recupera i giorni di preavviso configurati a livello generale di Delegazione per le Riunioni Plenarie.
+ *
+ * @return array<int> Giorni di promemoria predefiniti (es. [30, 7, 1]).
+ */
+function dfn_get_plenary_meeting_reminder_days(): array
+{
+    $default_str = '30, 7, 1';
+    $stored = function_exists('dfn_get_volunteer_setting') ? dfn_get_volunteer_setting('vol_meeting_reminder_days', $default_str) : $default_str;
+    return dfn_sanitize_reminder_days($stored);
+}
+
+/**
+ * Recupera i giorni di promemoria configurati per uno specifico Team di Lavoro.
+ * Se il team è impostato su 'inherit', eredita la configurazione di Delegazione.
+ *
+ * @param int $team_id ID della squadra.
+ * @return array<int> Giorni di promemoria (es. [15, 7, 3, 1]).
+ */
+function dfn_get_team_meeting_reminder_days(int $team_id): array
+{
+    if ($team_id > 0 && function_exists('dfn_get_team')) {
+        $team = dfn_get_team($team_id);
+        if ($team && isset($team->reminder_cadence_mode) && $team->reminder_cadence_mode === 'custom' && ! empty($team->reminder_days)) {
+            return dfn_sanitize_reminder_days($team->reminder_days);
+        }
+    }
+
+    return dfn_get_plenary_meeting_reminder_days();
+}
+
+/**
+ * Risolve la lista dei giorni di preavviso per una specifica riunione (Plenaria o di Team).
+ *
+ * @param object|int $meeting Oggetto riunione da wp_dfn_volunteer_meetings o ID riunione.
+ * @return array<int> Giorni di preavviso per la notifica.
+ */
+function dfn_get_meeting_reminder_days($meeting): array
+{
+    if (is_numeric($meeting)) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'dfn_volunteer_meetings';
+        $meeting = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", (int) $meeting));
+    }
+
+    if (! empty($meeting) && ! empty($meeting->team_id) && (int) $meeting->team_id > 0) {
+        return dfn_get_team_meeting_reminder_days((int) $meeting->team_id);
+    }
+
+    return dfn_get_plenary_meeting_reminder_days();
+}

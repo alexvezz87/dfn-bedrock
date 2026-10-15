@@ -67,6 +67,7 @@ function dfn_get_volunteer_setting(string $key, $default = null)
         'vol_enable_teams'                   => 'yes',
         'vol_enable_meeting_notifications'   => 'yes',
         'vol_enable_meeting_reminders'       => 'yes',
+        'vol_meeting_reminder_days'          => '30, 7, 1',
         'email_sandbox_mode'                 => 'live',
         'email_sandbox_recipient'            => $delegation_email,
         'vol_survey_enable_preferred_place'  => 'no',
@@ -151,6 +152,7 @@ function dfn_volunteer_settings_save_fields(): void
         'vol_enable_teams'                   => 'sanitize_text_field',
         'vol_enable_meeting_notifications'   => 'sanitize_text_field',
         'vol_enable_meeting_reminders'       => 'sanitize_text_field',
+        'vol_meeting_reminder_days'          => 'sanitize_text_field',
         'email_sandbox_mode'                 => 'sanitize_text_field',
         'email_sandbox_recipient'            => 'sanitize_email',
         'vol_survey_enable_preferred_place'  => 'sanitize_text_field',
@@ -653,13 +655,48 @@ function dfn_render_volunteer_settings_page(): void
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Promemoria Automatici Riunioni (7gg e 1gg)</th>
+                                <th scope="row">Promemoria Automatici Riunioni</th>
                                 <td>
                                     <label for="vol_enable_meeting_reminders" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
                                         <input type="checkbox" name="dfn_vol_settings[vol_enable_meeting_reminders]" id="vol_enable_meeting_reminders" value="yes" <?php checked(dfn_get_volunteer_setting('vol_enable_meeting_reminders', 'yes'), 'yes'); ?> style="accent-color:#004b23;" />
-                                        Invia automaticamente promemoria email a 7 giorni e a 1 giorno prima dell'incontro
+                                        Invia automaticamente promemoria email prima dell'incontro
                                     </label>
                                     <p class="description" style="margin-top:6px;"><strong>Comportamento:</strong> Controlla l'attivazione del cron job automatico per i promemoria pre-riunione. Rispetta sempre le preferenze individuali espresse da ciascun volontario nel proprio profilo.</p>
+
+                                    <!-- CADENZE PROMEMORIA PLENARIE (ISSUE #65) -->
+                                    <div id="dfn-meeting-cadence-box" style="margin-top:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; max-width:680px; <?php echo (dfn_get_volunteer_setting('vol_enable_meeting_reminders', 'yes') === 'yes') ? '' : 'display:none;'; ?>">
+                                        <label for="vol_meeting_reminder_days" style="display:block; font-weight:700; color:#0f172a; margin-bottom:6px; font-size:13px;">
+                                            🗓️ Cadenze Promemoria Riunioni Plenarie (Giorni prima)
+                                        </label>
+                                        <?php 
+                                            $current_plenary_days_str = dfn_get_volunteer_setting('vol_meeting_reminder_days', '30, 7, 1');
+                                            $parsed_days = function_exists('dfn_sanitize_reminder_days') ? dfn_sanitize_reminder_days($current_plenary_days_str) : [30, 7, 1];
+                                        ?>
+                                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+                                            <input type="text" name="dfn_vol_settings[vol_meeting_reminder_days]" id="vol_meeting_reminder_days" value="<?php echo esc_attr(implode(', ', $parsed_days)); ?>" style="width:260px; font-family:monospace; font-weight:700; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1;" placeholder="es. 30, 7, 1" />
+                                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                <?php foreach ($parsed_days as $pd) : ?>
+                                                    <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:700; font-size:11.5px; padding:3px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:4px;">
+                                                        ⏰ <?php echo (int) $pd === 1 ? '1 giorno prima (domani)' : esc_html($pd) . ' giorni prima'; ?>
+                                                    </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                        <p class="description" style="margin:0; font-size:12px; line-height:1.5; color:#64748b;">
+                                            Inserisci i giorni di preavviso separati da virgola (es. <code>30, 7, 1</code>). Questa regola definisce quando inviare i promemoria per tutte le <strong>Riunioni Plenarie</strong> ed è il default ereditabile per le riunioni di Team che non hanno una cadenza personalizzata.
+                                        </p>
+                                    </div>
+                                    <script>
+                                    document.addEventListener('DOMContentLoaded', function() {
+                                        var remToggle = document.getElementById('vol_enable_meeting_reminders');
+                                        var cadBox = document.getElementById('dfn-meeting-cadence-box');
+                                        if (remToggle && cadBox) {
+                                            remToggle.addEventListener('change', function() {
+                                                cadBox.style.display = remToggle.checked ? 'block' : 'none';
+                                            });
+                                        }
+                                    });
+                                    </script>
                                 </td>
                             </tr>
                         </table>
@@ -1921,6 +1958,7 @@ function dfn_ajax_save_volunteer_settings(): void
         'vol_enable_teams'                   => 'sanitize_text_field',
         'vol_enable_meeting_notifications'   => 'sanitize_text_field',
         'vol_enable_meeting_reminders'       => 'sanitize_text_field',
+        'vol_meeting_reminder_days'          => 'sanitize_text_field',
         'email_sandbox_mode'                 => 'sanitize_text_field',
         'email_sandbox_recipient'            => 'sanitize_email',
         'vol_survey_enable_preferred_place'  => 'sanitize_text_field',

@@ -132,6 +132,9 @@ namespace DFN\Theme\Tests\Unit {
                 },
                 'update_option' => true,
                 'add_settings_error' => true,
+                'dfn_get_volunteer_setting' => function ($k, $def = '') {
+                    return $def;
+                },
             ]);
 
             Functions\when('wp_send_json_success')->alias(function ($data = null) {
