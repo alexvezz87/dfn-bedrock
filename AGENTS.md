@@ -59,7 +59,7 @@ Il software è progettato per essere distribuibile e attivabile a blocchi indipe
 ## 3. 🌿 Disciplina dei Branch Git
 
 ### A. Mappatura dei Branch
-- **`dfn-2.0-gestione-prenotazioni`**: Modulo Core Eventi & Booking Engine.
+- **`dfn-2.0.1-gestione-prenotazioni`**: Modulo Core Eventi & Booking Engine (versione attiva corrente, sostituisce la 2.0).
 - **`dfn-2.1-gestione-volontari`**: Modulo Gestione Volontari standard.
 - **`dfn-2.1.1-gestione-team`**: Modulo Gestione Team di Lavoro.
 - **`staging`**: Ramo di collaudo pre-produzione, allineato con l'ambiente Staging.
