@@ -61,6 +61,7 @@ Se l'evento prevede visite guidate o ingressi a gruppi scaglionati, puoi configu
 - **Generazione Automatica**: Puoi indicare l'orario di inizio (es. `10:00`), l'orario di fine (es. `18:00`), la durata di ciascun turno (es. `20 minuti`) e il numero massimo di persone ammesse per turno (es. `15 posti`). Il sistema creerà automaticamente tutte le fasce orarie.
 - **Blocco Manuale di un Turno**: Se un gruppo, una scolaresca o ospiti d'onore hanno riservato privatamente un orario, puoi disattivare quel singolo slot con un click per non renderlo più selezionabile dal pubblico.
 - **Posti Residui in Tempo Reale**: Il tabellone mostra quanti posti sono già stati prenotati e quanti ne rimangono ancora liberi per ogni singolo turno.
+- **Rettifica Posti dal Dettaglio Turno**: Cliccando su un turno per visualizzare le prenotazioni abbinate, la Segreteria può cliccare sull'icona della matita `✏️` per rettificare il numero di partecipanti (distinguendo tra posti ordinari e soci FAI) prima del saldo, sincronizzando in automatico capienze e scorte.
 
 ---
 
@@ -112,6 +113,20 @@ Se il visitatore inserisce un numero di tessera non ancora presente nel database
    - Il **Numero di Tessera FAI** e la data di scadenza.
    - L'eventuale spunta **Registrato su SiVol FAI** (per attestare l'avvenuto controllo sul gestionale nazionale).
 5. Cliccando su **Conferma Approvazione**, il sistema invia in automatico l'email di conferma con i biglietti al visitatore e aggiorna l'anagrafica per le future prenotazioni.
+
+### Rettifica Posti e Sincronizzazione Magazzino (Nuovo nella v2.0.1)
+Se un visitatore contatta la Segreteria prima della conferma segnalando un errore nel numero di biglietti (es. ha prenotato per 3 persone anziché 2, oppure ha invertito quote ordinarie e soci FAI):
+1. Nella schermata **FAI Soci > Prenotazioni in Attesa** oppure nel dettaglio turni in **FAI Prenotazioni > Turni**, individuare la prenotazione interessata.
+2. Cliccare sul pulsante **✏️ Modifica Posti**.
+3. Nella finestra o modulo a comparsa:
+   - Impostare il numero corretto di **Posti Ordinari (Interi)** e **Posti Soci FAI**.
+   - Il totale dei partecipanti e l'importo dovuto (€) vengono ricalcolati istantaneamente a video.
+   - Se il numero di soci FAI varia, i campi per inserire le tessere FAI si aggiornano automaticamente (aggiungendo o rimuovendo righe).
+4. Cliccare su **Salva Modifiche**:
+   - I posti occupati nel turno vengono aggiornati in tempo reale.
+   - **Le scorte di magazzino WooCommerce dell'evento vengono sincronizzate automaticamente** (se i posti scendono, le unità liberate tornano subito disponibili sul sito per altri visitatori).
+   - L'ordine WooCommerce associato aggiorna quantità, sconti e totale da pagare, registrando una nota d'ordine di sistema.
+5. A questo punto la Segreteria può procedere all'approvazione con i dati corretti: l'email di conferma inviata al visitatore riporterà esattamente il numero e la tipologia di biglietti rettificata.
 
 ---
 

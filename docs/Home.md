@@ -32,6 +32,7 @@ Questa base di conoscenza contiene sia la documentazione tecnica per sviluppator
 ## 📌 Milestones del Progetto
 - **v1.0**: Core Booking & Event Engine (Completato)
 - **v2.0**: Advanced Booking Engine, Nuovo Widget Tariffe FAI, Reporting Contabile, Botteghino Live, Scanner PWA e Modulo Promozioni/Newsletter con tracking conversioni (Completato)
+- **v2.0.1**: Riorganizzazione unificata ramo Booking, selettore biglietti FAI ad alta leggibilità, rettifica posti amministrativa e sincronizzazione scorte magazzino WooCommerce (Completato)
 - **v2.1**: Gestione Volontari FAI, Squadre di Lavoro (Team) & Notifiche Schedulate (Completato / In collaudo)
 - **v2.2**: Gestione Avanzata & Strutturata Convenzioni FAI (Pianificato)
 
