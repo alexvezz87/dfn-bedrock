@@ -35,6 +35,6 @@ Questa documentazione raccoglie tutti i dettagli implementativi, le logiche di b
    - Ricerca partecipanti, check-in rapido e banchetto cassa
 
 6. [🚀 Git Workflow, Branching & Deployment](DEPLOYMENT_AND_GIT.md)
-   - Struttura dei rami Git (`dfn-2.0`, `dfn-2.1`, `staging`, `main`)
+   - Struttura dei rami Git (`dfn-2.0.1`, `dfn-2.1`, `dfn-2.1.1`, `staging`, `main`)
    - Sincronizzazione automatica e manuale FTP su Staging e Produzione
    - Policy di merge e rilascio

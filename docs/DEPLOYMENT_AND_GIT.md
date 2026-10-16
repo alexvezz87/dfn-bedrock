@@ -47,13 +47,16 @@ flowchart TD
 ```mermaid
 gitGraph
     commit id: "v1.0 - Core Engine"
-    branch dfn-2.0-gestione-prenotazioni
-    checkout dfn-2.0-gestione-prenotazioni
-    commit id: "feat: Booking Engine v2.0"
+    branch dfn-2.0.1-gestione-prenotazioni
+    checkout dfn-2.0.1-gestione-prenotazioni
+    commit id: "feat: Booking Engine v2.0.1"
     commit id: "feat: PWA Scanner & Botteghino"
     branch dfn-2.1-gestione-volontari
     checkout dfn-2.1-gestione-volontari
     commit id: "feat: Volunteer System & Roles"
+    branch dfn-2.1.1-gestione-team
+    checkout dfn-2.1.1-gestione-team
+    commit id: "feat: Specialised Teams & Channels"
     checkout main
     merge dfn-2.1-gestione-volontari id: "Merge to Main (v2.1)"
     checkout staging
@@ -62,9 +65,10 @@ gitGraph
 
 ### Ruolo dei Rami:
 - **`main`**: Ramo protetto di produzione. Qualsiasi merge su `main` riflette il codice live in produzione.
-- **`staging`**: Ramo di pre-rilascio allineato all'ambiente di collaudo.
+- **`staging`**: Ramo di pre-rilascio allineato all'ambiente di collaudo (`staging.dfnprenotazioni.it`).
+- **`dfn-2.0.1-gestione-prenotazioni`**: Ramo attivo e consolidato per il motore di prenotazione, widget, checkout WooCommerce, scorte di magazzino e scanner PWA (sostituisce integralmente il ramo storico `dfn-2.0-gestione-prenotazioni`).
 - **`dfn-2.1-gestione-volontari`**: Ramo dedicato alle funzionalità del modulo volontari, turni, ruoli e anagrafica SiVol.
-- **`dfn-2.0-gestione-prenotazioni`**: Ramo di riferimento per le migliorie al motore di prenotazione, widget e scanner.
+- **`dfn-2.1.1-gestione-team`**: Ramo opzionale per la gestione dei team di lavoro specializzati, delegati di gruppo e canali dedicati.
 
 ---
 
