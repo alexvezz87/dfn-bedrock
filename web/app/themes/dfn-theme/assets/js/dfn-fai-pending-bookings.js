@@ -276,6 +276,102 @@
     });
 
     // =========================================================================
+    // MODIFICA POSTI PRENOTAZIONE PENDING
+    // =========================================================================
+    let $currentEditSeatsBtn = null;
+
+    $(document).on('click', '.dfn-btn-edit-pending-seats', function () {
+        $currentEditSeatsBtn = $(this);
+        const bookingId = $currentEditSeatsBtn.data('booking-id');
+        const std       = parseInt($currentEditSeatsBtn.data('std')) || 0;
+        const fai       = parseInt($currentEditSeatsBtn.data('fai')) || 0;
+        const customer  = $currentEditSeatsBtn.data('customer') || '';
+
+        $('#dfn-seats-booking-id').val(bookingId);
+        $('#dfn-seats-customer-display').text(customer);
+        $('#dfn-seats-booking-display').text('Prenotazione #' + bookingId);
+        $('#dfn-seats-qty-std').val(std);
+        $('#dfn-seats-qty-fai').val(fai);
+        $('#dfn-seats-modal-live-total').text(std + fai);
+
+        $('#dfn-edit-seats-modal').css('display', 'flex');
+        setTimeout(function() {
+            $('#dfn-seats-qty-std').focus();
+        }, 100);
+    });
+
+    $(document).on('click', '#dfn-seats-modal-close, #dfn-seats-modal-cancel', function () {
+        $('#dfn-edit-seats-modal').hide();
+    });
+
+    $(document).on('click', '#dfn-edit-seats-modal', function (e) {
+        if ($(e.target).is('#dfn-edit-seats-modal')) {
+            $('#dfn-edit-seats-modal').hide();
+        }
+    });
+
+    function updatePendingModalLiveTotal() {
+        const std = parseInt($('#dfn-seats-qty-std').val()) || 0;
+        const fai = parseInt($('#dfn-seats-qty-fai').val()) || 0;
+        $('#dfn-seats-modal-live-total').text(std + fai);
+    }
+    $(document).on('input change', '#dfn-seats-qty-std, #dfn-seats-qty-fai', updatePendingModalLiveTotal);
+
+    $(document).on('submit', '#dfn-edit-seats-form', function (e) {
+        e.preventDefault();
+
+        const bookingId  = $('#dfn-seats-booking-id').val();
+        const std        = parseInt($('#dfn-seats-qty-std').val()) || 0;
+        const fai        = parseInt($('#dfn-seats-qty-fai').val()) || 0;
+        const tot        = std + fai;
+        const $submitBtn = $('#dfn-seats-modal-submit');
+
+        if (tot <= 0) {
+            alert('Il totale partecipanti deve essere almeno 1.');
+            return;
+        }
+
+        $submitBtn.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> Salvataggio...');
+
+        $.ajax({
+            url:    dfnPendingVars.ajaxurl,
+            method: 'POST',
+            data: {
+                action:       'dfn_admin_update_booking_seats',
+                nonce:        dfnPendingVars.nonce,
+                booking_id:   bookingId,
+                qty_standard: std,
+                qty_fai:      fai,
+            },
+            success: function (response) {
+                $submitBtn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="vertical-align: text-bottom; margin-right: 2px;"></span> Salva Modifiche');
+                $('#dfn-edit-seats-modal').hide();
+
+                if (response.success) {
+                    if ($currentEditSeatsBtn && $currentEditSeatsBtn.length) {
+                        const $row = $currentEditSeatsBtn.closest('.dfn-pending-row');
+                        $row.find('.dfn-pending-total-persons').text(response.data.total_persons);
+                        $row.find('.dfn-pending-seats-breakdown').text(response.data.persons_standard + ' std + ' + response.data.persons_fai + ' FAI');
+                        if (response.data.order_total_html) {
+                            $row.find('.dfn-pending-order-total').html(response.data.order_total_html);
+                        }
+
+                        $currentEditSeatsBtn.data('std', response.data.persons_standard);
+                        $currentEditSeatsBtn.data('fai', response.data.persons_fai);
+                    }
+                    dfnShowNotice('success', response.data.message);
+                } else {
+                    dfnShowNotice('error', response.data.message || dfnPendingVars.generic_error);
+                }
+            },
+            error: function () {
+                $submitBtn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="vertical-align: text-bottom; margin-right: 2px;"></span> Salva Modifiche');
+                dfnShowNotice('error', dfnPendingVars.generic_error);
+            }
+        });
+    });
+
+    // =========================================================================
     // HELPERS
     // =========================================================================
 
