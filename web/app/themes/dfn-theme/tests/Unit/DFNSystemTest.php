@@ -1183,6 +1183,74 @@ namespace DFN\Theme\Tests\Unit {
             $this->assertEquals("Sant'Andrea", dfn_sanitize_name("Sant\\'Andrea"));
             $this->assertEquals("Dell'Orto", dfn_sanitize_name("  Dell\\'Orto  "));
         }
+
+        /**
+         * Test: dfn_ajax_admin_update_booking_seats esiste e valida correttamente totale e stato prenotazione.
+         */
+        public function test_admin_update_booking_seats_validation()
+        {
+            $this->assertTrue(function_exists('dfn_ajax_admin_update_booking_seats'));
+
+            // Simula utente loggato e admin
+            global $is_user_logged_in;
+            $is_user_logged_in = true;
+            Functions\when('current_user_can')->justReturn(true);
+            Functions\when('wp_verify_nonce')->justReturn(true);
+
+            // 1. Caso totale partecipanti 0
+            $_POST['booking_id'] = 123;
+            $_POST['qty_standard'] = 0;
+            $_POST['qty_fai'] = 0;
+            $_POST['nonce'] = 'dummy';
+
+            $error_data = [];
+            Functions\when('wp_send_json_error')->alias(function($data) use (&$error_data) {
+                $error_data = (array) $data;
+                throw new \Error('JSON_ERROR');
+            });
+
+            try {
+                dfn_ajax_admin_update_booking_seats();
+            } catch (\Throwable $e) {
+                $this->assertEquals('JSON_ERROR', $e->getMessage());
+            }
+            $this->assertNotEmpty($error_data);
+            $this->assertStringContainsString('almeno 1', $error_data['message']);
+
+            // 2. Caso prenotazione in stato 'confirmed' (non modificabile)
+            global $wpdb;
+            $original_wpdb = $wpdb;
+            $wpdb = $this->getMockBuilder(\stdClass::class)
+                ->addMethods(['prepare', 'get_row', 'update', 'query'])
+                ->getMock();
+            $wpdb->prefix = 'wp_';
+
+            $mock_booking = (object)[
+                'id' => 123,
+                'status' => 'confirmed',
+                'persons_standard' => 2,
+                'persons_fai' => 1,
+                'total_persons' => 3
+            ];
+
+            $wpdb->method('prepare')->willReturn('SELECT * FROM wp_dfn_bookings WHERE id = 123');
+            $wpdb->method('get_row')->willReturn($mock_booking);
+
+            $_POST['qty_standard'] = 1;
+            $_POST['qty_fai'] = 1;
+
+            $error_data = [];
+            try {
+                dfn_ajax_admin_update_booking_seats();
+            } catch (\Throwable $e) {
+                $this->assertEquals('JSON_ERROR', $e->getMessage());
+            }
+            $this->assertNotEmpty($error_data);
+            $this->assertStringContainsString('solo per prenotazioni non ancora pagate o confermate', $error_data['message']);
+
+            $wpdb = $original_wpdb;
+            unset($_POST['booking_id'], $_POST['qty_standard'], $_POST['qty_fai'], $_POST['nonce']);
+        }
     }
 }
 

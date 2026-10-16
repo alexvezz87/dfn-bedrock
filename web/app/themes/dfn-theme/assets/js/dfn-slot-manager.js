@@ -852,11 +852,53 @@
                 '<option value="cancelled"' + (booking.status === 'cancelled' ? ' selected' : '') + '>❌ Annullato</option>' +
             '</select>';
 
+            var canEditSeats = (booking.status === 'pending_payment' || booking.status === 'pending_approval');
+            var curStd = parseInt(booking.persons_standard) || 0;
+            var curFai = parseInt(booking.persons_fai) || 0;
+            var curTot = parseInt(booking.slot_persons) || (curStd + curFai);
+            var seatsHtml = '';
+
+            if (canEditSeats) {
+                seatsHtml = 
+                    '<div id="dfn-seats-view-mode" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">' +
+                        '<span id="dfn-seats-text-display" style="font-weight:600;">' + curTot + ' totali (<span style="color:#2563eb;">Standard: ' + curStd + '</span> | <span style="color:#166534;">FAI: ' + curFai + '</span>)</span>' +
+                        '<button type="button" id="dfn-btn-toggle-edit-seats" class="dfn-btn dfn-btn-secondary" style="font-size:11px; padding:3px 8px; display:inline-flex; align-items:center; gap:4px; border:1px solid #cbd5e1; border-radius:4px; background:#fff; cursor:pointer;">' +
+                            '<span class="dashicons dashicons-edit" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span> Modifica Posti' +
+                        '</button>' +
+                    '</div>' +
+                    '<div id="dfn-seats-edit-mode" style="display:none; margin-top:8px; padding:10px 12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px;">' +
+                        '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">' +
+                            '<div>' +
+                                '<label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:2px;">Standard:</label>' +
+                                '<input type="number" id="dfn-input-edit-std" min="0" value="' + curStd + '" style="width:65px; height:30px; text-align:center; font-weight:700; font-size:13px; border:1px solid #cbd5e1; border-radius:4px; padding:2px 4px;">' +
+                            '</div>' +
+                            '<div>' +
+                                '<label style="display:block; font-size:11px; font-weight:700; color:#166534; margin-bottom:2px;">Soci FAI:</label>' +
+                                '<input type="number" id="dfn-input-edit-fai" min="0" value="' + curFai + '" style="width:65px; height:30px; text-align:center; font-weight:700; font-size:13px; border:1px solid #cbd5e1; border-radius:4px; padding:2px 4px;">' +
+                            '</div>' +
+                            '<div style="font-size:12px; color:#64748b; padding-top:16px;">' +
+                                'Nuovo Totale: <strong id="dfn-seats-edit-live-total" style="color:#0f172a;">' + curTot + '</strong> posti' +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="font-size:11px; color:#64748b; margin-bottom:8px;">' +
+                            '<em>Salvataggio sincronizza scorte magazzino, totale ordine e capienza.</em>' +
+                        '</div>' +
+                        '<div style="display:flex; gap:6px; justify-content:flex-end;">' +
+                            '<button type="button" id="dfn-btn-cancel-edit-seats" class="dfn-btn dfn-btn-secondary" style="font-size:11px; padding:4px 8px;">Annulla</button>' +
+                            '<button type="button" id="dfn-btn-save-edit-seats" class="dfn-btn dfn-btn-primary" style="font-size:11px; padding:4px 10px; display:inline-flex; align-items:center; gap:4px;">' +
+                                '<span class="dashicons dashicons-saved" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span> Salva Posti' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>';
+            } else {
+                seatsHtml = booking.slot_persons + ' totali (Standard: ' + booking.persons_standard + ' | FAI: ' + booking.persons_fai + ')';
+            }
+
             var rows = [
                 ['Nominativo:', '<strong>' + booking.customer_name + '</strong>'],
                 ['Email:', booking.customer_email !== 'no-email@dfn.it' ? booking.customer_email : '<em>Non fornita</em>'],
                 ['Telefono:', booking.customer_phone ? booking.customer_phone : '<em>Non fornito</em>'],
-                ['Posti Prenotati:', booking.slot_persons + ' totali (Standard: ' + booking.persons_standard + ' | FAI: ' + booking.persons_fai + ')'],
+                ['Posti Prenotati:', seatsHtml],
                 ['Turno:', slot.time_start + ' - ' + slot.time_end],
                 ['Stato Pagamento:', statusSelectHtml],
                 ['Data Registrazione:', booking.created_at],
@@ -871,6 +913,85 @@
                     '</tr>'
                 );
             });
+
+            // Gestione interazione modifica posti
+            if (canEditSeats) {
+                $('#dfn-btn-toggle-edit-seats').off('click').on('click', function() {
+                    $('#dfn-seats-view-mode').hide();
+                    $('#dfn-seats-edit-mode').slideDown(150);
+                });
+                $('#dfn-btn-cancel-edit-seats').off('click').on('click', function() {
+                    $('#dfn-seats-edit-mode').slideUp(150, function() {
+                        $('#dfn-seats-view-mode').show();
+                    });
+                });
+
+                function updateLiveTotal() {
+                    var std = parseInt($('#dfn-input-edit-std').val()) || 0;
+                    var fai = parseInt($('#dfn-input-edit-fai').val()) || 0;
+                    $('#dfn-seats-edit-live-total').text(std + fai);
+                }
+                $('#dfn-input-edit-std, #dfn-input-edit-fai').off('input change').on('input change', updateLiveTotal);
+
+                $('#dfn-btn-save-edit-seats').off('click').on('click', function() {
+                    var $btn = $(this);
+                    var std = parseInt($('#dfn-input-edit-std').val()) || 0;
+                    var fai = parseInt($('#dfn-input-edit-fai').val()) || 0;
+                    var tot = std + fai;
+
+                    if (tot <= 0) {
+                        alert('Il numero totale di partecipanti deve essere almeno 1.');
+                        return;
+                    }
+
+                    if (!confirm('Vuoi aggiornare i partecipanti a ' + tot + ' (' + std + ' Standard, ' + fai + ' Soci FAI)? Verranno sincronizzati magazzino/capienza e l\'ordine WooCommerce.')) {
+                        return;
+                    }
+
+                    $btn.prop('disabled', true).text('Salvataggio...');
+
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'dfn_admin_update_booking_seats',
+                            booking_id: booking.id,
+                            qty_standard: std,
+                            qty_fai: fai,
+                            nonce: nonce
+                        },
+                        success: function(res) {
+                            $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span> Salva Posti');
+                            if (res.success) {
+                                booking.persons_standard = res.data.persons_standard;
+                                booking.persons_fai = res.data.persons_fai;
+                                booking.slot_persons = res.data.total_persons;
+                                booking.total_persons = res.data.total_persons;
+                                if (res.data.fai_cards) {
+                                    booking.fai_cards = res.data.fai_cards;
+                                }
+
+                                $('#dfn-seats-text-display').html(booking.slot_persons + ' totali (<span style="color:#2563eb;">Standard: ' + booking.persons_standard + '</span> | <span style="color:#166534;">FAI: ' + booking.persons_fai + '</span>)');
+                                $('#dfn-seats-edit-mode').hide();
+                                $('#dfn-seats-view-mode').show();
+
+                                if (typeof renderFaiSection === 'function') {
+                                    renderFaiSection();
+                                }
+
+                                loadSlots(activeDate);
+                                alert(res.data.message || 'Posti aggiornati con successo.');
+                            } else {
+                                alert('Errore: ' + (res.data.message || 'impossibile aggiornare i posti.'));
+                            }
+                        },
+                        error: function() {
+                            $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="font-size:14px; width:14px; height:14px; line-height:14px;"></span> Salva Posti');
+                            alert('Errore di rete durante il salvataggio dei posti.');
+                        }
+                    });
+                });
+            }
 
             var initialStatus = booking.status;
             var $saveBtn = $('#dfn-btn-save-payment-status');
@@ -975,60 +1096,64 @@
                     .replace(/'/g, "&#039;");
             }
 
-            var $faiSection = $('#dfn-details-fai-cards-section');
-            var $faiList = $('#dfn-details-fai-cards-list');
-            $faiList.empty();
+            var renderFaiSection = function() {
+                var $faiSection = $('#dfn-details-fai-cards-section');
+                var $faiList = $('#dfn-details-fai-cards-list');
+                $faiList.empty();
 
-            if (booking.persons_fai && booking.persons_fai > 0) {
-                $faiSection.show();
-                var html = '<form id="dfn-modal-fai-cards-form" style="margin: 0;">';
-                html += '<input type="hidden" name="action" value="dfn_admin_save_fai_cards">';
-                html += '<input type="hidden" name="booking_id" value="' + booking.id + '">';
-                html += '<input type="hidden" name="order_id" value="' + booking.order_id + '">';
-                
-                for (var i = 0; i < booking.persons_fai; i++) {
-                    var card = (booking.fai_cards && booking.fai_cards[i]) ? booking.fai_cards[i] : { nome: '', cognome: '', tessera: '' };
-                    var borderStyle = (i === booking.persons_fai - 1) ? '' : 'border-bottom:1px dashed #e2e8f0; padding-bottom:12px; margin-bottom:12px;';
+                if (booking.persons_fai && booking.persons_fai > 0) {
+                    $faiSection.show();
+                    var html = '<form id="dfn-modal-fai-cards-form" style="margin: 0;">';
+                    html += '<input type="hidden" name="action" value="dfn_admin_save_fai_cards">';
+                    html += '<input type="hidden" name="booking_id" value="' + booking.id + '">';
+                    html += '<input type="hidden" name="order_id" value="' + booking.order_id + '">';
                     
-                    html += '<div class="dfn-fai-card-row" style="' + borderStyle + '">';
-                    html += '  <span style="font-size:12px; color:#64748b;">Socio ' + (i + 1) + ':</span>';
-                    html += '  <input type="text" name="fai_cards[' + i + '][nome]" value="' + escHtml(card.nome || '') + '" placeholder="Nome" class="dfn-sm-input" style="font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">';
-                    html += '  <input type="text" name="fai_cards[' + i + '][cognome]" value="' + escHtml(card.cognome || '') + '" placeholder="Cognome" class="dfn-sm-input" style="font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">';
-                    html += '  <input type="text" name="fai_cards[' + i + '][tessera]" value="' + escHtml(card.tessera || '') + '" placeholder="N° Tessera FAI" class="dfn-sm-input" style="font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">';
+                    for (var i = 0; i < booking.persons_fai; i++) {
+                        var card = (booking.fai_cards && booking.fai_cards[i]) ? booking.fai_cards[i] : { nome: '', cognome: '', tessera: '' };
+                        var borderStyle = (i === booking.persons_fai - 1) ? '' : 'border-bottom:1px dashed #e2e8f0; padding-bottom:12px; margin-bottom:12px;';
+                        
+                        html += '<div class="dfn-fai-card-row" style="' + borderStyle + '">';
+                        html += '  <span style="font-size:12px; color:#64748b;">Socio ' + (i + 1) + ':</span>';
+                        html += '  <input type="text" name="fai_cards[' + i + '][nome]" value="' + escHtml(card.nome || '') + '" placeholder="Nome" class="dfn-sm-input" style="font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">';
+                        html += '  <input type="text" name="fai_cards[' + i + '][cognome]" value="' + escHtml(card.cognome || '') + '" placeholder="Cognome" class="dfn-sm-input" style="font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">';
+                        html += '  <input type="text" name="fai_cards[' + i + '][tessera]" value="' + escHtml(card.tessera || '') + '" placeholder="N° Tessera FAI" class="dfn-sm-input" style="font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">';
+                        html += '</div>';
+                    }
+                    
+                    html += '<div style="text-align:right; margin-top:12px;">';
+                    html += '  <button type="submit" class="dfn-btn dfn-btn-primary" style="font-size:12px; padding:6px 12px; display:inline-flex; align-items:center; gap:5px;"><span class="dashicons dashicons-saved" style="font-size:16px; width:16px; height:16px; line-height:16px;"></span> Salva Tessere</button>';
                     html += '</div>';
-                }
-                
-                html += '<div style="text-align:right; margin-top:12px;">';
-                html += '  <button type="submit" class="dfn-btn dfn-btn-primary" style="font-size:12px; padding:6px 12px; display:inline-flex; align-items:center; gap:5px;"><span class="dashicons dashicons-saved" style="font-size:16px; width:16px; height:16px; line-height:16px;"></span> Salva Tessere</button>';
-                html += '</div>';
-                html += '</form>';
-                $faiList.html(html);
+                    html += '</form>';
+                    $faiList.html(html);
 
-                // Gestione invio form salvataggio tessere
-                $('#dfn-modal-fai-cards-form').off('submit').on('submit', function(e) {
-                    e.preventDefault();
-                    var $form = $(this);
-                    var $btn = $form.find('button[type="submit"]');
-                    $btn.prop('disabled', true).text('Salvataggio...');
+                    // Gestione invio form salvataggio tessere
+                    $('#dfn-modal-fai-cards-form').off('submit').on('submit', function(e) {
+                        e.preventDefault();
+                        var $form = $(this);
+                        var $btn = $form.find('button[type="submit"]');
+                        $btn.prop('disabled', true).text('Salvataggio...');
 
-                    var data = $form.serialize() + '&nonce=' + dfnAdminVars.nonce;
+                        var data = $form.serialize() + '&nonce=' + dfnAdminVars.nonce;
 
-                    $.post(dfnAdminVars.ajaxurl, data, function(res) {
-                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="font-size:16px; width:16px; height:16px; line-height:16px;"></span> Salva Tessere');
-                        if (res.success) {
-                            alert(res.data.message || 'Tessere salvate con successo.');
-                            booking.fai_cards = res.data.fai_cards;
-                        } else {
-                            alert('Errore: ' + (res.data.message || 'impossibile salvare le tessere.'));
-                        }
-                    }).fail(function() {
-                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="font-size:16px; width:16px; height:16px; line-height:16px;"></span> Salva Tessere');
-                        alert('Si è verificato un errore di rete.');
+                        $.post(dfnAdminVars.ajaxurl, data, function(res) {
+                            $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="font-size:16px; width:16px; height:16px; line-height:16px;"></span> Salva Tessere');
+                            if (res.success) {
+                                alert(res.data.message || 'Tessere salvate con successo.');
+                                booking.fai_cards = res.data.fai_cards;
+                            } else {
+                                alert('Errore: ' + (res.data.message || 'impossibile salvare le tessere.'));
+                            }
+                        }).fail(function() {
+                            $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="font-size:16px; width:16px; height:16px; line-height:16px;"></span> Salva Tessere');
+                            alert('Si è verificato un errore di rete.');
+                        });
                     });
-                });
-            } else {
-                $faiSection.hide();
-            }
+                } else {
+                    $faiSection.hide();
+                }
+            };
+
+            renderFaiSection();
 
             var $btnOrder = $('#dfn-btn-view-order-wc');
             if (booking.order_id) {

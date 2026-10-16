@@ -163,11 +163,20 @@ function dfn_render_fai_pending_bookings(): void
                                         <?php echo esc_html($slot_info); ?>
                                     </td>
                                     <td>
-                                        <strong style="font-size:15px;"><?php echo absint($booking->total_persons); ?></strong>
-                                        <div class="dfn-small-sub"><?php echo absint($booking->persons_standard); ?> std + <?php echo absint($booking->persons_fai); ?> FAI</div>
+                                        <strong class="dfn-pending-total-persons" style="font-size:15px;"><?php echo absint($booking->total_persons); ?></strong>
+                                        <div class="dfn-small-sub dfn-pending-seats-breakdown"><?php echo absint($booking->persons_standard); ?> std + <?php echo absint($booking->persons_fai); ?> FAI</div>
                                         <?php if ($order) : ?>
-                                            <div style="color: var(--dfn-primary); font-weight: bold; font-size: 13px; margin-top: 2px;"><?php echo wc_price(floatval($order->get_total())); ?></div>
+                                            <div class="dfn-pending-order-total" style="color: var(--dfn-primary); font-weight: bold; font-size: 13px; margin-top: 2px;"><?php echo wc_price(floatval($order->get_total())); ?></div>
                                         <?php endif; ?>
+                                        <button type="button" 
+                                            class="dfn-btn dfn-btn-secondary dfn-btn-edit-pending-seats" 
+                                            data-booking-id="<?php echo absint($booking->id); ?>" 
+                                            data-std="<?php echo absint($booking->persons_standard); ?>" 
+                                            data-fai="<?php echo absint($booking->persons_fai); ?>" 
+                                            data-customer="<?php echo esc_attr(function_exists('dfn_sanitize_name') ? dfn_sanitize_name($booking->customer_name) : $booking->customer_name); ?>"
+                                            style="font-size: 11px; padding: 3px 8px; margin-top: 5px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; cursor: pointer; color: #475569;">
+                                            <span class="dashicons dashicons-edit" style="font-size: 13px; width: 13px; height: 13px; line-height: 13px;"></span> <?php esc_html_e('Modifica Posti', 'dfn-theme'); ?>
+                                        </button>
                                     </td>
                                     <td>
                                         <?php
@@ -356,6 +365,57 @@ function dfn_render_fai_pending_bookings(): void
                 <button type="button" id="dfn-modal-cancel" class="dfn-btn dfn-btn-secondary"><?php esc_html_e('Annulla', 'dfn-theme'); ?></button>
                 <button type="button" id="dfn-modal-confirm-reject" class="dfn-btn" style="background: var(--dfn-danger); color: #fff;"><?php esc_html_e('Conferma rifiuto', 'dfn-theme'); ?></button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modale Modifica Posti Prenotazione -->
+    <div id="dfn-edit-seats-modal" class="dfn-modal-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center;">
+        <div class="dfn-modal-box" style="background: #fff; border-radius: var(--dfn-radius); box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 480px; max-width: 92%;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--dfn-border); background: #f8fafc;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <span class="dashicons dashicons-groups" style="color: var(--dfn-primary);"></span> <?php esc_html_e('Modifica Posti Partecipanti', 'dfn-theme'); ?>
+                </h3>
+                <button type="button" id="dfn-seats-modal-close" style="background: none; border: none; cursor: pointer; font-size: 22px; color: var(--dfn-text-muted); line-height: 1; padding: 0;">&times;</button>
+            </div>
+            <form id="dfn-edit-seats-form" style="padding: 20px 24px; margin: 0;">
+                <input type="hidden" id="dfn-seats-booking-id" value="">
+
+                <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px;">
+                    <div style="font-size: 13.5px; font-weight: 700; color: #0f172a;" id="dfn-seats-customer-display">Nome Visitatore</div>
+                    <div style="font-size: 12px; color: #64748b;" id="dfn-seats-booking-display">Prenotazione #—</div>
+                </div>
+
+                <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                    <div style="flex: 1;">
+                        <label for="dfn-seats-qty-std" style="display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px; color: #334155;">
+                            <?php esc_html_e('Standard (Interi)', 'dfn-theme'); ?>
+                        </label>
+                        <input type="number" id="dfn-seats-qty-std" min="0" required style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 38px; padding: 0 10px; font-size: 14px; font-weight: 700; text-align: center;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="dfn-seats-qty-fai" style="display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px; color: #166534;">
+                            <?php esc_html_e('Soci FAI (Ridotti)', 'dfn-theme'); ?>
+                        </label>
+                        <input type="number" id="dfn-seats-qty-fai" min="0" required style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 38px; padding: 0 10px; font-size: 14px; font-weight: 700; text-align: center;">
+                    </div>
+                </div>
+
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; color: #166534; font-weight: 600;"><?php esc_html_e('Nuovo Totale Partecipanti:', 'dfn-theme'); ?></span>
+                    <strong id="dfn-seats-modal-live-total" style="font-size: 16px; color: #14532d;">-</strong>
+                </div>
+
+                <p style="font-size: 11.5px; color: #64748b; margin: 0 0 16px; line-height: 1.4;">
+                    <?php esc_html_e('Il salvataggio sincronizza automaticamente le scorte del magazzino, la capienza del turno, le righe e il totale dell\'ordine WooCommerce.', 'dfn-theme'); ?>
+                </p>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 14px; border-top: 1px solid var(--dfn-border);">
+                    <button type="button" id="dfn-seats-modal-cancel" class="dfn-btn dfn-btn-secondary" style="padding: 6px 14px; font-weight: 600;"><?php esc_html_e('Annulla', 'dfn-theme'); ?></button>
+                    <button type="submit" id="dfn-seats-modal-submit" class="dfn-btn dfn-btn-primary" style="font-weight: 700; padding: 6px 16px;">
+                        <span class="dashicons dashicons-saved" style="vertical-align: text-bottom; margin-right: 2px;"></span> <?php esc_html_e('Salva Modifiche', 'dfn-theme'); ?>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
     <?php

@@ -26,6 +26,7 @@ add_action('wp_ajax_dfn_admin_delete_booking', 'dfn_ajax_admin_delete_booking');
 add_action('wp_ajax_dfn_admin_save_fai_cards', 'dfn_ajax_admin_save_fai_cards');
 add_action('wp_ajax_dfn_admin_get_failed_attempts', 'dfn_ajax_admin_get_failed_attempts');
 add_action('wp_ajax_dfn_admin_delete_failed_attempt', 'dfn_ajax_admin_delete_failed_attempt');
+add_action('wp_ajax_dfn_admin_update_booking_seats', 'dfn_ajax_admin_update_booking_seats');
 
 // Hook AJAX per la pagina Quick Booking (Inserimento Rapido Segreteria)
 add_action('wp_ajax_dfn_quick_get_events', 'dfn_ajax_quick_get_events');
@@ -54,6 +55,7 @@ function dfn_ajax_admin_verify_access(): void
     $nonce = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
     if (
         ! wp_verify_nonce($nonce, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($nonce, 'dfn_admin_pending_nonce') &&
         ! wp_verify_nonce($nonce, 'dfn_quick_booking_nonce') &&
         ! wp_verify_nonce($nonce, 'dfn_booking_nonce') &&
         ! wp_verify_nonce($nonce, 'dfn_scanner_nonce')
@@ -1938,6 +1940,271 @@ function dfn_admin_update_payment_status(): void
     wp_send_json_success([
         'message'    => __('Stato del pagamento aggiornato con successo.', 'dfn-theme'),
         'new_status' => $new_status,
+    ]);
+}
+
+/**
+ * Modifica il numero di partecipanti (Standard e Soci FAI) per prenotazioni non ancora pagate o confermate.
+ * Sincronizza:
+ * 1. wp_dfn_bookings (persons_standard, persons_fai, total_persons, amount_due)
+ * 2. Capienza turni (wp_dfn_booking_slots e booked_count in wp_dfn_event_slots)
+ * 3. Scorte di magazzino WooCommerce (wc_update_product_stock per il prodotto evento associato)
+ * 4. Ordine WooCommerce (quantità riga, _dfn_qty_standard, _dfn_qty_fai, _reduced_stock, fee Sconto Soci FAI, note ordine)
+ */
+function dfn_ajax_admin_update_booking_seats(): void
+{
+    dfn_ajax_admin_verify_access();
+
+    $booking_id       = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+    $new_qty_standard = isset($_POST['qty_standard']) ? max(0, intval($_POST['qty_standard'])) : 0;
+    $new_qty_fai      = isset($_POST['qty_fai']) ? max(0, intval($_POST['qty_fai'])) : 0;
+    $new_total_qty    = $new_qty_standard + $new_qty_fai;
+
+    if ($booking_id <= 0) {
+        wp_send_json_error(['message' => __('ID prenotazione non valido.', 'dfn-theme')]);
+    }
+
+    if ($new_total_qty <= 0) {
+        wp_send_json_error(['message' => __('Il numero totale di partecipanti deve essere almeno 1. Se desideri azzerare i posti, puoi annullare la prenotazione.', 'dfn-theme')]);
+    }
+
+    global $wpdb;
+    $table_bookings = $wpdb->prefix . 'dfn_bookings';
+    $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_bookings} WHERE id = %d", $booking_id));
+
+    if (! $booking) {
+        wp_send_json_error(['message' => __('Prenotazione non trovata.', 'dfn-theme')]);
+    }
+
+    // Ammesso solo per prenotazioni in attesa di pagamento o di approvazione tessere
+    if (! in_array($booking->status, ['pending_payment', 'pending_approval'], true)) {
+        wp_send_json_error(['message' => __('È possibile modificare i posti solo per prenotazioni non ancora pagate o confermate (in attesa di pagamento o verifica FAI).', 'dfn-theme')]);
+    }
+
+    $old_std   = intval($booking->persons_standard);
+    $old_fai   = intval($booking->persons_fai);
+    $old_total = intval($booking->total_persons);
+
+    if ($new_qty_standard === $old_std && $new_qty_fai === $old_fai) {
+        wp_send_json_success([
+            'message'          => __('Nessuna modifica rilevata.', 'dfn-theme'),
+            'persons_standard' => $old_std,
+            'persons_fai'      => $old_fai,
+            'total_persons'    => $old_total,
+        ]);
+    }
+
+    $delta_total = $new_total_qty - $old_total;
+
+    // Recupera evento e prodotto WC
+    $event = function_exists('dfn_db_get_event') ? dfn_db_get_event($booking->event_id) : null;
+    $product_id = $event ? intval($event->product_id) : 0;
+    $product = $product_id > 0 ? wc_get_product($product_id) : null;
+
+    $table_booking_slots = $wpdb->prefix . 'dfn_booking_slots';
+    $table_slots = $wpdb->prefix . 'dfn_event_slots';
+    $booking_slots = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM {$table_booking_slots} WHERE booking_id = %d ORDER BY id ASC",
+        $booking->id
+    ));
+
+    $wpdb->query('START TRANSACTION');
+
+    try {
+        // 1. GESTIONE CAPIENZA TURNI (SE PRESENTI SLOT)
+        if (! empty($booking_slots)) {
+            if ($delta_total > 0) {
+                // Aumento posti: assegniamo allo slot primario della prenotazione
+                $primary_bs = $booking_slots[0];
+                $slot = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_slots} WHERE id = %d", $primary_bs->slot_id));
+                if ($slot) {
+                    $max_capacity = intval($slot->slot_capacity) + intval($slot->slot_bonus);
+                    $new_booked = intval($slot->booked_count) + $delta_total;
+                    if ($new_booked > $max_capacity) {
+                        $available = max(0, $max_capacity - intval($slot->booked_count));
+                        throw new \Exception(sprintf(__('Capienza massima del turno superata. Rimangono solo %d posti disponibili per questo orario.', 'dfn-theme'), $available));
+                    }
+                    $wpdb->query($wpdb->prepare(
+                        "UPDATE {$table_slots} SET booked_count = booked_count + %d WHERE id = %d",
+                        $delta_total,
+                        $slot->id
+                    ));
+                    $wpdb->query($wpdb->prepare(
+                        "UPDATE {$table_booking_slots} SET persons = persons + %d WHERE id = %d",
+                        $delta_total,
+                        $primary_bs->id
+                    ));
+                }
+            } elseif ($delta_total < 0) {
+                // Riduzione posti: decrementiamo dai record booking_slots
+                $to_reduce = abs($delta_total);
+                $reverse_slots = array_reverse($booking_slots);
+                foreach ($reverse_slots as $bs) {
+                    if ($to_reduce <= 0) {
+                        break;
+                    }
+                    $cur_p = intval($bs->persons);
+                    $sub = min($cur_p, $to_reduce);
+                    $new_p = $cur_p - $sub;
+
+                    if ($new_p > 0) {
+                        $wpdb->update($table_booking_slots, ['persons' => $new_p], ['id' => $bs->id], ['%d'], ['%d']);
+                    } else {
+                        $wpdb->delete($table_booking_slots, ['id' => $bs->id], ['%d']);
+                    }
+
+                    $wpdb->query($wpdb->prepare(
+                        "UPDATE {$table_slots} SET booked_count = GREATEST(0, CAST(booked_count AS SIGNED) - %d) WHERE id = %d",
+                        $sub,
+                        $bs->slot_id
+                    ));
+                    $to_reduce -= $sub;
+                }
+            }
+        }
+
+        // 2. GESTIONE SCORTE MAGAZZINO WOOCOMMERCE
+        if ($product && $product->managing_stock()) {
+            if ($delta_total > 0) {
+                $cur_stock = $product->get_stock_quantity();
+                if ($cur_stock !== null && $cur_stock < $delta_total && ! $product->backorders_allowed()) {
+                    throw new \Exception(sprintf(__('Scorte di magazzino insufficienti. Disponibili solo %d unità.', 'dfn-theme'), max(0, $cur_stock)));
+                }
+                wc_update_product_stock($product, $delta_total, 'decrease');
+            } elseif ($delta_total < 0) {
+                wc_update_product_stock($product, abs($delta_total), 'increase');
+            }
+        }
+
+        // 3. CALCOLO PREZZI ED IMPORTI
+        $price_standard = $event ? floatval($event->price_standard) : 10.0;
+        $price_fai      = $event ? floatval($event->price_fai) : 5.0;
+        $unit_discount  = $price_standard - $price_fai;
+        if ($unit_discount <= 0) {
+            $unit_discount = floatval(defined('DFN_FAI_SCONTO_UNITARIO') ? DFN_FAI_SCONTO_UNITARIO : 5);
+        }
+        $new_amount = ($new_qty_standard * $price_standard) + ($new_qty_fai * $price_fai);
+
+        // 4. AGGIORNA RECORD PRENOTAZIONE
+        $wpdb->update(
+            $table_bookings,
+            [
+                'persons_standard' => $new_qty_standard,
+                'persons_fai'      => $new_qty_fai,
+                'total_persons'    => $new_total_qty,
+                'amount_due'       => $new_amount,
+                'updated_at'       => current_time('mysql'),
+            ],
+            ['id' => $booking->id],
+            ['%d', '%d', '%d', '%f', '%s'],
+            ['%d']
+        );
+
+        $wpdb->query('COMMIT');
+    } catch (\Throwable $e) {
+        $wpdb->query('ROLLBACK');
+        wp_send_json_error(['message' => $e->getMessage()]);
+    }
+
+    // 5. SINCRONIZZAZIONE ORDINE WOOCOMMERCE
+    $order = ($booking->order_id > 0) ? wc_get_order($booking->order_id) : null;
+    $order_total_formatted = '';
+
+    if ($order) {
+        $subtotal_line = $new_total_qty * $price_standard;
+
+        foreach ($order->get_items() as $item) {
+            if (is_a($item, 'WC_Order_Item_Product')) {
+                $item->set_quantity($new_total_qty);
+                $item->set_subtotal($subtotal_line);
+                $item->set_total($subtotal_line);
+                $item->update_meta_data('_dfn_qty_standard', (string) $new_qty_standard);
+                $item->update_meta_data('_dfn_qty_fai', (string) $new_qty_fai);
+                $item->update_meta_data('_reduced_stock', $new_total_qty);
+                $item->save();
+            }
+        }
+
+        // Gestione riga fee "Sconto Soci FAI"
+        $new_fee_total = - ($new_qty_fai * $unit_discount);
+        $fee_items = $order->get_items('fee');
+        $fai_fee_found = false;
+
+        foreach ($fee_items as $item_id => $item_fee) {
+            /** @var \WC_Order_Item_Fee $item_fee */
+            if (($item_fee instanceof \WC_Order_Item_Fee) && (strpos($item_fee->get_name(), 'Sconto Soci FAI') !== false || strpos($item_fee->get_name(), 'Adeguamento Soci FAI') !== false)) {
+                $fai_fee_found = true;
+                if ($new_qty_fai > 0) {
+                    $new_fee_label = sprintf(__('Sconto Soci FAI (%d %s)', 'dfn-theme'), $new_qty_fai, _n('tessera', 'tessere', $new_qty_fai, 'dfn-theme'));
+                    $item_fee->set_name($new_fee_label);
+                    $item_fee->set_amount((string) $new_fee_total);
+                    $item_fee->set_total((string) $new_fee_total);
+                    $item_fee->save();
+                } else {
+                    $order->remove_item($item_id);
+                }
+                break;
+            }
+        }
+
+        if (! $fai_fee_found && $new_qty_fai > 0) {
+            $new_fee_item = new \WC_Order_Item_Fee();
+            $new_fee_label = sprintf(__('Sconto Soci FAI (%d %s)', 'dfn-theme'), $new_qty_fai, _n('tessera', 'tessere', $new_qty_fai, 'dfn-theme'));
+            $new_fee_item->set_name($new_fee_label);
+            $new_fee_item->set_amount((string) $new_fee_total);
+            $new_fee_item->set_total((string) $new_fee_total);
+            $order->add_item($new_fee_item);
+        }
+
+        // Adeguamento array metadati tessere FAI
+        $fai_cards = $order->get_meta('_dfn_fai_cards') ?: [];
+        if (count($fai_cards) > $new_qty_fai) {
+            $fai_cards = array_slice($fai_cards, 0, $new_qty_fai);
+            $order->update_meta_data('_dfn_fai_cards', $fai_cards);
+        }
+
+        $order->calculate_totals();
+
+        $user_name = wp_get_current_user()->display_name ?: 'Admin';
+        $delta_str = ($delta_total > 0) ? "+{$delta_total}" : (string) $delta_total;
+        $order->add_order_note(sprintf(
+            __('Partecipanti modificati dall\'admin %s: %d Standard, %d Soci FAI (Totale: %d). Scorte magazzino / disponibilità aggiornate (%s posti). Nuovo totale ordine: %s', 'dfn-theme'),
+            $user_name,
+            $new_qty_standard,
+            $new_qty_fai,
+            $new_total_qty,
+            $delta_str,
+            wc_price($order->get_total())
+        ));
+        $order->save();
+
+        $order_total_formatted = wc_price($order->get_total());
+    }
+
+    if (function_exists('dfn_log_event')) {
+        dfn_log_event(
+            'BOOKING_UPDATE_SEATS',
+            sprintf('Posti prenotazione #%d modificati da admin (%d Standard, %d FAI, totale %d). Variazione: %+d posti.', $booking->id, $new_qty_standard, $new_qty_fai, $new_total_qty, $delta_total),
+            [
+                'booking_id' => $booking->id,
+                'order_id'   => $booking->order_id,
+                'old_std'    => $old_std,
+                'old_fai'    => $old_fai,
+                'new_std'    => $new_qty_standard,
+                'new_fai'    => $new_qty_fai,
+                'delta'      => $delta_total,
+            ],
+            $booking->event_id
+        );
+    }
+
+    wp_send_json_success([
+        'message'          => sprintf(__('Posti aggiornati con successo: %d Standard + %d Soci FAI (Totale: %d). Scorte magazzino sincronizzate.', 'dfn-theme'), $new_qty_standard, $new_qty_fai, $new_total_qty),
+        'persons_standard' => $new_qty_standard,
+        'persons_fai'      => $new_qty_fai,
+        'total_persons'    => $new_total_qty,
+        'order_total_html' => $order_total_formatted,
+        'fai_cards'        => $order ? ($order->get_meta('_dfn_fai_cards') ?: []) : [],
     ]);
 }
 
