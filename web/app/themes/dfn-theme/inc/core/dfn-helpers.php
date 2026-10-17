@@ -69,6 +69,9 @@ function dfn_get_setting($key, $default = null)
         'enable_event_accounting'     => 'yes',
         'enable_event_reviews'        => 'yes',
         'enable_live_boxoffice'       => 'yes',
+        'enable_recaptcha'            => 'yes',
+        'recaptcha_site_key'          => '',
+        'recaptcha_secret_key'        => '',
         'setup_roles_version'         => '2.0',
         'setup_fai_discount'          => 5,
 

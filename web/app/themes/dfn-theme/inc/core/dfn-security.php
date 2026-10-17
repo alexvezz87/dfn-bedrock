@@ -13,9 +13,64 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-// Costanti reCAPTCHA v3
-define('DFN_RECAPTCHA_SITE_KEY', '6LdW82stAAAAAETgJ0XpPZFq_miN199Byozf2ukN');
-define('DFN_RECAPTCHA_SECRET_KEY', '6LdW82stAAAAAGY-EMZNPHByZEECI0639k4uYvpn');
+// Costanti reCAPTCHA v3 di fallback (retrocompatibilità)
+if (! defined('DFN_RECAPTCHA_SITE_KEY')) {
+    define('DFN_RECAPTCHA_SITE_KEY', '6LdW82stAAAAAETgJ0XpPZFq_miN199Byozf2ukN');
+}
+if (! defined('DFN_RECAPTCHA_SECRET_KEY')) {
+    define('DFN_RECAPTCHA_SECRET_KEY', '6LdW82stAAAAAGY-EMZNPHByZEECI0639k4uYvpn');
+}
+
+/**
+ * Recupera la Site Key reCAPTCHA configurata nelle impostazioni con fallback a costante.
+ */
+function dfn_get_recaptcha_site_key(): string
+{
+    if (function_exists('dfn_get_setting')) {
+        $key = dfn_get_setting('recaptcha_site_key');
+        if (! empty($key)) {
+            return trim((string) $key);
+        }
+    }
+    return defined('DFN_RECAPTCHA_SITE_KEY') ? DFN_RECAPTCHA_SITE_KEY : '';
+}
+
+/**
+ * Recupera la Secret Key reCAPTCHA configurata nelle impostazioni con fallback a costante.
+ */
+function dfn_get_recaptcha_secret_key(): string
+{
+    if (function_exists('dfn_get_setting')) {
+        $key = dfn_get_setting('recaptcha_secret_key');
+        if (! empty($key)) {
+            return trim((string) $key);
+        }
+    }
+    return defined('DFN_RECAPTCHA_SECRET_KEY') ? DFN_RECAPTCHA_SECRET_KEY : '';
+}
+
+/**
+ * Verifica se la protezione Google reCAPTCHA v3 è attiva ed utilizzabile.
+ */
+function dfn_is_recaptcha_enabled(): bool
+{
+    if (dfn_is_local_environment()) {
+        return false;
+    }
+
+    if (function_exists('dfn_get_setting')) {
+        $enabled = dfn_get_setting('enable_recaptcha', 'yes');
+        if ($enabled === 'no') {
+            return false;
+        }
+    }
+
+    $site_key   = dfn_get_recaptcha_site_key();
+    $secret_key = dfn_get_recaptcha_secret_key();
+
+    return ! empty($site_key) && ! empty($secret_key);
+}
+
 
 // Disabilita la generazione automatica casuale di password in WooCommerce
 add_filter('woocommerce_registration_generate_password', '__return_false');
@@ -136,14 +191,18 @@ function dfn_is_local_environment(): bool
 /**
  * Verifica un token Google reCAPTCHA v3 tramite API HTTPS.
  *
+ * Implementa una logica Fail-Open intelligente per non bloccare mai utenti e amministratori
+ * in caso di problemi di configurazione o vendor (progetto Google eliminato, chiavi revocate,
+ * timeout di rete, disservizi cloud).
+ *
  * @param string $token Token ricevuto dal cliente.
  * @param string $action Azione opzionale.
- * @return bool True se la verifica ha successo ed il punteggio è sufficiente.
+ * @return bool True se la verifica ha successo, o se è attivo il fail-open su errori server/vendor.
  */
 function dfn_verify_recaptcha(string $token, string $action = ''): bool
 {
-    // Disattivato in ambiente locale/sviluppo
-    if (dfn_is_local_environment()) {
+    // Disattivato in ambiente locale/sviluppo o se disabilitato da pannello impostazioni
+    if (! dfn_is_recaptcha_enabled()) {
         return true;
     }
 
@@ -151,9 +210,22 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
         return false;
     }
 
+    // Circuit Breaker: se Google ha segnalato un errore grave di configurazione o progetto eliminato
+    // negli ultimi 15 minuti, non blocchiamo gli utenti e non saturiamo le connessioni HTTPS
+    $circuit_error = get_transient('dfn_recaptcha_service_broken');
+    if ($circuit_error !== false) {
+        error_log('DFN reCAPTCHA [Fail-Open]: Circuit breaker attivo (' . $circuit_error . '). Accesso utente consentito.');
+        return true;
+    }
+
+    $secret = dfn_get_recaptcha_secret_key();
+    if (empty($secret)) {
+        return true;
+    }
+
     $response = wp_remote_post('https://www.google.com/recaptcha/api/siteverify', [
         'body' => [
-            'secret'   => DFN_RECAPTCHA_SECRET_KEY,
+            'secret'   => $secret,
             'response' => $token,
             'remoteip' => $_SERVER['REMOTE_ADDR'] ?? '',
         ],
@@ -162,19 +234,56 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
 
     if (is_wp_error($response)) {
         error_log('DFN reCAPTCHA Error: ' . $response->get_error_message());
-        return true; // In caso di timeout o errore temporaneo di rete verso Google, non blocchiamo l'utente
+        return true; // Fail-open su timeout o errore temporaneo di rete verso Google
+    }
+
+    $status_code = wp_remote_retrieve_response_code($response);
+    if ($status_code >= 500) {
+        error_log('DFN reCAPTCHA Error: Server Google HTTP ' . $status_code . '. Fail-open attivato.');
+        return true;
     }
 
     $body = json_decode(wp_remote_retrieve_body($response), true);
     if (! empty($body['success'])) {
-        // Il token è autentico, emesso da Google per il nostro dominio.
+        // Il token è autentico ed emesso con successo da Google
+        delete_transient('dfn_recaptcha_service_broken');
         return true;
-    } else {
-        // Logga l'errore specifico restituito da Google per diagnostica
-        $err_codes = isset($body['error-codes']) ? implode(', ', (array) $body['error-codes']) : 'unknown';
-        error_log('DFN reCAPTCHA verification failed: ' . $err_codes);
     }
 
+    // Google ha risposto con success=false
+    $err_codes = isset($body['error-codes']) ? (array) $body['error-codes'] : ['unknown'];
+    $err_str   = implode(', ', $err_codes);
+
+    // Identifica errori di configurazione, credenziali o progetto Google Cloud eliminato/disattivato
+    $is_config_or_vendor_error = false;
+    foreach ($err_codes as $err) {
+        $err_lower = strtolower($err);
+        if (
+            strpos($err_lower, 'deleted') !== false ||
+            strpos($err_lower, 'invalid-input-secret') !== false ||
+            strpos($err_lower, 'missing-input-secret') !== false ||
+            strpos($err_lower, 'bad-request') !== false ||
+            strpos($err_lower, 'project') !== false ||
+            strpos($err_lower, 'forbidden') !== false
+        ) {
+            $is_config_or_vendor_error = true;
+            break;
+        }
+    }
+
+    if ($is_config_or_vendor_error) {
+        // Memorizza nel transient circuit breaker per 15 minuti per non rallentare i successivi login
+        set_transient('dfn_recaptcha_service_broken', $err_str, 15 * MINUTE_IN_SECONDS);
+        update_option('dfn_recaptcha_last_vendor_error', [
+            'time'    => current_time('mysql'),
+            'message' => $err_str,
+        ]);
+        error_log('DFN reCAPTCHA Config/Vendor Failure (' . $err_str . '). FAIL-OPEN attivato: utente consentito.');
+        return true;
+    }
+
+    // Fallimento reale di validazione bot o token client non valido
+    error_log('DFN reCAPTCHA verification failed: ' . $err_str);
     return false;
 }
 
@@ -183,32 +292,36 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
  */
 function dfn_enqueue_recaptcha_scripts(): void
 {
-    if (is_admin() || dfn_is_local_environment()) {
+    if (is_admin() || ! dfn_is_recaptcha_enabled()) {
+        return;
+    }
+
+    $site_key = dfn_get_recaptcha_site_key();
+    if (empty($site_key)) {
         return;
     }
 
     wp_enqueue_script(
         'google-recaptcha-v3',
-        'https://www.google.com/recaptcha/api.js?render=' . esc_attr(DFN_RECAPTCHA_SITE_KEY),
+        'https://www.google.com/recaptcha/api.js?render=' . esc_attr($site_key),
         [],
         null,
         true
     );
 
-    $site_key_js = esc_js(DFN_RECAPTCHA_SITE_KEY);
+    $site_key_js = esc_js($site_key);
     $inline_js = <<<JS
 (function() {
     var siteKey = '{$site_key_js}';
+    if (!siteKey) return;
 
     function attachRecaptchaToForm(form) {
         if (!form || form.getAttribute('data-recaptcha-bound') === 'true') return;
         form.setAttribute('data-recaptcha-bound', 'true');
 
         form.addEventListener('submit', function(e) {
-            if (typeof grecaptcha === 'undefined') return;
             if (form.getAttribute('data-recaptcha-bypassed') === 'true') return;
-
-            var input = form.querySelector('input[name="g-recaptcha-response"]');
+            if (typeof grecaptcha === 'undefined') return;
 
             e.preventDefault();
             e.stopPropagation();
@@ -231,31 +344,45 @@ function dfn_enqueue_recaptcha_scripts(): void
                 form.appendChild(hiddenSub);
             }
 
-            grecaptcha.ready(function() {
-                grecaptcha.execute(siteKey, { action: actionName }).then(function(token) {
-                    if (!input) {
-                        input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'g-recaptcha-response';
-                        form.appendChild(input);
-                    }
-                    input.value = token;
-                    form.setAttribute('data-recaptcha-bypassed', 'true');
-                    
-                    if (typeof form.requestSubmit === 'function') {
-                        form.requestSubmit();
-                    } else {
-                        form.submit();
-                    }
-                }).catch(function(err) {
-                    form.setAttribute('data-recaptcha-bypassed', 'true');
-                    if (typeof form.requestSubmit === 'function') {
-                        form.requestSubmit();
-                    } else {
-                        form.submit();
-                    }
+            var formSubmitted = false;
+            function submitFormSafely() {
+                if (formSubmitted) return;
+                formSubmitted = true;
+                form.setAttribute('data-recaptcha-bypassed', 'true');
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+            }
+
+            // Timeout di salvaguardia mobile: se grecaptcha ritarda o non risponde entro 3.5s, invia il form
+            var timer = setTimeout(function() {
+                submitFormSafely();
+            }, 3500);
+
+            try {
+                grecaptcha.ready(function() {
+                    grecaptcha.execute(siteKey, { action: actionName }).then(function(token) {
+                        clearTimeout(timer);
+                        var input = form.querySelector('input[name="g-recaptcha-response"]');
+                        if (!input) {
+                            input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'g-recaptcha-response';
+                            form.appendChild(input);
+                        }
+                        input.value = token;
+                        submitFormSafely();
+                    }).catch(function(err) {
+                        clearTimeout(timer);
+                        submitFormSafely();
+                    });
                 });
-            });
+            } catch (err) {
+                clearTimeout(timer);
+                submitFormSafely();
+            }
         });
     }
 
@@ -291,7 +418,7 @@ add_action('wp_enqueue_scripts', 'dfn_enqueue_recaptcha_scripts');
  */
 function dfn_verify_login_recaptcha($user, $username)
 {
-    if (empty($username) || is_wp_error($user)) {
+    if (empty($username) || is_wp_error($user) || ! dfn_is_recaptcha_enabled()) {
         return $user;
     }
 
@@ -310,6 +437,34 @@ function dfn_verify_login_recaptcha($user, $username)
 add_filter('wp_authenticate_user', 'dfn_verify_login_recaptcha', 10, 2);
 
 /**
+ * Notifica per gli amministratori in caso di anomalia reCAPTCHA o progetto Google eliminato.
+ */
+function dfn_recaptcha_admin_notice(): void
+{
+    if (! current_user_can('manage_options')) {
+        return;
+    }
+
+    $circuit_error = get_transient('dfn_recaptcha_service_broken');
+    if ($circuit_error === false) {
+        return;
+    }
+
+    $settings_url = admin_url('admin.php?page=dfn-settings&tab=avanzate');
+    ?>
+    <div class="notice notice-warning is-dismissible" style="border-left-color: #f59e0b; padding: 12px 16px;">
+        <p style="margin: 0; font-size: 13.5px;">
+            <strong>🛡️ Avviso Sicurezza FAI — Google reCAPTCHA v3:</strong> 
+            Il servizio di verifica ha rilevato un errore di configurazione da Google (<em><?php echo esc_html($circuit_error); ?></em>).
+            È stata attivata la modalità di salvataggio <strong>Fail-Open</strong> per consentire a visitatori, volontari ed amministratori di accedere regolarmente.
+            Puoi verificare o aggiornare le chiavi nel pannello <a href="<?php echo esc_url($settings_url); ?>" style="font-weight: 700; color: #004b23;"><strong>Impostazioni &rarr; Avanzate &amp; Toggle</strong></a>.
+        </p>
+    </div>
+    <?php
+}
+add_action('admin_notices', 'dfn_recaptcha_admin_notice');
+
+/**
  * Intercetta la registrazione WooCommerce/WP per implementare il Double Opt-In.
  * Impedisce la creazione dell'utente in wp_users finché non clicca sul link inviato via e-mail.
  */
@@ -319,10 +474,12 @@ function dfn_handle_registration_double_opt_in($errors, $username, $password, $e
         return $errors;
     }
 
-    // 1. Validazione reCAPTCHA (se il token è stato inviato dal frontend)
-    $recaptcha_token = isset($_POST['g-recaptcha-response']) ? sanitize_text_field($_POST['g-recaptcha-response']) : '';
-    if (! empty($recaptcha_token) && ! dfn_verify_recaptcha($recaptcha_token, 'register')) {
-        return new WP_Error('recaptcha_failed', __('⚠️ Verifica di sicurezza anti-bot fallita. Riprova.', 'dfn-theme'));
+    // 1. Validazione reCAPTCHA (se il token è stato inviato dal frontend e se reCAPTCHA è abilitato)
+    if (dfn_is_recaptcha_enabled()) {
+        $recaptcha_token = isset($_POST['g-recaptcha-response']) ? sanitize_text_field($_POST['g-recaptcha-response']) : '';
+        if (! empty($recaptcha_token) && ! dfn_verify_recaptcha($recaptcha_token, 'register')) {
+            return new WP_Error('recaptcha_failed', __('⚠️ Verifica di sicurezza anti-bot fallita. Riprova.', 'dfn-theme'));
+        }
     }
 
     $email = sanitize_email($email);
