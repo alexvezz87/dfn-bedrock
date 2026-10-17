@@ -207,7 +207,19 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
     }
 
     if (empty($token)) {
-        return false;
+        // Se il token è vuoto (es. timeout lato client su mobile lento, PWA standalone o script bloccato),
+        // non blocchiamo in modo distruttivo utenti umani autenticati
+        error_log('DFN reCAPTCHA Notice: Token vuoto ricevuto. Fail-open consentito per evitare blocchi utente.');
+        return true;
+    }
+
+    // Cache di memoizzazione per-richiesta:
+    // Evita chiamate duplicate a Google nel ciclo di vita della medesima richiesta HTTP
+    // (es. filtri WordPress multipli wp_authenticate_user / authenticate per username ed email).
+    // Una seconda chiamata con lo stesso token riceverebbe sempre "timeout-or-duplicate" da Google!
+    static $token_cache = [];
+    if (isset($token_cache[$token])) {
+        return $token_cache[$token];
     }
 
     // Circuit Breaker: se Google ha segnalato un errore grave di configurazione o progetto eliminato
@@ -215,11 +227,13 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
     $circuit_error = get_transient('dfn_recaptcha_service_broken');
     if ($circuit_error !== false) {
         error_log('DFN reCAPTCHA [Fail-Open]: Circuit breaker attivo (' . $circuit_error . '). Accesso utente consentito.');
+        $token_cache[$token] = true;
         return true;
     }
 
     $secret = dfn_get_recaptcha_secret_key();
     if (empty($secret)) {
+        $token_cache[$token] = true;
         return true;
     }
 
@@ -234,12 +248,14 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
 
     if (is_wp_error($response)) {
         error_log('DFN reCAPTCHA Error: ' . $response->get_error_message());
+        $token_cache[$token] = true;
         return true; // Fail-open su timeout o errore temporaneo di rete verso Google
     }
 
     $status_code = wp_remote_retrieve_response_code($response);
     if ($status_code >= 500) {
         error_log('DFN reCAPTCHA Error: Server Google HTTP ' . $status_code . '. Fail-open attivato.');
+        $token_cache[$token] = true;
         return true;
     }
 
@@ -247,12 +263,24 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
     if (! empty($body['success'])) {
         // Il token è autentico ed emesso con successo da Google
         delete_transient('dfn_recaptcha_service_broken');
+        $token_cache[$token] = true;
         return true;
     }
 
     // Google ha risposto con success=false
     $err_codes = isset($body['error-codes']) ? (array) $body['error-codes'] : ['unknown'];
     $err_str   = implode(', ', $err_codes);
+
+    // Gestione timeout-or-duplicate:
+    // Su connessioni mobili (4G/5G), app PWA in background/sleep, retry di form o doppio clic,
+    // Google restituisce "timeout-or-duplicate" perché il token è già stato consumato o ha superato i 2 minuti.
+    // L'utente al login ha già superato wp_check_password() con password corretta.
+    // Trattiamo timeout-or-duplicate come fail-open non bloccante.
+    if (in_array('timeout-or-duplicate', $err_codes, true)) {
+        error_log('DFN reCAPTCHA Notice: timeout-or-duplicate rilevato (token riutilizzato o latenza mobile). FAIL-OPEN attivato: utente consentito.');
+        $token_cache[$token] = true;
+        return true;
+    }
 
     // Identifica errori di configurazione, credenziali o progetto Google Cloud eliminato/disattivato
     $is_config_or_vendor_error = false;
@@ -279,11 +307,13 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
             'message' => $err_str,
         ]);
         error_log('DFN reCAPTCHA Config/Vendor Failure (' . $err_str . '). FAIL-OPEN attivato: utente consentito.');
+        $token_cache[$token] = true;
         return true;
     }
 
     // Fallimento reale di validazione bot o token client non valido
     error_log('DFN reCAPTCHA verification failed: ' . $err_str);
+    $token_cache[$token] = false;
     return false;
 }
 
@@ -315,16 +345,43 @@ function dfn_enqueue_recaptcha_scripts(): void
     var siteKey = '{$site_key_js}';
     if (!siteKey) return;
 
+    function resetFormRecaptchaState(form) {
+        if (!form) return;
+        form.removeAttribute('data-recaptcha-bypassed');
+        form.removeAttribute('data-recaptcha-submitting');
+        var input = form.querySelector('input[name="g-recaptcha-response"]');
+        if (input) {
+            input.value = '';
+        }
+    }
+
     function attachRecaptchaToForm(form) {
         if (!form || form.getAttribute('data-recaptcha-bound') === 'true') return;
         form.setAttribute('data-recaptcha-bound', 'true');
 
+        // Resetta eventuali token stantii al momento del binding
+        resetFormRecaptchaState(form);
+
         form.addEventListener('submit', function(e) {
-            if (form.getAttribute('data-recaptcha-bypassed') === 'true') return;
-            if (typeof grecaptcha === 'undefined') return;
+            // Se il form è già autorizzato all'invio nativo bypassando recaptcha
+            if (form.getAttribute('data-recaptcha-bypassed') === 'true') {
+                return;
+            }
+
+            // Evita doppi invii accidentali contemporanei da touchscreen
+            if (form.getAttribute('data-recaptcha-submitting') === 'true') {
+                e.preventDefault();
+                return;
+            }
+
+            // Se per qualsiasi motivo la libreria grecaptcha non è presente, lascia passare nativamente
+            if (typeof grecaptcha === 'undefined') {
+                return;
+            }
 
             e.preventDefault();
             e.stopPropagation();
+            form.setAttribute('data-recaptcha-submitting', 'true');
 
             // Determina l'azione appropriata (login, register o submit)
             var actionName = 'submit';
@@ -348,6 +405,7 @@ function dfn_enqueue_recaptcha_scripts(): void
             function submitFormSafely() {
                 if (formSubmitted) return;
                 formSubmitted = true;
+                form.removeAttribute('data-recaptcha-submitting');
                 form.setAttribute('data-recaptcha-bypassed', 'true');
                 if (typeof form.requestSubmit === 'function') {
                     form.requestSubmit();
@@ -356,10 +414,10 @@ function dfn_enqueue_recaptcha_scripts(): void
                 }
             }
 
-            // Timeout di salvaguardia mobile: se grecaptcha ritarda o non risponde entro 3.5s, invia il form
+            // Timeout di salvaguardia mobile: se grecaptcha ritarda o non risponde entro 4.5s, invia comunque il form
             var timer = setTimeout(function() {
                 submitFormSafely();
-            }, 3500);
+            }, 4500);
 
             try {
                 grecaptcha.ready(function() {
@@ -385,6 +443,11 @@ function dfn_enqueue_recaptcha_scripts(): void
             }
         });
     }
+
+    // Gestione risveglio smartphone da sleep / BFCache browser mobile
+    window.addEventListener('pageshow', function(event) {
+        document.querySelectorAll('form[data-recaptcha-bound]').forEach(resetFormRecaptchaState);
+    });
 
     document.addEventListener('DOMContentLoaded', function() {
         var forms = document.querySelectorAll('form');
@@ -424,6 +487,14 @@ function dfn_verify_login_recaptcha($user, $username)
 
     if (isset($_POST['g-recaptcha-response'])) {
         $token = sanitize_text_field($_POST['g-recaptcha-response']);
+        if (empty($token)) {
+            // Se il token è vuoto (es. timeout frontend mobile o script bloccato da adblocker/webview),
+            // l'utente ha comunque già inserito credenziali valide superando wp_check_password().
+            // Consentiamo l'accesso per non bloccare visitatori e volontari.
+            error_log('DFN reCAPTCHA Notice: Token vuoto al login. Accesso consentito per utente autenticato: ' . $username);
+            return $user;
+        }
+
         if (! dfn_verify_recaptcha($token, 'login')) {
             return new WP_Error(
                 'recaptcha_failed',
