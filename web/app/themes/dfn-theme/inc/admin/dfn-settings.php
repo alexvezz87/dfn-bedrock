@@ -165,6 +165,9 @@ function dfn_settings_save_fields(): void
         'enable_event_accounting'             => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
         'enable_event_reviews'                => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
         'enable_live_boxoffice'               => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
+        'enable_recaptcha'                    => 'sanitize_text_field', // 'yes' o 'no' — default 'yes'
+        'recaptcha_site_key'                  => 'sanitize_text_field',
+        'recaptcha_secret_key'                => 'sanitize_text_field',
     ];
 
     $merged_settings = $existing_settings;
@@ -223,6 +226,7 @@ function dfn_settings_save_fields(): void
             'enable_auto_waitlist',
             'enable_auto_complete_paid',
             'enable_auto_verify_fai',
+            'enable_recaptcha',
         ];
         foreach ($toggle_keys as $t_key) {
             if (! isset($_POST['dfn_settings'][$t_key])) {
@@ -234,6 +238,9 @@ function dfn_settings_save_fields(): void
     // Mantieni i campi di sola lettura non inviabili/modificabili direttamente
     $merged_settings['setup_roles_version'] = '2.0';
     $merged_settings['setup_fai_discount']  = 5;
+
+    // Resetta l'eventuale circuit breaker reCAPTCHA al salvataggio per testare subito le nuove impostazioni
+    delete_transient('dfn_recaptcha_service_broken');
 
     $updated = update_option('dfn_settings', $merged_settings);
 
@@ -1807,6 +1814,75 @@ function dfn_render_settings_page(): void
                                             Gestisci Moduli &rarr;
                                         </a>
                                     </div>
+                                </td>
+                            </tr>
+                            <!-- SEZIONE GOOGLE RECAPTCHA V3 & ANTI-BOT -->
+                            <tr>
+                                <td colspan="2" style="padding: 24px 0 10px 0;">
+                                    <div style="border-top: 2px solid #e2e8f0; padding-top: 20px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                            <h3 style="color: #0f172a; margin: 0; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                                                <span>🛡️</span> <?php esc_html_e('Sicurezza Anti-Bot — Google reCAPTCHA v3', 'dfn-theme'); ?>
+                                            </h3>
+                                            <?php
+                                            $is_recaptcha_active = function_exists('dfn_is_recaptcha_enabled') ? dfn_is_recaptcha_enabled() : true;
+                                            $circuit_broken = get_transient('dfn_recaptcha_service_broken');
+
+                                            if (! $is_recaptcha_active) : ?>
+                                                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 12.5px; font-weight: 600; color: #64748b;">
+                                                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #94a3b8;"></span>
+                                                    <?php esc_html_e('Disattivato', 'dfn-theme'); ?>
+                                                </span>
+                                            <?php elseif ($circuit_broken !== false) : ?>
+                                                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 20px; font-size: 12.5px; font-weight: 700; color: #dc2626;">
+                                                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span>
+                                                    <?php esc_html_e('Fail-Safe Attivo (Errore Google Cloud)', 'dfn-theme'); ?>
+                                                </span>
+                                            <?php else : ?>
+                                                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 20px; font-size: 12.5px; font-weight: 700; color: #065f46;">
+                                                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+                                                    <?php esc_html_e('Attivo con Fail-Safe', 'dfn-theme'); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <p class="description" style="margin-bottom: 16px; font-size: 13.5px; line-height: 1.5;">
+                                            <?php esc_html_e('Protegge i form di login ed iscrizione bloccando i bot senza mostrare quiz invasivi. Se le API Google dovessero restituire errori infrastrutturali o di progetto eliminato, il sistema attiva automaticamente la protezione Fail-Safe per garantire che visitatori ed amministratori possano sempre accedere con le proprie credenziali.', 'dfn-theme'); ?>
+                                        </p>
+                                    </div>
+
+                                    <?php if ($circuit_broken !== false) : ?>
+                                        <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;">
+                                            <strong style="color: #92400e; font-size: 13.5px;">⚠️ Anomalia rilevata dai server Google:</strong>
+                                            <p style="margin: 4px 0 0; color: #b45309; font-size: 13px;">
+                                                <em><?php echo esc_html($circuit_broken); ?></em>. 
+                                                Le attuali chiavi API fanno riferimento a un progetto Google Cloud dismesso o eliminato. È consigliato generare nuove chiavi su Google Cloud Console / reCAPTCHA Admin ed inserirle nei campi sottostanti.
+                                            </p>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Abilitare protezione Google reCAPTCHA v3</th>
+                                <td>
+                                    <label for="enable_recaptcha">
+                                        <input name="dfn_settings[enable_recaptcha]" type="checkbox" id="enable_recaptcha" value="yes" <?php checked(dfn_get_setting('enable_recaptcha', 'yes'), 'yes'); ?> />
+                                        Sì, attiva la verifica anti-bot reCAPTCHA v3 nei form di autenticazione e registrazione.
+                                    </label>
+                                    <p class="description"><strong>Comportamento:</strong> Se deselezionato, il caricamento dello script esterno Google e tutti i controlli sui token di login vengono bypassati istantaneamente.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="recaptcha_site_key">Chiave del Sito (Site Key)</label></th>
+                                <td>
+                                    <input name="dfn_settings[recaptcha_site_key]" type="text" id="recaptcha_site_key" value="<?php echo esc_attr(dfn_get_setting('recaptcha_site_key')); ?>" class="regular-text" placeholder="es. 6LdW82stAAAAAETgJ0XpPZFq..." />
+                                    <p class="description"><strong>Site Key pubblica:</strong> Utilizzata dallo script JavaScript nel frontend. Se lasciata vuota, viene usata la chiave di default del tema.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="recaptcha_secret_key">Chiave Segreta (Secret Key)</label></th>
+                                <td>
+                                    <input name="dfn_settings[recaptcha_secret_key]" type="password" id="recaptcha_secret_key" value="<?php echo esc_attr(dfn_get_setting('recaptcha_secret_key')); ?>" class="regular-text" autocomplete="new-password" placeholder="es. 6LdW82stAAAAAGY-EMZNPHBy..." />
+                                    <p class="description"><strong>Secret Key server-side:</strong> Utilizzata dal server Bedrock per verificare l'autenticità del token presso l'endpoint <code>siteverify</code> di Google.</p>
                                 </td>
                             </tr>
                             <tr>
