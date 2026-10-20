@@ -115,4 +115,27 @@ Il software è progettato per essere distribuibile e attivabile a blocchi indipe
    - **No Redirect 302 bruschi con `exit;`**: i form di amministrazione non devono eseguire `wp_safe_redirect` + `exit;` sincrono su POST con action assoluta, poiché Apache/reverse-proxy Bedrock può interrompere la connessione TCP (`DNS_PROBE_FINISHED_NXDOMAIN` o reset socket).
    - **Pattern Raccomandato**: salvataggio asincrono AJAX via `admin-ajax.php` con fallback sincrono interno al ciclo di rendering senza redirect forzato, utilizzando i messaggi nativi `add_settings_error()`.
 3. **Aggiornamento Dinamico del DOM**:
-   - Quando una modifica alle impostazioni impatta la visibilità dell'interfaccia (es. attivazione/disattivazione del sottomenu *Team di lavoro*), l'aggiornamento deve riflettersi immediatamente nel DOM (es. `#adminmenu`) senza costringere l'utente a un reload manuale della pagina.
+   - Quando una modifica alle impostazioni impatta la visibilità dell'interfaccia (es. attivazione/disattivazione del sottomenu *Team di lavoro*), l'aggiornamento deve riflettersi immediatamente nel DOM (es. `#adminmenu`) senza costringere l'utente a un reload manuale della pagina.
+---
+
+## 7. 🧠 Flusso Orchestratore ("Cervello") & Esecutore ("Braccio")
+
+Il flusso di lavoro supporta l'orchestrazione a due livelli: una sessione centrale ad alto ragionamento (*"Cervello"*) che ha la visione d'insieme su entrambi i progetti (Bedrock e Laravel) e istanze operative dell'IDE dedicate al singolo repository (*"Braccio"*).
+
+1. **Bacheca Incarichi (`tasks/`)**:
+   - Le specifiche operative dettagliate vengono scritte dall'Orchestratore direttamente nella cartella locale `tasks/` (es. `tasks/task-<nome-lavoro>.md`).
+   - La cartella `tasks/` è esclusa dal versionamento git (inclusa in `.gitignore`).
+2. **Direttiva per l'Agente Esecutore ("Braccio")**:
+   - Quando l'utente assegna un lavoro facendo riferimento a un file in `tasks/`, l'agente **DEVE leggere per prima cosa la specifica indicata** con lo strumento di lettura file (`read_file`).
+   - L'agente deve attenersi scrupolosamente alla diagnosi tecnica, al branch indicato (`fix/#...`, `feat/#...`), ai file da modificare e alle regole vincolanti di questo documento.
+3. **Resoconto Finale a Due Vie (Feedback Loop)**:
+   - Al completamento dell'intervento, l'agente esecutore **NON cancella il file**, ma appende in calce la sezione di resoconto:
+     ```markdown
+     ## 📋 Esito Esecuzione (Braccio)
+     - **Stato**: Completato con successo / Bloccato
+     - **Branch & Commit**: `<branch-name>` | `<commit-hash>`
+     - **File Modificati**: elenco dei file toccati
+     - **Verifiche & Test**: esito dei controlli eseguiti
+     - **Note per il Cervello**: eventuali anomalie o suggerimenti emersi
+     ```
+   - In questo modo l'Orchestratore centrale può verificare l'esito nella sessione successiva e pianificare i passi successivi.

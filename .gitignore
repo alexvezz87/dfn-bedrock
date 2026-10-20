@@ -48,4 +48,8 @@ deploy.tar.gz
 # Scratch / temp scripts
 scratch/
 scripts/
-*.zip
+*.zip
+
+# Orchestrator Task board
+tasks/*
+!tasks/.gitkeep
