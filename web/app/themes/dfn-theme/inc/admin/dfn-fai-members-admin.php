@@ -144,7 +144,7 @@ function dfn_render_fai_members_page(): void
                 $message = sprintf(esc_html__('Cron SDD completato con successo! Rinnovate automaticamente %d tessere (+1 anno con registrazione nei log).', 'dfn-theme'), $renewed);
                 $message_type = 'success';
             } else {
-                $message = esc_html__('Cron SDD eseguito: nessuna tessera con SDD attivo risultava scaduta o in scadenza ad oggi.', 'dfn-theme');
+                $message = esc_html__('Cron SDD eseguito: nessuna tessera con SDD attivo risultava scaduta o in scadenza (finestra 15 giorni).', 'dfn-theme');
                 $message_type = 'info';
             }
         } else {
