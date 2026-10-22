@@ -33,7 +33,7 @@
 - [x] Condizionamento pulsante "Vedi Biglietto" per non comparire sulle prenotazioni annullate.
 - [x] Verifica sintassi PHP con `php -l`.
 - [x] Aggiunta classi CSS `.dfn-payment-unpaid`, `.dfn-payment-cancelled`, `.dfn-payment-refunded` in `dfn-visitor-dashboard.css`.
-- [ ] Commit sul branch `dfn-2.0.1-gestione-prenotazioni` con riferimento a Issue #70.
-- [ ] Merge su `staging` e deploy su Staging con `python scripts/deploy_theme_staging.py`.
-- [ ] Merge su `main` e deploy su Produzione con `python scripts/deploy_theme_prod.py`.
-- [ ] Chiusura documentata della Issue #70.
+- [x] Commit sul branch `dfn-2.0.1-gestione-prenotazioni` con riferimento a Issue #70.
+- [x] Merge su `staging` e deploy su Staging con `python scripts/deploy_theme_staging.py`.
+- [x] Merge su `main` e deploy su Produzione con `python scripts/deploy_theme_prod.py`.
+- [x] Chiusura documentata della Issue #70.
