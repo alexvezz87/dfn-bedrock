@@ -26,6 +26,13 @@ function dfn_render_fai_pending_bookings(): void
     global $wpdb;
     $table_bookings = $wpdb->prefix . 'dfn_bookings';
 
+    // Verifica difensiva presenza colonna is_sdd_active
+    $table_members = $wpdb->prefix . 'dfn_fai_members';
+    $has_sdd_col = $wpdb->get_var("SHOW COLUMNS FROM {$table_members} LIKE 'is_sdd_active'");
+    if (! $has_sdd_col) {
+        $wpdb->query("ALTER TABLE {$table_members} ADD COLUMN is_sdd_active tinyint(1) NOT NULL DEFAULT 0 AFTER card_type, ADD INDEX idx_sdd (is_sdd_active)");
+    }
+
     // Carica tutte le prenotazioni pending_approval
     $bookings = $wpdb->get_results(
         "SELECT * FROM {$table_bookings} WHERE status = 'pending_approval' ORDER BY created_at ASC"
