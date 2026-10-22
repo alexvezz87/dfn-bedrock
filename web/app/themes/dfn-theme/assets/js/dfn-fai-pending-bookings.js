@@ -23,6 +23,7 @@
         const registryId = $currentValidateBtn.data('registry-id') || '';
         const expiryDate = $currentValidateBtn.data('card-expiry') || '';
         const cardType   = $currentValidateBtn.data('card-type') || 'INDIVIDUALE';
+        const isSdd      = parseInt($currentValidateBtn.data('is-sdd'), 10) === 1;
 
         $('#dfn-val-booking-id').val(bookingId);
         $('#dfn-val-card-number-hidden').val(cardNumber);
@@ -31,6 +32,7 @@
         $('#dfn-val-fai-registry-id').val(registryId);
         $('#dfn-val-card-expiry').val(expiryDate);
         $('#dfn-val-card-type').val(cardType);
+        $('#dfn-val-is-sdd').prop('checked', isSdd);
 
         $('#dfn-validate-card-modal').css('display', 'flex');
         setTimeout(function() {
@@ -57,6 +59,7 @@
         const registryId    = $('#dfn-val-fai-registry-id').val().trim();
         const expiryDate    = $('#dfn-val-card-expiry').val();
         const cardType      = $('#dfn-val-card-type').val();
+        const isSdd         = $('#dfn-val-is-sdd').is(':checked') ? 1 : 0;
         const $submitBtn    = $('#dfn-val-modal-submit');
 
         $submitBtn.prop('disabled', true).text(dfnPendingVars.processing || 'Salvataggio...');
@@ -73,6 +76,7 @@
                 fai_registry_id: registryId,
                 card_expiry:     expiryDate,
                 card_type:       cardType,
+                is_sdd_active:   isSdd,
             },
             success: function (response) {
                 $submitBtn.prop('disabled', false).html('<span class="dashicons dashicons-yes" style="vertical-align: text-bottom; margin-right: 2px;"></span> Conferma e Convalida');
@@ -83,10 +87,11 @@
                         const $item = $currentValidateBtn.closest('.dfn-card-action-item');
                         const holder = $currentValidateBtn.data('holder-name') || '';
                         const regBadge = registryId ? ' <span style="font-size: 10px; background: #bbf7d0; color: #14532d; padding: 1px 4px; border-radius: 3px; font-family: monospace;">ID: ' + registryId + '</span>' : '';
+                        const sddBadge = isSdd ? ' <span style="font-size: 10px; background: #e0e7ff; color: #3730a3; padding: 1px 5px; border-radius: 3px; font-weight: 700;">SDD</span>' : '';
                         $item.replaceWith(
                             '<div style="font-size: 11px; margin-bottom: 4px; padding: 3px 6px; background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">' +
                             '<span class="dashicons dashicons-yes" style="font-size: 14px; width: 14px; height: 14px;"></span> ' +
-                            '<strong>' + cardNumber + '</strong>' + (holder ? ' (' + holder + ')' : '') + regBadge + ' <span style="font-size: 10px; font-weight: bold; margin-left: 4px;">VERIFICATA</span></div><br>'
+                            '<strong>' + cardNumber + '</strong>' + (holder ? ' (' + holder + ')' : '') + regBadge + sddBadge + ' <span style="font-size: 10px; font-weight: bold; margin-left: 4px;">VERIFICATA</span></div><br>'
                         );
                     }
                     dfnShowNotice('success', response.data.message);
