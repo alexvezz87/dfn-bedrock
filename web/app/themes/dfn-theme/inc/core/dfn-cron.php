@@ -762,16 +762,23 @@ function dfn_cron_rinnova_tessere_sdd_annuali(bool $force = false): int
     set_transient('dfn_cron_sdd_rollover_lock', 1, 12 * HOUR_IN_SECONDS);
 
     $table_fai = $wpdb->prefix . 'dfn_fai_members';
-    $today = current_time('Y-m-d');
+    $today     = current_time('Y-m-d');
 
-    // Trova tessere con SDD attivo scadute o in scadenza oggi
+    // Considera tessere già scadute o in scadenza nei prossimi giorni (finestra di warning, default 15 giorni)
+    $warning_days = function_exists('dfn_get_setting') ? intval(dfn_get_setting('fai_expiry_warning_days', 15)) : 15;
+    if ($warning_days < 1) {
+        $warning_days = 15;
+    }
+    $limit_date = date('Y-m-d', strtotime("+{$warning_days} days", strtotime($today)));
+
+    // Trova tessere con SDD attivo scadute o in scadenza entro la finestra dei warning_days
     $cards = $wpdb->get_results($wpdb->prepare(
         "SELECT id, card_number, card_expiry FROM {$table_fai} 
          WHERE is_sdd_active = 1 
            AND card_expiry IS NOT NULL 
            AND card_expiry != '0000-00-00'
            AND card_expiry <= %s",
-        $today
+        $limit_date
     ));
 
     if (empty($cards)) {
