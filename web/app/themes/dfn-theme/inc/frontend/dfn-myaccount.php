@@ -1998,23 +1998,39 @@ function dfn_custom_myaccount_bookings_content(): void
                                                     <div class="dfn-table-payment">
                                                         <?php
                                             $payment_method = $order ? $order->get_payment_method() : '';
-                                            if ($payment_method === 'dfn_in_loco' && $b->amount_due > 0) {
-                                                echo '<span class="dfn-payment-due"><strong>' . number_format($b->amount_due, 2, ',', '.') . ' €</strong> ' . esc_html__('(in loco)', 'dfn-theme') . '</span>';
-                                            } else {
+                                            $is_paid        = $order ? $order->is_paid() : false;
+
+                                            if ($is_cancelled) {
+                                                if ($order_status === 'refunded') {
+                                                    echo '<span class="dfn-payment-refunded">' . esc_html__('Rimborsato', 'dfn-theme') . '</span>';
+                                                } else {
+                                                    echo '<span class="dfn-payment-cancelled">' . esc_html__('Non saldato', 'dfn-theme') . '</span>';
+                                                }
+                                            } elseif ($b->status === 'pending_approval') {
+                                                echo '<span class="dfn-payment-unpaid">' . esc_html__('In approvazione', 'dfn-theme') . '</span>';
+                                            } elseif ($payment_method === 'dfn_in_loco') {
+                                                if ($b->amount_due > 0 && ! $is_paid) {
+                                                    echo '<span class="dfn-payment-due"><strong>' . number_format($b->amount_due, 2, ',', '.') . ' €</strong> ' . esc_html__('(in loco)', 'dfn-theme') . '</span>';
+                                                } else {
+                                                    echo '<span class="dfn-payment-paid">' . esc_html__('Saldato in loco', 'dfn-theme') . '</span>';
+                                                }
+                                            } elseif ($is_paid) {
                                                 echo '<span class="dfn-payment-paid">' . esc_html__('Saldato online', 'dfn-theme') . '</span>';
+                                            } else {
+                                                echo '<span class="dfn-payment-unpaid">' . esc_html__('In attesa di saldo', 'dfn-theme') . '</span>';
                                             }
                                             ?>
                                                     </div>
                                                 </td>
                                                 <td class="dfn-table-actions" data-label="<?php esc_attr_e('Azioni', 'dfn-theme'); ?>">
                                                     <div class="dfn-table-actions-container">
-                                                        <?php if ($order) : ?>
+                                                        <?php if (! $is_cancelled && $order) : ?>
                                                             <?php
                                                             $hub_token = hash_hmac('sha256', $order->get_order_key() . '_dfn_hub', wp_salt('nonce'));
                                                             $hub_url   = home_url('/?dfn_hub=1&order_id=' . $order->get_id() . '&token=' . $hub_token);
                                                             ?>
                                                             <a href="<?php echo esc_url($hub_url); ?>" class="button dfn-action-ticket" title="<?php esc_attr_e('Vedi Biglietto / QR Code', 'dfn-theme'); ?>">
-                                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                                                 <span><?php esc_html_e('Vedi Biglietto', 'dfn-theme'); ?></span>
                                                             </a>
                                                         <?php endif; ?>
@@ -2166,10 +2182,26 @@ function dfn_custom_myaccount_bookings_content(): void
                                                     <div class="dfn-table-payment">
                                                         <?php
                                             $payment_method = $order ? $order->get_payment_method() : '';
-                                            if ($payment_method === 'dfn_in_loco' && $b->amount_due > 0) {
-                                                echo '<span class="dfn-payment-due"><strong>' . number_format($b->amount_due, 2, ',', '.') . ' €</strong> ' . esc_html__('(in loco)', 'dfn-theme') . '</span>';
-                                            } else {
+                                            $is_paid        = $order ? $order->is_paid() : false;
+
+                                            if ($is_cancelled) {
+                                                if ($order_status === 'refunded') {
+                                                    echo '<span class="dfn-payment-refunded">' . esc_html__('Rimborsato', 'dfn-theme') . '</span>';
+                                                } else {
+                                                    echo '<span class="dfn-payment-cancelled">' . esc_html__('Non saldato', 'dfn-theme') . '</span>';
+                                                }
+                                            } elseif ($b->status === 'pending_approval') {
+                                                echo '<span class="dfn-payment-unpaid">' . esc_html__('In approvazione', 'dfn-theme') . '</span>';
+                                            } elseif ($payment_method === 'dfn_in_loco') {
+                                                if ($b->amount_due > 0 && ! $is_paid) {
+                                                    echo '<span class="dfn-payment-due"><strong>' . number_format($b->amount_due, 2, ',', '.') . ' €</strong> ' . esc_html__('(in loco)', 'dfn-theme') . '</span>';
+                                                } else {
+                                                    echo '<span class="dfn-payment-paid">' . esc_html__('Saldato in loco', 'dfn-theme') . '</span>';
+                                                }
+                                            } elseif ($is_paid) {
                                                 echo '<span class="dfn-payment-paid">' . esc_html__('Saldato online', 'dfn-theme') . '</span>';
+                                            } else {
+                                                echo '<span class="dfn-payment-unpaid">' . esc_html__('In attesa di saldo', 'dfn-theme') . '</span>';
                                             }
                                             ?>
                                                     </div>

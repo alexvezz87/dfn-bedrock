@@ -1272,6 +1272,21 @@
     color: #c2410c; /* warm orange/red for due payments */
 }
 
+.dfn-payment-unpaid {
+    color: #d97706; /* amber for unpaid / in attesa */
+    font-weight: 500;
+}
+
+.dfn-payment-cancelled {
+    color: #94a3b8; /* slate/muted gray for non saldato / annullato */
+    font-weight: 500;
+}
+
+.dfn-payment-refunded {
+    color: #64748b; /* slate/muted blue-gray for rimborsato */
+    font-weight: 500;
+}
+
 .dfn-payment-paid {
     color: #15803d; /* green for paid */
     font-weight: 600;
