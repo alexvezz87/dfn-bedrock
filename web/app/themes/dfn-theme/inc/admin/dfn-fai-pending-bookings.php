@@ -199,6 +199,7 @@ function dfn_render_fai_pending_bookings(): void
                                                 $registry_id    = $db_member && ! empty($db_member->fai_registry_id) ? $db_member->fai_registry_id : '';
                                                 $card_exp       = $db_member && ! empty($db_member->card_expiry) && $db_member->card_expiry !== '0000-00-00' ? $db_member->card_expiry : date('Y-m-d', strtotime('+1 year'));
                                                 $card_typ       = $db_member && ! empty($db_member->card_type) ? $db_member->card_type : 'INDIVIDUALE';
+                                                $is_sdd_db      = $db_member && ! empty($db_member->is_sdd_active) ? intval($db_member->is_sdd_active) : 0;
 
                                                 if ($card_status === 'approved' || $is_verified_db === 1) : ?>
                                                     <div style="font-size: 11px; margin-bottom: 4px; padding: 3px 6px; background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
@@ -206,6 +207,9 @@ function dfn_render_fai_pending_bookings(): void
                                                         <strong><?php echo $tessera_num; ?></strong><?php if ($titolare) : ?> (<?php echo esc_html($titolare); ?>)<?php endif; ?>
                                                         <?php if (! empty($registry_id)) : ?>
                                                             <span style="font-size: 10px; background: #bbf7d0; color: #14532d; padding: 1px 4px; border-radius: 3px; font-family: monospace;">ID: <?php echo esc_html($registry_id); ?></span>
+                                                        <?php endif; ?>
+                                                        <?php if ($is_sdd_db === 1) : ?>
+                                                            <span style="font-size: 10px; background: #e0e7ff; color: #3730a3; padding: 1px 5px; border-radius: 3px; font-weight: 700;">SDD</span>
                                                         <?php endif; ?>
                                                         <span style="font-size: 10px; font-weight: bold; margin-left: 4px;">VERIFICATA</span>
                                                     </div><br>
@@ -218,6 +222,9 @@ function dfn_render_fai_pending_bookings(): void
                                                 <?php else : ?>
                                                     <div class="dfn-card-action-item" style="font-size: 11px; margin-bottom: 4px; padding: 4px 6px; background: #fff5f5; border: 1px solid #fca5a5; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;" data-card-number="<?php echo esc_attr($card['tessera']); ?>">
                                                         <span><strong><?php echo $tessera_num; ?></strong><?php if ($titolare) : ?> &mdash; <?php echo esc_html($titolare); ?><?php endif; ?></span>
+                                                        <?php if ($is_sdd_db === 1) : ?>
+                                                            <span style="font-size: 10px; background: #e0e7ff; color: #3730a3; padding: 1px 5px; border-radius: 3px; font-weight: 700;">SDD</span>
+                                                        <?php endif; ?>
                                                         <div style="display: inline-flex; gap: 4px; margin-left: 6px;">
                                                             <button type="button" 
                                                                 class="dfn-btn-card-action dfn-btn-validate-card" 
@@ -227,6 +234,7 @@ function dfn_render_fai_pending_bookings(): void
                                                                 data-registry-id="<?php echo esc_attr($registry_id); ?>"
                                                                 data-card-expiry="<?php echo esc_attr($card_exp); ?>"
                                                                 data-card-type="<?php echo esc_attr($card_typ); ?>"
+                                                                data-is-sdd="<?php echo esc_attr($is_sdd_db); ?>"
                                                                 style="background: #16a34a; color: #fff; border: none; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" 
                                                                 title="<?php esc_attr_e('Convalida tessera con ID Anagrafica', 'dfn-theme'); ?>">
                                                                 <span class="dashicons dashicons-yes" style="font-size: 14px; width: 14px; height: 14px;"></span>
@@ -322,11 +330,27 @@ function dfn_render_fai_pending_bookings(): void
                             <?php esc_html_e('Tipologia', 'dfn-theme'); ?>
                         </label>
                         <select id="dfn-val-card-type" style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 36px; padding: 0 8px; font-size: 12.5px;">
-                            <option value="INDIVIDUALE">INDIVIDUALE</option>
-                            <option value="COPPIA">COPPIA</option>
-                            <option value="FAMIGLIA">FAMIGLIA</option>
+                            <?php
+                            $types_raw = function_exists('dfn_get_setting') ? dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA, GIOVANE') : 'INDIVIDUALE, COPPIA, FAMIGLIA, GIOVANE';
+                            $types_arr = array_filter(array_map('trim', explode(',', $types_raw)));
+                            if (empty($types_arr)) {
+                                $types_arr = ['INDIVIDUALE', 'COPPIA', 'FAMIGLIA', 'GIOVANE'];
+                            }
+                            foreach ($types_arr as $t) : ?>
+                                <option value="<?php echo esc_attr($t); ?>"><?php echo esc_html($t); ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
+                </div>
+
+                <div style="margin-bottom: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer;">
+                        <input type="checkbox" id="dfn-val-is-sdd" value="1" style="width: 16px; height: 16px; border-radius: 4px; accent-color: #004b23;">
+                        <span>💳 <?php esc_html_e('Rinnovo Ricorrente SDD Attivo (Addebito bancario automatico)', 'dfn-theme'); ?></span>
+                    </label>
+                    <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 24px; line-height: 1.3;">
+                        <?php esc_html_e('Se attivo, la tessera non scadrà mai e verrà rinnovata annualmente in automatico tramite cron.', 'dfn-theme'); ?>
+                    </p>
                 </div>
 
                 <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 10px; border-top: 1px solid #f1f5f9;">

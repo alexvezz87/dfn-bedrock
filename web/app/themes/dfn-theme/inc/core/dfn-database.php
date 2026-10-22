@@ -193,6 +193,7 @@ function dfn_db_install(): void
         fai_registry_id varchar(50) DEFAULT NULL,
         card_expiry date DEFAULT NULL,
         card_type varchar(20) NOT NULL DEFAULT 'INDIVIDUALE',
+        is_sdd_active tinyint(1) NOT NULL DEFAULT 0,
         verified tinyint(1) NOT NULL DEFAULT 0,
         verified_by bigint(20) unsigned DEFAULT NULL,
         verified_at datetime DEFAULT NULL,
@@ -211,6 +212,7 @@ function dfn_db_install(): void
         KEY idx_registry (fai_registry_id),
         KEY idx_user (user_id),
         KEY idx_expiry (card_expiry),
+        KEY idx_sdd (is_sdd_active),
         KEY idx_volunteer (is_volunteer),
         KEY idx_guide (is_guide),
         KEY idx_safety (has_safety_course)
@@ -674,6 +676,11 @@ function dfn_db_install(): void
     if (empty($row_reg)) {
         $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN fai_registry_id varchar(50) DEFAULT NULL AFTER card_number");
         $wpdb->query("ALTER TABLE {$table_fai} ADD INDEX idx_registry (fai_registry_id)");
+    }
+
+    $has_sdd_col = $wpdb->get_var("SHOW COLUMNS FROM {$table_fai} LIKE 'is_sdd_active'");
+    if (! $has_sdd_col) {
+        $wpdb->query("ALTER TABLE {$table_fai} ADD COLUMN is_sdd_active tinyint(1) NOT NULL DEFAULT 0 AFTER card_type, ADD INDEX idx_sdd (is_sdd_active)");
     }
 
     // Forza la creazione della colonna preferred_place_id in dfn_volunteer_survey_responses se manca
