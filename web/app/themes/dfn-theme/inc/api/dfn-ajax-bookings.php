@@ -856,7 +856,7 @@ function dfn_ajax_create_direct_booking(): void
 
             if ($existing_member) {
                 $member_verified = intval($existing_member->verified) === 1;
-                $member_expired  = ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
+                $member_expired  = empty($existing_member->is_sdd_active) && ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
 
                 if ($member_verified && ! $member_expired) {
                     // La tessera è attiva e verificata
@@ -1225,7 +1225,7 @@ function dfn_ajax_get_user_fai_cards(): void
 
     // Cerca le tessere FAI abbinate all'ID utente o all'indirizzo email dell'utente
     $cards = $wpdb->get_results($wpdb->prepare(
-        "SELECT first_name, last_name, card_number, card_expiry, verified 
+        "SELECT first_name, last_name, card_number, card_expiry, verified, is_sdd_active 
          FROM {$table_members} 
          WHERE (user_id = %d OR (email IS NOT NULL AND email != '' AND LOWER(email) = LOWER(%s))) 
          ORDER BY id DESC",
@@ -1237,9 +1237,10 @@ function dfn_ajax_get_user_fai_cards(): void
     $today = date('Y-m-d');
     foreach ($cards as $card) {
         $is_used = in_array($card->card_number, $used_cards, true);
+        $is_sdd  = ! empty($card->is_sdd_active) && intval($card->is_sdd_active) === 1;
 
         $expired = false;
-        if (! empty($card->card_expiry) && $card->card_expiry < $today) {
+        if (! $is_sdd && ! empty($card->card_expiry) && $card->card_expiry < $today) {
             $expired = true;
         }
 
@@ -1890,6 +1891,7 @@ function dfn_ajax_validate_single_fai_card(): void
     $fai_registry_id = isset($_POST['fai_registry_id']) ? sanitize_text_field($_POST['fai_registry_id']) : '';
     $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
     $card_type       = ! empty($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
+    $is_sdd_active   = ! empty($_POST['is_sdd_active']) ? 1 : 0;
 
     if (! $booking_id || empty($card_number)) {
         wp_send_json_error(['message' => __('Dati non validi.', 'dfn-theme')]);
@@ -1937,12 +1939,13 @@ function dfn_ajax_validate_single_fai_card(): void
     ));
 
     $update_data = [
-        'card_number' => $card_number,
-        'verified'    => 1,
-        'verified_by' => get_current_user_id(),
-        'verified_at' => current_time('mysql'),
+        'card_number'   => $card_number,
+        'is_sdd_active' => $is_sdd_active,
+        'verified'      => 1,
+        'verified_by'   => get_current_user_id(),
+        'verified_at'   => current_time('mysql'),
     ];
-    $update_format = ['%s', '%d', '%d', '%s'];
+    $update_format = ['%s', '%d', '%d', '%d', '%s'];
 
     if (! empty($fai_registry_id)) {
         $update_data['fai_registry_id'] = $fai_registry_id;
@@ -1987,6 +1990,9 @@ function dfn_ajax_validate_single_fai_card(): void
         }
         if (! empty($fai_registry_id)) {
             $log_notes .= " | ID SiVol: {$fai_registry_id}";
+        }
+        if ($is_sdd_active) {
+            $log_notes .= " | SDD Attivo";
         }
         dfn_log_fai_card($card_number, 'Convalidata dallo staff', '', $log_notes);
     }

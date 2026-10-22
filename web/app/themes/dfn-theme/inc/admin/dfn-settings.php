@@ -859,7 +859,7 @@ function dfn_render_settings_page(): void
                                 <th scope="row"><label for="fai_member_types">Tipologie Tessera Disponibili</label></th>
                                 <td>
                                     <input name="dfn_settings[fai_member_types]" type="text" id="fai_member_types" value="<?php echo esc_attr(dfn_get_setting('fai_member_types')); ?>" class="regular-text" />
-                                    <p class="description"><strong>Comportamento:</strong> Opzioni inserite come elenco separato da virgola (es. `INDIVIDUALE, COPPIA, FAMIGLIA`) che popolano il menu a tendina quando lo staff crea o modifica un socio FAI.</p>
+                                    <p class="description"><strong>Comportamento:</strong> Opzioni inserite come elenco separato da virgola (es. `INDIVIDUALE, COPPIA, FAMIGLIA, GIOVANE`) che popolano il menu a tendina quando lo staff crea o modifica un socio FAI.</p>
                                 </td>
                             </tr>
                             <tr>

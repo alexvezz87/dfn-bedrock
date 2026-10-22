@@ -119,6 +119,7 @@ function dfn_run_hourly_maintenance(): void
     dfn_cron_invia_alert_approvazione_staff();
     dfn_cron_invia_promemoria_24h();
     dfn_cron_gestisci_scadenza_waitlist();
+    dfn_cron_rinnova_tessere_sdd_annuali();
 
     if (function_exists('dfn_promotions_process_queue_batch')) {
         dfn_promotions_process_queue_batch(25);
@@ -746,4 +747,63 @@ function dfn_track_payment_page_visit(): void
         }
     }
 }
+
+/**
+ * Rinnova automaticamente le tessere con SDD attivo giunte a scadenza facendo slittare la validità di 1 anno.
+ */
+function dfn_cron_rinnova_tessere_sdd_annuali(): void
+{
+    global $wpdb;
+
+    if (get_transient('dfn_cron_sdd_rollover_lock')) {
+        return;
+    }
+    // Esegui la verifica una volta al giorno
+    set_transient('dfn_cron_sdd_rollover_lock', 1, 12 * HOUR_IN_SECONDS);
+
+    $table_fai = $wpdb->prefix . 'dfn_fai_members';
+    $today = current_time('Y-m-d');
+
+    // Trova tessere con SDD attivo scadute o in scadenza oggi
+    $cards = $wpdb->get_results($wpdb->prepare(
+        "SELECT id, card_number, card_expiry FROM {$table_fai} 
+         WHERE is_sdd_active = 1 
+           AND card_expiry IS NOT NULL 
+           AND card_expiry != '0000-00-00'
+           AND card_expiry <= %s",
+        $today
+    ));
+
+    if (empty($cards)) {
+        return;
+    }
+
+    foreach ($cards as $c) {
+        // Calcola la nuova scadenza aggiungendo 1 anno
+        // Se la data era molto vecchia, porta l'anno ad almeno CURYEAR + 1 preservando mese e giorno
+        $expiry_time = strtotime($c->card_expiry);
+        $new_expiry  = date('Y-m-d', strtotime('+1 year', $expiry_time));
+        while ($new_expiry <= $today) {
+            $new_expiry = date('Y-m-d', strtotime('+1 year', strtotime($new_expiry)));
+        }
+
+        $wpdb->update(
+            $table_fai,
+            ['card_expiry' => $new_expiry],
+            ['id' => $c->id],
+            ['%s'],
+            ['%d']
+        );
+
+        if (function_exists('dfn_log_fai_card')) {
+            dfn_log_fai_card(
+                $c->card_number,
+                'Rinnovo automatico annuale SDD',
+                '',
+                sprintf('Scadenza prorogata da %s a %s (+1 anno per addebito ricorrente SDD)', $c->card_expiry, $new_expiry)
+            );
+        }
+    }
+}
+
 

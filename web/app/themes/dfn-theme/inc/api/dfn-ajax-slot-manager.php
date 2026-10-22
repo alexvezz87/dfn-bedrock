@@ -575,7 +575,7 @@ function dfn_ajax_admin_add_booking(): void
 
             if ($existing_member) {
                 $member_verified = intval($existing_member->verified) === 1;
-                $member_expired  = ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
+                $member_expired  = empty($existing_member->is_sdd_active) && ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
 
                 if ($member_verified && ! $member_expired) {
                     // La tessera è attiva e verificata
@@ -1212,7 +1212,7 @@ function dfn_ajax_botteghino_create_booking(): void
 
             if ($existing_member) {
                 $member_verified = intval($existing_member->verified) === 1;
-                $member_expired  = ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
+                $member_expired  = empty($existing_member->is_sdd_active) && ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
                 if (! $member_verified || $member_expired) {
                     $wpdb->update(
                         $table_members,
@@ -1642,7 +1642,7 @@ function dfn_ajax_admin_save_fai_cards(): void
 
             if ($existing_member) {
                 $member_verified = intval($existing_member->verified) === 1;
-                $member_expired  = ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
+                $member_expired  = empty($existing_member->is_sdd_active) && ! empty($existing_member->card_expiry) && $existing_member->card_expiry < date('Y-m-d');
 
                 if (! ($member_verified && ! $member_expired)) {
                     // Aggiorna anagrafica non attiva
