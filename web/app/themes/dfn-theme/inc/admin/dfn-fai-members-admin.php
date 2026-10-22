@@ -23,6 +23,12 @@ function dfn_fai_members_register_menu(): void
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_fai_members';
 
+    // Verifica difensiva presenza colonna is_sdd_active
+    $has_sdd_col = $wpdb->get_var("SHOW COLUMNS FROM {$table} LIKE 'is_sdd_active'");
+    if (! $has_sdd_col) {
+        $wpdb->query("ALTER TABLE {$table} ADD COLUMN is_sdd_active tinyint(1) NOT NULL DEFAULT 0 AFTER card_type, ADD INDEX idx_sdd (is_sdd_active)");
+    }
+
     $unverified_count = 0;
     if ($wpdb->get_var("SHOW TABLES LIKE '{$table}'") === $table) {
         $unverified_count = intval($wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE verified = 0"));
@@ -54,6 +60,12 @@ function dfn_render_fai_members_page(): void
 
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_fai_members';
+
+    // Verifica difensiva presenza colonna is_sdd_active
+    $has_sdd_col = $wpdb->get_var("SHOW COLUMNS FROM {$table} LIKE 'is_sdd_active'");
+    if (! $has_sdd_col) {
+        $wpdb->query("ALTER TABLE {$table} ADD COLUMN is_sdd_active tinyint(1) NOT NULL DEFAULT 0 AFTER card_type, ADD INDEX idx_sdd (is_sdd_active)");
+    }
 
     // Auto-pulizia per correggere eventuali record già salvati nel database con backslash anomali (es. L\'aura -> L'aura)
     $wpdb->query("UPDATE {$table} SET first_name = REPLACE(first_name, '\\\\', ''), last_name = REPLACE(last_name, '\\\\', '')");
@@ -123,6 +135,24 @@ function dfn_render_fai_members_page(): void
         }
     }
 
+    // AZIONE RAPIDA: Esecuzione/Test del Cron Rinnovo Automatico SDD
+    if (isset($_GET['action']) && $_GET['action'] === 'run_sdd_cron') {
+        if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'dfn_run_sdd_cron')) {
+            delete_transient('dfn_cron_sdd_rollover_lock');
+            $renewed = function_exists('dfn_cron_rinnova_tessere_sdd_annuali') ? dfn_cron_rinnova_tessere_sdd_annuali(true) : 0;
+            if ($renewed > 0) {
+                $message = sprintf(esc_html__('Cron SDD completato con successo! Rinnovate automaticamente %d tessere (+1 anno con registrazione nei log).', 'dfn-theme'), $renewed);
+                $message_type = 'success';
+            } else {
+                $message = esc_html__('Cron SDD eseguito: nessuna tessera con SDD attivo risultava scaduta o in scadenza (finestra 15 giorni).', 'dfn-theme');
+                $message_type = 'info';
+            }
+        } else {
+            $message = esc_html__('Errore di sicurezza: verifica fallita.', 'dfn-theme');
+            $message_type = 'error';
+        }
+    }
+
     if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['member_id'])) {
         $member_id = intval($_GET['member_id']);
         if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'dfn_del_fai_' . $member_id)) {
@@ -142,17 +172,19 @@ function dfn_render_fai_members_page(): void
             $fai_registry_id = sanitize_text_field(wp_unslash($_POST['fai_registry_id'] ?? ''));
             $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field(wp_unslash($_POST['card_expiry'])) : null;
             $card_type       = ! empty($_POST['card_type']) ? sanitize_text_field(wp_unslash($_POST['card_type'])) : 'INDIVIDUALE';
+            $is_sdd_active   = isset($_POST['is_sdd_active']) ? 1 : 0;
 
             /** @var \stdClass|null $old_member */
             $old_member = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $member_id));
 
             $update_data = [
-                'verified'    => 1,
-                'verified_by' => get_current_user_id(),
-                'verified_at' => current_time('mysql'),
-                'card_type'   => $card_type,
+                'verified'      => 1,
+                'verified_by'   => get_current_user_id(),
+                'verified_at'   => current_time('mysql'),
+                'card_type'     => $card_type,
+                'is_sdd_active' => $is_sdd_active,
             ];
-            $update_format = ['%d', '%d', '%s', '%s'];
+            $update_format = ['%d', '%d', '%s', '%s', '%d'];
 
             if (! empty($card_number)) {
                 $update_data['card_number'] = $card_number;
@@ -181,6 +213,9 @@ function dfn_render_fai_members_page(): void
                 }
                 if (! empty($fai_registry_id)) {
                     $log_notes .= " | ID SiVol: {$fai_registry_id}";
+                }
+                if ($is_sdd_active) {
+                    $log_notes .= " | SDD Attivo";
                 }
                 dfn_log_fai_card($m->card_number, 'Approvata dallo staff', '', $log_notes);
             }
@@ -278,6 +313,7 @@ function dfn_render_fai_members_page(): void
             $fai_registry_id = sanitize_text_field(wp_unslash($_POST['fai_registry_id'] ?? ''));
             $card_expiry     = ! empty($_POST['card_expiry']) ? sanitize_text_field($_POST['card_expiry']) : null;
             $card_type       = isset($_POST['card_type']) ? sanitize_text_field($_POST['card_type']) : 'INDIVIDUALE';
+            $is_sdd_active   = isset($_POST['is_sdd_active']) ? 1 : 0;
             $user_id         = ! empty($_POST['user_id']) ? intval($_POST['user_id']) : null;
 
             if ($user_id > 0 && empty($email)) {
@@ -287,7 +323,7 @@ function dfn_render_fai_members_page(): void
                 }
             }
 
-            $types_string = dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA');
+            $types_string = dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA, GIOVANE');
             $valid_types = array_map('trim', array_map('strtoupper', explode(',', $types_string)));
             if (! in_array(strtoupper($card_type), $valid_types, true)) {
                 $card_type = ! empty($valid_types[0]) ? $valid_types[0] : 'INDIVIDUALE';
@@ -319,12 +355,13 @@ function dfn_render_fai_members_page(): void
                         'fai_registry_id' => ! empty($fai_registry_id) ? $fai_registry_id : null,
                         'card_expiry'     => $card_expiry,
                         'card_type'       => $card_type,
+                        'is_sdd_active'   => $is_sdd_active,
                         'user_id'         => $user_id,
                         'verified'        => 1,
                         'verified_by'     => get_current_user_id(),
                         'verified_at'     => current_time('mysql'),
                     ];
-                    $formats = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' ];
+                    $formats = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s' ];
 
                     if ($id > 0) {
                         $wpdb->update($table, $data, [ 'id' => $id ], $formats, [ '%d' ]);
@@ -366,7 +403,8 @@ function dfn_render_fai_members_page(): void
          WHERE verified = 1 
            AND card_expiry IS NOT NULL 
            AND card_expiry >= CURDATE() 
-           AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)",
+           AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)
+           AND (is_sdd_active IS NULL OR is_sdd_active = 0)",
         $warning_days,
     )) ?: 0;
 
@@ -414,6 +452,7 @@ function dfn_render_fai_members_page(): void
                    AND card_expiry IS NOT NULL 
                    AND card_expiry >= CURDATE() 
                    AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)
+                   AND (is_sdd_active IS NULL OR is_sdd_active = 0)
                    AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR card_number LIKE %s OR fai_registry_id LIKE %s)
                  ORDER BY {$orderby_sql} {$order_sql}",
                 $warning_days,
@@ -430,6 +469,7 @@ function dfn_render_fai_members_page(): void
                    AND card_expiry IS NOT NULL 
                    AND card_expiry >= CURDATE() 
                    AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY) 
+                   AND (is_sdd_active IS NULL OR is_sdd_active = 0)
                  ORDER BY {$orderby_sql} {$order_sql}",
                 $warning_days,
             ));
@@ -466,10 +506,15 @@ function dfn_render_fai_members_page(): void
     $date_sort_url = add_query_arg([ 'orderby' => 'date', 'order' => $toggle_date_order ]);
     ?>
     <div class="wrap dfn-admin-wrap">
-        <header class="dfn-admin-header" style="margin-bottom: 25px;">
+        <header class="dfn-admin-header" style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div class="dfn-logo-area">
                 <span class="dashicons dashicons-id"></span>
                 <h1><?php esc_html_e('Anagrafica Soci FAI', 'dfn-theme'); ?></h1>
+            </div>
+            <div>
+                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=run_sdd_cron'), 'dfn_run_sdd_cron')); ?>" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 4px 12px; height: 32px;" onclick="return confirm('Vuoi forzare l\'esecuzione del Cron di rinnovo per le tessere con SDD attivo in scadenza?');">
+                    <span class="dashicons dashicons-update" style="color: #004b23;"></span> <?php esc_html_e('Esegui Cron Rinnovo SDD', 'dfn-theme'); ?>
+                </a>
             </div>
         </header>
 
@@ -623,6 +668,16 @@ function dfn_render_fai_members_page(): void
                                 ?>
                             </select>
                         </div>
+
+                        <div style="margin-bottom: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer;">
+                                <input type="checkbox" name="is_sdd_active" id="dfn_is_sdd_active" value="1" <?php checked($edit_member && ! empty($edit_member->is_sdd_active)); ?> style="width: 16px; height: 16px; border-radius: 4px; accent-color: #004b23;">
+                                <span>💳 <?php esc_html_e('Rinnovo Ricorrente SDD Attivo', 'dfn-theme'); ?></span>
+                            </label>
+                            <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 24px; line-height: 1.3;">
+                                <?php esc_html_e('Se attivo, la tessera non viene considerata scaduta e verrà rinnovata annualmente in automatico.', 'dfn-theme'); ?>
+                            </p>
+                        </div>
  
                         <button type="submit" name="dfn_save_fai_member_submit" class="button button-primary" style="width: 100%; padding: 10px; height: auto; font-size: 14px; font-weight: 700; background: #004b23; border: none; border-radius: 6px; cursor: pointer;"><?php echo $edit_member ? esc_html__('Salva Modifiche', 'dfn-theme') : esc_html__('Aggiungi Socio', 'dfn-theme'); ?></button>
                         <?php if ($edit_member) : ?>
@@ -699,6 +754,8 @@ function dfn_render_fai_members_page(): void
                                                 $type_badge_style .= 'background: #fdf2f8; color: #db2777; border: 1px solid #fbcfe8;';
                                             } elseif ('COPPIA' === $type) {
                                                 $type_badge_style .= 'background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;';
+                                            } elseif ('GIOVANE' === $type) {
+                                                $type_badge_style .= 'background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;';
                                             } else {
                                                 $type_badge_style .= 'background: #f8fafc; color: #475569; border: 1px solid #e2e8f0;';
                                             }
@@ -708,6 +765,9 @@ function dfn_render_fai_members_page(): void
                                         <td><strong><?php echo ! empty($m->created_at) ? date_i18n('d/m/Y H:i', strtotime($m->created_at)) : esc_html__('Non disponibile', 'dfn-theme'); ?></strong></td>
                                         <td>
                                             <span class="dfn-badge <?php echo esc_attr($status_class); ?>" style="<?php echo esc_attr($custom_badge_style); ?>"><?php echo esc_html($status_label); ?></span>
+                                            <?php if (! empty($m->is_sdd_active) && intval($m->is_sdd_active) === 1) : ?>
+                                                <span style="font-size: 10px; background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 4px; display: inline-block;">SDD</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td style="white-space: nowrap;">
                                             <div style="display: inline-flex; align-items: center; gap: 8px;">
@@ -720,7 +780,8 @@ function dfn_render_fai_members_page(): void
                                                     data-registry-id="<?php echo esc_attr($m->fai_registry_id ?? ''); ?>"
                                                     data-card-expiry="<?php echo esc_attr($m->card_expiry && $m->card_expiry !== '0000-00-00' ? $m->card_expiry : date('Y-m-d', strtotime('+1 year'))); ?>"
                                                     data-card-type="<?php echo esc_attr($m->card_type ?: 'INDIVIDUALE'); ?>"
-                                                    style="background: none; border: none; padding: 0; cursor: pointer; color: #16a34a; display: inline-flex; align-items: center;" 
+                                                    data-is-sdd="<?php echo esc_attr($m->is_sdd_active ?? 0); ?>"
+                                                    style="background: none; border: none; padding: 0; cursor: pointer; color: #166534; display: inline-flex; align-items: center;" 
                                                     title="<?php esc_attr_e('Verifica, modifica tessera/ID SiVol e approva', 'dfn-theme'); ?>">
                                                     <span class="dashicons dashicons-yes-alt" style="font-size: 20px; width: 20px; height: 20px;"></span>
                                                 </button>
@@ -803,10 +864,11 @@ function dfn_render_fai_members_page(): void
                                 <?php foreach ($members as $m) :
                                     $today = current_time('Y-m-d');
                                     $is_verified  = intval($m->verified) === 1;
+                                    $is_sdd       = ! empty($m->is_sdd_active) && intval($m->is_sdd_active) === 1;
                                     $is_expired   = false;
                                     $is_expiring  = false;
 
-                                    if (! empty($m->card_expiry) && $m->card_expiry !== '0000-00-00') {
+                                    if (! $is_sdd && ! empty($m->card_expiry) && $m->card_expiry !== '0000-00-00') {
                                         $exp_date = date('Y-m-d', strtotime($m->card_expiry));
                                         if ($exp_date < $today) {
                                             $is_expired = true;
@@ -826,6 +888,10 @@ function dfn_render_fai_members_page(): void
                                         $status_class = 'dfn-status-draft';
                                         $status_label = esc_html__('Da verificare', 'dfn-theme');
                                         $custom_badge_style = 'background: #fff3cd; color: #856404; border: 1px solid #ffeeba;';
+                                    } elseif ($is_sdd) {
+                                        $status_class = 'dfn-status-published';
+                                        $status_label = esc_html__('Attiva', 'dfn-theme');
+                                        $custom_badge_style = 'background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;';
                                     } elseif (empty($m->card_expiry) || $m->card_expiry === '0000-00-00') {
                                         $status_class = 'dfn-status-draft';
                                         $status_label = esc_html__('Senza scadenza', 'dfn-theme');
@@ -883,6 +949,8 @@ function dfn_render_fai_members_page(): void
                                                  $type_badge_style .= 'background: #fdf2f8; color: #db2777; border: 1px solid #fbcfe8;';
                                              } elseif ('COPPIA' === $type) {
                                                  $type_badge_style .= 'background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;';
+                                             } elseif ('GIOVANE' === $type) {
+                                                 $type_badge_style .= 'background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;';
                                              } else {
                                                  $type_badge_style .= 'background: #f8fafc; color: #475569; border: 1px solid #e2e8f0;';
                                              }
@@ -891,7 +959,10 @@ function dfn_render_fai_members_page(): void
                                         </td>
                                         <td><?php echo ! empty($m->created_at) ? date_i18n('d/m/Y H:i', strtotime($m->created_at)) : esc_html__('Non disponibile', 'dfn-theme'); ?></td>
                                         <td>
-                                            <?php if ($is_expired) : ?>
+                                            <?php if ($is_sdd) : ?>
+                                                <strong><?php echo ! empty($m->card_expiry) && $m->card_expiry !== '0000-00-00' ? date_i18n('d M Y', strtotime($m->card_expiry)) : esc_html__('Attiva', 'dfn-theme'); ?></strong>
+                                                <div style="font-size: 10px; color: #4338ca; font-weight: 600; margin-top: 2px;">💳 <?php esc_html_e('(Rinnovo SDD)', 'dfn-theme'); ?></div>
+                                            <?php elseif ($is_expired) : ?>
                                                 <strong style="color:#dc2626; font-weight:700;"><?php echo date_i18n('d M Y', strtotime($m->card_expiry)); ?></strong>
                                             <?php elseif ($is_expiring) : ?>
                                                 <strong style="color:#d97706; font-weight:700;"><?php echo date_i18n('d M Y', strtotime($m->card_expiry)); ?></strong>
@@ -901,6 +972,9 @@ function dfn_render_fai_members_page(): void
                                         </td>
                                         <td>
                                             <span class="dfn-badge <?php echo esc_attr($status_class); ?>" style="<?php echo esc_attr($custom_badge_style); ?>"><?php echo esc_html($status_label); ?></span>
+                                            <?php if ($is_sdd) : ?>
+                                                <span style="font-size: 10px; background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 4px; display: inline-block;">SDD</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td style="white-space: nowrap;">
                                             <div style="display: inline-flex; align-items: center; gap: 8px;">
@@ -1006,7 +1080,7 @@ function dfn_render_fai_members_page(): void
                         </label>
                         <select name="card_type" id="dfn-app-card-type" style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; height: 36px; padding: 0 8px; font-size: 12.5px;">
                             <?php
-                            $types_string = dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA');
+                            $types_string = dfn_get_setting('fai_member_types', 'INDIVIDUALE, COPPIA, FAMIGLIA, GIOVANE');
                             $valid_types = array_map('trim', explode(',', strtoupper($types_string)));
                             foreach ($valid_types as $t) {
                                 if (! empty($t)) {
@@ -1016,6 +1090,16 @@ function dfn_render_fai_members_page(): void
                             ?>
                         </select>
                     </div>
+                </div>
+
+                <div style="margin-bottom: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer;">
+                        <input type="checkbox" name="is_sdd_active" id="dfn-app-is-sdd" value="1" style="width: 16px; height: 16px; border-radius: 4px; accent-color: #004b23;">
+                        <span>💳 <?php esc_html_e('Rinnovo Ricorrente SDD Attivo', 'dfn-theme'); ?></span>
+                    </label>
+                    <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 24px; line-height: 1.3;">
+                        <?php esc_html_e('Se attivo, la tessera non scadrà mai e verrà rinnovata annualmente in automatico.', 'dfn-theme'); ?>
+                    </p>
                 </div>
 
                 <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 10px; border-top: 1px solid #f1f5f9;">
@@ -1032,14 +1116,15 @@ function dfn_render_fai_members_page(): void
     jQuery(document).ready(function($) {
         // Gestione apertura modale approvazione rapida socio FAI
         $(document).on('click', '.dfn-btn-open-approve-fai-modal', function() {
-            var $btn = $(this);
-            var mId  = $btn.data('member-id') || '';
-            var mNam = $btn.data('member-name') || '';
-            var mEml = $btn.data('member-email') || '';
-            var mCrd = $btn.data('card-number') || '';
-            var mReg = $btn.data('registry-id') || '';
-            var mExp = $btn.data('card-expiry') || '';
-            var mTyp = $btn.data('card-type') || 'INDIVIDUALE';
+            var $btn   = $(this);
+            var mId    = $btn.data('member-id') || '';
+            var mNam   = $btn.data('member-name') || '';
+            var mEml   = $btn.data('member-email') || '';
+            var mCrd   = $btn.data('card-number') || '';
+            var mReg   = $btn.data('registry-id') || '';
+            var mExp   = $btn.data('card-expiry') || '';
+            var mTyp   = $btn.data('card-type') || 'INDIVIDUALE';
+            var isSdd  = parseInt($btn.data('is-sdd'), 10) === 1;
 
             $('#dfn-app-member-id').val(mId);
             $('#dfn-app-member-name').text(mNam);
@@ -1052,6 +1137,7 @@ function dfn_render_fai_members_page(): void
             $('#dfn-app-fai-registry-id').val(mReg);
             $('#dfn-app-card-expiry').val(mExp);
             $('#dfn-app-card-type').val(mTyp);
+            $('#dfn-app-is-sdd').prop('checked', isSdd);
 
             $('#dfn-approve-fai-modal').css('display', 'flex');
             setTimeout(function() {

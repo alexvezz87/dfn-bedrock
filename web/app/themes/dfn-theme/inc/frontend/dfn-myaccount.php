@@ -723,9 +723,15 @@ function dfn_fai_cards_endpoint_content(): void
                     $type_class = strtolower($card_type);
 
                     // Data scadenza
+                    $is_sdd = ! empty($card->is_sdd_active) && intval($card->is_sdd_active) === 1;
+
                     if (empty($card->card_expiry) || '0000-00-00' === $card->card_expiry) {
                         $expiry_text  = __('Illimitata', 'dfn-theme');
                         $expiry_class = 'no-expiry';
+                    } elseif ($is_sdd) {
+                        $expiry_time  = strtotime($card->card_expiry);
+                        $expiry_text  = date_i18n('d/m/Y', $expiry_time) . ' (SDD)';
+                        $expiry_class = 'active';
                     } else {
                         $expiry_time  = strtotime($card->card_expiry);
                         $expiry_text  = date_i18n('d/m/Y', $expiry_time);
@@ -1152,15 +1158,16 @@ function dfn_volunteer_dashboard_hub_endpoint_content(): void
                 <!-- Stato Tessera FAI -->
                 <div>
                     <?php if ($member && ! empty($member->card_number)) : 
+                        $is_sdd = ! empty($member->is_sdd_active) && intval($member->is_sdd_active) === 1;
                         $exp_text = ! empty($member->card_expiry) ? date_i18n('d/m/Y', strtotime($member->card_expiry)) : 'Non specificata';
-                        $is_expired = (! empty($member->card_expiry) && strtotime($member->card_expiry) < time());
+                        $is_expired = (! $is_sdd && ! empty($member->card_expiry) && strtotime($member->card_expiry) < time());
                     ?>
                         <div class="dfn-vol-card-status <?php echo $is_expired ? 'is-expired' : 'is-active'; ?>">
                             <div class="dfn-vol-card-num">
                                 🪪 Tessera FAI: <strong><?php echo esc_html($member->card_number); ?></strong>
                             </div>
                             <div class="dfn-vol-card-exp">
-                                Scadenza: <strong><?php echo esc_html($exp_text); ?></strong><?php echo $is_expired ? ' ⚠️ Scaduta' : ' ✅ Attiva'; ?>
+                                Scadenza: <strong><?php echo esc_html($exp_text); ?></strong><?php echo $is_sdd ? ' 💳 Attiva (SDD)' : ($is_expired ? ' ⚠️ Scaduta' : ' ✅ Attiva'); ?>
                             </div>
                         </div>
                     <?php else : ?>

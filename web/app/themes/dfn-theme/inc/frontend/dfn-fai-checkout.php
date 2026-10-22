@@ -160,8 +160,11 @@ function dfn_checkout_validate_fai_fields(): void
             continue;
         }
 
-        // Se la tessera ha una data di scadenza definita ed è effettivamente scaduta
-        if (! empty($member->card_expiry) && '0000-00-00' !== $member->card_expiry) {
+        // Se la tessera ha una data di scadenza definita ed è formalmente passata,
+        // MA ha l'addebito SDD attivo, NON deve essere considerata scaduta:
+        $is_sdd = ! empty($member->is_sdd_active) && intval($member->is_sdd_active) === 1;
+
+        if (! $is_sdd && ! empty($member->card_expiry) && '0000-00-00' !== $member->card_expiry) {
             $expiry_date = strtotime($member->card_expiry);
             $today       = strtotime(date('Y-m-d'));
             if ($expiry_date > 0 && $expiry_date < $today) {
