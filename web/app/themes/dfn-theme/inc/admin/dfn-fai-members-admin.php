@@ -135,6 +135,24 @@ function dfn_render_fai_members_page(): void
         }
     }
 
+    // AZIONE RAPIDA: Esecuzione/Test del Cron Rinnovo Automatico SDD
+    if (isset($_GET['action']) && $_GET['action'] === 'run_sdd_cron') {
+        if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'dfn_run_sdd_cron')) {
+            delete_transient('dfn_cron_sdd_rollover_lock');
+            $renewed = function_exists('dfn_cron_rinnova_tessere_sdd_annuali') ? dfn_cron_rinnova_tessere_sdd_annuali(true) : 0;
+            if ($renewed > 0) {
+                $message = sprintf(esc_html__('Cron SDD completato con successo! Rinnovate automaticamente %d tessere (+1 anno con registrazione nei log).', 'dfn-theme'), $renewed);
+                $message_type = 'success';
+            } else {
+                $message = esc_html__('Cron SDD eseguito: nessuna tessera con SDD attivo risultava scaduta o in scadenza ad oggi.', 'dfn-theme');
+                $message_type = 'info';
+            }
+        } else {
+            $message = esc_html__('Errore di sicurezza: verifica fallita.', 'dfn-theme');
+            $message_type = 'error';
+        }
+    }
+
     if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['member_id'])) {
         $member_id = intval($_GET['member_id']);
         if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'dfn_del_fai_' . $member_id)) {
@@ -488,10 +506,15 @@ function dfn_render_fai_members_page(): void
     $date_sort_url = add_query_arg([ 'orderby' => 'date', 'order' => $toggle_date_order ]);
     ?>
     <div class="wrap dfn-admin-wrap">
-        <header class="dfn-admin-header" style="margin-bottom: 25px;">
+        <header class="dfn-admin-header" style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div class="dfn-logo-area">
                 <span class="dashicons dashicons-id"></span>
                 <h1><?php esc_html_e('Anagrafica Soci FAI', 'dfn-theme'); ?></h1>
+            </div>
+            <div>
+                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dfn-fai-members&action=run_sdd_cron'), 'dfn_run_sdd_cron')); ?>" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 4px 12px; height: 32px;" onclick="return confirm('Vuoi forzare l\'esecuzione del Cron di rinnovo per le tessere con SDD attivo in scadenza?');">
+                    <span class="dashicons dashicons-update" style="color: #004b23;"></span> <?php esc_html_e('Esegui Cron Rinnovo SDD', 'dfn-theme'); ?>
+                </a>
             </div>
         </header>
 

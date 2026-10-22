@@ -839,12 +839,12 @@ function dfn_cron_invia_promemoria_riunioni_volontari(): void
 /**
  * Rinnova automaticamente le tessere con SDD attivo giunte a scadenza facendo slittare la validità di 1 anno.
  */
-function dfn_cron_rinnova_tessere_sdd_annuali(): void
+function dfn_cron_rinnova_tessere_sdd_annuali(bool $force = false): int
 {
     global $wpdb;
 
-    if (get_transient('dfn_cron_sdd_rollover_lock')) {
-        return;
+    if (! $force && get_transient('dfn_cron_sdd_rollover_lock')) {
+        return 0;
     }
     // Esegui la verifica una volta al giorno
     set_transient('dfn_cron_sdd_rollover_lock', 1, 12 * HOUR_IN_SECONDS);
@@ -863,8 +863,10 @@ function dfn_cron_rinnova_tessere_sdd_annuali(): void
     ));
 
     if (empty($cards)) {
-        return;
+        return 0;
     }
+
+    $updated_count = 0;
 
     foreach ($cards as $c) {
         // Calcola la nuova scadenza aggiungendo 1 anno
@@ -875,13 +877,16 @@ function dfn_cron_rinnova_tessere_sdd_annuali(): void
             $new_expiry = date('Y-m-d', strtotime('+1 year', strtotime($new_expiry)));
         }
 
-        $wpdb->update(
+        $res = $wpdb->update(
             $table_fai,
             ['card_expiry' => $new_expiry],
             ['id' => $c->id],
             ['%s'],
             ['%d']
         );
+        if ($res !== false) {
+            $updated_count++;
+        }
 
         if (function_exists('dfn_log_fai_card')) {
             dfn_log_fai_card(
@@ -892,6 +897,8 @@ function dfn_cron_rinnova_tessere_sdd_annuali(): void
             );
         }
     }
+
+    return $updated_count;
 }
 
 
