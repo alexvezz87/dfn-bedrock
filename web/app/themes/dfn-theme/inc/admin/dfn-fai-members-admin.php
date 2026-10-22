@@ -23,6 +23,12 @@ function dfn_fai_members_register_menu(): void
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_fai_members';
 
+    // Verifica difensiva presenza colonna is_sdd_active
+    $has_sdd_col = $wpdb->get_var("SHOW COLUMNS FROM {$table} LIKE 'is_sdd_active'");
+    if (! $has_sdd_col) {
+        $wpdb->query("ALTER TABLE {$table} ADD COLUMN is_sdd_active tinyint(1) NOT NULL DEFAULT 0 AFTER card_type, ADD INDEX idx_sdd (is_sdd_active)");
+    }
+
     $unverified_count = 0;
     if ($wpdb->get_var("SHOW TABLES LIKE '{$table}'") === $table) {
         $unverified_count = intval($wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE verified = 0"));
@@ -54,6 +60,12 @@ function dfn_render_fai_members_page(): void
 
     global $wpdb;
     $table = $wpdb->prefix . 'dfn_fai_members';
+
+    // Verifica difensiva presenza colonna is_sdd_active
+    $has_sdd_col = $wpdb->get_var("SHOW COLUMNS FROM {$table} LIKE 'is_sdd_active'");
+    if (! $has_sdd_col) {
+        $wpdb->query("ALTER TABLE {$table} ADD COLUMN is_sdd_active tinyint(1) NOT NULL DEFAULT 0 AFTER card_type, ADD INDEX idx_sdd (is_sdd_active)");
+    }
 
     // Auto-pulizia per correggere eventuali record già salvati nel database con backslash anomali (es. L\'aura -> L'aura)
     $wpdb->query("UPDATE {$table} SET first_name = REPLACE(first_name, '\\\\', ''), last_name = REPLACE(last_name, '\\\\', '')");
