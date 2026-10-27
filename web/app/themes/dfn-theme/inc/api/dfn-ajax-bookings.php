@@ -1318,15 +1318,17 @@ function dfn_confirm_booking_on_payment(int $order_id): void
                 ));
             }
 
-            // Priorità 2: Fallback se non c'è corrispondenza di quantitativo (pesca comunque il tentativo annullato più recente)
-            if (! $recent_cancelled) {
+            // Priorità 2: Fallback se non c'è corrispondenza di quantitativo ma stesso evento (evita aggancio tra eventi diversi)
+            if (! $recent_cancelled && $target_event_id > 0) {
                 $recent_cancelled = $wpdb->get_row($wpdb->prepare(
                     "SELECT * FROM {$table} 
                      WHERE customer_email = %s 
+                       AND event_id = %d
                        AND status = 'cancelled' 
                        AND created_at >= NOW() - INTERVAL 2 HOUR 
                      ORDER BY id DESC LIMIT 1",
-                    $billing_email
+                    $billing_email,
+                    $target_event_id
                 ));
             }
         }

@@ -64,6 +64,18 @@ function dfn_ensure_volunteer_registration_page_exists(): void
  */
 function dfn_ajax_check_volunteer_email(): void
 {
+    if (! check_ajax_referer('dfn_vol_reg_check_email', 'nonce', false)) {
+        wp_send_json_success(['exists' => false]);
+    }
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $rl_key = 'dfn_vol_email_rl_' . md5($ip);
+    $attempts = (int) get_transient($rl_key);
+    if ($attempts >= 15) {
+        wp_send_json_success(['exists' => false]);
+    }
+    set_transient($rl_key, $attempts + 1, 5 * MINUTE_IN_SECONDS);
+
     $email = sanitize_email($_POST['email'] ?? '');
     if (! is_email($email)) {
         wp_send_json_success(['exists' => false]);
@@ -789,6 +801,7 @@ function dfn_render_volunteer_registration_shortcode($atts = []): string
                     var formData = new FormData();
                     formData.append('action', 'dfn_check_volunteer_email');
                     formData.append('email', emailVal);
+                    formData.append('nonce', '<?php echo esc_js(wp_create_nonce('dfn_vol_reg_check_email')); ?>');
 
                     fetch(ajaxUrl, {
                         method: 'POST',

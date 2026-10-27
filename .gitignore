@@ -45,7 +45,10 @@ wp-cli.local.yml
 # Deploy archives
 deploy.tar.gz
 
-# Scratch / temp scripts
+# Scratch / temp scripts & tasks
 scratch/
 scripts/
+tasks/
+scompatta.php
+backup_db.php
 *.zip

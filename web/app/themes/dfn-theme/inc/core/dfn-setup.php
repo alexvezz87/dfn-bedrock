@@ -174,7 +174,9 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
                 'dfn-mobile-app-css',
                 trailingslashit(get_stylesheet_directory_uri()) . 'assets/css/dfn-mobile-app.css',
                 [ 'dashicons' ],
-                (string) time()
+                file_exists(get_stylesheet_directory() . '/assets/css/dfn-mobile-app.css')
+                    ? (string) filemtime(get_stylesheet_directory() . '/assets/css/dfn-mobile-app.css')
+                    : '2.1.5'
             );
 
             wp_enqueue_script(
@@ -197,7 +199,9 @@ if (! function_exists('dfn_enqueue_parent_styles')) :
                 'dfn-mobile-app-js',
                 trailingslashit(get_stylesheet_directory_uri()) . 'assets/js/dfn-mobile-app.js',
                 [ 'html5-qrcode', 'jsqr' ],
-                (string) time(),
+                file_exists(get_stylesheet_directory() . '/assets/js/dfn-mobile-app.js')
+                    ? (string) filemtime(get_stylesheet_directory() . '/assets/js/dfn-mobile-app.js')
+                    : '2.1.5',
                 true
             );
 

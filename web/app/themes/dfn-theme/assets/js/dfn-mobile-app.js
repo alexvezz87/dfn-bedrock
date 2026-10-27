@@ -1142,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const formData = new FormData();
                 formData.append('action', 'dfn_mobile_resend_ticket_email');
                 formData.append('booking_id', bookingId);
-                formData.append('nonce', nonces.booking || '');
+                formData.append('nonce', nonces.admin || nonces.quick || nonces.booking || '');
 
                 fetch(ajaxUrl, { method: 'POST', body: formData })
                     .then(r => r.json())
@@ -1270,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const fd = new FormData();
                 fd.append('action', 'dfn_mobile_resend_ticket_email');
                 fd.append('booking_id', b.id);
-                fd.append('nonce', nonces.booking || '');
+                fd.append('nonce', nonces.admin || nonces.quick || nonces.booking || '');
                 fetch(ajaxUrl, { method: 'POST', body: fd })
                     .then(r => r.json())
                     .then(res => {
@@ -1427,7 +1427,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const formData = new FormData();
             formData.append('action', 'dfn_confirm_booking');
             formData.append('booking_id', bookingId);
-            formData.append('nonce', nonces.booking || nonces.pending || nonces.admin || '');
+            formData.append('nonce', nonces.admin || nonces.pending || nonces.quick || nonces.booking || '');
 
             fetch(ajaxUrl, { method: 'POST', body: formData })
                 .then(r => r.json())
