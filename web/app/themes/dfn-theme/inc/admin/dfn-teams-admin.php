@@ -907,6 +907,9 @@ function dfn_ajax_get_team_members_handler(): void
     check_ajax_referer('dfn_teams_nonce', 'nonce');
 
     $team_id = isset($_GET['team_id']) ? (int) $_GET['team_id'] : 0;
+    if (! current_user_can('manage_options') && ! (function_exists('dfn_user_can') && dfn_user_can('dfn_act_vol_teams')) && ! current_user_can('dfn_act_vol_teams')) {
+        wp_send_json_error(__('Permessi insufficienti.', 'dfn-theme'), 403);
+    }
     if ($team_id <= 0) {
         wp_send_json_error(__('ID squadra non valido.', 'dfn-theme'));
     }
