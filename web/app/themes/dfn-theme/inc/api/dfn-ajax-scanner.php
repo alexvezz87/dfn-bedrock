@@ -151,7 +151,7 @@ function dfn_process_scan_ajax_handler(): void
     }
 
     // Recupera informazioni evento
-    $event_title = get_the_title($booking->event_id) ?: esc_html__('Evento FAI', 'dfn-theme');
+    $scanner_event = dfn_db_get_event($booking->event_id); $event_title = ($scanner_event && ! empty($scanner_event->product_id) ? get_the_title($scanner_event->product_id) : '') ?: esc_html__('Evento FAI', 'dfn-theme');
 
     // Se l'ordine è con pagamento all'ingresso (In Loco) ed è ancora pendente
     if ($order->get_payment_method() === 'dfn_in_loco' && $order->has_status('pending')) {

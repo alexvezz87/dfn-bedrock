@@ -16,3 +16,5 @@ use Roots\WPConfig\Config;
  */
 
 Config::define('DISALLOW_INDEXING', true);
+Config::define('WP_DEBUG_DISPLAY', false);
+@ini_set('display_errors', '0');

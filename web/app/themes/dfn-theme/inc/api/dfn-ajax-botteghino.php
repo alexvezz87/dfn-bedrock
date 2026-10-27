@@ -11,21 +11,41 @@ if (!defined('ABSPATH')) {
  * ========================================================================
  */
 
-// 1. RICERCA CLIENTI (Botteghino Live)
-add_action('wp_ajax_cv_search_customers', 'cv_search_customers_ajax');
-function cv_search_customers_ajax()
+/**
+ * Verifica permessi staff/admin e nonce per gli endpoint del Botteghino.
+ */
+function cv_botteghino_verify_access(): void
 {
+    if (! is_user_logged_in()) {
+        wp_send_json_error(['message' => 'Non autorizzato'], 401);
+    }
+
+    $has_access = current_user_can('manage_options')
+        || current_user_can('edit_pages')
+        || current_user_can('dfn_manage_events')
+        || current_user_can('dfn_quick_booking')
+        || (function_exists('dfn_user_has_module_access') && dfn_user_has_module_access('prenotazioni'));
+
+    if (! $has_access) {
+        wp_send_json_error(['message' => 'Permessi insufficienti.'], 403);
+    }
+
     $sec = $_REQUEST['security'] ?? $_REQUEST['nonce'] ?? '';
     if (
         ! wp_verify_nonce($sec, 'cv_ricerca_clienti_nonce') &&
         ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
         ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_booking_nonce')
+        ! wp_verify_nonce($sec, 'cv_assign_table_nonce')
     ) {
-        if (! is_user_logged_in()) {
-            wp_send_json_error(['message' => 'Non autorizzato'], 401);
-        }
+        wp_send_json_error(['message' => 'Token di sicurezza non valido.'], 403);
     }
+}
+
+// 1. RICERCA CLIENTI (Botteghino Live)
+add_action('wp_ajax_cv_search_customers', 'cv_search_customers_ajax');
+function cv_search_customers_ajax()
+{
+    cv_botteghino_verify_access();
     $term = isset($_REQUEST['term']) ? wc_clean(wp_unslash($_REQUEST['term'])) : (isset($_REQUEST['q']) ? wc_clean(wp_unslash($_REQUEST['q'])) : '');
     if (empty($term)) {
         wp_send_json([]);
@@ -59,17 +79,7 @@ function cv_search_customers_ajax()
 add_action('wp_ajax_cv_get_customer_data', 'cv_get_customer_data_ajax');
 function cv_get_customer_data_ajax()
 {
-    $sec = $_REQUEST['security'] ?? $_REQUEST['nonce'] ?? '';
-    if (
-        ! wp_verify_nonce($sec, 'cv_ricerca_clienti_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_booking_nonce')
-    ) {
-        if (! is_user_logged_in()) {
-            wp_send_json_error(['message' => 'Non autorizzato'], 401);
-        }
-    }
+    cv_botteghino_verify_access();
     $customer_id_raw = isset($_POST['customer_id']) ? sanitize_text_field(wp_unslash($_POST['customer_id'])) : '';
 
     if (is_numeric($customer_id_raw) && $customer_id_raw > 0) {
@@ -563,7 +573,7 @@ function cv_auto_assign_tables_ajax()
 add_action('wp_ajax_cv_fetch_table_map', 'cv_fetch_table_map_ajax');
 function cv_fetch_table_map_ajax()
 {
-    check_ajax_referer('cv_assign_table_nonce', 'security');
+    cv_botteghino_verify_access();
     $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
     $tavoli_capienza = cv_get_tavoli_delitto();
     $mappa = [];

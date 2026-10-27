@@ -84,23 +84,35 @@ add_action('init', 'dfn_auto_create_mobile_app_page');
 /**
  * AJAX Handler per la ricerca in tempo reale degli eventi nella Dashboard Mobile.
  */
-function dfn_ajax_mobile_search_events(): void
+/**
+ * Verifica centralizzata di autenticazione, accesso al modulo Prenotazioni e nonce per la Mobile App.
+ */
+function dfn_mobile_verify_ajax_access(): void
 {
-    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
-    if (
-        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_booking_nonce')
-    ) {
-        if (! is_user_logged_in()) {
-            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
-        }
+    if (! is_user_logged_in()) {
+        wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
     }
 
     $current_user = wp_get_current_user();
     if (! dfn_user_has_module_access('prenotazioni', $current_user->ID)) {
         wp_send_json_error(__('Accesso non autorizzato.', 'dfn-theme'), 403);
     }
+
+    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
+    if (
+        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_scanner_nonce') &&
+        ! wp_verify_nonce($sec, 'dfn_admin_pending_nonce')
+    ) {
+        wp_send_json_error(__('Token di sicurezza non valido.', 'dfn-theme'), 403);
+    }
+}
+
+function dfn_ajax_mobile_search_events(): void
+{
+    dfn_mobile_verify_ajax_access();
+    $current_user = wp_get_current_user();
 
     $query = isset($_POST['query']) ? sanitize_text_field(wp_unslash($_POST['query'])) : '';
 
@@ -245,16 +257,7 @@ if (! function_exists('dfn_get_booking_payment_info')) {
  */
 function dfn_ajax_mobile_get_event_checkin_list(): void
 {
-    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
-    if (
-        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_booking_nonce')
-    ) {
-        if (! is_user_logged_in()) {
-            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
-        }
-    }
+    dfn_mobile_verify_ajax_access();
 
     $event_id      = isset($_POST['event_id']) ? absint($_POST['event_id']) : 0;
     $selected_date = isset($_POST['date']) ? sanitize_text_field(wp_unslash($_POST['date'])) : '';
@@ -476,17 +479,7 @@ add_action('wp_ajax_dfn_mobile_get_event_checkin_list', 'dfn_ajax_mobile_get_eve
  */
 function dfn_ajax_mobile_do_checkin(): void
 {
-    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
-    if (
-        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
-    ) {
-        if (! is_user_logged_in()) {
-            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
-        }
-    }
+    dfn_mobile_verify_ajax_access();
 
     $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
     $qr_token   = isset($_POST['qr_token']) ? sanitize_text_field(wp_unslash($_POST['qr_token'])) : '';
@@ -606,17 +599,7 @@ add_action('wp_ajax_dfn_mobile_do_checkin', 'dfn_ajax_mobile_do_checkin');
  */
 function dfn_ajax_mobile_resend_ticket_email(): void
 {
-    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
-    if (
-        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
-    ) {
-        if (! is_user_logged_in()) {
-            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
-        }
-    }
+    dfn_mobile_verify_ajax_access();
 
     $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
     if (! $booking_id) {
@@ -691,17 +674,7 @@ add_action('wp_ajax_dfn_mobile_resend_ticket_email', 'dfn_ajax_mobile_resend_tic
  */
 function dfn_ajax_mobile_cancel_booking(): void
 {
-    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
-    if (
-        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
-    ) {
-        if (! is_user_logged_in()) {
-            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
-        }
-    }
+    dfn_mobile_verify_ajax_access();
 
     $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
     $note       = isset($_POST['note']) ? sanitize_text_field(wp_unslash($_POST['note'])) : 'Annullata da operatore tramite App Mobile';
@@ -731,17 +704,7 @@ add_action('wp_ajax_dfn_mobile_cancel_booking', 'dfn_ajax_mobile_cancel_booking'
  */
 function dfn_ajax_mobile_move_booking(): void
 {
-    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
-    if (
-        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
-    ) {
-        if (! is_user_logged_in()) {
-            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
-        }
-    }
+    dfn_mobile_verify_ajax_access();
 
     $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
     $to_slot_id = isset($_POST['to_slot_id']) ? absint($_POST['to_slot_id']) : 0;
@@ -850,17 +813,7 @@ add_action('wp_ajax_dfn_mobile_move_booking', 'dfn_ajax_mobile_move_booking');
  */
 function dfn_ajax_mobile_get_booking_details(): void
 {
-    $sec = $_REQUEST['nonce'] ?? $_REQUEST['security'] ?? '';
-    if (
-        ! wp_verify_nonce($sec, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_quick_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_booking_nonce') &&
-        ! wp_verify_nonce($sec, 'dfn_scanner_nonce')
-    ) {
-        if (! is_user_logged_in()) {
-            wp_send_json_error(__('Permessi non sufficienti.', 'dfn-theme'), 401);
-        }
-    }
+    dfn_mobile_verify_ajax_access();
 
     $booking_id = isset($_POST['booking_id']) ? absint($_POST['booking_id']) : 0;
     if (! $booking_id) {

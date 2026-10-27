@@ -48,7 +48,7 @@ function dfn_ajax_admin_verify_access(): void
         wp_send_json_error([ 'message' => esc_html__('Utente non autenticato.', 'dfn-theme') ], 401);
     }
 
-    if (! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! current_user_can('dfn_manage_events') && ! current_user_can('dfn_quick_booking') && ! current_user_can('read')) {
+    if (! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! current_user_can('dfn_manage_events') && ! current_user_can('dfn_quick_booking') && ! (function_exists('dfn_user_has_module_access') && dfn_user_has_module_access('prenotazioni'))) {
         wp_send_json_error([ 'message' => esc_html__('Permessi insufficienti.', 'dfn-theme') ], 403);
     }
 
@@ -57,7 +57,7 @@ function dfn_ajax_admin_verify_access(): void
         ! wp_verify_nonce($nonce, 'dfn_admin_events_nonce') &&
         ! wp_verify_nonce($nonce, 'dfn_admin_pending_nonce') &&
         ! wp_verify_nonce($nonce, 'dfn_quick_booking_nonce') &&
-        ! wp_verify_nonce($nonce, 'dfn_booking_nonce') &&
+
         ! wp_verify_nonce($nonce, 'dfn_scanner_nonce')
     ) {
         wp_send_json_error([ 'message' => esc_html__('Token di sicurezza non valido.', 'dfn-theme') ], 403);
@@ -73,7 +73,7 @@ function dfn_ajax_quick_verify_access(): void
         wp_send_json_error([ 'message' => esc_html__('Utente non autenticato.', 'dfn-theme') ], 401);
     }
 
-    if (! current_user_can('dfn_quick_booking') && ! current_user_can('dfn_manage_events') && ! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! current_user_can('read')) {
+    if (! current_user_can('dfn_quick_booking') && ! current_user_can('dfn_manage_events') && ! current_user_can('manage_options') && ! current_user_can('edit_pages') && ! (function_exists('dfn_user_has_module_access') && dfn_user_has_module_access('prenotazioni'))) {
         wp_send_json_error([ 'message' => esc_html__('Permessi insufficienti.', 'dfn-theme') ], 403);
     }
 
@@ -81,7 +81,7 @@ function dfn_ajax_quick_verify_access(): void
     if (
         ! wp_verify_nonce($nonce, 'dfn_quick_booking_nonce') &&
         ! wp_verify_nonce($nonce, 'dfn_admin_events_nonce') &&
-        ! wp_verify_nonce($nonce, 'dfn_booking_nonce') &&
+
         ! wp_verify_nonce($nonce, 'dfn_scanner_nonce')
     ) {
         wp_send_json_error([ 'message' => esc_html__('Sessione o token di sicurezza non valido. Ricarica la pagina.', 'dfn-theme') ], 403);
@@ -2018,7 +2018,7 @@ function dfn_ajax_admin_update_booking_seats(): void
                 $primary_bs = $booking_slots[0];
                 $slot = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table_slots} WHERE id = %d", $primary_bs->slot_id));
                 if ($slot) {
-                    $max_capacity = intval($slot->slot_capacity) + intval($slot->slot_bonus);
+                    $max_capacity = intval($slot->capacity) + intval($slot->bonus_capacity);
                     $new_booked = intval($slot->booked_count) + $delta_total;
                     if ($new_booked > $max_capacity) {
                         $available = max(0, $max_capacity - intval($slot->booked_count));

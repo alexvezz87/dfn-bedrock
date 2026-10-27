@@ -15,10 +15,10 @@ if (! defined('ABSPATH')) {
 
 // Costanti reCAPTCHA v3 di fallback (retrocompatibilità)
 if (! defined('DFN_RECAPTCHA_SITE_KEY')) {
-    define('DFN_RECAPTCHA_SITE_KEY', '6LdW82stAAAAAETgJ0XpPZFq_miN199Byozf2ukN');
+    define('DFN_RECAPTCHA_SITE_KEY', $_ENV['DFN_RECAPTCHA_SITE_KEY'] ?? getenv('DFN_RECAPTCHA_SITE_KEY') ?: '');
 }
 if (! defined('DFN_RECAPTCHA_SECRET_KEY')) {
-    define('DFN_RECAPTCHA_SECRET_KEY', '6LdW82stAAAAAGY-EMZNPHByZEECI0639k4uYvpn');
+    define('DFN_RECAPTCHA_SECRET_KEY', $_ENV['DFN_RECAPTCHA_SECRET_KEY'] ?? getenv('DFN_RECAPTCHA_SECRET_KEY') ?: '');
 }
 
 /**
@@ -207,10 +207,17 @@ function dfn_verify_recaptcha(string $token, string $action = ''): bool
     }
 
     if (empty($token)) {
-        // Se il token è vuoto (es. timeout lato client su mobile lento, PWA standalone o script bloccato),
-        // non blocchiamo in modo distruttivo utenti umani autenticati
-        error_log('DFN reCAPTCHA Notice: Token vuoto ricevuto. Fail-open consentito per evitare blocchi utente.');
-        return true;
+        error_log('DFN reCAPTCHA Warning: Token vuoto o mancante per azione "' . $action . '". Richiesta bloccata.');
+        return false;
+    }
+
+    if ($token === 'js-fallback') {
+        if ($action === 'login') {
+            error_log('DFN reCAPTCHA Notice: Fallback JS client-side al login. Accesso consentito per utente autenticato.');
+            return true;
+        }
+        error_log('DFN reCAPTCHA Warning: Fallback JS non consentito per azione "' . $action . '".');
+        return false;
     }
 
     // Cache di memoizzazione per-richiesta:
@@ -402,9 +409,21 @@ function dfn_enqueue_recaptcha_scripts(): void
             }
 
             var formSubmitted = false;
-            function submitFormSafely() {
+            function submitFormSafely(fallbackToken) {
                 if (formSubmitted) return;
                 formSubmitted = true;
+                if (fallbackToken) {
+                    var fbInput = form.querySelector('input[name="g-recaptcha-response"]');
+                    if (!fbInput) {
+                        fbInput = document.createElement('input');
+                        fbInput.type = 'hidden';
+                        fbInput.name = 'g-recaptcha-response';
+                        form.appendChild(fbInput);
+                    }
+                    if (!fbInput.value) {
+                        fbInput.value = fallbackToken;
+                    }
+                }
                 form.removeAttribute('data-recaptcha-submitting');
                 form.setAttribute('data-recaptcha-bypassed', 'true');
                 if (typeof form.requestSubmit === 'function') {
@@ -414,9 +433,9 @@ function dfn_enqueue_recaptcha_scripts(): void
                 }
             }
 
-            // Timeout di salvaguardia mobile: se grecaptcha ritarda o non risponde entro 4.5s, invia comunque il form
+            // Timeout di salvaguardia mobile: se grecaptcha ritarda o non risponde entro 4.5s, invia comunque il form con marker JS
             var timer = setTimeout(function() {
-                submitFormSafely();
+                submitFormSafely('js-fallback');
             }, 4500);
 
             try {
@@ -434,12 +453,12 @@ function dfn_enqueue_recaptcha_scripts(): void
                         submitFormSafely();
                     }).catch(function(err) {
                         clearTimeout(timer);
-                        submitFormSafely();
+                        submitFormSafely('js-fallback');
                     });
                 });
             } catch (err) {
                 clearTimeout(timer);
-                submitFormSafely();
+                submitFormSafely('js-fallback');
             }
         });
     }
@@ -485,16 +504,10 @@ function dfn_verify_login_recaptcha($user, $username)
         return $user;
     }
 
-    if (isset($_POST['g-recaptcha-response'])) {
-        $token = sanitize_text_field($_POST['g-recaptcha-response']);
-        if (empty($token)) {
-            // Se il token è vuoto (es. timeout frontend mobile o script bloccato da adblocker/webview),
-            // l'utente ha comunque già inserito credenziali valide superando wp_check_password().
-            // Consentiamo l'accesso per non bloccare visitatori e volontari.
-            error_log('DFN reCAPTCHA Notice: Token vuoto al login. Accesso consentito per utente autenticato: ' . $username);
-            return $user;
-        }
-
+    // Applica il controllo a tutti i POST di login standard (WP / WooCommerce / form custom)
+    $is_form_login = isset($_POST['log']) || isset($_POST['username']) || isset($_POST['g-recaptcha-response']);
+    if ($is_form_login) {
+        $token = isset($_POST['g-recaptcha-response']) ? sanitize_text_field(wp_unslash($_POST['g-recaptcha-response'])) : '';
         if (! dfn_verify_recaptcha($token, 'login')) {
             return new WP_Error(
                 'recaptcha_failed',
@@ -548,7 +561,7 @@ function dfn_handle_registration_double_opt_in($errors, $username, $password, $e
     // 1. Validazione reCAPTCHA (se il token è stato inviato dal frontend e se reCAPTCHA è abilitato)
     if (dfn_is_recaptcha_enabled()) {
         $recaptcha_token = isset($_POST['g-recaptcha-response']) ? sanitize_text_field($_POST['g-recaptcha-response']) : '';
-        if (! empty($recaptcha_token) && ! dfn_verify_recaptcha($recaptcha_token, 'register')) {
+        if (empty($recaptcha_token) || ! dfn_verify_recaptcha($recaptcha_token, 'register')) {
             return new WP_Error('recaptcha_failed', __('⚠️ Verifica di sicurezza anti-bot fallita. Riprova.', 'dfn-theme'));
         }
     }

@@ -1178,7 +1178,7 @@ function dfn_db_get_valid_fai_member(string $email): ?object
             "SELECT * FROM {$table}
              WHERE email = %s
                AND verified = 1
-               AND card_expiry >= CURDATE()
+               AND (card_expiry >= CURDATE() OR is_sdd_active = 1)
              ORDER BY card_expiry DESC
              LIMIT 1",
             $email,

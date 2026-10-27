@@ -532,7 +532,7 @@ function dfn_render_volunteers_list_page(): void
     } elseif ($status_filter === 'inactive') {
         $where_official .= " AND volunteer_status = 'inactive'";
     } elseif ($status_filter === 'expired') {
-        $where_official .= " AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry < CURDATE()";
+        $where_official .= " AND (is_sdd_active = 0 OR is_sdd_active IS NULL) AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry < CURDATE()";
     } elseif ($status_filter === 'expiring') {
         $where_official .= $wpdb->prepare(" AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry >= CURDATE() AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)", $warning_days);
     }
@@ -565,7 +565,7 @@ function dfn_render_volunteers_list_page(): void
     $count_validated_active   = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status = 'active' AND verified = 1 AND card_number IS NOT NULL AND card_number != ''");
     $count_validated_inactive = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status = 'inactive' AND verified = 1 AND card_number IS NOT NULL AND card_number != ''");
     $count_validated_total    = $count_validated_active + $count_validated_inactive;
-    $count_validated_expired  = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status IN ('active', 'inactive') AND verified = 1 AND card_number IS NOT NULL AND card_number != '' AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry < CURDATE()");
+    $count_validated_expired  = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status IN ('active', 'inactive') AND verified = 1 AND card_number IS NOT NULL AND card_number != '' AND (is_sdd_active = 0 OR is_sdd_active IS NULL) AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry < CURDATE()");
     $count_validated_expiring = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table_fai} WHERE is_volunteer = 1 AND volunteer_status IN ('active', 'inactive') AND verified = 1 AND card_number IS NOT NULL AND card_number != '' AND card_expiry IS NOT NULL AND card_expiry != '' AND card_expiry != '0000-00-00' AND card_expiry >= CURDATE() AND card_expiry <= DATE_ADD(CURDATE(), INTERVAL %d DAY)", $warning_days));
 
     // Tipi di tessera configurati
